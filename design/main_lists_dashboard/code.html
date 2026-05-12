@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Main Lists Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b7cee",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101822",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-2xl bg-background-light dark:bg-background-dark border-x border-slate-200 dark:border-slate-800">
+<!-- Header Section -->
+<div class="flex flex-col gap-2 p-4 pb-2 sticky top-0 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md z-10">
+<div class="flex items-center h-12 justify-between">
+<div class="flex size-12 shrink-0 items-center">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary/20" data-alt="User profile avatar close up" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBvx6SRlSvc4rx13_nccPb3JvmkjnfpV9U-sSm4h9c1_t0zSnXLiLjoD2rvvVrpR52RVAWUUX7ydr9clZJcMgZg7UimCAyXhXElZ4hjMcZmn7vgCBjpbiBmtOOJDSrb3R1Yu6bdWWJBhvjF51JWLj67gohVtJc-QZeUkwBjCzwigqC-V9XJy9OnpdedU4iFH7mctucYh3epY48K8SuHi_kGsAGMkQ-nTEHzCuhit4BEabkyXRUfHokka4GtoZbXL5LeYGFTpcWHoZk");'></div>
+</div>
+<div class="flex w-12 items-center justify-end">
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 bg-transparent text-slate-600 dark:text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</div>
+<p class="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight">My Lists</p>
+</div>
+<!-- Search Bar -->
+<div class="px-4 py-3">
+<label class="flex flex-col min-w-40 h-12 w-full">
+<div class="flex w-full flex-1 items-stretch rounded-xl h-full shadow-sm">
+<div class="text-slate-400 dark:text-[#9da8b9] flex border-none bg-white dark:bg-[#1e2632] items-center justify-center pl-4 rounded-l-xl border-r-0">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-r-xl text-slate-900 dark:text-white focus:outline-0 focus:ring-0 border-none bg-white dark:bg-[#1e2632] focus:border-none h-full placeholder:text-slate-400 dark:placeholder:text-[#9da8b9] px-4 pl-2 text-base font-normal leading-normal" placeholder="Search lists..." value=""/>
+</div>
+</label>
+</div>
+<!-- List Section -->
+<div class="flex flex-col gap-1 px-2 pb-24">
+<!-- List Item: Supermarket -->
+<div class="group relative flex items-center gap-4 bg-white dark:bg-[#1e2632]/50 hover:bg-slate-50 dark:hover:bg-[#1e2632] transition-all px-4 min-h-[84px] py-3 justify-between rounded-xl mb-2">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-orange-500/90 shadow-lg shadow-orange-500/20 shrink-0 size-14">
+<span class="material-symbols-outlined text-3xl">shopping_cart</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-lg font-semibold leading-normal line-clamp-1">Supermarket</p>
+<p class="text-slate-500 dark:text-[#9da8b9] text-sm font-normal leading-normal line-clamp-2">15 items • Last updated 2h ago</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-2">
+<button class="text-slate-400 hover:text-red-500 dark:text-[#9da8b9] dark:hover:text-red-400 transition-colors p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20">
+<span class="material-symbols-outlined">delete</span>
+</button>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-700">chevron_right</span>
+</div>
+</div>
+<!-- List Item: Home To-Do -->
+<div class="group relative flex items-center gap-4 bg-white dark:bg-[#1e2632]/50 hover:bg-slate-50 dark:hover:bg-[#1e2632] transition-all px-4 min-h-[84px] py-3 justify-between rounded-xl mb-2">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-emerald-500/90 shadow-lg shadow-emerald-500/20 shrink-0 size-14">
+<span class="material-symbols-outlined text-3xl">check_circle</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-lg font-semibold leading-normal line-clamp-1">Home To-Do</p>
+<p class="text-slate-500 dark:text-[#9da8b9] text-sm font-normal leading-normal line-clamp-2">4 items • 50% completed</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-2">
+<button class="text-slate-400 hover:text-red-500 dark:text-[#9da8b9] dark:hover:text-red-400 transition-colors p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20">
+<span class="material-symbols-outlined">delete</span>
+</button>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-700">chevron_right</span>
+</div>
+</div>
+<!-- List Item: Trip to Japan -->
+<div class="group relative flex items-center gap-4 bg-white dark:bg-[#1e2632]/50 hover:bg-slate-50 dark:hover:bg-[#1e2632] transition-all px-4 min-h-[84px] py-3 justify-between rounded-xl mb-2">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-primary/90 shadow-lg shadow-primary/20 shrink-0 size-14">
+<span class="material-symbols-outlined text-3xl">flight_takeoff</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-lg font-semibold leading-normal line-clamp-1">Trip to Japan</p>
+<p class="text-slate-500 dark:text-[#9da8b9] text-sm font-normal leading-normal line-clamp-2">28 items • Travel packing</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-2">
+<button class="text-slate-400 hover:text-red-500 dark:text-[#9da8b9] dark:hover:text-red-400 transition-colors p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20">
+<span class="material-symbols-outlined">delete</span>
+</button>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-700">chevron_right</span>
+</div>
+</div>
+<!-- List Item: Wishlist -->
+<div class="group relative flex items-center gap-4 bg-white dark:bg-[#1e2632]/50 hover:bg-slate-50 dark:hover:bg-[#1e2632] transition-all px-4 min-h-[84px] py-3 justify-between rounded-xl mb-2">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-rose-500/90 shadow-lg shadow-rose-500/20 shrink-0 size-14">
+<span class="material-symbols-outlined text-3xl">favorite</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-lg font-semibold leading-normal line-clamp-1">Gift Ideas</p>
+<p class="text-slate-500 dark:text-[#9da8b9] text-sm font-normal leading-normal line-clamp-2">7 items • Birthday upcoming</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-2">
+<button class="text-slate-400 hover:text-red-500 dark:text-[#9da8b9] dark:hover:text-red-400 transition-colors p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20">
+<span class="material-symbols-outlined">delete</span>
+</button>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-700">chevron_right</span>
+</div>
+</div>
+<!-- List Item: Work Projects -->
+<div class="group relative flex items-center gap-4 bg-white dark:bg-[#1e2632]/50 hover:bg-slate-50 dark:hover:bg-[#1e2632] transition-all px-4 min-h-[84px] py-3 justify-between rounded-xl mb-2">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-indigo-500/90 shadow-lg shadow-indigo-500/20 shrink-0 size-14">
+<span class="material-symbols-outlined text-3xl">business_center</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-lg font-semibold leading-normal line-clamp-1">Work Q4 Goals</p>
+<p class="text-slate-500 dark:text-[#9da8b9] text-sm font-normal leading-normal line-clamp-2">12 items • Due in 14 days</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-2">
+<button class="text-slate-400 hover:text-red-500 dark:text-[#9da8b9] dark:hover:text-red-400 transition-colors p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20">
+<span class="material-symbols-outlined">delete</span>
+</button>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-700">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Floating Action Button -->
+<div class="fixed bottom-8 right-1/2 translate-x-1/2 md:right-12 md:translate-x-0 z-50">
+<button class="flex items-center justify-center size-16 bg-primary rounded-full shadow-2xl shadow-primary/40 text-white transition-transform active:scale-95">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+</div>
+<!-- Tab Bar (iOS Style) -->
+<div class="mt-auto sticky bottom-0 w-full bg-white/80 dark:bg-[#1e2632]/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 flex justify-around items-center h-20 px-6 pb-2">
+<div class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[28px] font-variation-settings-fill">format_list_bulleted</span>
+<span class="text-[10px] font-medium">Lists</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500">
+<span class="material-symbols-outlined text-[28px]">calendar_today</span>
+<span class="text-[10px] font-medium">Calendar</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500">
+<span class="material-symbols-outlined text-[28px]">star</span>
+<span class="text-[10px] font-medium">Starred</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500">
+<span class="material-symbols-outlined text-[28px]">person</span>
+<span class="text-[10px] font-medium">Account</span>
+</div>
+</div>
+</div>
+</body></html>
