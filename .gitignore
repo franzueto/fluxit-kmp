@@ -1,0 +1,51 @@
+# OS
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.iml
+.vscode/
+xcuserdata/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# Gradle / Android
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+
+# Kotlin / KMP
+.kotlin/
+kotlin-js-store/
+**/konan/
+
+# iOS / Swift
+DerivedData/
+**/Pods/
+*.ipa
+*.dSYM.zip
+*.dSYM
+Package.resolved
+
+# Secrets (never commit)
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+fastlane/.env*
+fastlane/report.xml
+fastlane/Preview.html
+
+# Session-local files (intentionally not tracked)
+restart-prompt.md
+Architect-Prompt.md
+FluxIt_Architect_Prompt.md
