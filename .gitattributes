@@ -1,0 +1,23 @@
+# Enforce LF line endings on text sources regardless of host OS.
+* text=auto eol=lf
+
+*.kt    text eol=lf
+*.kts   text eol=lf
+*.swift text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.md    text eol=lf
+*.toml  text eol=lf
+*.json  text eol=lf
+*.gradle text eol=lf
+
+# Binary assets — never normalize.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.pdf   binary
+*.ttf   binary
+*.otf   binary
+*.jar   binary
+*.keystore binary

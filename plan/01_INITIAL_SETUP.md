@@ -15,12 +15,12 @@
 
 ## 1. Repo skeleton
 
-- [ ] Create root directory layout exactly as the architecture overview specifies (`/android-app`, `/ios-app`, `/shared/{domain,data,state}`, `/core/*`, `/features/*`, `/platform/*`, `/build-logic`, `/docs`, `/.github`).
-- [ ] Add `.gitignore` covering: `.gradle/`, `build/`, `local.properties`, `.idea/`, `xcuserdata/`, `Pods/`, `*.xcuserstate`, `.DS_Store`, `kotlin-js-store/`.
-- [ ] Add `.gitattributes` enforcing LF line endings for `*.kt`, `*.kts`, `*.swift`, `*.yml`, `*.md`.
-- [ ] Add `.editorconfig` with: `indent_size=4` for Kotlin, `2` for YAML, `max_line_length=140`, `insert_final_newline=true`.
-- [ ] Add root `README.md` with: one-line product description, prerequisites, "How to run Android", "How to run iOS", links to `MASTER_PLAN.md` and `docs/ARCHITECTURE.md`.
-- [ ] Add `LICENSE` placeholder (TBD with product owner; default to "All rights reserved" until decided).
+- [x] Create root directory layout exactly as the architecture overview specifies (`/android-app`, `/ios-app`, `/shared/{domain,data,state}`, `/core/*`, `/features/*`, `/platform/*`, `/build-logic`, `/docs`, `/.github`).
+- [x] Add `.gitignore` covering: `.gradle/`, `build/`, `local.properties`, `.idea/`, `xcuserdata/`, `Pods/`, `*.xcuserstate`, `.DS_Store`, `kotlin-js-store/`.
+- [x] Add `.gitattributes` enforcing LF line endings for `*.kt`, `*.kts`, `*.swift`, `*.yml`, `*.md`.
+- [x] Add `.editorconfig` with: `indent_size=4` for Kotlin, `2` for YAML, `max_line_length=140`, `insert_final_newline=true`.
+- [x] Add root `README.md` with: one-line product description, prerequisites, "How to run Android", "How to run iOS", links to `MASTER_PLAN.md` and `docs/ARCHITECTURE.md`.
+- [x] Add `LICENSE` placeholder (TBD with product owner; default to "All rights reserved" until decided).
 
 ## 2. Toolchain pinning
 
