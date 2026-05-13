@@ -76,6 +76,28 @@
 
 ---
 
+### ADR-012 — Package ID base is `dev.franzueto.fluxit` (supersedes package-ID clause of ADR-002)
+- **Status:** Accepted
+- **Date:** 2026-05-13
+- **Context:** ADR-002 fixed package IDs at `com.fluxit.android` / `com.fluxit.ios` on the assumption that `fluxit.com` (or similar `com.fluxit` reverse-DNS) was an owned or acquirable namespace. At Phase 01 §4 implementation time the project owner confirmed they do **not** own `fluxit.com`; they own the personal domain `franzueto.dev`. This is a portfolio app demonstrating professional experience, intended for Play / App Store publication.
+- **Decision:** Use `dev.franzueto.fluxit` as the canonical reverse-DNS base for all package, namespace, and bundle identifiers.
+  - Android `applicationId` = `dev.franzueto.fluxit`
+  - iOS bundle ID = `dev.franzueto.fluxit`
+  - Android library namespaces = `dev.franzueto.fluxit.<module-path>` (e.g. `dev.franzueto.fluxit.core.designsystem`, `dev.franzueto.fluxit.feature.lists`)
+  - Kotlin packages mirror the namespaces.
+  - The brand name "FluxIt" from ADR-002 is unchanged — only the package-ID clause is superseded.
+- **Consequences:**
+  - ➕ ID space is anchored to a domain we actually own; no risk of Play/App Store namespace collision with a future `fluxit.com` operator.
+  - ➕ Portfolio signal: store-listing reviewers can verify the developer owns the domain.
+  - ➖ Slightly verbose package paths in imports (`dev.franzueto.fluxit.feature.lists.…`).
+  - 🔁 All future code, manifests, `Info.plist`, signing configs, analytics namespaces, and deep-link URIs derive from this base. No code currently exists referencing the old IDs, so the supersede has no migration cost.
+- **Alternatives considered:**
+  - Keep `com.fluxit` and risk later collision (rejected — see Context).
+  - Acquire `fluxit.com` (out of scope; not a current cost the project owner wants to take on).
+  - Two-tier (`dev.franzueto.fluxit` for app, `com.fluxit` for libraries) — rejected as pointlessly inconsistent.
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
