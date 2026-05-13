@@ -2,7 +2,7 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-11
+**Last updated:** 2026-05-13
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
 **Repo phase:** Pre-scaffold (no code yet)
 
@@ -10,7 +10,7 @@
 
 ## ▶ Next Step
 
-**Phase 01 — Initial Setup.** Begin with [`plan/01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md). First concrete action: **generate the Gradle KMP skeleton + version catalog + `build-logic` convention plugins**.
+**Phase 01 — Initial Setup, section 5 (Settings & module wiring).** Sections 1–4 are complete (repo skeleton, toolchain, version catalog, four convention plugins). Next concrete action: **expand `settings.gradle.kts` to include every `core-*` / `platform-*` / `shared/*` module with stub `build.gradle.kts` files so the full graph resolves**.
 
 ---
 
@@ -19,7 +19,7 @@
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (5 ADRs) | n/a |
-| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟡 Planned | 0% |
+| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟠 In progress | 33% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟡 Planned | 0% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
