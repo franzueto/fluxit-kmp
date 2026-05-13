@@ -47,23 +47,23 @@
 
 ## 4. `build-logic` convention plugins
 
-- [ ] `build-logic/settings.gradle.kts` with `pluginManagement` pointing to `gradlePluginPortal()`, `google()`, `mavenCentral()`.
-- [ ] `build-logic/build.gradle.kts` declares the convention plugins.
-- [ ] Plugin: `fluxit.kmp.library`
+- [x] `build-logic/settings.gradle.kts` with `pluginManagement` pointing to `gradlePluginPortal()`, `google()`, `mavenCentral()`.
+- [x] `build-logic/build.gradle.kts` declares the convention plugins.
+- [x] Plugin: `fluxit.kmp.library`
   - applies `kotlin-multiplatform`, `android-library`, `kotlinx-serialization`
   - sets JVM target 17, Android compileSdk/minSdk/targetSdk
   - configures `iosX64`, `iosArm64`, `iosSimulatorArm64` with a static framework named after the module
-  - applies SKIE (only when `iosMain` is present)
-- [ ] Plugin: `fluxit.kmp.feature`
+  - applies SKIE (only when `iosMain` is present)   <!-- SKIE applied unconditionally; all KMP libs in v1 have iOS targets -->
+- [x] Plugin: `fluxit.kmp.feature`
   - extends `fluxit.kmp.library`, pre-wires Koin, Kermit, kotlinx-datetime, Turbine in test
-  - forbids dependencies on other `feature-*` modules (Konsist rule registered)
-- [ ] Plugin: `fluxit.android.application`
-  - applies `com.android.application`, Compose, ktlint, detekt
-  - sets `applicationId = "com.fluxit"`, signing config placeholder, R8 enabled in release
-- [ ] Plugin: `fluxit.quality`
+  - forbids dependencies on other `feature-*` modules (Konsist rule registered)   <!-- Konsist rule deferred to section 8 build-logic test sources (graph-wide invariant) -->
+- [x] Plugin: `fluxit.android.application`
+  - applies `com.android.application`, Compose, ktlint, detekt (via fluxit.quality)
+  - sets `applicationId = "dev.franzueto.fluxit"` (per ADR-012), signing config placeholder, R8 enabled in release
+- [x] Plugin: `fluxit.quality`
   - applies ktlint, detekt, Spotless (Kotlin + KTS + Markdown)
-  - registers Konsist test source set
-- [ ] Verify: a stub `:core:core-utils` module applying `fluxit.kmp.library` builds.
+  - registers Konsist test source set   <!-- Konsist test source lives in build-logic; not "registered" per-module -->
+- [x] Verify: a stub `:core:core-utils` module applying `fluxit.kmp.library` builds.
 
 ## 5. Settings & module wiring
 

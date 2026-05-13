@@ -19,5 +19,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 rootProject.name = "fluxit"
 
-// Module includes are added in Phase 01 section 5 once stub build.gradle.kts files
-// exist for each module. Until then the root build has no subprojects.
+// Module includes. Phase 01 section 5 expands this to the full module graph;
+// for now only the verification stub from section 4 is wired in.
+include(":core:core-utils")
+project(":core:core-utils").projectDir = file("core/core-utils")
