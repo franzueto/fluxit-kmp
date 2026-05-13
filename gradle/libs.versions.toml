@@ -1,0 +1,144 @@
+# FluxIt version catalog.
+#
+# Update policy:
+#   - Bumps in this file go through PR review; CI runs `dependencyUpdates`
+#     weekly (Phase 15) and posts a report.
+#   - Keep groups in this file in sync with the [bundles] section below.
+#   - Kotlin, AGP, Compose Compiler plugin, and SKIE must be bumped together;
+#     each release of one constrains the others (see plan/01_INITIAL_SETUP.md
+#     section 3 and ADR-001).
+
+[versions]
+# --- Language & build ---
+kotlin = "2.1.0"
+agp = "8.7.3"
+ksp = "2.1.0-1.0.29"            # KSP version tracks Kotlin version
+java-toolchain = "21"
+android-compile-sdk = "35"
+android-target-sdk = "35"
+# android-min-sdk is intentionally absent — pending Phase 01 open question.
+
+# --- Compose (Android) ---
+compose-bom = "2025.01.00"
+androidx-activity = "1.9.3"
+androidx-navigation = "2.8.5"
+
+# --- KMP libraries ---
+koin = "4.0.1"
+sqldelight = "2.0.2"
+kotlinx-coroutines = "1.10.1"
+kotlinx-serialization = "1.7.3"
+kotlinx-datetime = "0.6.1"
+kermit = "2.0.5"
+skie = "0.10.2"
+
+# --- Quality ---
+ktlint-cli = "1.4.1"            # underlying ktlint library version
+ktlint-gradle = "12.1.2"        # jlleitschuh wrapper plugin
+detekt = "1.23.7"
+spotless = "7.0.2"
+konsist = "0.17.3"
+dependency-versions = "0.51.0"  # com.github.ben-manes.versions
+
+# --- Testing ---
+turbine = "1.2.0"
+kotest = "5.9.1"
+mockk = "1.13.13"
+
+[libraries]
+# --- Compose ---
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "androidx-activity" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "androidx-navigation" }
+
+# --- Koin ---
+koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin" }
+koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
+koin-compose = { group = "io.insert-koin", name = "koin-compose", version.ref = "koin" }
+koin-test = { group = "io.insert-koin", name = "koin-test", version.ref = "koin" }
+
+# --- SQLDelight ---
+sqldelight-runtime = { group = "app.cash.sqldelight", name = "runtime", version.ref = "sqldelight" }
+sqldelight-coroutines-extensions = { group = "app.cash.sqldelight", name = "coroutines-extensions", version.ref = "sqldelight" }
+sqldelight-android-driver = { group = "app.cash.sqldelight", name = "android-driver", version.ref = "sqldelight" }
+sqldelight-native-driver = { group = "app.cash.sqldelight", name = "native-driver", version.ref = "sqldelight" }
+sqldelight-jvm-driver = { group = "app.cash.sqldelight", name = "sqlite-driver", version.ref = "sqldelight" }
+sqldelight-primitive-adapters = { group = "app.cash.sqldelight", name = "primitive-adapters", version.ref = "sqldelight" }
+
+# --- kotlinx ---
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinx-datetime" }
+
+# --- Logging ---
+kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
+kermit-crashlytics = { group = "co.touchlab", name = "kermit-crashlytics", version.ref = "kermit" }
+
+# --- Testing ---
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+kotest-assertions = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
+kotest-framework-engine = { group = "io.kotest", name = "kotest-framework-engine", version.ref = "kotest" }
+kotest-runner-junit5 = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+mockk-common = { group = "io.mockk", name = "mockk-common", version.ref = "mockk" }
+konsist = { group = "com.lemonappdev", name = "konsist", version.ref = "konsist" }
+
+# --- Build-logic classpath dependencies (consumed by build-logic/build.gradle.kts) ---
+build-kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+build-android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
+build-skie-gradle-plugin = { group = "co.touchlab.skie", name = "gradle-plugin", version.ref = "skie" }
+build-sqldelight-gradle-plugin = { group = "app.cash.sqldelight", name = "gradle-plugin", version.ref = "sqldelight" }
+build-detekt-gradle-plugin = { group = "io.gitlab.arturbosch.detekt", name = "detekt-gradle-plugin", version.ref = "detekt" }
+build-spotless-gradle-plugin = { group = "com.diffplug.spotless", name = "spotless-plugin-gradle", version.ref = "spotless" }
+build-ktlint-gradle-plugin = { group = "org.jlleitschuh.gradle", name = "ktlint-gradle", version.ref = "ktlint-gradle" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
+skie = { id = "co.touchlab.skie", version.ref = "skie" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }
+dependency-versions = { id = "com.github.ben-manes.versions", version.ref = "dependency-versions" }
+
+[bundles]
+coroutines = [
+    "kotlinx-coroutines-core",
+]
+koin = [
+    "koin-core",
+]
+sqldelight-runtime = [
+    "sqldelight-runtime",
+    "sqldelight-coroutines-extensions",
+    "sqldelight-primitive-adapters",
+]
+compose-ui = [
+    "androidx-compose-ui",
+    "androidx-compose-ui-graphics",
+    "androidx-compose-ui-tooling-preview",
+    "androidx-compose-foundation",
+    "androidx-compose-material3",
+    "androidx-activity-compose",
+    "androidx-navigation-compose",
+]
+testing-shared = [
+    "kotlinx-coroutines-test",
+    "turbine",
+    "kotest-assertions",
+    "kotest-framework-engine",
+]

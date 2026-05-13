@@ -39,10 +39,11 @@
 
 ## 3. Version catalog (`gradle/libs.versions.toml`)
 
-- [ ] Define `[versions]` for: `kotlin`, `agp`, `compose-bom`, `androidx-activity`, `androidx-navigation`, `koin`, `sqldelight`, `kotlinx-coroutines`, `kotlinx-serialization`, `kotlinx-datetime`, `kermit`, `skie`, `ktlint`, `detekt`, `spotless`, `konsist`, `turbine`, `kotest`, `mockk`.
-- [ ] Define `[libraries]` and `[plugins]` aliases for each.
-- [ ] Define `[bundles]`: `coroutines`, `koin`, `sqldelight-runtime`, `compose-ui`, `testing-shared`.
-- [ ] Add a CI job (Phase 15) that runs `./gradlew dependencyUpdates` weekly.
+- [x] Define `[versions]` for: `kotlin`, `agp`, `compose-bom`, `androidx-activity`, `androidx-navigation`, `koin`, `sqldelight`, `kotlinx-coroutines`, `kotlinx-serialization`, `kotlinx-datetime`, `kermit`, `skie`, `ktlint`, `detekt`, `spotless`, `konsist`, `turbine`, `kotest`, `mockk`.
+- [x] Define `[libraries]` and `[plugins]` aliases for each.
+- [x] Define `[bundles]`: `coroutines`, `koin`, `sqldelight-runtime`, `compose-ui`, `testing-shared`.
+- [ ] Add a CI job (Phase 15) that runs `./gradlew dependencyUpdates` weekly.   <!-- deferred to Phase 15; plugin alias `dependency-versions` already in catalog -->
+
 
 ## 4. `build-logic` convention plugins
 
