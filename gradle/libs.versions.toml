@@ -16,7 +16,7 @@ ksp = "2.1.0-1.0.29"            # KSP version tracks Kotlin version
 java-toolchain = "21"
 android-compile-sdk = "35"
 android-target-sdk = "35"
-# android-min-sdk is intentionally absent — pending Phase 01 open question.
+android-min-sdk = "26"          # confirmed 2026-05-13: Android 8.0 baseline (adaptive icons + FGS types)
 
 # --- Compose (Android) ---
 compose-bom = "2025.01.00"
@@ -92,10 +92,14 @@ mockk-common = { group = "io.mockk", name = "mockk-common", version.ref = "mockk
 konsist = { group = "com.lemonappdev", name = "konsist", version.ref = "konsist" }
 
 # --- Build-logic classpath dependencies (consumed by build-logic/build.gradle.kts) ---
+# Plugin-marker artifacts so precompiled script plugins can resolve `plugins { id("…") }` blocks.
 build-kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+build-kotlin-serialization-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-serialization", version.ref = "kotlin" }
+build-kotlin-compose-gradle-plugin = { group = "org.jetbrains.kotlin", name = "compose-compiler-gradle-plugin", version.ref = "kotlin" }
 build-android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
 build-skie-gradle-plugin = { group = "co.touchlab.skie", name = "gradle-plugin", version.ref = "skie" }
 build-sqldelight-gradle-plugin = { group = "app.cash.sqldelight", name = "gradle-plugin", version.ref = "sqldelight" }
+build-ksp-gradle-plugin = { group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
 build-detekt-gradle-plugin = { group = "io.gitlab.arturbosch.detekt", name = "detekt-gradle-plugin", version.ref = "detekt" }
 build-spotless-gradle-plugin = { group = "com.diffplug.spotless", name = "spotless-plugin-gradle", version.ref = "spotless" }
 build-ktlint-gradle-plugin = { group = "org.jlleitschuh.gradle", name = "ktlint-gradle", version.ref = "ktlint-gradle" }

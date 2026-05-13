@@ -10,9 +10,12 @@ plugins {
 
 dependencies {
     implementation(libs.build.kotlin.gradle.plugin)
+    implementation(libs.build.kotlin.serialization.gradle.plugin)
+    implementation(libs.build.kotlin.compose.gradle.plugin)
     implementation(libs.build.android.gradle.plugin)
     implementation(libs.build.skie.gradle.plugin)
     implementation(libs.build.sqldelight.gradle.plugin)
+    implementation(libs.build.ksp.gradle.plugin)
     implementation(libs.build.detekt.gradle.plugin)
     implementation(libs.build.spotless.gradle.plugin)
     implementation(libs.build.ktlint.gradle.plugin)
