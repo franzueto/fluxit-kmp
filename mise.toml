@@ -1,0 +1,8 @@
+# mise (https://mise.jdx.dev) tool version pins.
+# Kotlin is intentionally NOT pinned here — it is resolved by the Gradle Kotlin
+# plugin from gradle/libs.versions.toml. Xcode is documented in README.md
+# (Apple does not provide a CLI version manager).
+
+[tools]
+java = "temurin-21.0.5+11"
+ruby = "3.3.6"

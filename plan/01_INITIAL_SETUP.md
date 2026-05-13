@@ -24,9 +24,9 @@
 
 ## 2. Toolchain pinning
 
-- [ ] `gradle/wrapper/gradle-wrapper.properties` pinned to a current 8.x.
-- [ ] `.tool-versions` (asdf) and/or `mise.toml`: pin JDK 21 (Temurin), Kotlin via Gradle plugin (no separate pin), Ruby 3.x for Fastlane (Phase 15 prep), Xcode version documented in README.
-- [ ] `gradle.properties`:
+- [x] `gradle/wrapper/gradle-wrapper.properties` pinned to a current 8.x. (8.11.1, distribution-type=all)
+- [x] `.tool-versions` (asdf) and/or `mise.toml`: pin JDK 21 (Temurin), Kotlin via Gradle plugin (no separate pin), Ruby 3.x for Fastlane (Phase 15 prep), Xcode version documented in README.
+- [x] `gradle.properties`:
   - `org.gradle.jvmargs=-Xmx4g -XX:+UseParallelGC`
   - `org.gradle.parallel=true`
   - `org.gradle.caching=true`
@@ -35,7 +35,7 @@
   - `kotlin.mpp.androidSourceSetLayoutVersion=2`
   - `android.useAndroidX=true`
   - `android.nonTransitiveRClass=true`
-- [ ] Verify: `./gradlew --version` works on a fresh clone.
+- [x] Verify: `./gradlew --version` works on a fresh clone.
 
 ## 3. Version catalog (`gradle/libs.versions.toml`)
 

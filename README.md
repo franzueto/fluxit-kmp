@@ -4,6 +4,14 @@ A high-performance list-making app for Android and iOS, built natively with **Ko
 
 > **Status: planning complete, no code yet.** This repo currently contains the v1 architectural plan, design assets, and design tokens. Implementation begins at Phase 01.
 
+## Prerequisites
+
+- **JDK 21** (Temurin recommended). Pinned via `.tool-versions` / `mise.toml`.
+- **Xcode 16+** (iOS 16 deployment target, Swift 5.10+). Apple has no CLI version manager — match the version your team agrees on; CI uses the `macos-latest` image's default Xcode.
+- **Ruby 3.3.x** (for Fastlane, wired up in Phase 15).
+- **Android SDK** with platform 35 + build-tools 35.0.0 (installed during Phase 01 §6).
+- **Gradle** is supplied by the wrapper (`./gradlew`) — do not install separately.
+
 ## Where to start
 
 - **[`MASTER_PLAN.md`](MASTER_PLAN.md)** — the source of truth. Roadmap, milestones, progress tracker, ▶ Next Step pointer, and architecture overview. Read this first.
