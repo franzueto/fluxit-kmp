@@ -1,0 +1,64 @@
+# FluxIt detekt config — Phase 01 §8.2.
+#
+# fluxit.quality applies detekt with `buildUponDefaultConfig = true`, so this
+# file is an OVERRIDE LAYER on top of detekt's bundled defaults. Anything not
+# declared here keeps the upstream default.
+#
+# Per spec we keep these rule categories enabled:
+#   - complexity   (LongMethod, ComplexMethod, NestedBlockDepth, …)
+#   - naming       (FunctionNaming, ClassNaming, VariableNaming, …)
+#   - exceptions   (TooGenericExceptionThrown, SwallowedException, …)
+#   - coroutines   (GlobalCoroutineUsage, SuspendFunWithFlowReturnType, …)
+#
+# Disabled categories and why:
+#   - style        overlaps ktlint / Spotless; redundant double-enforcement.
+#   - comments     too noisy at this stage; we don't enforce KDoc yet.
+#   - performance  fires on shared-stdlib patterns SKIE / kotlinx already
+#                  flag elsewhere; revisit in Phase 14 once benchmarks land.
+
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+
+config:
+  validation: true
+  warningsAsErrors: false
+
+comments:
+  active: false
+
+performance:
+  active: false
+
+style:
+  active: false
+
+# --- Targeted overrides on rulesets we're keeping ---
+
+complexity:
+  active: true
+  LongMethod:
+    threshold: 80
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 10  # MVI state data classes can run long.
+  TooManyFunctions:
+    thresholdInClasses: 20
+    thresholdInFiles: 20
+    thresholdInObjects: 20
+    thresholdInEnums: 20
+    thresholdInInterfaces: 20
+
+naming:
+  active: true
+  MatchingDeclarationName:
+    # Disabled: KMP convention is to suffix actual files with `.android.kt` /
+    # `.ios.kt` (e.g. Platform.android.kt declares `actual class Platform`).
+    # This rule flags that pattern as a violation.
+    active: false
+
+exceptions:
+  active: true
+
+coroutines:
+  active: true

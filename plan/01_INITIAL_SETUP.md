@@ -93,7 +93,7 @@
 ## 8. Quality gates
 
 - [x] ktlint configured via `fluxit.quality` — run on all Kotlin source sets.
-- [ ] detekt with a `config/detekt.yml` checked in (start from `detektGenerateConfig`, then prune to: complexity, naming, exceptions, coroutines rules).
+- [x] detekt with a `config/detekt.yml` checked in (start from `detektGenerateConfig`, then prune to: complexity, naming, exceptions, coroutines rules).
 - [ ] Spotless: Kotlin (ktlint), KTS (ktlint), Markdown (prettier).
 - [ ] Konsist test in `:build-logic` test sources enforcing:
   - Domain has no Android/iOS imports.
