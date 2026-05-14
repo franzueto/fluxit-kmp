@@ -11,5 +11,6 @@ expect class Platform() {
 // types arrive in Phase 05.
 sealed class PlatformKind {
     data object Android : PlatformKind()
+
     data object IOS : PlatformKind()
 }

@@ -20,6 +20,7 @@ plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("co.touchlab.skie")
+    id("fluxit.quality")
 }
 
 private val versionCatalog = extensions.getByType(VersionCatalogsExtension::class.java).named("libs")
