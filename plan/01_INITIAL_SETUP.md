@@ -100,7 +100,8 @@
   - Domain has no Android/iOS imports.
   - `feature-*` modules don't depend on each other.
   - `GlobalScope` and `runBlocking` blocked outside `*Test` source sets.
-- [ ] Pre-commit hook (`.githooks/pre-commit` + opt-in install via `scripts/install-hooks.sh`) runs `./gradlew spotlessCheck ktlintCheck` on changed files only.
+- [x] Pre-commit hook (`.githooks/pre-commit` + opt-in install via `scripts/install-hooks.sh`) runs `./gradlew spotlessCheck ktlintCheck` on changed files only.   <!-- Hook runs ktlintFormat + spotlessApply (the auto-fix variants) only when staged set contains *.kt/*.kts/*.md, then re-stages the formatted files. Gradle's task graph is repo-wide; "on changed files only" is implemented at the trigger boundary (skip hook when no staged Kotlin/MD), not inside the gradle invocation. -->
+
 
 ## 9. Documentation seeds
 
