@@ -83,11 +83,12 @@
 
 ## 7. iOS app shell
 
-- [ ] `ios-app/FluxIt.xcodeproj` (created via `xcodegen` from a `project.yml` checked in to repo to keep diffs reviewable).
-- [ ] `project.yml` declares one app target `FluxIt` (iOS 16+, SwiftUI lifecycle), embeds the `shared` XCFramework via Gradle task `:shared:state:assembleSharedXCFramework`.
-- [ ] `FluxItApp.swift` + empty `ContentView.swift` rendering `Text("FluxIt")`.
-- [ ] Add a Gradle task / shell script `scripts/build-ios.sh` that wraps `./gradlew :shared:state:assembleSharedReleaseXCFramework && xcodebuild -project ios-app/FluxIt.xcodeproj -scheme FluxIt -sdk iphonesimulator build`.
-- [ ] Verify: script exits 0 on a clean clone (macOS only).
+- [x] `ios-app/FluxIt.xcodeproj` (created via `xcodegen` from a `project.yml` checked in to repo to keep diffs reviewable).   <!-- xcodeproj is gitignored; project.yml is the source of truth -->
+- [x] `project.yml` declares one app target `FluxIt` (iOS 16+, SwiftUI lifecycle), embeds the `shared` XCFramework via Gradle task `:shared:state:assembleSharedXCFramework`.
+- [x] `FluxItApp.swift` + empty `ContentView.swift` rendering `Text("FluxIt")`.   <!-- also renders Platform().name — pulled forward from §11.3 -->
+- [x] Add a Gradle task / shell script `scripts/build-ios.sh` that wraps `./gradlew :shared:state:assembleSharedReleaseXCFramework && xcodebuild -project ios-app/FluxIt.xcodeproj -scheme FluxIt -sdk iphonesimulator build`.
+- [x] Verify: script exits 0 on a clean clone (macOS only).   <!-- 2026-05-14: BUILD SUCCEEDED against iOS 26.3.1 simulator runtime -->
+
 
 ## 8. Quality gates
 
@@ -122,8 +123,9 @@
 ## 11. Sanity tests
 
 - [ ] `:core:core-utils` ships one trivial `Result` extension and a unit test asserting it — proves the test harness runs on JVM.
-- [ ] `:shared:state` ships an empty `expect class Platform` with `androidMain` / `iosMain` `actual` returning a string — proves expect/actual + iOS framework export work.
-- [ ] iOS app prints `Platform().name` — proves SKIE/framework consumption works end-to-end.
+- [x] `:shared:state` ships an empty `expect class Platform` with `androidMain` / `iosMain` `actual` returning a string — proves expect/actual + iOS framework export work.   <!-- pulled into §7 to satisfy SKIE fat-framework step; sealed PlatformKind added to force SKIE to emit Shared-Swift.h -->
+- [x] iOS app prints `Platform().name` — proves SKIE/framework consumption works end-to-end.   <!-- ContentView.swift renders Platform().name as caption under "FluxIt" -->
+
 
 ## 12. Hand-off checklist (gate to Phase 02)
 
