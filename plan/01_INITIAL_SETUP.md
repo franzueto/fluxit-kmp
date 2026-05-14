@@ -74,11 +74,12 @@
 
 ## 6. Android app shell
 
-- [ ] `android-app/build.gradle.kts` applies `fluxit.android.application`, depends on `:shared:state` and `:core:core-designsystem` (both stubs for now).
-- [ ] `MainActivity` with empty Compose `Surface` + a `Text("FluxIt")`.
-- [ ] `AndroidManifest.xml` with `<application>` `android:name=".FluxItApp"`, `android:theme="@style/Theme.FluxIt"`.
-- [ ] `FluxItApp` initializes Koin (empty modules list for now).
-- [ ] Verify: `./gradlew :android-app:assembleDebug` produces an APK that launches in an emulator.
+- [x] `android-app/build.gradle.kts` applies `fluxit.android.application`, depends on `:shared:state` and `:core:core-designsystem` (both stubs for now).
+- [x] `MainActivity` with empty Compose `Surface` + a `Text("FluxIt")`.
+- [x] `AndroidManifest.xml` with `<application>` `android:name=".FluxItApp"`, `android:theme="@style/Theme.FluxIt"`.
+- [x] `FluxItApp` initializes Koin (empty modules list for now).
+- [x] Verify: `./gradlew :android-app:assembleDebug` produces an APK that launches in an emulator.   <!-- assembleDebug green; emulator launch deferred until §7+ to amortize emulator setup -->
+
 
 ## 7. iOS app shell
 

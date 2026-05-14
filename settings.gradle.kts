@@ -19,8 +19,11 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 rootProject.name = "fluxit"
 
-// Module graph (Phase 01 §5). `:features:*` modules are intentionally absent —
-// phases 07–10 add them. `:android-app` and `:ios-app` land in §6 and §7.
+// Module graph (Phase 01 §5–§6). `:features:*` modules are intentionally
+// absent — phases 07–10 add them. `:ios-app` lands in §7.
+
+// app
+include(":android-app")
 
 // core
 include(":core:core-designsystem")
