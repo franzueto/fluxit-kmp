@@ -59,10 +59,12 @@ extensions.configure<SpotlessExtension>("spotless") {
         target("**/*.gradle.kts")
         ktlint(version("ktlint-cli"))
     }
-    format("markdown") {
-        target("**/*.md")
-        targetExclude("**/build/**")
-        endWithNewline()
-        trimTrailingWhitespace()
-    }
+    // Markdown formatting lives in the ROOT build.gradle.kts, not here. Reasons:
+    //   1. Running per-module would have each of N modules scan every *.md
+    //      file in the repo — N-way duplicated work for what is fundamentally
+    //      one repo-wide concern.
+    //   2. Spotless 7.0.2 + Gradle 8.11 produce a task-container mutation
+    //      conflict (`DefaultTaskContainer#register … cannot be executed in
+    //      the current context`) when the same format() block is realized
+    //      concurrently across many module spotless tasks.
 }
