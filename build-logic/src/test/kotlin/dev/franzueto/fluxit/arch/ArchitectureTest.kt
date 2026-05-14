@@ -1,0 +1,80 @@
+package dev.franzueto.fluxit.arch
+
+import com.lemonappdev.konsist.api.Konsist
+import com.lemonappdev.konsist.api.verify.assertFalse
+import io.kotest.core.spec.style.FunSpec
+
+// FluxIt architecture rules — Phase 01 §8.4.
+//
+// These run as a regular JUnit 5 test in :build-logic. They scan the OUTER
+// repo (parent of build-logic) so feature modules added in phases 07–10 are
+// covered automatically without per-module wiring.
+//
+// Run with: `./gradlew :build-logic:test`.
+class ArchitectureTest : FunSpec({
+
+    // build-logic is an included build; the test task's working directory is
+    // `<repo>/build-logic`, so `..` lands on the outer FluxIt project root.
+    // Konsist's scopeFromDirectory treats its argument as relative to the cwd.
+    val scope = { Konsist.scopeFromDirectory("..") }
+
+    test("shared:domain has no Android, iOS, or platform-module imports") {
+        scope()
+            .files
+            .filter { "/shared/domain/" in it.path }
+            .assertFalse(additionalMessage = "Domain must stay platform-agnostic — no android.*, platform.*, or iOS UIKit/Foundation imports.") { file ->
+                file.imports.any { imp ->
+                    val n = imp.name
+                    n.startsWith("android.") ||
+                        n.startsWith("androidx.") ||
+                        n.startsWith("platform.UIKit") ||
+                        n.startsWith("platform.Foundation") ||
+                        n.startsWith("dev.franzueto.fluxit.platform.")
+                }
+            }
+    }
+
+    test("feature-* modules do not depend on each other") {
+        scope()
+            .files
+            .filter { "/features/feature-" in it.path }
+            .assertFalse(additionalMessage = "Cross-feature flows must go through domain use cases, not direct imports.") { file ->
+                // Identify this file's owning feature (e.g. "feature-lists").
+                val ownFeature = "/features/(feature-[a-z-]+)/".toRegex()
+                    .find(file.path)
+                    ?.groupValues
+                    ?.get(1)
+                    ?: return@assertFalse false
+
+                file.imports.any { imp ->
+                    val match = "dev\\.franzueto\\.fluxit\\.feature\\.([a-z]+)".toRegex()
+                        .find(imp.name)
+                        ?: return@any false
+                    val importedFeature = "feature-${match.groupValues[1]}"
+                    importedFeature != ownFeature
+                }
+            }
+    }
+
+    test("GlobalScope and runBlocking are forbidden outside test source sets") {
+        scope()
+            .files
+            .filter { file ->
+                "/build/" !in file.path &&
+                    "/src/test/" !in file.path &&
+                    "/src/commonTest/" !in file.path &&
+                    "/src/androidTest/" !in file.path &&
+                    "/src/androidUnitTest/" !in file.path &&
+                    "/src/iosTest/" !in file.path &&
+                    !file.name.endsWith("Test.kt") &&
+                    !file.name.endsWith("Spec.kt")
+            }
+            .assertFalse(additionalMessage = "Use a structured CoroutineScope (Dispatchers + supervisorScope); never GlobalScope or runBlocking outside tests.") { file ->
+                file.imports.any { imp ->
+                    imp.name == "kotlinx.coroutines.GlobalScope" ||
+                        imp.name == "kotlinx.coroutines.runBlocking"
+                } || "kotlinx.coroutines.GlobalScope" in file.text ||
+                    Regex("\\brunBlocking\\b").containsMatchIn(file.text)
+            }
+    }
+})

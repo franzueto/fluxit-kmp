@@ -96,7 +96,7 @@
 - [x] detekt with a `config/detekt.yml` checked in (start from `detektGenerateConfig`, then prune to: complexity, naming, exceptions, coroutines rules).
 - [x] Spotless: Kotlin (ktlint), KTS (ktlint), Markdown (prettier).   <!-- Markdown: endWithNewline + trimTrailingWhitespace (not prettier); flexmark broken in Spotless 7.0.2 (task-registration mutation conflict); prettier rejected to avoid Node dependency. Revisit when Spotless ships a fix. -->
 
-- [ ] Konsist test in `:build-logic` test sources enforcing:
+- [x] Konsist test in `:build-logic` test sources enforcing:
   - Domain has no Android/iOS imports.
   - `feature-*` modules don't depend on each other.
   - `GlobalScope` and `runBlocking` blocked outside `*Test` source sets.

@@ -19,8 +19,22 @@ dependencies {
     implementation(libs.build.detekt.gradle.plugin)
     implementation(libs.build.spotless.gradle.plugin)
     implementation(libs.build.ktlint.gradle.plugin)
+
+    // Konsist architecture tests live here so they have a single canonical
+    // home — see fluxit.quality.gradle.kts. JUnit 5 is the test runtime.
+    testImplementation(libs.konsist)
+    testImplementation(libs.kotest.assertions)
+    testImplementation(libs.kotest.runner.junit5)
 }
 
 kotlin {
     jvmToolchain(libs.versions.java.toolchain.get().toInt())
+}
+
+tasks.named<Test>("test") {
+    useJUnitPlatform()
+    // The Konsist arch tests resolve scopeFromDirectory("..") against the
+    // test working directory — which Gradle sets to build-logic/ by default.
+    // Made explicit here so reviewers don't have to know that convention.
+    workingDir = layout.projectDirectory.asFile
 }
