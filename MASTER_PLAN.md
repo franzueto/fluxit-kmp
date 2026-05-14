@@ -2,15 +2,15 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-13
+**Last updated:** 2026-05-14
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Pre-scaffold (no code yet)
+**Repo phase:** Foundation in progress (Android + iOS shells build green)
 
 ---
 
 ## ▶ Next Step
 
-**Phase 01 — Initial Setup, section 5 (Settings & module wiring).** Sections 1–4 are complete (repo skeleton, toolchain, version catalog, four convention plugins). Next concrete action: **expand `settings.gradle.kts` to include every `core-*` / `platform-*` / `shared/*` module with stub `build.gradle.kts` files so the full graph resolves**.
+**Phase 01 — Initial Setup, section 8 (Quality gates).** Sections 1–7 are complete plus §11.2 / §11.3 (expect/actual Platform + iOS consumption). Next concrete action: **wire ktlint, detekt, Spotless, and Konsist architecture tests into `fluxit.quality` and the `build-logic` test source set — then prove they fail-loud on a seeded violation**.
 
 ---
 
@@ -19,7 +19,7 @@
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (5 ADRs) | n/a |
-| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟠 In progress | 33% |
+| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟠 In progress | 58% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟡 Planned | 0% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
