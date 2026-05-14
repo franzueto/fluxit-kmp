@@ -19,7 +19,31 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 rootProject.name = "fluxit"
 
-// Module includes. Phase 01 section 5 expands this to the full module graph;
-// for now only the verification stub from section 4 is wired in.
+// Module graph (Phase 01 §5). `:features:*` modules are intentionally absent —
+// phases 07–10 add them. `:android-app` and `:ios-app` land in §6 and §7.
+
+// core
+include(":core:core-designsystem")
 include(":core:core-utils")
+project(":core:core-designsystem").projectDir = file("core/core-designsystem")
 project(":core:core-utils").projectDir = file("core/core-utils")
+
+// platform
+include(":platform:platform-analytics")
+include(":platform:platform-config")
+include(":platform:platform-logging")
+include(":platform:platform-photo")
+include(":platform:platform-reminders")
+project(":platform:platform-analytics").projectDir = file("platform/platform-analytics")
+project(":platform:platform-config").projectDir = file("platform/platform-config")
+project(":platform:platform-logging").projectDir = file("platform/platform-logging")
+project(":platform:platform-photo").projectDir = file("platform/platform-photo")
+project(":platform:platform-reminders").projectDir = file("platform/platform-reminders")
+
+// shared
+include(":shared:domain")
+include(":shared:data")
+include(":shared:state")
+project(":shared:domain").projectDir = file("shared/domain")
+project(":shared:data").projectDir = file("shared/data")
+project(":shared:state").projectDir = file("shared/state")

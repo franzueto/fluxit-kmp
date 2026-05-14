@@ -67,9 +67,10 @@
 
 ## 5. Settings & module wiring
 
-- [ ] Root `settings.gradle.kts` with `pluginManagement`, `dependencyResolutionManagement` (`repositoriesMode = FAIL_ON_PROJECT_REPOS`), `enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")`.
-- [ ] Include all module paths from the architecture overview, even if their `build.gradle.kts` is currently a stub applying `fluxit.kmp.library`. **No `:features:*` modules yet** — phases 07–10 add them.
-- [ ] Stub `build.gradle.kts` for each `core-*` and `platform-*` module so the graph resolves.
+- [x] Root `settings.gradle.kts` with `pluginManagement`, `dependencyResolutionManagement` (`repositoriesMode = FAIL_ON_PROJECT_REPOS`), `enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")`.
+- [x] Include all module paths from the architecture overview, even if their `build.gradle.kts` is currently a stub applying `fluxit.kmp.library`. **No `:features:*` modules yet** — phases 07–10 add them.
+- [x] Stub `build.gradle.kts` for each `core-*` and `platform-*` module so the graph resolves.   <!-- also covers shared/{domain,data,state} -->
+
 
 ## 6. Android app shell
 
