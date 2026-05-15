@@ -35,23 +35,40 @@ feat(android-app): scaffold Compose shell with Koin init
 
 ### Branching
 
-- Trunk-based with short-lived branches off `main`. Default model until
-  superseded by anticipated ADR-011 (Phase 15).
-- Branch naming: `<type>/<phase-or-ticket>-<slug>`,
-  e.g. `feat/p02-design-tokens`, `fix/sqldelight-migration-9`.
+- **One long-lived feature branch per phase**, named
+  `phase/<NN>-<slug>` (e.g. `phase/02-design-system`,
+  `phase/03-data-layer`). Opened at phase start, kept current with
+  `main` via merge or rebase, merged in a single PR at the phase's
+  hand-off gate. Default model until superseded by anticipated
+  ADR-011 (Phase 15).
+- **Rationale:** GitHub Actions minutes are a constrained resource on
+  the current plan. Batching a whole phase into one PR keeps CI to
+  one ramp-up run + a final review run per phase, instead of one run
+  per logical commit. Commits stay granular on the branch (still
+  Conventional Commits per logical change); only the *merge cadence*
+  changes.
+- **Exceptions** (get their own short-lived branch + PR): Dependabot
+  bumps, security hotfixes, urgent production fixes, repo-level
+  chores that block all phases (e.g. CI workflow repair). These
+  branches are named `<type>/<slug>` as before
+  (e.g. `fix/ci-macos-runner`, `chore/p01-handoff`).
 - No long-running release branches in v1 (single trunk → store).
 
 ### Pull requests
 
-- One PR per logical change. Stack PRs if the work needs more than ~400
-  lines of diff to be reviewable.
-- PR template (added in Phase 01 §10) covers: Summary, Linked phase/ADR,
-  Screenshots (mobile), Test plan, Risk.
-- Required gates per PR (after Phase 01 §10): `spotlessCheck`,
-  `ktlintCheck`, `detekt`, `:build-logic:test --rerun-tasks` (Konsist),
-  `assembleDebug`, `scripts/build-ios.sh`. A red gate blocks merge.
-- Direct pushes to `main` are off after Phase 01 §10 lands branch
-  protection.
+- **One PR per phase** (the merge of its `phase/<NN>-<slug>` branch),
+  except for the exception classes listed under Branching. PRs
+  routinely run >400 lines because they bundle a whole phase — review
+  is structured around the phase's checklist in `plan/NN_*.md`, not
+  the raw diff.
+- PR template (added in Phase 01 §10) covers: Summary, Linked
+  phase/ADR, Screenshots (mobile), Test plan, Risk.
+- Required gates per PR: `spotlessCheck`, `ktlintCheck`, `detekt`,
+  `:build-logic:test --rerun-tasks` (Konsist), `assembleDebug`,
+  `scripts/build-ios.sh`. A red gate blocks merge.
+- Direct pushes to `main` are off once branch protection is enforced
+  in GitHub (currently documented but not yet active — see
+  [`../README.md`](../README.md) "Branch protection on `main`").
 
 ### Code review
 

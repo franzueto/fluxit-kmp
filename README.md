@@ -134,7 +134,7 @@ Deferred to v2: Ktor, Store5, Compose Multiplatform UI, auth, sync, Calendar/Sta
 
 ## Working in this repo
 
-This repo follows **trunk-based development** with short-lived branches off `main`. Conventional Commits required (`feat | fix | refactor | docs | test | chore | perf | build | ci`); see [`docs/TEAM_GUIDELINES.md`](docs/TEAM_GUIDELINES.md) for the full convention.
+This repo uses **one feature branch per phase** (`phase/<NN>-<slug>`, e.g. `phase/02-design-system`), merged in a single PR at the phase's hand-off gate. Commits on the branch stay granular (Conventional Commits per logical change — `feat | fix | refactor | docs | test | chore | perf | build | ci`); only the merge cadence is batched. This conserves GitHub Actions minutes; rationale and exceptions (Dependabot, hotfixes, repo-level chores) live in [`docs/TEAM_GUIDELINES.md`](docs/TEAM_GUIDELINES.md). Default model until superseded by anticipated ADR-011 (Phase 15).
 
 ### Branch protection on `main`
 
