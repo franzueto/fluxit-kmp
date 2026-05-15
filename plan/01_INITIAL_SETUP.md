@@ -136,7 +136,7 @@
 - [x] All checkboxes above are ✅.
 - [ ] CI is green on a representative PR (not just `main`).
 - [ ] `MASTER_PLAN.md` updated: Phase 01 → 🟢, "▶ Next Step" advanced to Phase 02.
-- [ ] No TODOs left in any `build.gradle.kts` without an issue link.
+- [x] No TODOs left in any `build.gradle.kts` without an issue link. _Audited 2026-05-15: `grep -E "TODO|FIXME|XXX"` across all `build.gradle.kts` files and `settings.gradle.kts` returned zero matches._
 
 ---
 
