@@ -4,13 +4,13 @@
 
 **Last updated:** 2026-05-15
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Foundation in progress (Android + iOS shells build green; all four quality gates wired; doc seeds in place)
+**Repo phase:** Foundation in progress (Android + iOS shells build green; all four quality gates wired; doc seeds + CI workflows in place)
 
 ---
 
 ## ▶ Next Step
 
-**Phase 01 — Initial Setup, section 10 (CI smoke build).** Sections 1–9 are complete plus §11.2 / §11.3. ADR-013 ratified the Android `minSdk=26` / iOS 16 minimums. The four doc seeds (`ARCHITECTURE.md`, `DECISIONS.md`, `SCALING.md`, `TEAM_GUIDELINES.md`) are in `/docs`. Next concrete action: **author `.github/workflows/ci.yml` (jvm-build on ubuntu-latest, ios-build on macos-latest), add `CODEOWNERS`, `pull_request_template.md`, and `dependabot.yml`**. Branch protection on `main` documented in README and enforced via repo settings.
+**Phase 01 — Initial Setup, section 11.1 (core-utils Result extension + unit test).** Sections 1–10 are complete plus §11.2 / §11.3. CI workflow (`jvm-build` + `ios-build`), `CODEOWNERS`, PR template, Dependabot config, and branch-protection docs are in place; §1 README gaps (run instructions + `docs/ARCHITECTURE.md` link + status refresh) are backfilled. Next concrete action: **add a trivial `Result<T, E>` extension function in `:core:core-utils` `commonMain` plus a JVM unit test asserting it — proves the test harness runs end-to-end on a KMP module before §12 hand-off**.
 
 ---
 
@@ -19,7 +19,7 @@
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (6 ADRs) | n/a |
-| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟠 In progress | 83% |
+| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟠 In progress | 92% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟡 Planned | 0% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |

@@ -112,15 +112,15 @@
 
 ## 10. CI smoke build (`/.github`)
 
-- [ ] `.github/workflows/ci.yml`:
+- [x] `.github/workflows/ci.yml`:
   - Triggers: `pull_request`, `push` to `main`.
-  - Job `jvm-build` on `ubuntu-latest`: setup-java 21, setup-gradle (with cache), `./gradlew spotlessCheck ktlintCheck detekt konsistTest assembleDebug`.
-  - Job `ios-build` on `macos-latest`: same JDK setup, then `scripts/build-ios.sh`.
+  - Job `jvm-build` on `ubuntu-latest`: setup-java 21, setup-gradle (with cache), `./gradlew spotlessCheck ktlintCheck detekt konsistTest assembleDebug`.   <!-- Konsist runs as `:build-logic:test --rerun-tasks` to bypass the UP-TO-DATE gotcha; gates split into one step each for failure-attribution clarity. -->
+  - Job `ios-build` on `macos-latest`: same JDK setup, then `scripts/build-ios.sh`.   <!-- Adds `brew install xcodegen` step (not preinstalled on macos-latest). -->
   - Concurrency group cancels superseded runs on the same branch.
-- [ ] `.github/CODEOWNERS` — assign `*` to mobile platform team placeholder; carve out `/ios-app/` and `/android-app/`.
-- [ ] `.github/pull_request_template.md` with: Summary, Linked phase/ADR, Screenshots (mobile), Test plan, Risk.
-- [ ] `.github/dependabot.yml` for Gradle + GitHub Actions weekly.
-- [ ] Branch protection on `main` (documented in README; enforced via repo settings outside this checklist).
+- [x] `.github/CODEOWNERS` — assign `*` to mobile platform team placeholder; carve out `/ios-app/` and `/android-app/`.   <!-- Owner is @franzueto today (solo contributor); structure encoded so a future team-handle swap is a one-line change. -->
+- [x] `.github/pull_request_template.md` with: Summary, Linked phase/ADR, Screenshots (mobile), Test plan, Risk.
+- [x] `.github/dependabot.yml` for Gradle + GitHub Actions weekly.
+- [x] Branch protection on `main` (documented in README; enforced via repo settings outside this checklist).
 
 ## 11. Sanity tests
 
