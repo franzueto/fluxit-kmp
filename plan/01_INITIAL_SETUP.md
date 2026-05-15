@@ -134,8 +134,8 @@
 ## 12. Hand-off checklist (gate to Phase 02)
 
 - [x] All checkboxes above are ✅.
-- [ ] CI is green on a representative PR (not just `main`).
-- [ ] `MASTER_PLAN.md` updated: Phase 01 → 🟢, "▶ Next Step" advanced to Phase 02.
+- [x] CI is green on a representative PR (not just `main`). _PR #4 (`chore/p01-handoff`) merged 2026-05-15 with both `jvm-build` (ubuntu-latest) and `ios-build` (macos-latest) green; CI also proved itself across Dependabot PRs #1–#3._
+- [x] `MASTER_PLAN.md` updated: Phase 01 → 🟢, "▶ Next Step" advanced to Phase 02.
 - [x] No TODOs left in any `build.gradle.kts` without an issue link. _Audited 2026-05-15: `grep -E "TODO|FIXME|XXX"` across all `build.gradle.kts` files and `settings.gradle.kts` returned zero matches._
 
 ---
