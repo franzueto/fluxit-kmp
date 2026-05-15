@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same branch / PR head.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  jvm-build:
+    name: JVM build (Android shell + quality gates)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Read-only cache on PRs to avoid cache pollution from forks;
+          # main writes the cache for the next PR's reuse.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Spotless
+        run: ./gradlew spotlessCheck
+
+      - name: ktlint
+        run: ./gradlew ktlintCheck
+
+      - name: detekt
+        run: ./gradlew detekt
+
+      - name: Konsist (architecture rules)
+        # --rerun-tasks: :build-logic:test scans repo source as runtime input,
+        # but Gradle doesn't track those files as task inputs. Without this
+        # the test reports UP-TO-DATE on a stale cache. See docs/ARCHITECTURE.md §5.
+        run: ./gradlew :build-logic:test --rerun-tasks
+
+      - name: Assemble Android debug
+        run: ./gradlew :android-app:assembleDebug
+
+  ios-build:
+    name: iOS build (shared XCFramework + SwiftUI shell)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Install xcodegen
+        # ios-app/FluxIt.xcodeproj is gitignored; scripts/build-ios.sh
+        # regenerates it from project.yml on every run.
+        run: brew install xcodegen
+
+      - name: Build iOS (XCFramework + xcodebuild simulator build)
+        run: scripts/build-ios.sh
