@@ -2,15 +2,15 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-05-15
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Foundation in progress (Android + iOS shells build green; all four quality gates wired)
+**Repo phase:** Foundation in progress (Android + iOS shells build green; all four quality gates wired; doc seeds in place)
 
 ---
 
 ## ▶ Next Step
 
-**Phase 01 — Initial Setup, section 9 (Documentation seeds).** Sections 1–8 are complete plus §11.2 / §11.3. All four quality gates (ktlint, detekt, Spotless, Konsist) are green repo-wide and a pre-commit hook auto-formats staged files. Next concrete action: **seed `docs/ARCHITECTURE.md` with the master-plan overview + per-module paragraphs and a Mermaid module-dependency diagram; add the three placeholder doc files**.
+**Phase 01 — Initial Setup, section 10 (CI smoke build).** Sections 1–9 are complete plus §11.2 / §11.3. ADR-013 ratified the Android `minSdk=26` / iOS 16 minimums. The four doc seeds (`ARCHITECTURE.md`, `DECISIONS.md`, `SCALING.md`, `TEAM_GUIDELINES.md`) are in `/docs`. Next concrete action: **author `.github/workflows/ci.yml` (jvm-build on ubuntu-latest, ios-build on macos-latest), add `CODEOWNERS`, `pull_request_template.md`, and `dependabot.yml`**. Branch protection on `main` documented in README and enforced via repo settings.
 
 ---
 
@@ -19,7 +19,7 @@
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (6 ADRs) | n/a |
-| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟠 In progress | 75% |
+| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟠 In progress | 83% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟡 Planned | 0% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |

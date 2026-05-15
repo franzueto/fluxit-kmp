@@ -105,10 +105,10 @@
 
 ## 9. Documentation seeds
 
-- [ ] `docs/ARCHITECTURE.md` — copy the architecture overview from `MASTER_PLAN.md` and expand with module-by-module responsibilities (one paragraph each). Include a Mermaid module dependency diagram.
-- [ ] `docs/DECISIONS.md` — short pointer to `plan/00_DECISIONS.md` (single source of truth) so external readers find ADRs.
-- [ ] `docs/SCALING.md` — placeholder with a TODO list (filled during Phase 17): module ownership matrix, when to split a feature module, version catalog stewardship.
-- [ ] `docs/TEAM_GUIDELINES.md` — placeholder: PR etiquette, code review SLAs, branch naming, commit message convention (`type(scope): subject`).
+- [x] `docs/ARCHITECTURE.md` — copy the architecture overview from `MASTER_PLAN.md` and expand with module-by-module responsibilities (one paragraph each). Include a Mermaid module dependency diagram.
+- [x] `docs/DECISIONS.md` — short pointer to `plan/00_DECISIONS.md` (single source of truth) so external readers find ADRs.
+- [x] `docs/SCALING.md` — placeholder with a TODO list (filled during Phase 17): module ownership matrix, when to split a feature module, version catalog stewardship.
+- [x] `docs/TEAM_GUIDELINES.md` — placeholder: PR etiquette, code review SLAs, branch naming, commit message convention (`type(scope): subject`).
 
 ## 10. CI smoke build (`/.github`)
 
