@@ -2,7 +2,7 @@
 
 A high-performance list-making app for Android and iOS, built natively with **Kotlin Multiplatform**. Domain, data, and state logic shared; UI native (Jetpack Compose + SwiftUI). Dark-mode-first, offline-only in v1.
 
-> **Status: planning complete, no code yet.** This repo currently contains the v1 architectural plan, design assets, and design tokens. Implementation begins at Phase 01.
+> **Status: Phase 01 (Foundation) in progress.** Android + iOS app shells build green against shared `:shared:state`; all four quality gates (ktlint, detekt, Spotless, Konsist) are wired and passing; CI smoke build (`.github/workflows/ci.yml`) covers both platforms; doc seeds in [`docs/`](docs/) are in place. See [`MASTER_PLAN.md`](MASTER_PLAN.md) for live progress.
 
 ## Prerequisites
 
@@ -15,11 +15,75 @@ A high-performance list-making app for Android and iOS, built natively with **Ko
 ## Where to start
 
 - **[`MASTER_PLAN.md`](MASTER_PLAN.md)** — the source of truth. Roadmap, milestones, progress tracker, ▶ Next Step pointer, and architecture overview. Read this first.
+- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — module map, dependency graph (Mermaid), per-module responsibilities, data flow, and the Konsist-enforced architecture rules.
 - **[`plan/`](plan/)** — 15 phase files, each exhaustive enough to execute against. Plus [`plan/00_DECISIONS.md`](plan/00_DECISIONS.md), the living ADR log.
+- **[`docs/TEAM_GUIDELINES.md`](docs/TEAM_GUIDELINES.md)** — commit conventions, branching, PR rules, code-review SLAs.
 - **[`DESIGN.md`](DESIGN.md)** — brand, color, typography, spacing, and component specs.
 - **[`design/`](design/)** — reference mockups for the four core v1 screens.
 
-## Repo layout (target, end of Phase 01)
+## How to run — Android
+
+Fresh-clone setup:
+
+1. Create `local.properties` at the repo root (gitignored):
+
+   ```properties
+   sdk.dir=/Users/<you>/Library/Android/sdk
+   ```
+
+   (Linux: typically `/home/<you>/Android/Sdk`.)
+
+2. Optional but recommended — install the auto-format pre-commit hook:
+
+   ```bash
+   scripts/install-hooks.sh
+   ```
+
+3. Build the debug APK:
+
+   ```bash
+   ./gradlew :android-app:assembleDebug
+   ```
+
+   Output: `android-app/build/outputs/apk/debug/android-app-debug.apk`.
+
+4. Install on a running emulator or attached device:
+
+   ```bash
+   ./gradlew :android-app:installDebug
+   ```
+
+   Or open the project in Android Studio (Hedgehog or newer) and Run.
+
+## How to run — iOS
+
+Fresh-clone setup (macOS only):
+
+1. Install [`xcodegen`](https://github.com/yonaskolb/XcodeGen):
+
+   ```bash
+   brew install xcodegen
+   ```
+
+2. Run the iOS smoke build. This regenerates `ios-app/FluxIt.xcodeproj` from [`ios-app/project.yml`](ios-app/project.yml) (the project file is gitignored — `project.yml` is the source of truth) and assembles the shared XCFramework before invoking `xcodebuild`:
+
+   ```bash
+   scripts/build-ios.sh
+   ```
+
+3. To work in Xcode, run the script once to materialize the project, then:
+
+   ```bash
+   open ios-app/FluxIt.xcodeproj
+   ```
+
+   Pick the `FluxIt` scheme and Run on any iOS 16+ Simulator.
+
+If a matching iOS Simulator runtime isn't installed, run `xcodebuild -downloadPlatform iOS` first.
+
+## Repo layout
+
+> The diagram below shows the v1 target shape. For the authoritative list of currently wired Gradle modules see [`settings.gradle.kts`](settings.gradle.kts); for per-module responsibilities and current vs. planned status see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ```
 /android-app                  ← Compose host, Navigation Compose
@@ -48,8 +112,6 @@ A high-performance list-making app for Android and iOS, built natively with **Ko
 /docs                         ← architecture, decisions, scaling, team guidelines
 /.github                      ← workflows, PR template, CODEOWNERS
 ```
-
-Until Phase 01 ships these directories, only the planning files exist.
 
 ## Stack (v1, locked)
 
