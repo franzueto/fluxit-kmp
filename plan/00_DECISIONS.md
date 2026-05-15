@@ -98,6 +98,27 @@
 
 ---
 
+### ADR-013 — Platform minimums: Android `minSdk = 26`, iOS deployment target `16.0`
+- **Status:** Accepted
+- **Date:** 2026-05-14
+- **Context:** Phase 01 §6/§7 needed concrete platform minimums to wire the build. Implementation landed `android-min-sdk = 26` in the version catalog (with `compileSdk = 35`, `targetSdk = 35`) and `deploymentTarget: "16.0"` in `ios-app/project.yml`, matching the "default proposal" lines in Phase 01's Open Questions. These values were never ratified into the ADR log, leaving §12's Open-Questions reconciliation step blocked. Resolving now (during §9, Documentation seeds) so `docs/ARCHITECTURE.md` can cite an accepted ADR rather than a "TBD".
+- **Decision:**
+  - **Android:** `minSdk = 26` (Android 8.0, "Oreo"). `compileSdk = 35` and `targetSdk = 35` (current stable as of catalog stewardship). Locked in `gradle/libs.versions.toml`; any change requires a superseding ADR.
+  - **iOS:** Deployment target `16.0`. Locked in `ios-app/project.yml`; any change requires a superseding ADR.
+- **Consequences:**
+  - ➕ Android 26 unblocks adaptive icons (Phase 02 brand assets) and `ServiceInfo.FOREGROUND_SERVICE_TYPE_*` constants needed by Phase 13 reminders without back-compat shims.
+  - ➕ iOS 16 unblocks SwiftUI `NavigationStack` (Phase 07 nav model), `PHPicker` improvements (Phase 10 photo picking), and the `Observable` macro for any SwiftUI view-model bridges.
+  - ➕ Coverage as of 2026-05-14: Android 26+ ≈ 95% of active devices; iOS 16+ ≈ 96% of active devices — both comfortably inside the "drop the long tail" zone for a v1 portfolio launch.
+  - ➖ Cuts off Android 7.x (≈3–4% tail) and iOS 15 (≈2% tail). Acceptable for v1; no enterprise/compliance constraint forces a wider net.
+  - 🔁 Phase 15 CI matrix can pin a single Android API level (26) for instrumentation tests in v1; expand later only if a regression report demands it.
+- **Alternatives considered:**
+  - `minSdk = 24` / iOS 15 — buys ~3% reach, costs adaptive-icon back-compat and `Observable` workarounds. Rejected.
+  - `minSdk = 28` / iOS 17 — eliminates more legacy code paths but cuts ~10–12% of devices on each platform. Premature for a launch product.
+  - Defer the lock to Phase 15 — rejected: leaving it open means every later phase has to qualify "if minSdk stays 26 then…", which is friction with no benefit.
+- **Resolves Open Questions in Phase 01:** "Min Android SDK?" and "Min iOS version?" — both can be checked off in §12 hand-off.
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
