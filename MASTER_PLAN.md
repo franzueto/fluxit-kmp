@@ -4,13 +4,13 @@
 
 **Last updated:** 2026-05-15
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Foundation in progress (Android + iOS shells build green; all four quality gates wired; doc seeds + CI workflows in place)
+**Repo phase:** Foundation nearly complete — only Phase 01 §12 hand-off gate remains (Android + iOS shells build green; all four quality gates wired; CI workflows + doc seeds in place; KMP test harness proven via `:core:core-utils`)
 
 ---
 
 ## ▶ Next Step
 
-**Phase 01 — Initial Setup, section 11.1 (core-utils Result extension + unit test).** Sections 1–10 are complete plus §11.2 / §11.3. CI workflow (`jvm-build` + `ios-build`), `CODEOWNERS`, PR template, Dependabot config, and branch-protection docs are in place; §1 README gaps (run instructions + `docs/ARCHITECTURE.md` link + status refresh) are backfilled. Next concrete action: **add a trivial `Result<T, E>` extension function in `:core:core-utils` `commonMain` plus a JVM unit test asserting it — proves the test harness runs end-to-end on a KMP module before §12 hand-off**.
+**Phase 01 — Initial Setup, section 12 (hand-off gate).** Sections 1–11 are complete (commit `c111610` landed §11.1: `Result.andThen` + 3-case JVM unit test in `:core:core-utils`). The §12 checklist has four items: (a) flip the four "Open questions" at the bottom of the phase file — three resolve via ADR-012/013, one defers to anticipated ADR-011; (b) **CI green on a representative PR** — requires opening the first real PR off a short-lived branch (the CI workflow has never run yet); (c) audit `build.gradle.kts` files for naked TODOs; (d) flip `MASTER_PLAN.md` Phase 01 → 🟢 100% and advance Next Step to Phase 02. Sequencing decision is pending — see `restart-prompt.md` for the open question to resolve at session resume.
 
 ---
 
@@ -19,7 +19,7 @@
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (6 ADRs) | n/a |
-| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟠 In progress | 92% |
+| 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟠 In progress | 96% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟡 Planned | 0% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |

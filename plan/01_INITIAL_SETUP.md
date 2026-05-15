@@ -124,7 +124,9 @@
 
 ## 11. Sanity tests
 
-- [ ] `:core:core-utils` ships one trivial `Result` extension and a unit test asserting it — proves the test harness runs on JVM.
+- [x] `:core:core-utils` ships one trivial `Result` extension and a unit test asserting it — proves the test harness runs on JVM.   <!-- `Result<T>.andThen` (fills the kotlin.Result flatMap gap) + 3 commonTest cases (success / short-circuit / propagate) executed via `:core:core-utils:testDebugUnitTest`. Commit c111610. -->
+
+
 - [x] `:shared:state` ships an empty `expect class Platform` with `androidMain` / `iosMain` `actual` returning a string — proves expect/actual + iOS framework export work.   <!-- pulled into §7 to satisfy SKIE fat-framework step; sealed PlatformKind added to force SKIE to emit Shared-Swift.h -->
 - [x] iOS app prints `Platform().name` — proves SKIE/framework consumption works end-to-end.   <!-- ContentView.swift renders Platform().name as caption under "FluxIt" -->
 
