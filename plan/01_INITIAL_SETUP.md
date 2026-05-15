@@ -133,10 +133,10 @@
 
 ## 12. Hand-off checklist (gate to Phase 02)
 
-- [ ] All checkboxes above are ✅.
+- [x] All checkboxes above are ✅.
 - [ ] CI is green on a representative PR (not just `main`).
 - [ ] `MASTER_PLAN.md` updated: Phase 01 → 🟢, "▶ Next Step" advanced to Phase 02.
-- [ ] No TODOs left in any `build.gradle.kts` without an issue link.
+- [x] No TODOs left in any `build.gradle.kts` without an issue link. _Audited 2026-05-15: `grep -E "TODO|FIXME|XXX"` across all `build.gradle.kts` files and `settings.gradle.kts` returned zero matches._
 
 ---
 
@@ -144,7 +144,7 @@
 
 _Surfaced here as we go; resolved questions move to ADRs._
 
-- [ ] **Min Android SDK?** Default proposal: `minSdk = 26` (covers ~95% as of 2026, unblocks adaptive icons + foreground service types for reminders). Confirm.
-- [ ] **Min iOS version?** Default proposal: `iOS 16` (SwiftUI `NavigationStack`, `PHPicker` improvements, `Observable` macro available). Confirm.
-- [ ] **Package ID base.** Default `com.fluxit` — confirm or override (e.g., reverse-DNS of an owned domain).
-- [ ] **Default branch model.** Trunk-based with short-lived feature branches assumed; defer to ADR-011 in Phase 15.
+- [x] **Min Android SDK?** Resolved by [ADR-013](00_DECISIONS.md): `minSdk = 26`, `compileSdk = 35`, `targetSdk = 35`.
+- [x] **Min iOS version?** Resolved by [ADR-013](00_DECISIONS.md): deployment target `16.0`.
+- [x] **Package ID base.** Resolved by [ADR-012](00_DECISIONS.md): `dev.franzueto.fluxit` (supersedes the `com.fluxit` clause of ADR-002).
+- [x] **Default branch model.** Deferred to anticipated **ADR-011** in Phase 15 (`15_CI_CD.md`); trunk-based with short-lived feature branches is the working assumption until then.
