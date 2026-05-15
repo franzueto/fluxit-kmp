@@ -1,0 +1,26 @@
+# FluxIt — Code Owners
+#
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-customizations/customizing-your-repository/about-code-owners
+# The last matching pattern wins. Keep this file ordered general → specific.
+#
+# Today FluxIt has a single contributor (@franzueto). The carve-outs below are
+# scaffolding — when a mobile-platform team forms, swap @franzueto for the
+# team handle (e.g. @fluxit/mobile-platform) without restructuring the file.
+
+# Default: all paths route to @franzueto.
+* @franzueto
+
+# Platform-specific carve-outs (today: same owner).
+/android-app/ @franzueto
+/ios-app/     @franzueto
+
+# Cross-cutting concerns kept explicit so a future split is one-line.
+/build-logic/                    @franzueto
+/.github/                        @franzueto
+/scripts/                        @franzueto
+/gradle/libs.versions.toml       @franzueto
+
+# Plan + ADR log: architectural changes need an explicit reviewer.
+/MASTER_PLAN.md                  @franzueto
+/plan/                           @franzueto
+/docs/                           @franzueto
