@@ -72,9 +72,26 @@ Deferred to v2: Ktor, Store5, Compose Multiplatform UI, auth, sync, Calendar/Sta
 
 ## Working in this repo
 
-This repo will follow trunk-based development with short-lived branches once Phase 01 lands the CI workflows. Until then, plan iterations are committed directly to `main`.
+This repo follows **trunk-based development** with short-lived branches off `main`. Conventional Commits required (`feat | fix | refactor | docs | test | chore | perf | build | ci`); see [`docs/TEAM_GUIDELINES.md`](docs/TEAM_GUIDELINES.md) for the full convention.
 
-Conventional Commits required (`feat | fix | refactor | docs | test | chore | perf | build | ci`).
+### Branch protection on `main`
+
+Enforced via GitHub repo settings (Settings → Branches → Branch protection rules → `main`). The CI workflow (`.github/workflows/ci.yml`) provides the required status checks. Configure as follows:
+
+- **Require a pull request before merging.** Direct pushes to `main` are blocked.
+  - Require approvals: **1** (raise to 2 once a second reviewer joins).
+  - Dismiss stale approvals when new commits are pushed.
+  - Require review from **Code Owners** ([`.github/CODEOWNERS`](.github/CODEOWNERS)).
+- **Require status checks to pass before merging.**
+  - Required: `JVM build (Android shell + quality gates)` and `iOS build (shared XCFramework + SwiftUI shell)` from the `CI` workflow.
+  - Require branches to be up to date before merging.
+- **Require conversation resolution before merging.**
+- **Require linear history** (no merge commits — squash or rebase only).
+- **Do not allow bypassing the above settings**, including for repository administrators.
+- **Restrict who can push to matching branches:** leave empty (PR-only).
+- Force pushes: **blocked**. Deletions: **blocked**.
+
+Dependabot PRs (config in [`.github/dependabot.yml`](.github/dependabot.yml)) are subject to the same gates.
 
 ## License
 
