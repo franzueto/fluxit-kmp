@@ -32,51 +32,53 @@ Rationale: keeps both platforms honest, lets designers edit JSON without touchin
 
 ## 2. Token catalog (from `DESIGN.md` + screen audit)
 
+> **Subset scope (agreed 2026-05-18, retrospectively ticked alongside §1):** the v1 token set encoded in `tokens.json` covers primary + neutrals + semantic surfaces, the 5 Inter type styles, the shape scale, the spacing scale, and `elevation.level0`/`level1`. Unchecked rows below are **deferred per Phase 02 subset scope** — they will be added when the feature phase that first needs them lands (accents: feature phases; category palette + sky: §9 Create List; `level2.fab`/`blur.backdrop`: §5 primitives + §7 backdrop blur; motion: §5/§7).
+
 Encode at minimum:
 
 **Colors**
-- [ ] `background.dark` = `#101822`
-- [ ] `surface.card` = `#1e2632`
-- [ ] `surface.search` = `#1e2632`
-- [ ] `surface.cardMuted` = `#1e2632` @ 50% (resting list-item state per DESIGN.md)
-- [ ] `text.primary` = `#ffffff`
-- [ ] `text.muted` = `#9da8b9`
-- [ ] `accent.orange` = `#f97316`
-- [ ] `accent.emerald` = `#10b981`
-- [ ] `accent.rose` = `#f43f5e`
-- [ ] `accent.indigo` = `#6366f1`
-- [ ] **`primary.blue` = `#2b7cee`** ← missing in current YAML; add it (used for FAB, active tab, primary CTAs)
-- [ ] `primary.blueShadow` = `#2b7cee` @ 40% (FAB shadow tint)
-- [ ] `divider.subtle` = computed from `text.muted` @ 12%
-- [ ] Category palette (used in Create List swatches): blue/rose/emerald/orange/indigo/sky — confirm "sky" hex with design (proposal: `#38bdf8`).
+- [x] `background.dark` = `#101822`
+- [x] `surface.card` = `#1e2632`
+- [x] `surface.search` = `#1e2632`
+- [x] `surface.cardMuted` = `#1e2632` @ 50% (resting list-item state per DESIGN.md)
+- [x] `text.primary` = `#ffffff`
+- [x] `text.muted` = `#9da8b9`
+- [ ] `accent.orange` = `#f97316` _(deferred per subset scope)_
+- [ ] `accent.emerald` = `#10b981` _(deferred per subset scope)_
+- [ ] `accent.rose` = `#f43f5e` _(deferred per subset scope)_
+- [ ] `accent.indigo` = `#6366f1` _(deferred per subset scope)_
+- [x] **`primary.blue` = `#2b7cee`** ← was missing in original YAML; landed in `tokens.json` (used for FAB, active tab, primary CTAs)
+- [x] `primary.blueShadow` = `#2b7cee` @ 40% (FAB shadow tint)
+- [x] `divider.subtle` = computed from `text.muted` @ 12%
+- [ ] Category palette (used in Create List swatches): blue/rose/emerald/orange/indigo/sky — sky hex resolved as `#38bdf8` (see "Resolved decisions" below); not yet in `tokens.json` _(deferred per subset scope — target §9 Create List)_
 
 **Typography (font: Inter)**
-- [ ] `display.lg` — 32 / 700 / 1.2 / -0.02em
-- [ ] `title.md` — 18 / 600 / 1.4
-- [ ] `body.md` — 16 / 400 / 1.5
-- [ ] `label.sm` — 14 / 400 / 1.4
-- [ ] `caption.xs` — 10 / 500 / 1.0
+- [x] `display.lg` — 32 / 700 / 1.2 / -0.02em
+- [x] `title.md` — 18 / 600 / 1.4
+- [x] `body.md` — 16 / 400 / 1.5
+- [x] `label.sm` — 14 / 400 / 1.4
+- [x] `caption.xs` — 10 / 500 / 1.0
 
 **Shapes (corner radii)**
-- [ ] `sm` 4dp · `default` 8dp · `md` 12dp · `lg` 16dp · `xl` 24dp · `full` 9999dp
+- [x] `sm` 4dp · `default` 8dp · `md` 12dp · `lg` 16dp · `xl` 24dp · `full` 9999dp
 
 **Spacing**
-- [ ] `containerPadding` 16dp
-- [ ] `stackGap` 8dp
-- [ ] `itemPaddingX` 16dp · `itemPaddingY` 12dp
-- [ ] `fabOffset` 32dp
-- [ ] Plus a 4dp base scale: `xs=4, sm=8, md=12, lg=16, xl=24, 2xl=32, 3xl=48`
+- [x] `containerPadding` 16dp
+- [x] `stackGap` 8dp
+- [x] `itemPaddingX` 16dp · `itemPaddingY` 12dp
+- [x] `fabOffset` 32dp
+- [x] Plus a 4dp base scale: `xs=4, sm=8, md=12, lg=16, xl=24, 2xl=32, 3xl=48`
 
 **Elevation (Tonal + Ambient)**
-- [ ] `level0` (background)
-- [ ] `level1` (surface) — no shadow, only tonal lift
-- [ ] `level2.fab` — primary-tinted shadow (`primary.blueShadow`, 24dp blur, 8dp y-offset)
-- [ ] `blur.backdrop` — 14dp (header + tab bar)
+- [x] `level0` (background)
+- [x] `level1` (surface) — no shadow, only tonal lift
+- [ ] `level2.fab` — primary-tinted shadow (`primary.blueShadow`, 24dp blur, 8dp y-offset) _(deferred per subset scope — target §5 `FluxItFab`)_
+- [ ] `blur.backdrop` — 14dp (header + tab bar) _(deferred per subset scope — target §7 backdrop blur)_
 
 **Motion (proposed defaults; confirm)**
-- [ ] `duration.fast` 120ms · `duration.standard` 200ms · `duration.emphasized` 320ms
-- [ ] `easing.standard` cubic(0.2, 0.0, 0, 1)
-- [ ] `easing.emphasized` cubic(0.2, 0.0, 0, 1.0)
+- [ ] `duration.fast` 120ms · `duration.standard` 200ms · `duration.emphasized` 320ms _(deferred per subset scope)_
+- [ ] `easing.standard` cubic(0.2, 0.0, 0, 1) _(deferred per subset scope)_
+- [ ] `easing.emphasized` cubic(0.2, 0.0, 0, 1.0) _(deferred per subset scope)_
 
 ## 3. Typography pipeline
 
