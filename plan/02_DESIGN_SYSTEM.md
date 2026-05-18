@@ -24,7 +24,7 @@ We need ONE place tokens live, then generate platform code. Decision is captured
 
 Rationale: keeps both platforms honest, lets designers edit JSON without touching code, and doesn't pull in Style Dictionary as a Node dependency (we'll write a ~200-line Kotlin generator instead — small, reviewable, no JS toolchain in CI).
 
-- [ ] Create `core-designsystem/tokens/tokens.json` populated from `DESIGN.md` (see §2 for the full token list).
+- [x] Create `core-designsystem/tokens/tokens.json` populated from `DESIGN.md` (see §2 for the full token list). _Landed as subset (primary + neutrals + semantic surfaces + 5 type styles + shapes + spacing + elevation level0/1) per the agreed scope; accents, category palette, motion, level2.fab, blur.backdrop deferred until a feature phase needs them._
 - [ ] Implement Gradle task `:core:core-designsystem:generateTokens` that reads `tokens.json` and emits Compose + Swift sources.
 - [ ] Wire `generateTokens` as a dependency of `compileKotlin` (Compose side) and as an Xcode build phase (Swift side).
 - [ ] Add a CI check `verifyTokensInSync` that re-runs generation and fails if working tree is dirty.
