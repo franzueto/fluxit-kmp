@@ -20,6 +20,12 @@ dependencies {
     implementation(libs.build.spotless.gradle.plugin)
     implementation(libs.build.ktlint.gradle.plugin)
 
+    // Used by the token-pipeline parser/emitters in
+    // src/main/kotlin/dev/franzueto/fluxit/tokens/ — see ADR-005.
+    // We only use Json.parseToJsonElement + JsonObject traversal, so the
+    // kotlin-serialization compiler plugin isn't needed.
+    implementation(libs.kotlinx.serialization.json)
+
     // Konsist architecture tests live here so they have a single canonical
     // home — see fluxit.quality.gradle.kts. JUnit 5 is the test runtime.
     testImplementation(libs.konsist)
