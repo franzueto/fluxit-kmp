@@ -52,9 +52,20 @@ class SwiftEmitterTest : FunSpec({
         // displayLg: fontSize 32, weight 700 (.bold), lineHeight 1.2,
         // tracking = -0.02 × 32 = -0.64.
         src shouldContain "displayLg = TypographyStyle("
-        src shouldContain "font: .system(size: 32, weight: .bold)"
+        // Phase 02 §3: Inter is now bundled + registered via Info.plist UIAppFonts.
+        src shouldContain "font: .custom(\"Inter\", size: 32).weight(.bold)"
         src shouldContain "lineHeight: 1.2"
         src shouldContain "tracking: -0.64"
+    }
+
+    test("identifiers colliding with Swift keywords get backtick-escaped") {
+        // shape.default flattens to identifier `default`, which is a Swift
+        // reserved word. The emitter must backtick-escape so Swift compiles.
+        val src = SwiftEmitter.emit(TokenParser.parse(sampleSwiftTokensJson()))
+            .getValue("FluxItTokens.swift")
+
+        src shouldContain "public static let `default`: CGFloat"
+        src shouldNotContain "public static let default:"
     }
 
     test("elevation emits ElevationValue with explicit RGB(A) on every component") {
@@ -95,8 +106,9 @@ private fun sampleSwiftTokensJson(): String = """
       },
       "shape": {
         "${'$'}type": "dimension",
-        "md":   { "${'$'}value": "12px" },
-        "full": { "${'$'}value": "9999px" }
+        "md":      { "${'$'}value": "12px" },
+        "default": { "${'$'}value": "8px"  },
+        "full":    { "${'$'}value": "9999px" }
       },
       "spacing": {
         "${'$'}type": "dimension",

@@ -26,6 +26,9 @@ targets:
       # have not yet run the generator from failing the xcodegen pass.
       - path: Generated
         optional: true
+      # Bundled resources (fonts, license files). Inter-Variable.ttf is
+      # registered via Info.plist UIAppFonts below.
+      - path: Resources
     info:
       path: Sources/Info.plist
       properties:
@@ -37,6 +40,8 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        UIAppFonts:
+          - Inter-Variable.ttf
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.franzueto.fluxit

@@ -19,8 +19,11 @@ package dev.franzueto.fluxit.tokens
 //     `RoundedRectangle(cornerRadius: FluxItTokens.Shapes.md)`.
 //   - letterSpacing is converted to points (em × fontSize) at generation time
 //     because SwiftUI's `.tracking(_:)` takes CGFloat in points.
-//   - Inter is stubbed via `Font.system(...)` until Phase 02 §3 bundles
-//     Inter-Variable.ttf, mirroring the Compose side.
+//   - Inter is bundled as Inter-Variable.ttf and registered via
+//     ios-app/Sources/Info.plist `UIAppFonts`. The emitter calls
+//     `Font.custom("Inter", size: …).weight(…)`; weight selects the
+//     right `wght` axis on the variable font (iOS 16+ honors this on
+//     custom-registered variable fonts).
 
 internal object SwiftEmitter {
 
@@ -59,7 +62,7 @@ internal object SwiftEmitter {
         appendLine("public enum Colors {")
         doc.colors.sortedBy { propertyName(it.path) }.forEach { tok ->
             tok.description?.let { appendLine("    /// ${escapeDocLine(it)}") }
-            appendLine("    public static let ${propertyName(tok.path)}: Color = ${colorLiteral(tok.color)}")
+            appendLine("    public static let ${swiftId(propertyName(tok.path))}: Color = ${colorLiteral(tok.color)}")
         }
         appendLine("}")
     }
@@ -70,7 +73,7 @@ internal object SwiftEmitter {
             .sortedBy { propertyName(it.path) }
             .forEach { tok ->
                 tok.description?.let { appendLine("    /// ${escapeDocLine(it)}") }
-                appendLine("    public static let ${propertyName(tok.path)}: CGFloat = ${cgFloatLiteral(tok.px)}")
+                appendLine("    public static let ${swiftId(propertyName(tok.path))}: CGFloat = ${cgFloatLiteral(tok.px)}")
             }
         appendLine("}")
     }
@@ -83,7 +86,7 @@ internal object SwiftEmitter {
             .sortedBy { propertyName(it.path) }
             .forEach { tok ->
                 tok.description?.let { appendLine("    /// ${escapeDocLine(it)}") }
-                appendLine("    public static let ${propertyName(tok.path)}: CGFloat = ${cgFloatLiteral(tok.px)}")
+                appendLine("    public static let ${swiftId(propertyName(tok.path))}: CGFloat = ${cgFloatLiteral(tok.px)}")
             }
         appendLine("}")
     }
@@ -95,14 +98,14 @@ internal object SwiftEmitter {
         appendLine("    public let tracking: CGFloat     // letter-spacing in points")
         appendLine("}")
         appendLine()
-        appendLine("// Font.system is a temporary stand-in. Phase 02 §3 bundles Inter-Variable.ttf")
-        appendLine("// and replaces these with `.custom(\"Inter\", size: …)` calls.")
+        appendLine("// Inter is registered via Info.plist UIAppFonts (Phase 02 §3).")
+        appendLine("// .weight(…) selects the `wght` axis on the variable font.")
         appendLine("public enum Typography {")
         doc.typography.sortedBy { propertyName(it.path) }.forEach { tok ->
             tok.description?.let { appendLine("    /// ${escapeDocLine(it)}") }
             val trackingPt = (tok.letterSpacingEm ?: 0.0) * tok.fontSizePx
-            appendLine("    public static let ${propertyName(tok.path)} = TypographyStyle(")
-            appendLine("        font: .system(size: ${cgFloatLiteral(tok.fontSizePx)}, weight: ${swiftFontWeight(tok.fontWeight)}),")
+            appendLine("    public static let ${swiftId(propertyName(tok.path))} = TypographyStyle(")
+            appendLine("        font: .custom(\"Inter\", size: ${cgFloatLiteral(tok.fontSizePx)}).weight(${swiftFontWeight(tok.fontWeight)}),")
             appendLine("        lineHeight: ${cgFloatLiteral(tok.lineHeight)},")
             appendLine("        tracking: ${cgFloatLiteral(trackingPt)}")
             appendLine("    )")
@@ -122,7 +125,7 @@ internal object SwiftEmitter {
         appendLine("public enum Elevation {")
         doc.shadows.sortedBy { propertyName(it.path) }.forEach { tok ->
             tok.description?.let { appendLine("    /// ${escapeDocLine(it)}") }
-            appendLine("    public static let ${propertyName(tok.path)} = ElevationValue(")
+            appendLine("    public static let ${swiftId(propertyName(tok.path))} = ElevationValue(")
             appendLine("        color: ${colorLiteral(tok.color)},")
             appendLine("        offsetX: ${cgFloatLiteral(tok.offsetXPx)},")
             appendLine("        offsetY: ${cgFloatLiteral(tok.offsetYPx)},")
@@ -185,4 +188,24 @@ internal object SwiftEmitter {
     }
 
     private fun escapeDocLine(s: String): String = s.replace("\n", " ")
+
+    // Swift reserved words that can appear as token identifiers after the
+    // propertyName() flattening. Backtick-escape so e.g. `shape.default`
+    // emits as `` `default` ``. We escape only true keywords; contextual
+    // keywords (e.g. `get`, `set`, `final`) are not declaration-position
+    // keywords and would not need backticks here, but we include the safe
+    // declaration-position set to be defensive.
+    private val SWIFT_KEYWORDS = setOf(
+        "associatedtype", "class", "deinit", "enum", "extension", "fileprivate",
+        "func", "import", "init", "inout", "internal", "let", "open", "operator",
+        "private", "precedencegroup", "protocol", "public", "rethrows", "static",
+        "struct", "subscript", "typealias", "var",
+        "break", "case", "catch", "continue", "default", "defer", "do", "else",
+        "fallthrough", "for", "guard", "if", "in", "repeat", "return", "throw",
+        "switch", "where", "while",
+        "Any", "as", "false", "is", "nil", "self", "Self", "super", "throws",
+        "true", "try",
+    )
+
+    private fun swiftId(name: String): String = if (name in SWIFT_KEYWORDS) "`$name`" else name
 }
