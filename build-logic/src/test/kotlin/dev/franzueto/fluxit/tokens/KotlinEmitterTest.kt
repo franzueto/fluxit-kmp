@@ -53,8 +53,11 @@ class KotlinEmitterTest : FunSpec({
         typo shouldContain "fontWeight = FontWeight(700)"
         typo shouldContain "lineHeight = 1.2.em"
         typo shouldContain "letterSpacing = -0.02.em"
-        // Inter is not yet bundled (Phase 02 §3); SansSerif stand-in must be present.
-        typo shouldContain "FontFamily.SansSerif"
+        // Phase 02 §3: Inter is now bundled; the emitter references the
+        // FontFamily.Companion.Inter extension declared in androidMain
+        // (see core-designsystem/.../typography/FluxItFonts.kt).
+        typo shouldContain "fontFamily = FontFamily.Inter"
+        typo shouldContain "import dev.franzueto.fluxit.core.designsystem.typography.Inter"
     }
 
     test("elevation emits a data class and zero-shadow level0/level1") {

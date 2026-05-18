@@ -37,7 +37,13 @@ internal object KotlinEmitter {
         // Source of truth: core/core-designsystem/tokens/tokens.json.
         // See plan/02_DESIGN_SYSTEM.md §1 and ADR-005.
 
-        @file:Suppress("MagicNumber", "MaxLineLength", "ktlint:standard:max-line-length")
+        @file:Suppress(
+            "MagicNumber",
+            "MaxLineLength",
+            "ktlint:standard:max-line-length",
+            "ktlint:standard:multiline-expression-wrapping",
+            "ktlint:standard:spacing-between-declarations-with-comments",
+        )
 
         package $PACKAGE
 
@@ -90,16 +96,13 @@ internal object KotlinEmitter {
         appendLine("import androidx.compose.ui.text.font.FontWeight")
         appendLine("import androidx.compose.ui.unit.em")
         appendLine("import androidx.compose.ui.unit.sp")
-        appendLine()
-        appendLine("// FontFamily.SansSerif is a temporary stand-in. Phase 02 §3 bundles")
-        appendLine("// Inter-Variable.ttf as a real FontFamily and replaces this reference.")
-        appendLine("private val DefaultFamily: FontFamily = FontFamily.SansSerif")
+        appendLine("import dev.franzueto.fluxit.core.designsystem.typography.Inter")
         appendLine()
         appendLine("public object FluxItTypography {")
         doc.typography.sortedBy { propertyName(it.path) }.forEach { tok ->
             tok.description?.let { appendLine("    /** ${escapeKDoc(it)} */") }
             appendLine("    public val ${propertyName(tok.path)}: TextStyle = TextStyle(")
-            appendLine("        fontFamily = DefaultFamily,")
+            appendLine("        fontFamily = FontFamily.Inter,")
             appendLine("        fontWeight = FontWeight(${tok.fontWeight}),")
             appendLine("        fontSize = ${dpLiteral(tok.fontSizePx).replace(".dp", ".sp")},")
             appendLine("        lineHeight = ${formatDouble(tok.lineHeight)}.em,")
