@@ -120,7 +120,7 @@
 ---
 
 ### ADR-005 — Design token pipeline: hand-authored `tokens.json` + Gradle-resident Kotlin generator
-- **Status:** Proposed
+- **Status:** Accepted (flipped from Proposed on 2026-05-18 after first clean Compose + SwiftUI round-trip and a green `assembleDebug`)
 - **Date:** 2026-05-18
 - **Context:** Phase 02 requires a single source of truth for color/type/shape/spacing/elevation tokens that emits both Compose (Kotlin) and SwiftUI (Swift) consumables. ADR-001 locked native UI on each platform, so the same token must surface twice in two different type systems without drift. Three concrete approaches are on the table:
   1. **Style Dictionary** (Amazon, JS) — the industry default for multi-platform token export. Mature transforms, large ecosystem, but pulls a Node toolchain into CI for a single ~one-file emission step.

@@ -11,6 +11,9 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
+echo "[build-ios] Regenerating design tokens (ADR-005)…"
+./gradlew :core:core-designsystem:generateTokens
+
 echo "[build-ios] Assembling Shared.xcframework (release)…"
 ./gradlew :shared:state:assembleSharedReleaseXCFramework
 

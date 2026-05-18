@@ -73,6 +73,7 @@ internal object KotlinEmitter {
         append(header())
         appendLine("import androidx.compose.foundation.shape.RoundedCornerShape")
         appendLine("import androidx.compose.ui.graphics.Shape")
+        appendLine("import androidx.compose.ui.unit.dp")
         appendLine()
         appendLine("public object FluxItShapes {")
         shapeTokens(doc).sortedBy { propertyName(it.path) }.forEach { tok ->
