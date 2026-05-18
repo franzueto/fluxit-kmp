@@ -119,11 +119,50 @@
 
 ---
 
+### ADR-005 — Design token pipeline: hand-authored `tokens.json` + Gradle-resident Kotlin generator
+- **Status:** Proposed
+- **Date:** 2026-05-18
+- **Context:** Phase 02 requires a single source of truth for color/type/shape/spacing/elevation tokens that emits both Compose (Kotlin) and SwiftUI (Swift) consumables. ADR-001 locked native UI on each platform, so the same token must surface twice in two different type systems without drift. Three concrete approaches are on the table:
+  1. **Style Dictionary** (Amazon, JS) — the industry default for multi-platform token export. Mature transforms, large ecosystem, but pulls a Node toolchain into CI for a single ~one-file emission step.
+  2. **Hand-maintained-twice** — author `FluxItColors.kt` and `FluxItTokens.swift` directly, code-review for parity. Zero tooling, infinite drift surface.
+  3. **JSON-as-SoT + a small in-repo Kotlin generator** — `core-designsystem/tokens/tokens.json` in W3C Design Tokens Community Group format, with a Gradle task in `build-logic` that emits both Kotlin and Swift outputs. ~200 lines of generator code, no extra toolchain.
+  The repo already runs Gradle on every CI job and already produces a Kotlin/JVM `build-logic` module; adding a generator there is incremental. The repo does not currently run Node anywhere; adopting Style Dictionary would be the first dependency on a non-JVM runtime.
+- **Decision:** Approach **(3)** — JSON SoT plus a Kotlin generator.
+  - **Source of truth:** `core/core-designsystem/tokens/tokens.json`, hand-authored, [W3C Design Tokens CG format](https://design-tokens.github.io/community-group/format/). Light/dark token groups present from day one; `light` empty for v1 (dark-mode-only is the §11 sub-decision tracked separately).
+  - **Generator:** a Gradle task `:core:core-designsystem:generateTokens` defined in a `build-logic` convention plugin. Reads `tokens.json`, emits:
+    - Kotlin: `FluxItColors.kt`, `FluxItTypography.kt`, `FluxItShapes.kt`, `FluxItSpacing.kt`, `FluxItElevation.kt` into `core-designsystem/build/generated/source/tokens/` (registered as a Kotlin source set; gitignored).
+    - Swift: `FluxItTokens.swift` into `ios-app/Generated/` (gitignored; xcodegen `project.yml` globs `Generated/**.swift` so the file is picked up on the next `scripts/build-ios.sh`).
+  - **Wiring:**
+    - Compose side — `generateTokens` is wired as a `dependsOn` of `compileKotlin`.
+    - iOS side — `scripts/build-ios.sh` runs `:core:core-designsystem:generateTokens` before invoking `xcodegen` + `xcodebuild`. (Future option: add an Xcode "Run Script" build phase that calls the same Gradle task, evaluated in Phase 15.)
+  - **CI guard:** a `verifyTokensInSync` task re-runs the generator and fails the build if the working tree is dirty afterward. Catches the "edited generated file by hand" case.
+  - **Status flip:** this ADR stays **Proposed** until the generator lands and produces a clean Compose+SwiftUI round-trip with the verifier green; a follow-up commit on `phase/02-design-system` flips it to **Accepted**.
+- **Consequences:**
+  - ➕ Zero new runtimes in CI. Generator runs inside the Gradle process every build already does.
+  - ➕ The generator is a Kotlin program in the same repo, reviewed under the same Konsist/detekt rules — auditable, not a vendored binary.
+  - ➕ `tokens.json` is the only file designers (or future you) edit to change a color across both platforms.
+  - ➕ Adding a token = JSON edit + regen. No "did we add it on both sides?" review burden.
+  - ➖ ~200 lines of generator code we own. If the W3C DTCG spec evolves materially (currently Editor's Draft), we maintain.
+  - ➖ Swift output lives outside Gradle's standard `build/` tree (it lands under `ios-app/Generated/`). Mitigated by gitignore + the `verifyTokensInSync` guard.
+  - 🔁 If we later add platform targets (e.g. web, watchOS) the generator gains one more emitter — additive, not a rewrite.
+  - 🔁 If the generator ever exceeds ~500 LOC or we need richer transforms (calc(), references, math), revisit by superseding ADR with a Style Dictionary migration plan.
+- **Alternatives considered:**
+  - **Style Dictionary** (option 1) — rejected for v1: drags Node into a JVM-only CI, and our token surface is small enough that a hand-rolled generator is cheaper to own than the dependency. Re-evaluate at the threshold above.
+  - **Hand-maintained-twice** (option 2) — rejected: ADR-001 means every screen consumes tokens on two platforms; drift is the failure mode we most need to design out.
+  - **Kotlin-as-SoT** (e.g. an `object FluxItTokens` Kotlin file, then generate Swift from it via KSP or reflection) — rejected: locks designers into editing Kotlin to change a hex value, and KSP-to-Swift generation is not a paved path.
+  - **YAML SoT** instead of JSON — equivalent in expressiveness; rejected because the W3C DTCG format is JSON-native and design tools (Figma Tokens plugin, etc.) already export to that JSON shape, keeping a future import path open.
+- **Open sub-decisions (deferred to their own ADR entries this phase):**
+  - **ADR-005a** — iconography source (vectorized 25-icon set vs. Material Symbols Variable font).
+  - **ADR-005b** — dark-mode-only for v1; reserve namespace for light tokens.
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
 
-- **ADR-005** (Phase 02): Design token pipeline — single source of truth for color/type/spacing, generation strategy for Compose + SwiftUI.
+- **ADR-005a** (Phase 02): Iconography source — vectorized in-repo SVG set vs. Material Symbols Variable font.
+- **ADR-005b** (Phase 02): Dark-mode-only for v1; reserve token namespace for a future light theme.
 - **ADR-006** (Phase 03): SQLDelight schema versioning + migration policy.
 - **ADR-007** (Phase 05): MVI store contract — intents/state/effects, error model, optimistic update pattern.
 - **ADR-008** (Phase 06): expect/actual vs. Koin-injected interfaces for platform capabilities (we'll likely standardize on injected interfaces).
