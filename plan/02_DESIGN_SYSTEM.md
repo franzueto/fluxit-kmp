@@ -110,11 +110,12 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
   _Shipped as two top-level primitives: `FluxItTopBarLarge` / `FluxItTopBarCentered` (Compose + SwiftUI). Bar background uses the §7-resolved opaque fallback (`surface.card @ 90%`) on Android and `.ultraThinMaterial` on iOS until §7 finalizes the blur perf path._
 - [x] **`FluxItBottomTabBar`** — 4 tabs, 80dp height, blur backdrop, centered icon+caption stack, active-state fill + `primary.blue` tint. _Generic over a `List<FluxItTabItem>` (icon + activeIcon + label) on both platforms; selection-state tinting via `primary.blue` / `text.muted`. Same backdrop strategy as the top bar._
 - [ ] **`FluxItSearchField`** — full-width, leading search icon, no border, `surface.search` fill, `rounded-xl`, placeholder uses `text.muted`.
-- [ ] **`FluxItCard`** — surface card with `rounded-xl`, optional resting-state 50% opacity, press-state 100%.
-- [ ] **`FluxItListItem`** — three-slot layout: 56dp leading icon container with 20%-opacity tint, title + subtitle stack, trailing slot. Variants:
+- [x] **`FluxItCard`** — surface card with `rounded-xl`, optional resting-state 50% opacity, press-state 100%. _Compose: `Box` with `clip(RoundedCornerShape(16.dp))` + `background(surfaceCard | surfaceCardMuted)`. SwiftUI: `clipShape(RoundedRectangle(cornerRadius: 16))` over the same token colors. `resting: Boolean = false` flag toggles the 50%-alpha muted variant on both platforms._
+- [x] **`FluxItListItem`** — three-slot layout: 56dp leading icon container with 20%-opacity tint, title + subtitle stack, trailing slot. Variants:
   - Dashboard list-item (icon container colored, trash + chevron trailing).
   - Detail to-buy item (radio leading, chevron trailing).
   - Detail completed item (filled-circle check leading, strikethrough title, trash trailing).
+  _Shipped as three top-level primitives mirrored 1:1 across platforms: `FluxItDashboardListItem` (Compose+Swift), `FluxItToBuyListItem`, `FluxItCompletedListItem`. Dashboard variant exposes independent `trashIcon`/`onDelete` + `chevronIcon` slots; to-buy uses a hand-drawn hollow radio (Compose `Modifier.border` over a `CircleShape`; SwiftUI `Circle().strokeBorder`); completed variant applies `TextDecoration.LineThrough` / `.strikethrough()` on the title._
 - [ ] **`FluxItProgressBar`** — slim `primary.blue` linear progress with rounded caps; used on List Detail header (`13/20`).
 - [ ] **`FluxItFab`** — 64dp circle, `primary.blue`, `level2.fab` shadow, plus icon. Center-docked variant for tab bar.
 - [ ] **`FluxItIconChip`** — used in Create List icon picker: 80dp rounded square, selected state shows `primary.blue` border + tint.
@@ -122,7 +123,7 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 - [ ] **`FluxItPrimaryButton`** — full-width, `primary.blue`, `body.md` semibold white text. Disabled state at 40% opacity.
 - [ ] **`FluxItTextField`** — labeled (uppercase `caption.xs` muted label above), surface fill, `rounded-md`. Single-line and multi-line variants (Edit Item description).
 - [ ] **`FluxItInlineComposer`** — bottom-anchored "+ Add new item…" pill + circular submit button on the right (List Detail screen).
-- [ ] **`FluxItSectionHeader`** — uppercase muted label + optional trailing text-button ("Hide").
+- [x] **`FluxItSectionHeader`** — uppercase muted label + optional trailing text-button ("Hide"). _`label.uppercase()` rendered as `captionXs` muted; optional `trailingActionLabel` text-button in `primary.blue`._
 - [ ] **`FluxItEmptyState`** — used by Calendar/Starred placeholders (per ADR-004) and by the Lists Dashboard before any list exists.
 - [ ] **`FluxItDestructiveButton`** — outlined variant in `accent.rose` with trash icon (Edit Item delete).
 - [ ] **`FluxItSwipeRow`** — gesture container that reveals a rose-tinted destructive action on swipe. Android: built on `SwipeToDismissBox` with a custom background. iOS: thin wrapper around native `.swipeActions(edge: .trailing) { Button(role: .destructive) … }`. Backfilled from Phase 07 (used by dashboard rows; reusable for any list with destructive row actions).
