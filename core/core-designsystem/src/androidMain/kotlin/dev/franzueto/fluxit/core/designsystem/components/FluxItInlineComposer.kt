@@ -1,0 +1,72 @@
+package dev.franzueto.fluxit.core.designsystem.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import dev.franzueto.fluxit.core.designsystem.tokens.FluxItColors
+import dev.franzueto.fluxit.core.designsystem.tokens.FluxItTypography
+
+@Composable
+@Suppress("ktlint:standard:function-naming")
+public fun FluxItInlineComposer(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    submitIcon: ImageVector,
+    placeholder: String = "Add new item…",
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(FluxItColors.surfaceCard)
+                .padding(start = 20.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(modifier = Modifier.weight(1f)) {
+            if (value.isEmpty()) {
+                Text(text = placeholder, style = FluxItTypography.bodyMd, color = FluxItColors.textMuted)
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = FluxItTypography.bodyMd.copy(color = FluxItColors.textPrimary),
+                cursorBrush = SolidColor(FluxItColors.primaryBlue),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        IconButton(
+            onClick = onSubmit,
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(FluxItColors.primaryBlue),
+        ) {
+            Icon(imageVector = submitIcon, contentDescription = "Submit", tint = FluxItColors.textPrimary)
+        }
+    }
+}

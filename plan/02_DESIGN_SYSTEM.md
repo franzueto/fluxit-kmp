@@ -109,7 +109,7 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
   - Variant B: centered title + leading text-button (e.g., "‹ Lists") + trailing icon button — used on List Detail / Edit Item.
   _Shipped as two top-level primitives: `FluxItTopBarLarge` / `FluxItTopBarCentered` (Compose + SwiftUI). Bar background uses the §7-resolved opaque fallback (`surface.card @ 90%`) on Android and `.ultraThinMaterial` on iOS until §7 finalizes the blur perf path._
 - [x] **`FluxItBottomTabBar`** — 4 tabs, 80dp height, blur backdrop, centered icon+caption stack, active-state fill + `primary.blue` tint. _Generic over a `List<FluxItTabItem>` (icon + activeIcon + label) on both platforms; selection-state tinting via `primary.blue` / `text.muted`. Same backdrop strategy as the top bar._
-- [ ] **`FluxItSearchField`** — full-width, leading search icon, no border, `surface.search` fill, `rounded-xl`, placeholder uses `text.muted`.
+- [x] **`FluxItSearchField`** — full-width, leading search icon, no border, `surface.search` fill, `rounded-xl`, placeholder uses `text.muted`. _Compose: `BasicTextField` inside a styled `Row` (no Material3 `TextField` chrome); cursor brush set to `primary.blue`. SwiftUI: `TextField` with `.tint(primary.blue)` and a `ZStack` placeholder overlay._
 - [x] **`FluxItCard`** — surface card with `rounded-xl`, optional resting-state 50% opacity, press-state 100%. _Compose: `Box` with `clip(RoundedCornerShape(16.dp))` + `background(surfaceCard | surfaceCardMuted)`. SwiftUI: `clipShape(RoundedRectangle(cornerRadius: 16))` over the same token colors. `resting: Boolean = false` flag toggles the 50%-alpha muted variant on both platforms._
 - [x] **`FluxItListItem`** — three-slot layout: 56dp leading icon container with 20%-opacity tint, title + subtitle stack, trailing slot. Variants:
   - Dashboard list-item (icon container colored, trash + chevron trailing).
@@ -121,8 +121,8 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 - [ ] **`FluxItIconChip`** — used in Create List icon picker: 80dp rounded square, selected state shows `primary.blue` border + tint.
 - [ ] **`FluxItColorSwatch`** — circle with optional ring for selected state.
 - [ ] **`FluxItPrimaryButton`** — full-width, `primary.blue`, `body.md` semibold white text. Disabled state at 40% opacity.
-- [ ] **`FluxItTextField`** — labeled (uppercase `caption.xs` muted label above), surface fill, `rounded-md`. Single-line and multi-line variants (Edit Item description).
-- [ ] **`FluxItInlineComposer`** — bottom-anchored "+ Add new item…" pill + circular submit button on the right (List Detail screen).
+- [x] **`FluxItTextField`** — labeled (uppercase `caption.xs` muted label above), surface fill, `rounded-md`. Single-line and multi-line variants (Edit Item description). _Single primitive with `singleLine: Boolean` + `minLines: Int` flags toggling between modes (Compose: `singleLine`/`minLines` on `BasicTextField`; SwiftUI: `axis: .vertical` + `lineLimit(minLines...20)` for the multi-line path)._
+- [x] **`FluxItInlineComposer`** — bottom-anchored "+ Add new item…" pill + circular submit button on the right (List Detail screen). _56dp pill (corner radius 28dp), `BasicTextField` left side, 44dp circular `IconButton` on the right filled with `primary.blue` and using a caller-supplied `submitIcon`. SwiftUI mirror uses `TextField(onCommit:)` so return-key submits._
 - [x] **`FluxItSectionHeader`** — uppercase muted label + optional trailing text-button ("Hide"). _`label.uppercase()` rendered as `captionXs` muted; optional `trailingActionLabel` text-button in `primary.blue`._
 - [ ] **`FluxItEmptyState`** — used by Calendar/Starred placeholders (per ADR-004) and by the Lists Dashboard before any list exists.
 - [ ] **`FluxItDestructiveButton`** — outlined variant in `accent.rose` with trash icon (Edit Item delete).
