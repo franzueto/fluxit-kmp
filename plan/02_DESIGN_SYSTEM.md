@@ -103,7 +103,7 @@ Encode at minimum:
 
 Each primitive ships in **both** Compose and SwiftUI with identical name and prop semantics. Cross-platform parity is enforced by snapshot tests.
 
-- [ ] **`FluxItScaffold`** — applies `background.dark`, safe-area handling, optional sticky header + tab bar slots with `backdrop-blur-md`.
+- [x] **`FluxItScaffold`** — applies `background.dark`, safe-area handling, optional sticky header + tab bar slots with `backdrop-blur-md`. _Compose: `core/core-designsystem/src/androidMain/.../components/FluxItScaffold.kt` (Material3 `Scaffold` with `containerColor = FluxItColors.backgroundDark`, `contentColor = FluxItColors.textPrimary`, slots for `topBar`/`bottomBar`). SwiftUI: `ios-app/Sources/DesignSystem/Components/FluxItScaffold.swift` (`ZStack` over `FluxItTokens.Colors.backgroundDark.ignoresSafeArea()` with `safeAreaInset(edge: .top/.bottom)` for slot equivalents). Backdrop blur is layered on by `FluxItTopBar` / `FluxItBottomTabBar` themselves (§7 finalizes the perf path); the scaffold is just the chrome._
 - [ ] **`FluxItTopBar`**
   - Variant A: large title (`display.lg`), trailing icon button (settings) — used on Lists Dashboard.
   - Variant B: centered title + leading text-button (e.g., "‹ Lists") + trailing icon button — used on List Detail / Edit Item.
