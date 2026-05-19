@@ -2,7 +2,7 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-19 (Phase 02 §6 + §10 complete; ADR-005b Accepted; DESIGN.md rebranded)
+**Last updated:** 2026-05-19 (Phase 02 §5 primitives landed — 16 of 17; SwipeRow deferred to Phase 07)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
 **Repo phase:** Foundation complete — Phase 01 closed (Android + iOS shells build green; all four quality gates wired; CI proven green on PR #4 plus three Dependabot PRs; doc seeds + ADR log in place; KMP test harness proven via `:core:core-utils`). Phase 02 (Design System) is up next.
 
@@ -10,7 +10,7 @@
 
 ## ▶ Next Step
 
-**Phase 02 — Design System §5 (Reusable primitives).** §§1–4, §6, and §10 are complete — token pipeline (ADR-005), icon pipeline (ADR-005a), theme + dark-mode lock (ADR-005b), and `DESIGN.md` rebranded (frontmatter `name: FluxIt`, `primary-blue: '#2b7cee'` added to the YAML map, prose swept of "Lumina Lists", tokens-as-SoT callout added). §5 is the big one — it ships the reusable Compose + SwiftUI primitives that every feature phase (07–10) consumes: tab bar, FAB, search input, list item, swatch / icon-chip pickers, empty-state, destructive button, swipe row. Remaining after §5: §7 backdrop blur (perf benchmark), §8 accessibility verification, §9 Theme Gallery debug screen, §12 sanity tests (Konsist + snapshots), §13 hand-off gate.
+**Phase 02 — Design System §7 (Backdrop blur on header + tab bar).** §§1–6, §10, and §11 are complete. §5 landed 16 of 17 primitives across five group commits (chrome → cards → inputs → buttons → pickers/misc); `FluxItSwipeRow` is explicitly deferred to Phase 07. `accent.rose` (#f43f5e) was promoted from the deferred subset to `tokens.json` because `FluxItDestructiveButton` needs it. §7 owes the actual `Modifier.blur()` path on Compose (API 31+) gated behind a `Build.VERSION.SDK_INT` check, falling back to the already-shipped `surface.card @ 90%` opaque background. SwiftUI side already uses `.ultraThinMaterial` so it's done. Real-device perf benchmark (Pixel 6a + iPhone 12 mini) can be Phase 14/15. Remaining after §7: §8 accessibility verification, §9 Theme Gallery debug screen, §12 sanity tests, §13 hand-off gate.
 
 ---
 
@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (9 ADRs) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
-| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 55% |
+| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 75% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |

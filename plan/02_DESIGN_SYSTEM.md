@@ -116,17 +116,17 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
   - Detail to-buy item (radio leading, chevron trailing).
   - Detail completed item (filled-circle check leading, strikethrough title, trash trailing).
   _Shipped as three top-level primitives mirrored 1:1 across platforms: `FluxItDashboardListItem` (Compose+Swift), `FluxItToBuyListItem`, `FluxItCompletedListItem`. Dashboard variant exposes independent `trashIcon`/`onDelete` + `chevronIcon` slots; to-buy uses a hand-drawn hollow radio (Compose `Modifier.border` over a `CircleShape`; SwiftUI `Circle().strokeBorder`); completed variant applies `TextDecoration.LineThrough` / `.strikethrough()` on the title._
-- [ ] **`FluxItProgressBar`** — slim `primary.blue` linear progress with rounded caps; used on List Detail header (`13/20`).
+- [x] **`FluxItProgressBar`** — slim `primary.blue` linear progress with rounded caps; used on List Detail header (`13/20`). _6dp track in `divider.subtle`, filled portion in `primary.blue`; both rounded with 3dp radius. Single `progress: Float` (0..1) on Compose / `Double` on SwiftUI; clamped at the primitive boundary._
 - [x] **`FluxItFab`** — 64dp circle, `primary.blue`, `level2.fab` shadow, plus icon. Center-docked variant for tab bar. _64dp `Box` / 64pt `Image` with `Modifier.shadow` / `.shadow()` tinted by `primary.blueShadow`. Caller passes the icon (typically `FluxItIcons.Plus`). Center-docked positioning is a parent-layout concern, not a primitive parameter — left for the screen consumer._
-- [ ] **`FluxItIconChip`** — used in Create List icon picker: 80dp rounded square, selected state shows `primary.blue` border + tint.
-- [ ] **`FluxItColorSwatch`** — circle with optional ring for selected state.
+- [x] **`FluxItIconChip`** — used in Create List icon picker: 80dp rounded square, selected state shows `primary.blue` border + tint. _80dp rounded-square (20dp radius); background is `tint @ 20% alpha` (or `primary.blue @ 20%` when selected), with a 2dp `primary.blue` border + icon tint in `primary.blue` when selected. A11y: `Role.Button` + `selected` semantic flag (Compose) / `.isSelected` accessibility trait (SwiftUI)._
+- [x] **`FluxItColorSwatch`** — circle with optional ring for selected state. _40dp filled circle; selected state adds a 3dp `textPrimary` ring (chosen over `primary.blue` for contrast against blue swatches in the category palette). Same a11y treatment as IconChip._
 - [x] **`FluxItPrimaryButton`** — full-width, `primary.blue`, `body.md` semibold white text. Disabled state at 40% opacity. _56dp pill (16dp corner radius); `enabled: Bool` toggles fill alpha 1.0 → 0.4 and disables the click handler._
 - [x] **`FluxItTextField`** — labeled (uppercase `caption.xs` muted label above), surface fill, `rounded-md`. Single-line and multi-line variants (Edit Item description). _Single primitive with `singleLine: Boolean` + `minLines: Int` flags toggling between modes (Compose: `singleLine`/`minLines` on `BasicTextField`; SwiftUI: `axis: .vertical` + `lineLimit(minLines...20)` for the multi-line path)._
 - [x] **`FluxItInlineComposer`** — bottom-anchored "+ Add new item…" pill + circular submit button on the right (List Detail screen). _56dp pill (corner radius 28dp), `BasicTextField` left side, 44dp circular `IconButton` on the right filled with `primary.blue` and using a caller-supplied `submitIcon`. SwiftUI mirror uses `TextField(onCommit:)` so return-key submits._
 - [x] **`FluxItSectionHeader`** — uppercase muted label + optional trailing text-button ("Hide"). _`label.uppercase()` rendered as `captionXs` muted; optional `trailingActionLabel` text-button in `primary.blue`._
-- [ ] **`FluxItEmptyState`** — used by Calendar/Starred placeholders (per ADR-004) and by the Lists Dashboard before any list exists.
+- [x] **`FluxItEmptyState`** — used by Calendar/Starred placeholders (per ADR-004) and by the Lists Dashboard before any list exists. _Centered vertical stack: optional 48dp `text.muted`-tinted icon, `titleMd` `text.primary` title, optional `bodyMd` `text.muted` message. 24dp padding all around._
 - [x] **`FluxItDestructiveButton`** — outlined variant in `accent.rose` with trash icon (Edit Item delete). _56dp outlined pill (1dp stroke in `accent.rose`); icon + label both tinted `accent.rose`. Promoted `accent.rose` from the deferred subset (see §2)._
-- [ ] **`FluxItSwipeRow`** — gesture container that reveals a rose-tinted destructive action on swipe. Android: built on `SwipeToDismissBox` with a custom background. iOS: thin wrapper around native `.swipeActions(edge: .trailing) { Button(role: .destructive) … }`. Backfilled from Phase 07 (used by dashboard rows; reusable for any list with destructive row actions).
+- [ ] **`FluxItSwipeRow`** — gesture container that reveals a rose-tinted destructive action on swipe. Android: built on `SwipeToDismissBox` with a custom background. iOS: thin wrapper around native `.swipeActions(edge: .trailing) { Button(role: .destructive) … }`. **Deferred to Phase 07** (used by dashboard rows; ships with Phase 07's first consumer rather than as a §5 row). Explicit deferral confirmed 2026-05-19 — leaving this row open until Phase 07 backfills it.
 
 ## 6. Theme + dark-mode-only policy
 
@@ -169,8 +169,8 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 
 ## 11. ADRs to write in this phase
 
-- [ ] **ADR-005** — Design token pipeline (JSON-as-SoT + Kotlin generator vs. Style Dictionary vs. hand-maintained-twice). Document why we picked the chosen approach and the rejected alternatives.
-- [ ] **ADR-005a** (or merge into 005) — Iconography: vectorized set vs. Material Symbols variable font.
+- [x] **ADR-005** — Design token pipeline (JSON-as-SoT + Kotlin generator vs. Style Dictionary vs. hand-maintained-twice). Document why we picked the chosen approach and the rejected alternatives. _Accepted 2026-05-18._
+- [x] **ADR-005a** (or merge into 005) — Iconography: vectorized set vs. Material Symbols variable font. _Accepted 2026-05-19._
 - [x] **ADR-005b** (or merge into 005) — Dark-mode-only for v1; reserve namespace for light tokens. _Accepted 2026-05-19._
 
 ## 12. Sanity tests
