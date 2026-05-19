@@ -2,7 +2,7 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-15
+**Last updated:** 2026-05-19
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
 **Repo phase:** Foundation complete — Phase 01 closed (Android + iOS shells build green; all four quality gates wired; CI proven green on PR #4 plus three Dependabot PRs; doc seeds + ADR log in place; KMP test harness proven via `:core:core-utils`). Phase 02 (Design System) is up next.
 
@@ -10,7 +10,7 @@
 
 ## ▶ Next Step
 
-**Phase 02 — Design System.** Start at [`plan/02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) §1 (token source of truth) — the chosen approach is a hand-authored `core-designsystem/tokens/tokens.json` (W3C Design Tokens CG format) plus a small Gradle code-generator that emits `FluxItColors.kt` / `FluxItTypography.kt` / `FluxItShapes.kt` / `FluxItSpacing.kt` / `FluxItElevation.kt` for Compose and `FluxItTokens.swift` for SwiftUI. The first decision to surface is **ADR-005** (token pipeline) — draft it before the generator lands. Phase 02 also owes: rebranding `DESIGN.md` "Lumina Lists" → "FluxIt" (per ADR-002) and adding the missing `#2b7cee` primary color to the YAML token map.
+**Phase 02 — Design System §6 (Theme + dark-mode-only policy).** §§1–4 are complete (token pipeline accepted as ADR-005, icon pipeline accepted as ADR-005a, all four `/design`-screen icon needs covered by 25 Material-Symbols SVGs auto-generated to Compose `ImageVector` + SwiftUI xcassets imagesets). §6 owes **ADR-005b** — lock dark-mode-only for v1, reserve the token namespace for a future light theme. The two non-controversial sub-tasks (Compose `FluxItTheme` providing a fixed `darkColorScheme` via `CompositionLocal`, SwiftUI `preferredColorScheme(.dark)` at the app root) follow once ADR-005b lands. Phase 02 still owes: §5 primitives (the big one, blocks Phases 07–10), §7 backdrop blur, §8 accessibility verification, §9 Theme Gallery debug screen, and §10 brand cleanup (rebrand `DESIGN.md` "Lumina Lists" → "FluxIt" + add `#2b7cee` to the YAML map).
 
 ---
 
@@ -18,9 +18,9 @@
 
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
-| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (6 ADRs) | n/a |
+| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (8 ADRs) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
-| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 20% |
+| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 40% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
