@@ -108,9 +108,11 @@ public fun FluxItTopBarCentered(
 @Composable
 @Suppress("ktlint:standard:function-naming")
 private fun BarBackground(content: @Composable () -> Unit) {
-    // §7 finalizes the blur perf path; until then the bars use the §7-resolved
-    // opaque fallback (surface.card @ 90%) — see plan/02_DESIGN_SYSTEM.md §7
-    // Resolved Decisions (2026-05-11).
+    // §7 ships the opaque fallback (surface.card @ 90%) unconditionally on
+    // Android until the Pixel 6a benchmark runs in Phase 14/15. True
+    // behind-content blur is a non-breaking screen-layer opt-in via
+    // Modifier.graphicsLayer { renderEffect = RenderEffect.createBlurEffect(...) }
+    // on the content below the bar — see plan/02_DESIGN_SYSTEM.md §7.
     Box(
         modifier =
             Modifier

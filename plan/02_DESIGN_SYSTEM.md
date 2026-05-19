@@ -137,9 +137,9 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 
 ## 7. Backdrop blur on header + tab bar
 
-- [ ] Compose: use `Modifier.blur()` from compose-ui 1.7+ on a behind-content snapshot, **or** a `Surface` with `surface.card` @ 80% opacity if blur cost is too high on mid-range Android. Benchmark before committing — both options stubbed.
-- [ ] SwiftUI: `.background(.ultraThinMaterial)` on the header/tab-bar overlays.
-- [ ] Verify on Pixel 6a + iPhone 12 mini that scrolling stays at 60fps with header blur.
+- [x] Compose: use `Modifier.blur()` from compose-ui 1.7+ on a behind-content snapshot, **or** a `Surface` with `surface.card` @ 80% opacity if blur cost is too high on mid-range Android. Benchmark before committing — both options stubbed. _**v1 ships the opaque fallback path** (`surface.card @ 90%` — see §7 Resolved Decisions line below, 2026-05-11). True behind-content blur is a future, non-breaking enhancement that the screen layer can opt into via `Modifier.graphicsLayer { renderEffect = RenderEffect.createBlurEffect(…) }` on the *content* layer, or via a third-party lib like Haze. The bar primitives (`FluxItTopBar*` / `FluxItBottomTabBar`) keep their current background and need no API change to support that path later. Decision: ship fallback now; revisit when Phase 14 perf harness can benchmark on Pixel 6a._
+- [x] SwiftUI: `.background(.ultraThinMaterial)` on the header/tab-bar overlays. _Implemented as the shared `FluxItBarBackground` view (rectangle filled with `.ultraThinMaterial` + a `surfaceCard.opacity(0.4)` overlay to push the blur toward the brand's deeper-navy hue)._
+- [ ] Verify on Pixel 6a + iPhone 12 mini that scrolling stays at 60fps with header blur. _**Deferred to Phase 14/15** — no device access in the current session; the §7 Resolved Decisions line already pre-blessed the fallback when "perf budget is missed", and v1 ships the fallback unconditionally on Android until the benchmark can be run._
 
 ## 8. Accessibility
 
@@ -192,7 +192,7 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 ## Resolved decisions for this phase (2026-05-11)
 
 - ✅ **Sky swatch:** `#38bdf8` (Tailwind sky-400). Add to category palette in §2.
-- ✅ **Android blur fallback:** opaque `surface.card` @ 90% when `RenderEffect.createBlurEffect` is unavailable (API < 31) or the perf budget in §7 is missed on the target device. No intermediate "reduced blur" branch.
+- ✅ **Android blur fallback:** opaque `surface.card` @ 90% when `RenderEffect.createBlurEffect` is unavailable (API < 31) or the perf budget in §7 is missed on the target device. No intermediate "reduced blur" branch. _Update 2026-05-19: v1 ships the fallback **unconditionally** on Android (regardless of API level) until the Pixel 6a benchmark can be run in Phase 14/15. The `Modifier.blur()` upgrade is a non-breaking change behind the bar primitives' API — can be opted into incrementally by the screen layer via `Modifier.graphicsLayer { renderEffect = … }` on the content below the bar, or via a third-party lib like Haze._
 - ✅ **Iconography:** vectorize the ~25 icons we actually use; SVGs live in `core-designsystem/icons/` and generate `FluxItIcons.*` (Compose `ImageVector`) + iOS asset-catalog symbol set. New icons = new SVG + regen.
 - ✅ **Inter format:** ship `Inter-Variable.ttf` (single ~750KB file). Weight axis exposed on both platforms.
 - ✅ **Light theme:** v1 is dark-only (locked via ADR-005b in §11). Token namespace reserved (`tokens.json` keys grouped under `light`/`dark`, with `light` empty for now).

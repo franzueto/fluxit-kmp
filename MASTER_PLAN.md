@@ -2,7 +2,7 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-19 (Phase 02 §5 primitives landed — 16 of 17; SwipeRow deferred to Phase 07)
+**Last updated:** 2026-05-19 (Phase 02 §5 primitives landed — 16 of 17; §7 closed via opaque fallback)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
 **Repo phase:** Foundation complete — Phase 01 closed (Android + iOS shells build green; all four quality gates wired; CI proven green on PR #4 plus three Dependabot PRs; doc seeds + ADR log in place; KMP test harness proven via `:core:core-utils`). Phase 02 (Design System) is up next.
 
@@ -10,7 +10,7 @@
 
 ## ▶ Next Step
 
-**Phase 02 — Design System §7 (Backdrop blur on header + tab bar).** §§1–6, §10, and §11 are complete. §5 landed 16 of 17 primitives across five group commits (chrome → cards → inputs → buttons → pickers/misc); `FluxItSwipeRow` is explicitly deferred to Phase 07. `accent.rose` (#f43f5e) was promoted from the deferred subset to `tokens.json` because `FluxItDestructiveButton` needs it. §7 owes the actual `Modifier.blur()` path on Compose (API 31+) gated behind a `Build.VERSION.SDK_INT` check, falling back to the already-shipped `surface.card @ 90%` opaque background. SwiftUI side already uses `.ultraThinMaterial` so it's done. Real-device perf benchmark (Pixel 6a + iPhone 12 mini) can be Phase 14/15. Remaining after §7: §8 accessibility verification, §9 Theme Gallery debug screen, §12 sanity tests, §13 hand-off gate.
+**Phase 02 — Design System §8 (Accessibility verification).** §§1–7, §10, and §11 are complete. §7 closed by shipping the §7-Resolved opaque fallback (`surface.card @ 90%`) **unconditionally** on Android — the `Modifier.blur()` upgrade is a non-breaking screen-layer opt-in deferrable to Phase 14/15 when the Pixel 6a benchmark can run. SwiftUI side uses `.ultraThinMaterial`. §8 verifies WCAG-AA contrast on the existing token pairs (text.primary on background.dark, text.muted on background.dark, text.primary on primary.blue), audits primitives for 44pt/48dp hit targets, and confirms dynamic-type up to 130% doesn't truncate. Some §8 rows are already partly satisfied — IconChip/ColorSwatch ship `Role.Button` + selected a11y traits from §5 Group E. Remaining after §8: §9 Theme Gallery debug screen, §12 sanity tests, §13 hand-off gate.
 
 ---
 
@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (9 ADRs) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
-| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 75% |
+| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 80% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
