@@ -2,7 +2,7 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-19 (Phase 02 §12 sanity tests landed — 3 of 4 rows; snapshot row deferred to Phase 14)
+**Last updated:** 2026-05-19 (Phase 02 closed at §13 hand-off gate; advancing to Phase 03 Data Layer)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
 **Repo phase:** Foundation complete — Phase 01 closed (Android + iOS shells build green; all four quality gates wired; CI proven green on PR #4 plus three Dependabot PRs; doc seeds + ADR log in place; KMP test harness proven via `:core:core-utils`). Phase 02 (Design System) is up next.
 
@@ -10,7 +10,7 @@
 
 ## ▶ Next Step
 
-**Phase 02 — Design System §13 (Hand-off gate).** §§1–12 are functionally complete. §12 landed three sanity tests in `:build-logic:test/DesignSystemSanityTest`: (a) Compose↔SwiftUI token-parity by regex-parsing the generated `FluxItColors.kt` and `FluxItTokens.swift`; (b) Konsist rule banning `Color(0x…)` / `.dp` / `.sp` / raw `Font(…)` literals outside `core-designsystem` (currently a no-op — no consumer modules use design code yet; fires automatically when feature phases land); (c) WCAG 2.1 contrast for `text.muted` on every shipping surface ≥ 4.5:1, with `surface.cardMuted` composited over `background.dark` for the alpha case. The snapshot test row is deferred to Phase 14 per the spec text. §13 hand-off gate has open rows: Theme Gallery PR screenshots (depends on snapshots = Phase 14), MASTER_PLAN flip to 🟢, ADR-005/005a/005b accepted in 00_DECISIONS (already done). Plus carried-forward items: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`, and the small `mustRunAfter` follow-up to fix the same-invocation Gradle warning.
+**Phase 03 — Data Layer.** Phase 02 closed 2026-05-19 at the §13 hand-off gate. The branch `phase/02-design-system` is ready to push and open as a single PR per the one-PR-per-phase cadence; user runs `assembleDebug` + `scripts/build-ios.sh` locally, captures Theme Gallery screenshots, and attaches them to the PR body. Phase 03 stands up the persistent data layer: SQLDelight 2 schema for `Lists`/`Items`/`Reminders`/`PhotoRefs` with TEXT primary keys (UUIDv4/ULID per the anticipated ADR-006a) + INTEGER epoch-ms timestamps + soft-delete via `deleted_at`; type-safe queries surfaced as `Flow`s; repository implementations behind `:shared:domain` interfaces. Local-only v1 per ADR-003. Anticipated **ADR-006** here (SQLDelight schema versioning + migration policy). Phase 02 carry-forward items for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; add `mustRunAfter(generateTokens)` / `mustRunAfter(generateIcons)` to fix the same-invocation Gradle warning; Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
 
 ---
 
@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (9 ADRs) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
-| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 95% |
+| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟢 Complete | 100% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
@@ -37,7 +37,7 @@
 | 16 | Observability | [`16_OBSERVABILITY.md`](plan/16_OBSERVABILITY.md) | 🟡 Planned | 0% |
 | 17 | Release Hardening | [`17_RELEASE_HARDENING.md`](plan/17_RELEASE_HARDENING.md) | 🟡 Planned | 0% |
 
-**Overall v1 progress: 7% (1 / 14 active phases complete)**
+**Overall v1 progress: 14% (2 / 14 active phases complete)**
 _Phases 11 & 12 are explicitly out of v1 scope (see ADR-003, ADR-004)._
 
 ---
