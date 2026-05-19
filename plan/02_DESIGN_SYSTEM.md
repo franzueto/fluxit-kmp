@@ -128,10 +128,10 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 
 ## 6. Theme + dark-mode-only policy
 
-- [ ] DESIGN.md is dark-mode-first. v1 ships **dark only** — no light theme, no `isSystemInDarkTheme()` switching.
-- [ ] Compose: `FluxItTheme` provides a fixed `darkColorScheme` plus our token objects via `CompositionLocal`.
-- [ ] SwiftUI: lock `preferredColorScheme(.dark)` at the app root.
-- [ ] Document the rationale + future light-mode reservation in ADR (paired with §11 design-token ADR or a separate one).
+- [x] DESIGN.md is dark-mode-first. v1 ships **dark only** — no light theme, no `isSystemInDarkTheme()` switching. _Ratified as **ADR-005b** (2026-05-19)._
+- [x] Compose: `FluxItTheme` provides a fixed `darkColorScheme` plus our token objects via `CompositionLocal`. _Landed at `core/core-designsystem/src/androidMain/kotlin/dev/franzueto/fluxit/core/designsystem/theme/FluxItTheme.kt` — wraps `MaterialTheme(darkColorScheme=…, typography=…)` mapped from `FluxItColors`/`FluxItTypography`, and provides 5 `staticCompositionLocalOf` locals (`LocalFluxItColors`, `LocalFluxItTypography`, `LocalFluxItShapes`, `LocalFluxItSpacing`, `LocalFluxItElevation`). `material3` dep added to `androidMain` for `MaterialTheme`/`darkColorScheme`._
+- [x] SwiftUI: lock `preferredColorScheme(.dark)` at the app root. _Applied to `ContentView` inside `WindowGroup` in `ios-app/Sources/FluxItApp.swift`._
+- [x] Document the rationale + future light-mode reservation in ADR (paired with §11 design-token ADR or a separate one). _**ADR-005b** Accepted on 2026-05-19; supersedes the §11 row 3 anticipated entry._
 
 ## 7. Backdrop blur on header + tab bar
 
@@ -169,7 +169,7 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 
 - [ ] **ADR-005** — Design token pipeline (JSON-as-SoT + Kotlin generator vs. Style Dictionary vs. hand-maintained-twice). Document why we picked the chosen approach and the rejected alternatives.
 - [ ] **ADR-005a** (or merge into 005) — Iconography: vectorized set vs. Material Symbols variable font.
-- [ ] **ADR-005b** (or merge into 005) — Dark-mode-only for v1; reserve namespace for light tokens.
+- [x] **ADR-005b** (or merge into 005) — Dark-mode-only for v1; reserve namespace for light tokens. _Accepted 2026-05-19._
 
 ## 12. Sanity tests
 

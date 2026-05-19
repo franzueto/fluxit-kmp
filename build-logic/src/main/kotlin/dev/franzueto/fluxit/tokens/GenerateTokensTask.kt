@@ -95,8 +95,10 @@ abstract class VerifyTokensInSyncTask : DefaultTask() {
         val expectedSwift = setOf("FluxItTokens.swift")
 
         val composeFiles = composeOutputDir.get().asFile.listFiles().orEmpty()
+            .filter { it.isFile }
             .associate { it.name to it.length() }
         val swiftFiles = swiftOutputDir.get().asFile.listFiles().orEmpty()
+            .filter { it.isFile }
             .associate { it.name to it.length() }
 
         val missingCompose = expectedCompose - composeFiles.keys

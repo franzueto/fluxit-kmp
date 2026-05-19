@@ -195,7 +195,7 @@
 ---
 
 ### ADR-005b — Dark-mode-only for v1; reserve `light`/`dark` token namespace for a future light theme
-- **Status:** Proposed
+- **Status:** Accepted (flipped from Proposed on 2026-05-19 after Compose `FluxItTheme` wired and SwiftUI `.preferredColorScheme(.dark)` locked at app root — `assembleDebug` green on Android, `scripts/build-ios.sh` green on iOS)
 - **Date:** 2026-05-19
 - **Context:** `DESIGN.md` is authored dark-mode-first — every mockup, swatch, and elevation rule in `/design` assumes a dark background, and the brand voice ("calming, sophisticated, dependable") is expressed through deep neutrals + a single accent blue (`#2b7cee`). ADR-005 already noted this as a deferred sub-decision: the token JSON is structured with `light`/`dark` groups, but only `dark` is populated. Phase 02 §6 now needs the policy ratified before the theme wrapper is wired:
   - **Compose:** does `FluxItTheme` provide `darkColorScheme(…)` unconditionally, or does it branch on `isSystemInDarkTheme()` and fall back to a (currently empty) light palette? An unconditional dark theme removes a whole branch of the composition tree and one `CompositionLocal` failure mode.
@@ -206,7 +206,7 @@
   - **Compose side:** `FluxItTheme` provides a fixed `darkColorScheme(…)` plus the generated token objects (`FluxItColors`, `FluxItTypography`, `FluxItShapes`, `FluxItSpacing`, `FluxItElevation`) via `CompositionLocal`. No `isSystemInDarkTheme()` branch; no light `ColorScheme` constructed.
   - **SwiftUI side:** the app root applies `.preferredColorScheme(.dark)` on the top-level view (in `FluxItApp.swift` or wherever `@main` lives). The generated `FluxItTokens` namespace is already platform-agnostic and stays single-valued.
   - **Token JSON shape:** `tokens.json` keeps the `light`/`dark` group structure from ADR-005, with `light` left empty (`{}`) for v1. The generator emits only the populated `dark` group and ignores empty groups silently. This reserves the namespace so v2 light-theme is additive — populating `light` + adding a single branch — rather than a JSON-schema migration.
-  - **Status flip:** this ADR stays **Proposed** until the Compose `FluxItTheme` Composable + SwiftUI `preferredColorScheme(.dark)` lock are wired and a clean Compose + SwiftUI round-trip is green; a follow-up commit on `phase/02-design-system` flips it to **Accepted**, mirroring the ADR-005 / ADR-005a pattern.
+  - **Status flip:** ratified on the same commit as the wiring. Compose `FluxItTheme` Composable landed at `core/core-designsystem/src/androidMain/kotlin/dev/franzueto/fluxit/core/designsystem/theme/FluxItTheme.kt` (provides 5 `staticCompositionLocalOf`-backed `Local*` CompositionLocals — colors / typography / shapes / spacing / elevation — wrapping a `MaterialTheme` with a fixed `darkColorScheme(…)` mapped from `FluxItColors` and a `Typography` mapped from `FluxItTypography`); SwiftUI `.preferredColorScheme(.dark)` applied to the `ContentView` inside `WindowGroup` at `ios-app/Sources/FluxItApp.swift`. Mirrors the ADR-005 / ADR-005a accept pattern.
 - **Consequences:**
   - ➕ One theme path through both UI stacks. No `isSystemInDarkTheme()` branching in Compose, no Dynamic Color surprises in SwiftUI.
   - ➕ One set of token values to author, review, and screenshot-test. Phase 14's snapshot harness (Paparazzi / swift-snapshot-testing) captures one golden per primitive per platform, not two.
