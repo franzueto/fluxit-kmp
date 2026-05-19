@@ -2,7 +2,7 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-19 (Phase 02 §9 Theme Gallery landed on both platforms — debug source set / #if DEBUG gated)
+**Last updated:** 2026-05-19 (Phase 02 §12 sanity tests landed — 3 of 4 rows; snapshot row deferred to Phase 14)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
 **Repo phase:** Foundation complete — Phase 01 closed (Android + iOS shells build green; all four quality gates wired; CI proven green on PR #4 plus three Dependabot PRs; doc seeds + ADR log in place; KMP test harness proven via `:core:core-utils`). Phase 02 (Design System) is up next.
 
@@ -10,7 +10,7 @@
 
 ## ▶ Next Step
 
-**Phase 02 — Design System §12 (Sanity tests).** §§1–11 are complete. §9 Theme Gallery shipped on both platforms in their respective debug-only source sets — Compose at `androidDebug/kotlin/.../gallery/ThemeGalleryScreen.kt` (KMP+AGP auto-recognizes `androidDebug`), SwiftUI at `ios-app/Sources/DesignSystem/Gallery/ThemeGalleryView.swift` (`#if DEBUG`-gated). Gallery renders Colors + Typography + Shapes + Spacing scale + all 16 primitives. Two §9 rows are explicitly deferred: long-press wiring on the Account tab (Phase 07 — tab doesn't exist yet) and the snapshot test (Phase 14 per the spec line itself). §12 owes the Compose↔SwiftUI token-parity unit test, a Konsist rule banning `Color(0x…)`/`dp(…)`/`Font(…)` literals outside `core-designsystem`, and the cross-surface a11y check. Snapshot harness for the Theme Gallery is Phase 14. Remaining after §12: §13 hand-off gate.
+**Phase 02 — Design System §13 (Hand-off gate).** §§1–12 are functionally complete. §12 landed three sanity tests in `:build-logic:test/DesignSystemSanityTest`: (a) Compose↔SwiftUI token-parity by regex-parsing the generated `FluxItColors.kt` and `FluxItTokens.swift`; (b) Konsist rule banning `Color(0x…)` / `.dp` / `.sp` / raw `Font(…)` literals outside `core-designsystem` (currently a no-op — no consumer modules use design code yet; fires automatically when feature phases land); (c) WCAG 2.1 contrast for `text.muted` on every shipping surface ≥ 4.5:1, with `surface.cardMuted` composited over `background.dark` for the alpha case. The snapshot test row is deferred to Phase 14 per the spec text. §13 hand-off gate has open rows: Theme Gallery PR screenshots (depends on snapshots = Phase 14), MASTER_PLAN flip to 🟢, ADR-005/005a/005b accepted in 00_DECISIONS (already done). Plus carried-forward items: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`, and the small `mustRunAfter` follow-up to fix the same-invocation Gradle warning.
 
 ---
 
@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (9 ADRs) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
-| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 90% |
+| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 95% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |

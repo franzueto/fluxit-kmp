@@ -176,10 +176,10 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 
 ## 12. Sanity tests
 
-- [ ] Unit test: every Compose token in `FluxItColors` has a Swift counterpart (parsed from generated `FluxItTokens.swift`); fail if any missing.
-- [ ] Snapshot test: Theme Gallery on Android + iOS — golden images checked in.
-- [ ] Konsist rule: no `Color(0x…)`, `dp(…)`, raw `sp(…)`, or `Font(…)` literals outside `core-designsystem`.
-- [ ] A11y test: `text.muted` vs. every surface passes 4.5:1 (or marked as decorative-only with a code comment + a11y override).
+- [x] Unit test: every Compose token in `FluxItColors` has a Swift counterpart (parsed from generated `FluxItTokens.swift`); fail if any missing. _`DesignSystemSanityTest` in `:build-logic:test` parses both generated files with regexes, asserts `composeNames == swiftNames` modulo set semantics, with separate `withClue` for each direction._
+- [ ] Snapshot test: Theme Gallery on Android + iOS — golden images checked in. _**Deferred to Phase 14** per the §9 row 4 deferral and the row text itself — snapshot harness (Paparazzi / swift-snapshot-testing) lands there._
+- [x] Konsist rule: no `Color(0x…)`, `dp(…)`, raw `sp(…)`, or `Font(…)` literals outside `core-designsystem`. _`DesignSystemSanityTest` runs four regex bans (`Color(0x…)`, `\d+\.dp`, `\d+\.sp`, raw `androidx.compose.ui.text.font.Font(`) across all non-test, non-generated source files outside `core-designsystem` and `build-logic`. Currently a no-op (no consumer modules ship design code yet); fires automatically when feature phases add primitive consumers._
+- [x] A11y test: `text.muted` vs. every surface passes 4.5:1 (or marked as decorative-only with a code comment + a11y override). _`DesignSystemSanityTest` computes WCAG 2.1 contrast for `text.muted` (#9DA8B9) on each shipping surface — `background.dark`, `surface.card`, `surface.search`, and `surface.cardMuted` composited over `background.dark` (50% alpha). All ≥ 4.5:1. `primary.blue` excluded as decorative-only (no real screen places muted text on the brand-blue surface; CTAs always use `text.primary`)._
 
 ## 13. Hand-off checklist (gate to Phase 03)
 
