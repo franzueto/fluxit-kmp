@@ -194,11 +194,40 @@
 
 ---
 
+### ADR-005b — Dark-mode-only for v1; reserve `light`/`dark` token namespace for a future light theme
+- **Status:** Proposed
+- **Date:** 2026-05-19
+- **Context:** `DESIGN.md` is authored dark-mode-first — every mockup, swatch, and elevation rule in `/design` assumes a dark background, and the brand voice ("calming, sophisticated, dependable") is expressed through deep neutrals + a single accent blue (`#2b7cee`). ADR-005 already noted this as a deferred sub-decision: the token JSON is structured with `light`/`dark` groups, but only `dark` is populated. Phase 02 §6 now needs the policy ratified before the theme wrapper is wired:
+  - **Compose:** does `FluxItTheme` provide `darkColorScheme(…)` unconditionally, or does it branch on `isSystemInDarkTheme()` and fall back to a (currently empty) light palette? An unconditional dark theme removes a whole branch of the composition tree and one `CompositionLocal` failure mode.
+  - **SwiftUI:** does the app root pin `preferredColorScheme(.dark)`, or does it respect the system setting and risk SwiftUI's automatic Dynamic Color resolution lightening surfaces that were authored for dark contrast?
+  - **Token generator:** does `tokens.json` need a populated `light` group for v1 (even if synthetic / placeholder), or can the `light` group stay structurally present but empty, with the generator emitting only the `dark` group?
+  Phase 02 §2's "Resolved decisions" (2026-05-11) already lists "✅ Light theme: v1 is dark-only" — this ADR formalizes that line so the implementation rows in §6 reference an accepted ADR rather than a phase-file aside.
+- **Decision:** v1 is **dark-only**. No light theme, no system-setting following.
+  - **Compose side:** `FluxItTheme` provides a fixed `darkColorScheme(…)` plus the generated token objects (`FluxItColors`, `FluxItTypography`, `FluxItShapes`, `FluxItSpacing`, `FluxItElevation`) via `CompositionLocal`. No `isSystemInDarkTheme()` branch; no light `ColorScheme` constructed.
+  - **SwiftUI side:** the app root applies `.preferredColorScheme(.dark)` on the top-level view (in `FluxItApp.swift` or wherever `@main` lives). The generated `FluxItTokens` namespace is already platform-agnostic and stays single-valued.
+  - **Token JSON shape:** `tokens.json` keeps the `light`/`dark` group structure from ADR-005, with `light` left empty (`{}`) for v1. The generator emits only the populated `dark` group and ignores empty groups silently. This reserves the namespace so v2 light-theme is additive — populating `light` + adding a single branch — rather than a JSON-schema migration.
+  - **Status flip:** this ADR stays **Proposed** until the Compose `FluxItTheme` Composable + SwiftUI `preferredColorScheme(.dark)` lock are wired and a clean Compose + SwiftUI round-trip is green; a follow-up commit on `phase/02-design-system` flips it to **Accepted**, mirroring the ADR-005 / ADR-005a pattern.
+- **Consequences:**
+  - ➕ One theme path through both UI stacks. No `isSystemInDarkTheme()` branching in Compose, no Dynamic Color surprises in SwiftUI.
+  - ➕ One set of token values to author, review, and screenshot-test. Phase 14's snapshot harness (Paparazzi / swift-snapshot-testing) captures one golden per primitive per platform, not two.
+  - ➕ Brand consistency: every screenshot, store-listing asset, and onboarding capture is dark-themed by construction — no risk of a light-mode review build leaking screenshots that don't match marketing materials.
+  - ➕ `tokens.json` namespace stays forward-compatible: v2 light-theme is purely additive (populate the `light` group, add one branch to `FluxItTheme`, surface the SwiftUI accessor) — no migration of token IDs.
+  - ➖ Users who run their device in light mode get a dark app regardless. For a portfolio app demonstrating a deliberate brand voice this is acceptable; for a productivity tool with broad audience expectations it would not be.
+  - ➖ Reviewers on the Play / App Store may flag "doesn't respect system theme" — mitigation: a single line in the store listing's description ("FluxIt is dark by design — light theme coming in a future update").
+  - 🔁 v2 light theme is **additive, not a rewrite**: populate the `light` group in `tokens.json`, regenerate, add an `isSystemInDarkTheme()` branch (or a user-facing toggle) to `FluxItTheme`, and surface the corresponding SwiftUI accessor. No call sites of the token namespace need to change.
+- **Alternatives considered:**
+  - **System-following (both themes at v1)** — rejected: doubles the token-authoring surface, doubles snapshot-test goldens, and requires both palettes to meet WCAG AA against their own surfaces (Phase 02 §8). Phase 02 has not budgeted a light-theme pass and `DESIGN.md` doesn't specify one. Cost is real; v1 value is marginal for a portfolio launch.
+  - **Light-only** — rejected immediately: every mockup in `/design` is dark; reversing the brand at v1 would invalidate the entire visual design.
+  - **Both at v1, dark as default** — rejected: same cost as system-following without the "respect the user" benefit. Worst of both worlds.
+  - **Drop the `light` group from `tokens.json` entirely until v2** — rejected: the empty-group structure is ~zero bytes and reserves the namespace; removing it now means a JSON-schema change later. Cheap to keep, expensive to add back.
+- **Resolves Open Questions in Phase 02:** §6 row 1 (dark-only policy) and the deferred sub-decision flagged in ADR-005's "Open sub-decisions" section. §11 row 3 (ADR-005b) is now drafted.
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
 
-- **ADR-005b** (Phase 02): Dark-mode-only for v1; reserve token namespace for a future light theme.
 - **ADR-006** (Phase 03): SQLDelight schema versioning + migration policy.
 - **ADR-007** (Phase 05): MVI store contract — intents/state/effects, error model, optimistic update pattern.
 - **ADR-008** (Phase 06): expect/actual vs. Koin-injected interfaces for platform capabilities (we'll likely standardize on injected interfaces).
