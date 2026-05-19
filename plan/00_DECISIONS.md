@@ -152,8 +152,46 @@
   - **Kotlin-as-SoT** (e.g. an `object FluxItTokens` Kotlin file, then generate Swift from it via KSP or reflection) — rejected: locks designers into editing Kotlin to change a hex value, and KSP-to-Swift generation is not a paved path.
   - **YAML SoT** instead of JSON — equivalent in expressiveness; rejected because the W3C DTCG format is JSON-native and design tools (Figma Tokens plugin, etc.) already export to that JSON shape, keeping a future import path open.
 - **Open sub-decisions (deferred to their own ADR entries this phase):**
-  - **ADR-005a** — iconography source (vectorized 25-icon set vs. Material Symbols Variable font).
+  - **ADR-005a** — iconography source (vectorized 25-icon set vs. Material Symbols Variable font). _Drafted 2026-05-18, see below._
   - **ADR-005b** — dark-mode-only for v1; reserve namespace for light tokens.
+
+---
+
+### ADR-005a — Iconography: vectorized in-repo SVG set with Compose `materialIcon` + iOS asset-catalog emitters
+- **Status:** Proposed
+- **Date:** 2026-05-18
+- **Context:** Phase 02 §4 owes a concrete iconography pipeline. The screen audit identifies ~25 icons actually used across the v1 surfaces (cart, home, briefcase, plane, fork-knife, dumbbell, star, more, trash, chevron, search, plus, check, bell, camera, settings, account, calendar, list, arrow-up, plus filled-state variants for the four tab icons). Two structural choices need ratifying:
+  1. **Source format.** Ship Google's Material Symbols Variable font (~3MB) as a single asset and reference glyphs by codepoint, OR vectorize the ~25 icons as in-repo SVGs and generate platform-native vector primitives. The "vectorize" direction was already recorded verbally in Phase 02 §2's "Resolved decisions" block (2026-05-11); this ADR formalizes it and locks the generator shape.
+  2. **Per-platform emission strategy.** Once SVGs are the source, three sub-choices: where do SVGs live, how does the Compose emitter surface them, and how does the iOS emitter surface them. The token pipeline (ADR-005) sets a precedent — JSON source, in-process Kotlin generator, two emitters writing platform-idiomatic output — and the iconography pipeline should mirror that shape rather than invent a parallel toolchain.
+- **Decision:**
+  - **Source format:** vectorize the ~25 icons we actually ship. SVGs are hand-curated (or exported from Figma) and checked into the repo. New icons = add SVG + regen; no font-codepoint indirection, no ~3MB ride-along binary.
+  - **SVG location:** `core/core-designsystem/icons/*.svg`, one file per icon. Sibling to `core/core-designsystem/tokens/tokens.json`. Mirrors the token-pipeline layout so future contributors find both inputs in the same place. Filled-state variants are sibling files with a `-filled` suffix (e.g. `lists.svg` + `lists-filled.svg`).
+  - **Generator:** a new Gradle task `:core:core-designsystem:generateIcons`, defined in `build-logic` alongside the existing token generator. Reuses the convention-plugin pattern from `fluxit.designsystem.tokens`. Inputs: every file under `core/core-designsystem/icons/*.svg`. Two emitters:
+    - **Compose emitter:** parses each SVG's `<path d="…">` data and emits a single Kotlin file `FluxItIcons.kt` into `core-designsystem/build/generated/source/icons/androidMain/` (or `commonMain` if the API surface ends up KMP-common — TBD during implementation). Each icon becomes a `val FluxItIcons.Cart: ImageVector by lazy { materialIcon(name = "FluxItIcons.Cart") { … } }`-shaped declaration. SVG `viewBox` maps to `defaultWidth`/`defaultHeight`/`viewportWidth`/`viewportHeight`; path commands translate to `moveTo`/`lineTo`/`curveTo`/`close` calls on `materialIcon`'s builder. Pure-Kotlin output, no AGP vector-drawable compile step.
+    - **iOS emitter:** generates an asset-catalog bundle at `ios-app/Resources/FluxItIcons.xcassets/`, with one `<name>.imageset/` per icon containing `Contents.json` and a copy of the source SVG. Same emitter also writes `FluxItTokens.Icons` accessors into the existing `FluxItTokens.swift` (appended block, or sibling file `FluxItIcons.swift` — to settle during implementation), of the form `static let cart: Image = Image("ic-cart")`. SwiftUI loads SVGs natively from xcassets since iOS 13; tinting goes through `.foregroundStyle()` as for any monochrome `Image`.
+  - **Wiring:**
+    - Compose side — `:core:core-designsystem:generateIcons` joins `generateTokens` as a `dependsOn` of `compileKotlin`. Both tasks run before Kotlin compile; output dirs are siblings under `build/generated/source/`.
+    - iOS side — `scripts/build-ios.sh` invokes `generateIcons` immediately after `generateTokens`, before xcodegen. `ios-app/project.yml` is updated to include `Resources/FluxItIcons.xcassets` (the xcassets bundle is gitignored alongside `ios-app/Generated/`).
+  - **CI guard:** the existing `verifyTokensInSync` is extended (or paralleled by `verifyIconsInSync`) to re-run `generateIcons` and assert every expected output (one Kotlin declaration per SVG; one imageset per SVG) is present and non-trivial. Catches "added an SVG but forgot to commit / regenerate" and emitter regressions.
+  - **Status flip:** stays **Proposed** until `generateIcons` lands and produces a clean Compose + SwiftUI round-trip with at least the first few seed icons rendering on both platforms. A follow-up commit on `phase/02-design-system` flips to **Accepted**, mirroring ADR-005's flip pattern.
+- **Consequences:**
+  - ➕ No ~3MB font ride-along; binary size cost is exactly the ~25 icons we use.
+  - ➕ One source format (SVG) for both platforms; no font/codepoint indirection drift between Android and iOS.
+  - ➕ Pure-Kotlin Compose output keeps the door open for a future Compose Multiplatform target (ADR-001's v2 note) without an AGP-resource detour.
+  - ➕ Asset-catalog imagesets are the conventional iOS approach — SwiftUI `Image("ic-cart")` works in previews, supports `.symbolRenderingMode`-ish tinting via `.foregroundStyle()`, and is what Xcode tooling expects.
+  - ➕ Generator structure mirrors ADR-005 (same plugin, same `verify*InSync` pattern), so the second pipeline costs less to learn than the first did.
+  - ➖ The SVG-path-to-`materialIcon` translator is ~150 LOC of new code we own. SVG path data is a small grammar (`M/L/C/Q/Z` plus relative variants) but corner cases (arcs `A`, transforms on `<g>`, `fill-rule`) need explicit handling or explicit rejection-at-parse.
+  - ➖ The translator constrains the SVG dialect: single `<path>` per icon, no transforms, no gradients, no multi-color. Mitigated by curating the source set; flagged at parse time with a clear error if violated.
+  - ➖ Adding an icon is a two-step ritual (drop SVG, run `generateIcons` — or rely on `compileKotlin`'s `dependsOn`). Same cost shape as the token pipeline; not a new burden.
+  - 🔁 If we ever ship more than ~50 icons, revisit by superseding with a Material Symbols Variable font ADR — the binary-size argument flips around the 1–2MB mark depending on filled-variant count.
+  - 🔁 If a future icon needs multi-color or gradient (e.g. branded illustrations), it's out of scope for this pipeline. Such cases route through a separate "illustrations" channel — TBD when the first one appears, not pre-engineered now.
+- **Alternatives considered:**
+  - **Material Symbols Variable font** — rejected: ~3MB binary cost for 25 glyphs is a 100× overshoot, and codepoint-by-glyph-name indirection ("\\ue8b8" for `home`) is the exact stringly-typed brittleness Konsist is meant to prevent. Re-evaluate at the ~50-icon threshold.
+  - **SF Symbols on iOS** (paired with vectorized Compose on Android) — rejected: glyph-to-glyph metrics don't match between SF Symbols and Material/custom SVGs, so a "cart" icon would visibly differ in weight and proportion between Android and iOS. ADR-001's native-feel argument cuts the other way here — visual parity beats per-platform native-ness for a custom icon set.
+  - **Compose emitter via `R.drawable.ic_cart` + `ImageVector.vectorResource(...)`** (copy SVG into `androidMain/res/drawable/` per icon, emit a thin getter facade) — rejected: ties the Compose API to AGP's vector-drawable compile step, less portable to a future CMP target, and trades ~150 LOC of translator code for an AGP-coupling we'd then need to remove. Net-neutral on size, net-negative on portability.
+  - **Inline pure-Swift `Shape` per icon on iOS** (mirroring the Compose `materialIcon` approach exactly, path data baked into a `struct CartShape: Shape`) — rejected: SwiftUI `Shape`-as-`Image` is unconventional, tinting routes through `.fill()` rather than `.foregroundStyle()`, and previews/asset-catalog tooling don't recognize the shapes. Asset-catalog imagesets are the idiomatic iOS path.
+  - **Co-locate SVGs at `design/icons/` (repo root)** — rejected: treats the SVGs as design artifacts external to the module that consumes them, which means the `generateIcons` task references an out-of-module path and Konsist module-boundary rules get noisier. Keeping inputs and outputs both inside `core/core-designsystem/` is cleaner.
+- **Resolves Open Questions in Phase 02:** §4 row 1 (font vs. vectorize) and the three generator-shape questions surfaced when picking up §4 (2026-05-18).
 
 ---
 
@@ -161,7 +199,6 @@
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
 
-- **ADR-005a** (Phase 02): Iconography source — vectorized in-repo SVG set vs. Material Symbols Variable font.
 - **ADR-005b** (Phase 02): Dark-mode-only for v1; reserve token namespace for a future light theme.
 - **ADR-006** (Phase 03): SQLDelight schema versioning + migration policy.
 - **ADR-007** (Phase 05): MVI store contract — intents/state/effects, error model, optimistic update pattern.
