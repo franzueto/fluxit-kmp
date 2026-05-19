@@ -104,10 +104,11 @@ Encode at minimum:
 Each primitive ships in **both** Compose and SwiftUI with identical name and prop semantics. Cross-platform parity is enforced by snapshot tests.
 
 - [x] **`FluxItScaffold`** — applies `background.dark`, safe-area handling, optional sticky header + tab bar slots with `backdrop-blur-md`. _Compose: `core/core-designsystem/src/androidMain/.../components/FluxItScaffold.kt` (Material3 `Scaffold` with `containerColor = FluxItColors.backgroundDark`, `contentColor = FluxItColors.textPrimary`, slots for `topBar`/`bottomBar`). SwiftUI: `ios-app/Sources/DesignSystem/Components/FluxItScaffold.swift` (`ZStack` over `FluxItTokens.Colors.backgroundDark.ignoresSafeArea()` with `safeAreaInset(edge: .top/.bottom)` for slot equivalents). Backdrop blur is layered on by `FluxItTopBar` / `FluxItBottomTabBar` themselves (§7 finalizes the perf path); the scaffold is just the chrome._
-- [ ] **`FluxItTopBar`**
+- [x] **`FluxItTopBar`**
   - Variant A: large title (`display.lg`), trailing icon button (settings) — used on Lists Dashboard.
   - Variant B: centered title + leading text-button (e.g., "‹ Lists") + trailing icon button — used on List Detail / Edit Item.
-- [ ] **`FluxItBottomTabBar`** — 4 tabs, 80dp height, blur backdrop, centered icon+caption stack, active-state fill + `primary.blue` tint.
+  _Shipped as two top-level primitives: `FluxItTopBarLarge` / `FluxItTopBarCentered` (Compose + SwiftUI). Bar background uses the §7-resolved opaque fallback (`surface.card @ 90%`) on Android and `.ultraThinMaterial` on iOS until §7 finalizes the blur perf path._
+- [x] **`FluxItBottomTabBar`** — 4 tabs, 80dp height, blur backdrop, centered icon+caption stack, active-state fill + `primary.blue` tint. _Generic over a `List<FluxItTabItem>` (icon + activeIcon + label) on both platforms; selection-state tinting via `primary.blue` / `text.muted`. Same backdrop strategy as the top bar._
 - [ ] **`FluxItSearchField`** — full-width, leading search icon, no border, `surface.search` fill, `rounded-xl`, placeholder uses `text.muted`.
 - [ ] **`FluxItCard`** — surface card with `rounded-xl`, optional resting-state 50% opacity, press-state 100%.
 - [ ] **`FluxItListItem`** — three-slot layout: 56dp leading icon container with 20%-opacity tint, title + subtitle stack, trailing slot. Variants:

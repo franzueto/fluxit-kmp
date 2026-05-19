@@ -1,10 +1,15 @@
 plugins {
     id("fluxit.kmp.library")
     id("fluxit.designsystem.tokens")
+    // Compose compiler is required for inline Composables (Row, Column, Box).
+    // FluxItTheme + FluxItScaffold only used non-inline Composables and got
+    // away without it; §5 primitives use foundation layouts heavily.
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "dev.franzueto.fluxit.core.designsystem"
+    buildFeatures.compose = true
 }
 
 kotlin {
