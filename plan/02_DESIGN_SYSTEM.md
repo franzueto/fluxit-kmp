@@ -155,10 +155,10 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 
 ## 9. Theme Gallery debug screen
 
-- [ ] `:core:core-designsystem` ships a `ThemeGalleryScreen()` (Compose) and `ThemeGalleryView` (SwiftUI) inside a `debug` source set.
-- [ ] Renders every primitive in every variant + the full color/type/spacing token grid.
-- [ ] Reachable from each app via a hidden long-press on the Account tab in debug builds.
-- [ ] Snapshot-tested: one golden image per platform, regenerated only on intentional change (Phase 14 wires the comparator).
+- [x] `:core:core-designsystem` ships a `ThemeGalleryScreen()` (Compose) and `ThemeGalleryView` (SwiftUI) inside a `debug` source set. _Compose: `core/core-designsystem/src/androidDebug/kotlin/.../gallery/ThemeGalleryScreen.kt` — KMP + AGP auto-recognizes the `androidDebug` source set; the gallery is only compiled into the debug variant. SwiftUI: `ios-app/Sources/DesignSystem/Gallery/ThemeGalleryView.swift` — entire file gated by `#if DEBUG` so release builds strip it._
+- [x] Renders every primitive in every variant + the full color/type/spacing token grid. _Five sections on both platforms: Colors (10 tokens), Typography (5 styles with sample text), Shapes (6 corner radii), Spacing scale (xs..3xl bars), and Primitives (all 16 primitives × representative variants — TopBarLarge, Search, InlineComposer, single/multi TextField, Primary/Disabled/Destructive buttons, Card default+resting, all 3 ListItem variants, ProgressBar, IconChip × 2 selection states, ColorSwatch × 3, FAB, BottomTabBar, EmptyState). Wrapped in `FluxItTheme` + `FluxItScaffold`._
+- [ ] Reachable from each app via a hidden long-press on the Account tab in debug builds. _**Deferred to Phase 07** — Account tab doesn't exist until the feature phase ships the dashboard nav shell. The gallery's entry point gets wired then; the gallery surface itself is in place and importable._
+- [ ] Snapshot-tested: one golden image per platform, regenerated only on intentional change (Phase 14 wires the comparator). _**Deferred to Phase 14** per the row text — snapshot harness (Paparazzi on Android, swift-snapshot-testing on iOS) lands there._
 
 ## 10. Brand cleanup
 

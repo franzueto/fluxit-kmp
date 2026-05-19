@@ -2,7 +2,7 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-19 (Phase 02 §8 a11y verified; FluxItPrimaryButton weight bumped to Bold to clear AA-large)
+**Last updated:** 2026-05-19 (Phase 02 §9 Theme Gallery landed on both platforms — debug source set / #if DEBUG gated)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
 **Repo phase:** Foundation complete — Phase 01 closed (Android + iOS shells build green; all four quality gates wired; CI proven green on PR #4 plus three Dependabot PRs; doc seeds + ADR log in place; KMP test harness proven via `:core:core-utils`). Phase 02 (Design System) is up next.
 
@@ -10,7 +10,7 @@
 
 ## ▶ Next Step
 
-**Phase 02 — Design System §9 (Theme Gallery debug screen).** §§1–8, §10, and §11 are complete. §8 a11y verified end-to-end: WCAG-AA contrast computed on all token pairs (one finding — white-on-primary.blue is 4.02:1, below AA-normal — resolved by bumping `FluxItPrimaryButton` label to `FontWeight.Bold` so it qualifies as WCAG large-text and clears the 3:1 large threshold; no token change). Hit-target audit fixed 4 primitives to ≥48dp/44pt without changing their visuals (ToBuyListItem radio, CompletedListItem buttons, InlineComposer submit, ColorSwatch — all use expand-tap-area-while-keeping-visual pattern). Semantic-label gaps in SearchField / TextField / ProgressBar / ToBuyListItem radio filled. §9 owes a `ThemeGalleryScreen()` Composable + `ThemeGalleryView` SwiftUI view in a debug source set, rendering every primitive + every token pair for visual review; long-press on the Account tab in debug builds. Snapshot tests deferred to Phase 14. Remaining after §9: §12 sanity tests (Konsist + token-parity unit test), §13 hand-off gate.
+**Phase 02 — Design System §12 (Sanity tests).** §§1–11 are complete. §9 Theme Gallery shipped on both platforms in their respective debug-only source sets — Compose at `androidDebug/kotlin/.../gallery/ThemeGalleryScreen.kt` (KMP+AGP auto-recognizes `androidDebug`), SwiftUI at `ios-app/Sources/DesignSystem/Gallery/ThemeGalleryView.swift` (`#if DEBUG`-gated). Gallery renders Colors + Typography + Shapes + Spacing scale + all 16 primitives. Two §9 rows are explicitly deferred: long-press wiring on the Account tab (Phase 07 — tab doesn't exist yet) and the snapshot test (Phase 14 per the spec line itself). §12 owes the Compose↔SwiftUI token-parity unit test, a Konsist rule banning `Color(0x…)`/`dp(…)`/`Font(…)` literals outside `core-designsystem`, and the cross-surface a11y check. Snapshot harness for the Theme Gallery is Phase 14. Remaining after §12: §13 hand-off gate.
 
 ---
 
@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (9 ADRs) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
-| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 85% |
+| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 90% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
