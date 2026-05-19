@@ -45,7 +45,7 @@ Encode at minimum:
 - [x] `text.muted` = `#9da8b9`
 - [ ] `accent.orange` = `#f97316` _(deferred per subset scope)_
 - [ ] `accent.emerald` = `#10b981` _(deferred per subset scope)_
-- [ ] `accent.rose` = `#f43f5e` _(deferred per subset scope)_
+- [x] `accent.rose` = `#f43f5e` _(promoted from deferred — §5 `FluxItDestructiveButton` needs it; added to `tokens.json` 2026-05-19)_
 - [ ] `accent.indigo` = `#6366f1` _(deferred per subset scope)_
 - [x] **`primary.blue` = `#2b7cee`** ← was missing in original YAML; landed in `tokens.json` (used for FAB, active tab, primary CTAs)
 - [x] `primary.blueShadow` = `#2b7cee` @ 40% (FAB shadow tint)
@@ -117,15 +117,15 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
   - Detail completed item (filled-circle check leading, strikethrough title, trash trailing).
   _Shipped as three top-level primitives mirrored 1:1 across platforms: `FluxItDashboardListItem` (Compose+Swift), `FluxItToBuyListItem`, `FluxItCompletedListItem`. Dashboard variant exposes independent `trashIcon`/`onDelete` + `chevronIcon` slots; to-buy uses a hand-drawn hollow radio (Compose `Modifier.border` over a `CircleShape`; SwiftUI `Circle().strokeBorder`); completed variant applies `TextDecoration.LineThrough` / `.strikethrough()` on the title._
 - [ ] **`FluxItProgressBar`** — slim `primary.blue` linear progress with rounded caps; used on List Detail header (`13/20`).
-- [ ] **`FluxItFab`** — 64dp circle, `primary.blue`, `level2.fab` shadow, plus icon. Center-docked variant for tab bar.
+- [x] **`FluxItFab`** — 64dp circle, `primary.blue`, `level2.fab` shadow, plus icon. Center-docked variant for tab bar. _64dp `Box` / 64pt `Image` with `Modifier.shadow` / `.shadow()` tinted by `primary.blueShadow`. Caller passes the icon (typically `FluxItIcons.Plus`). Center-docked positioning is a parent-layout concern, not a primitive parameter — left for the screen consumer._
 - [ ] **`FluxItIconChip`** — used in Create List icon picker: 80dp rounded square, selected state shows `primary.blue` border + tint.
 - [ ] **`FluxItColorSwatch`** — circle with optional ring for selected state.
-- [ ] **`FluxItPrimaryButton`** — full-width, `primary.blue`, `body.md` semibold white text. Disabled state at 40% opacity.
+- [x] **`FluxItPrimaryButton`** — full-width, `primary.blue`, `body.md` semibold white text. Disabled state at 40% opacity. _56dp pill (16dp corner radius); `enabled: Bool` toggles fill alpha 1.0 → 0.4 and disables the click handler._
 - [x] **`FluxItTextField`** — labeled (uppercase `caption.xs` muted label above), surface fill, `rounded-md`. Single-line and multi-line variants (Edit Item description). _Single primitive with `singleLine: Boolean` + `minLines: Int` flags toggling between modes (Compose: `singleLine`/`minLines` on `BasicTextField`; SwiftUI: `axis: .vertical` + `lineLimit(minLines...20)` for the multi-line path)._
 - [x] **`FluxItInlineComposer`** — bottom-anchored "+ Add new item…" pill + circular submit button on the right (List Detail screen). _56dp pill (corner radius 28dp), `BasicTextField` left side, 44dp circular `IconButton` on the right filled with `primary.blue` and using a caller-supplied `submitIcon`. SwiftUI mirror uses `TextField(onCommit:)` so return-key submits._
 - [x] **`FluxItSectionHeader`** — uppercase muted label + optional trailing text-button ("Hide"). _`label.uppercase()` rendered as `captionXs` muted; optional `trailingActionLabel` text-button in `primary.blue`._
 - [ ] **`FluxItEmptyState`** — used by Calendar/Starred placeholders (per ADR-004) and by the Lists Dashboard before any list exists.
-- [ ] **`FluxItDestructiveButton`** — outlined variant in `accent.rose` with trash icon (Edit Item delete).
+- [x] **`FluxItDestructiveButton`** — outlined variant in `accent.rose` with trash icon (Edit Item delete). _56dp outlined pill (1dp stroke in `accent.rose`); icon + label both tinted `accent.rose`. Promoted `accent.rose` from the deferred subset (see §2)._
 - [ ] **`FluxItSwipeRow`** — gesture container that reveals a rose-tinted destructive action on swipe. Android: built on `SwipeToDismissBox` with a custom background. iOS: thin wrapper around native `.swipeActions(edge: .trailing) { Button(role: .destructive) … }`. Backfilled from Phase 07 (used by dashboard rows; reusable for any list with destructive row actions).
 
 ## 6. Theme + dark-mode-only policy
