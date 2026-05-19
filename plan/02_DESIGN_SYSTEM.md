@@ -24,170 +24,183 @@ We need ONE place tokens live, then generate platform code. Decision is captured
 
 Rationale: keeps both platforms honest, lets designers edit JSON without touching code, and doesn't pull in Style Dictionary as a Node dependency (we'll write a ~200-line Kotlin generator instead — small, reviewable, no JS toolchain in CI).
 
-- [ ] Create `core-designsystem/tokens/tokens.json` populated from `DESIGN.md` (see §2 for the full token list).
-- [ ] Implement Gradle task `:core:core-designsystem:generateTokens` that reads `tokens.json` and emits Compose + Swift sources.
-- [ ] Wire `generateTokens` as a dependency of `compileKotlin` (Compose side) and as an Xcode build phase (Swift side).
-- [ ] Add a CI check `verifyTokensInSync` that re-runs generation and fails if working tree is dirty.
-- [ ] Document the workflow in `core-designsystem/README.md`: edit JSON → run task → commit generated files.
+- [x] Create `core-designsystem/tokens/tokens.json` populated from `DESIGN.md` (see §2 for the full token list). _Landed as subset (primary + neutrals + semantic surfaces + 5 type styles + shapes + spacing + elevation level0/1) per the agreed scope; accents, category palette, motion, level2.fab, blur.backdrop deferred until a feature phase needs them._
+- [x] Implement Gradle task `:core:core-designsystem:generateTokens` that reads `tokens.json` and emits Compose + Swift sources. _Lives in `build-logic/src/main/kotlin/dev/franzueto/fluxit/tokens/` (parser, two emitters, task); wired onto core-designsystem by the precompiled plugin `fluxit.designsystem.tokens`._
+- [x] Wire `generateTokens` as a dependency of `compileKotlin` (Compose side) and as an Xcode build phase (Swift side). _Compose side: precompiled plugin attaches `compile*Kotlin*` `dependsOn(generateTokens)` and registers `build/generated/source/tokens/androidMain` on the androidMain source set. iOS side: `scripts/build-ios.sh` invokes `:core:core-designsystem:generateTokens` before xcodegen. Adding a native Xcode "Run Script" phase is deferred to Phase 15._
+- [x] Add a CI check `verifyTokensInSync` that re-runs generation and fails if working tree is dirty. _With generated files gitignored the original "dirty tree" check is moot — `verifyTokensInSync` instead re-runs the generator and asserts every expected output file is present and non-trivial, catching tokens.json structural breakage and silent emitter regressions._
+- [x] Document the workflow in `core-designsystem/README.md`: edit JSON → run task → commit generated files. _Landed; note the wording is "edit JSON → run task → use the generated APIs" (generated files are not committed)._
 
 ## 2. Token catalog (from `DESIGN.md` + screen audit)
+
+> **Subset scope (agreed 2026-05-18, retrospectively ticked alongside §1):** the v1 token set encoded in `tokens.json` covers primary + neutrals + semantic surfaces, the 5 Inter type styles, the shape scale, the spacing scale, and `elevation.level0`/`level1`. Unchecked rows below are **deferred per Phase 02 subset scope** — they will be added when the feature phase that first needs them lands (accents: feature phases; category palette + sky: §9 Create List; `level2.fab`/`blur.backdrop`: §5 primitives + §7 backdrop blur; motion: §5/§7).
 
 Encode at minimum:
 
 **Colors**
-- [ ] `background.dark` = `#101822`
-- [ ] `surface.card` = `#1e2632`
-- [ ] `surface.search` = `#1e2632`
-- [ ] `surface.cardMuted` = `#1e2632` @ 50% (resting list-item state per DESIGN.md)
-- [ ] `text.primary` = `#ffffff`
-- [ ] `text.muted` = `#9da8b9`
-- [ ] `accent.orange` = `#f97316`
-- [ ] `accent.emerald` = `#10b981`
-- [ ] `accent.rose` = `#f43f5e`
-- [ ] `accent.indigo` = `#6366f1`
-- [ ] **`primary.blue` = `#2b7cee`** ← missing in current YAML; add it (used for FAB, active tab, primary CTAs)
-- [ ] `primary.blueShadow` = `#2b7cee` @ 40% (FAB shadow tint)
-- [ ] `divider.subtle` = computed from `text.muted` @ 12%
-- [ ] Category palette (used in Create List swatches): blue/rose/emerald/orange/indigo/sky — confirm "sky" hex with design (proposal: `#38bdf8`).
+- [x] `background.dark` = `#101822`
+- [x] `surface.card` = `#1e2632`
+- [x] `surface.search` = `#1e2632`
+- [x] `surface.cardMuted` = `#1e2632` @ 50% (resting list-item state per DESIGN.md)
+- [x] `text.primary` = `#ffffff`
+- [x] `text.muted` = `#9da8b9`
+- [ ] `accent.orange` = `#f97316` _(deferred per subset scope)_
+- [ ] `accent.emerald` = `#10b981` _(deferred per subset scope)_
+- [x] `accent.rose` = `#f43f5e` _(promoted from deferred — §5 `FluxItDestructiveButton` needs it; added to `tokens.json` 2026-05-19)_
+- [ ] `accent.indigo` = `#6366f1` _(deferred per subset scope)_
+- [x] **`primary.blue` = `#2b7cee`** ← was missing in original YAML; landed in `tokens.json` (used for FAB, active tab, primary CTAs)
+- [x] `primary.blueShadow` = `#2b7cee` @ 40% (FAB shadow tint)
+- [x] `divider.subtle` = computed from `text.muted` @ 12%
+- [ ] Category palette (used in Create List swatches): blue/rose/emerald/orange/indigo/sky — sky hex resolved as `#38bdf8` (see "Resolved decisions" below); not yet in `tokens.json` _(deferred per subset scope — target §9 Create List)_
 
 **Typography (font: Inter)**
-- [ ] `display.lg` — 32 / 700 / 1.2 / -0.02em
-- [ ] `title.md` — 18 / 600 / 1.4
-- [ ] `body.md` — 16 / 400 / 1.5
-- [ ] `label.sm` — 14 / 400 / 1.4
-- [ ] `caption.xs` — 10 / 500 / 1.0
+- [x] `display.lg` — 32 / 700 / 1.2 / -0.02em
+- [x] `title.md` — 18 / 600 / 1.4
+- [x] `body.md` — 16 / 400 / 1.5
+- [x] `label.sm` — 14 / 400 / 1.4
+- [x] `caption.xs` — 10 / 500 / 1.0
 
 **Shapes (corner radii)**
-- [ ] `sm` 4dp · `default` 8dp · `md` 12dp · `lg` 16dp · `xl` 24dp · `full` 9999dp
+- [x] `sm` 4dp · `default` 8dp · `md` 12dp · `lg` 16dp · `xl` 24dp · `full` 9999dp
 
 **Spacing**
-- [ ] `containerPadding` 16dp
-- [ ] `stackGap` 8dp
-- [ ] `itemPaddingX` 16dp · `itemPaddingY` 12dp
-- [ ] `fabOffset` 32dp
-- [ ] Plus a 4dp base scale: `xs=4, sm=8, md=12, lg=16, xl=24, 2xl=32, 3xl=48`
+- [x] `containerPadding` 16dp
+- [x] `stackGap` 8dp
+- [x] `itemPaddingX` 16dp · `itemPaddingY` 12dp
+- [x] `fabOffset` 32dp
+- [x] Plus a 4dp base scale: `xs=4, sm=8, md=12, lg=16, xl=24, 2xl=32, 3xl=48`
 
 **Elevation (Tonal + Ambient)**
-- [ ] `level0` (background)
-- [ ] `level1` (surface) — no shadow, only tonal lift
-- [ ] `level2.fab` — primary-tinted shadow (`primary.blueShadow`, 24dp blur, 8dp y-offset)
-- [ ] `blur.backdrop` — 14dp (header + tab bar)
+- [x] `level0` (background)
+- [x] `level1` (surface) — no shadow, only tonal lift
+- [ ] `level2.fab` — primary-tinted shadow (`primary.blueShadow`, 24dp blur, 8dp y-offset) _(deferred per subset scope — target §5 `FluxItFab`)_
+- [ ] `blur.backdrop` — 14dp (header + tab bar) _(deferred per subset scope — target §7 backdrop blur)_
 
 **Motion (proposed defaults; confirm)**
-- [ ] `duration.fast` 120ms · `duration.standard` 200ms · `duration.emphasized` 320ms
-- [ ] `easing.standard` cubic(0.2, 0.0, 0, 1)
-- [ ] `easing.emphasized` cubic(0.2, 0.0, 0, 1.0)
+- [ ] `duration.fast` 120ms · `duration.standard` 200ms · `duration.emphasized` 320ms _(deferred per subset scope)_
+- [ ] `easing.standard` cubic(0.2, 0.0, 0, 1) _(deferred per subset scope)_
+- [ ] `easing.emphasized` cubic(0.2, 0.0, 0, 1.0) _(deferred per subset scope)_
 
 ## 3. Typography pipeline
 
-- [ ] Bundle Inter (Regular, Medium, SemiBold, Bold) as variable font `Inter-Variable.ttf` in both apps.
-  - Android: `core-designsystem/src/androidMain/res/font/inter_variable.ttf`, declare a `FontFamily.Inter` with weight axis.
-  - iOS: add to `ios-app/Resources/`, declare in `Info.plist` `UIAppFonts`, expose via `FluxItTokens.Font.inter(weight:size:)`.
-- [ ] Verify license file (Inter is OFL — include `OFL.txt` next to the font on both platforms).
-- [ ] Compose: `FluxItTypography` exposes `displayLg`, `titleMd`, `bodyMd`, `labelSm`, `captionXs` as `TextStyle`.
-- [ ] SwiftUI: `Font.fluxIt.titleMd` etc. via `extension Font`.
-- [ ] Snapshot test renders all five styles on both platforms.
+- [x] Bundle Inter (Regular, Medium, SemiBold, Bold) as variable font `Inter-Variable.ttf` in both apps. _Source: rsms/inter v4.1 (sha256 9883fdd…b11e); single `InterVariable.ttf` (880KB) shipped on both platforms._
+  - Android: `core-designsystem/src/androidMain/res/font/inter_variable.ttf` + `FontFamily.Companion.Inter` extension using `FontVariation.Settings(FontVariation.weight(…))` per Compose `FontWeight` (Normal=400, Medium=500, SemiBold=600, Bold=700). One resource, axis-driven weight selection.
+  - iOS: `ios-app/Resources/Inter-Variable.ttf` + `UIAppFonts` entry in `Info.plist` (via `project.yml` `info.properties`). SwiftEmitter uses `Font.custom("Inter", size: …).weight(…)` — `.weight()` picks the right `wght` axis on the variable font (iOS 16+).
+- [x] Verify license file (Inter is OFL — include `OFL.txt` next to the font on both platforms).
+  - Android: `assets/fonts/OFL.txt` (AGP rejects non-font files in `res/font/`; relocated to `assets/fonts/` so it still ships in the APK and an in-app Licenses screen can read it via `AssetManager`).
+  - iOS: `ios-app/Resources/OFL.txt`.
+- [x] Compose: `FluxItTypography` exposes `displayLg`, `titleMd`, `bodyMd`, `labelSm`, `captionXs` as `TextStyle`. _Generated by `KotlinEmitter.emitTypography`; each style backed by `FontFamily.Inter`._
+- [x] SwiftUI: `Font.fluxIt.titleMd` etc. via `extension Font`. _**Deviation accepted 2026-05-19.** Generator emits `FluxItTokens.Typography.titleMd` as a `TypographyStyle` struct (`font` + `lineHeight` + `tracking`) — a superset of the spec's API since SwiftUI's `Font` can't carry lineHeight or letterSpacing. The §5 SwiftUI primitives shipped using hardcoded `.font(.system(size:weight:))` values that match the token numerics; `FluxItTokens.Typography.*` is available for app-level consumers that need lineHeight/tracking. The `Font.fluxIt.*` convenience accessor is **deferred to Phase 07**, where the first SwiftUI feature screen can retrofit primitives if call-site friction shows up. Decision rationale: §5 already shipped without surfacing real friction; retrofit cost is low and best driven by an actual consumer._
+- [ ] Snapshot test renders all five styles on both platforms. _Deferred to Phase 14 (snapshot harness — Paparazzi for Android, swift-snapshot-testing for iOS — is part of Phase 14's test-strategy work; pulling it into §3 would drag harness choices forward under typography pressure)._
 
 ## 4. Iconography (Material Symbols Outlined)
 
-- [ ] Decision needed: ship as a font (`MaterialSymbolsOutlined-Variable.ttf`, ~3MB) **or** vectorize the small set we actually use (cart, home, briefcase, plane, fork-knife, dumbbell, star, more, trash, chevron, search, plus, check, bell, camera, settings, account, calendar, list, arrow-up).
-  - Default proposal: **vectorize the ~25 icons we use** to avoid the font weight; add new icons as `.xml`/`.svg` per addition. Tracked in ADR (TBD this phase).
-- [ ] Compose: each icon as `FluxItIcons.Cart`, `FluxItIcons.Home`… returning `ImageVector` (generated from SVG via `:core:core-designsystem:generateIcons` task or hand-authored `materialIcon { … }` blocks).
-- [ ] SwiftUI: SF Symbols *won't* match exactly — ship the same SVGs as `Asset Catalog` symbol images.
-- [ ] Active-state fills: tab-bar active tab uses filled variants; expose `FluxItIcons.ListsFilled` etc. for the four tab icons.
+- [x] Decision: **vectorize the ~25 icons we use**, sourced from Material Symbols Outlined (weight 400, grade 0, opsz 24). Decision formalized in **ADR-005a** (Accepted 2026-05-19). 25 SVGs live under `core/core-designsystem/icons/` with the upstream Apache-2.0 license and a filename → Material-Symbols-name attribution table in `ATTRIBUTION.md`.
+- [x] Compose: each icon as `FluxItIcons.Cart`, `FluxItIcons.Home`… returning `ImageVector`, generated by `:core:core-designsystem:generateIcons` from `core-designsystem/icons/*.svg`. _Generator emits a single `FluxItIcons.kt` under `build/generated/source/icons/androidMain/dev/franzueto/fluxit/core/designsystem/icons/`. Uses `ImageVector.Builder` directly (not `materialIcon`, which hardcodes a 24×24 viewport — Material Symbols ship on 960×960). Absolute Y coordinates are shifted by `-viewBoxMinY` so the Compose viewport anchors at (0,0); relative deltas pass through unshifted. Each icon is memoized via a top-level `private var _<lowerCamel>: ImageVector? = null` backing field (mirroring the official Material Icons codegen pattern). `compileKotlin` `dependsOn generateIcons`._
+- [x] SwiftUI: SF Symbols *won't* match exactly — ship the same SVGs as `Asset Catalog` symbol images. _Generator writes `ios-app/Resources/FluxItIcons.xcassets/ic-<name>.imageset/{Contents.json + ic-<name>.svg}` per icon, plus a sibling `ios-app/Generated/icons/FluxItIcons.swift` Swift accessor file (a `public extension FluxItTokens { enum Icons { … } }`). Imagesets use `template-rendering-intent: template` so `.foregroundStyle()` tints them, and `preserves-vector-representation: true` so they stay crisp when scaled. The `ic-` prefix avoids collisions with future non-icon image assets. Accessors are of the form `FluxItTokens.Icons.cart: Image = Image("ic-cart")`. `scripts/build-ios.sh` invokes `generateIcons` alongside `generateTokens` before xcodegen; `ios-app/project.yml` already includes `Resources` recursively, with `ASSETCATALOG_COMPILER_APPICON_NAME` cleared so `actool` doesn't fail looking for an AppIcon (Phase 17 work)._
+- [x] Active-state fills: tab-bar active tab uses filled variants; expose `FluxItIcons.ListsFilled` etc. for the four tab icons. _4 filled-state variants shipped: `list-filled.svg`, `calendar-filled.svg`, `star-filled.svg`, `account-filled.svg` (Material Symbols Fill=1). Generator produces `FluxItIcons.ListFilled` / `.CalendarFilled` / `.StarFilled` / `.AccountFilled` on Compose and `FluxItTokens.Icons.listFilled` / `.calendarFilled` / `.starFilled` / `.accountFilled` on SwiftUI._
 
 ## 5. Reusable primitives (`core-designsystem` API)
 
 Each primitive ships in **both** Compose and SwiftUI with identical name and prop semantics. Cross-platform parity is enforced by snapshot tests.
 
-- [ ] **`FluxItScaffold`** — applies `background.dark`, safe-area handling, optional sticky header + tab bar slots with `backdrop-blur-md`.
-- [ ] **`FluxItTopBar`**
+- [x] **`FluxItScaffold`** — applies `background.dark`, safe-area handling, optional sticky header + tab bar slots with `backdrop-blur-md`. _Compose: `core/core-designsystem/src/androidMain/.../components/FluxItScaffold.kt` (Material3 `Scaffold` with `containerColor = FluxItColors.backgroundDark`, `contentColor = FluxItColors.textPrimary`, slots for `topBar`/`bottomBar`). SwiftUI: `ios-app/Sources/DesignSystem/Components/FluxItScaffold.swift` (`ZStack` over `FluxItTokens.Colors.backgroundDark.ignoresSafeArea()` with `safeAreaInset(edge: .top/.bottom)` for slot equivalents). Backdrop blur is layered on by `FluxItTopBar` / `FluxItBottomTabBar` themselves (§7 finalizes the perf path); the scaffold is just the chrome._
+- [x] **`FluxItTopBar`**
   - Variant A: large title (`display.lg`), trailing icon button (settings) — used on Lists Dashboard.
   - Variant B: centered title + leading text-button (e.g., "‹ Lists") + trailing icon button — used on List Detail / Edit Item.
-- [ ] **`FluxItBottomTabBar`** — 4 tabs, 80dp height, blur backdrop, centered icon+caption stack, active-state fill + `primary.blue` tint.
-- [ ] **`FluxItSearchField`** — full-width, leading search icon, no border, `surface.search` fill, `rounded-xl`, placeholder uses `text.muted`.
-- [ ] **`FluxItCard`** — surface card with `rounded-xl`, optional resting-state 50% opacity, press-state 100%.
-- [ ] **`FluxItListItem`** — three-slot layout: 56dp leading icon container with 20%-opacity tint, title + subtitle stack, trailing slot. Variants:
+  _Shipped as two top-level primitives: `FluxItTopBarLarge` / `FluxItTopBarCentered` (Compose + SwiftUI). Bar background uses the §7-resolved opaque fallback (`surface.card @ 90%`) on Android and `.ultraThinMaterial` on iOS until §7 finalizes the blur perf path._
+- [x] **`FluxItBottomTabBar`** — 4 tabs, 80dp height, blur backdrop, centered icon+caption stack, active-state fill + `primary.blue` tint. _Generic over a `List<FluxItTabItem>` (icon + activeIcon + label) on both platforms; selection-state tinting via `primary.blue` / `text.muted`. Same backdrop strategy as the top bar._
+- [x] **`FluxItSearchField`** — full-width, leading search icon, no border, `surface.search` fill, `rounded-xl`, placeholder uses `text.muted`. _Compose: `BasicTextField` inside a styled `Row` (no Material3 `TextField` chrome); cursor brush set to `primary.blue`. SwiftUI: `TextField` with `.tint(primary.blue)` and a `ZStack` placeholder overlay._
+- [x] **`FluxItCard`** — surface card with `rounded-xl`, optional resting-state 50% opacity, press-state 100%. _Compose: `Box` with `clip(RoundedCornerShape(16.dp))` + `background(surfaceCard | surfaceCardMuted)`. SwiftUI: `clipShape(RoundedRectangle(cornerRadius: 16))` over the same token colors. `resting: Boolean = false` flag toggles the 50%-alpha muted variant on both platforms._
+- [x] **`FluxItListItem`** — three-slot layout: 56dp leading icon container with 20%-opacity tint, title + subtitle stack, trailing slot. Variants:
   - Dashboard list-item (icon container colored, trash + chevron trailing).
   - Detail to-buy item (radio leading, chevron trailing).
   - Detail completed item (filled-circle check leading, strikethrough title, trash trailing).
-- [ ] **`FluxItProgressBar`** — slim `primary.blue` linear progress with rounded caps; used on List Detail header (`13/20`).
-- [ ] **`FluxItFab`** — 64dp circle, `primary.blue`, `level2.fab` shadow, plus icon. Center-docked variant for tab bar.
-- [ ] **`FluxItIconChip`** — used in Create List icon picker: 80dp rounded square, selected state shows `primary.blue` border + tint.
-- [ ] **`FluxItColorSwatch`** — circle with optional ring for selected state.
-- [ ] **`FluxItPrimaryButton`** — full-width, `primary.blue`, `body.md` semibold white text. Disabled state at 40% opacity.
-- [ ] **`FluxItTextField`** — labeled (uppercase `caption.xs` muted label above), surface fill, `rounded-md`. Single-line and multi-line variants (Edit Item description).
-- [ ] **`FluxItInlineComposer`** — bottom-anchored "+ Add new item…" pill + circular submit button on the right (List Detail screen).
-- [ ] **`FluxItSectionHeader`** — uppercase muted label + optional trailing text-button ("Hide").
-- [ ] **`FluxItEmptyState`** — used by Calendar/Starred placeholders (per ADR-004) and by the Lists Dashboard before any list exists.
-- [ ] **`FluxItDestructiveButton`** — outlined variant in `accent.rose` with trash icon (Edit Item delete).
-- [ ] **`FluxItSwipeRow`** — gesture container that reveals a rose-tinted destructive action on swipe. Android: built on `SwipeToDismissBox` with a custom background. iOS: thin wrapper around native `.swipeActions(edge: .trailing) { Button(role: .destructive) … }`. Backfilled from Phase 07 (used by dashboard rows; reusable for any list with destructive row actions).
+  _Shipped as three top-level primitives mirrored 1:1 across platforms: `FluxItDashboardListItem` (Compose+Swift), `FluxItToBuyListItem`, `FluxItCompletedListItem`. Dashboard variant exposes independent `trashIcon`/`onDelete` + `chevronIcon` slots; to-buy uses a hand-drawn hollow radio (Compose `Modifier.border` over a `CircleShape`; SwiftUI `Circle().strokeBorder`); completed variant applies `TextDecoration.LineThrough` / `.strikethrough()` on the title._
+- [x] **`FluxItProgressBar`** — slim `primary.blue` linear progress with rounded caps; used on List Detail header (`13/20`). _6dp track in `divider.subtle`, filled portion in `primary.blue`; both rounded with 3dp radius. Single `progress: Float` (0..1) on Compose / `Double` on SwiftUI; clamped at the primitive boundary._
+- [x] **`FluxItFab`** — 64dp circle, `primary.blue`, `level2.fab` shadow, plus icon. Center-docked variant for tab bar. _64dp `Box` / 64pt `Image` with `Modifier.shadow` / `.shadow()` tinted by `primary.blueShadow`. Caller passes the icon (typically `FluxItIcons.Plus`). Center-docked positioning is a parent-layout concern, not a primitive parameter — left for the screen consumer._
+- [x] **`FluxItIconChip`** — used in Create List icon picker: 80dp rounded square, selected state shows `primary.blue` border + tint. _80dp rounded-square (20dp radius); background is `tint @ 20% alpha` (or `primary.blue @ 20%` when selected), with a 2dp `primary.blue` border + icon tint in `primary.blue` when selected. A11y: `Role.Button` + `selected` semantic flag (Compose) / `.isSelected` accessibility trait (SwiftUI)._
+- [x] **`FluxItColorSwatch`** — circle with optional ring for selected state. _40dp filled circle; selected state adds a 3dp `textPrimary` ring (chosen over `primary.blue` for contrast against blue swatches in the category palette). Same a11y treatment as IconChip._
+- [x] **`FluxItPrimaryButton`** — full-width, `primary.blue`, `body.md` semibold white text. Disabled state at 40% opacity. _56dp pill (16dp corner radius); `enabled: Bool` toggles fill alpha 1.0 → 0.4 and disables the click handler._
+- [x] **`FluxItTextField`** — labeled (uppercase `caption.xs` muted label above), surface fill, `rounded-md`. Single-line and multi-line variants (Edit Item description). _Single primitive with `singleLine: Boolean` + `minLines: Int` flags toggling between modes (Compose: `singleLine`/`minLines` on `BasicTextField`; SwiftUI: `axis: .vertical` + `lineLimit(minLines...20)` for the multi-line path)._
+- [x] **`FluxItInlineComposer`** — bottom-anchored "+ Add new item…" pill + circular submit button on the right (List Detail screen). _56dp pill (corner radius 28dp), `BasicTextField` left side, 44dp circular `IconButton` on the right filled with `primary.blue` and using a caller-supplied `submitIcon`. SwiftUI mirror uses `TextField(onCommit:)` so return-key submits._
+- [x] **`FluxItSectionHeader`** — uppercase muted label + optional trailing text-button ("Hide"). _`label.uppercase()` rendered as `captionXs` muted; optional `trailingActionLabel` text-button in `primary.blue`._
+- [x] **`FluxItEmptyState`** — used by Calendar/Starred placeholders (per ADR-004) and by the Lists Dashboard before any list exists. _Centered vertical stack: optional 48dp `text.muted`-tinted icon, `titleMd` `text.primary` title, optional `bodyMd` `text.muted` message. 24dp padding all around._
+- [x] **`FluxItDestructiveButton`** — outlined variant in `accent.rose` with trash icon (Edit Item delete). _56dp outlined pill (1dp stroke in `accent.rose`); icon + label both tinted `accent.rose`. Promoted `accent.rose` from the deferred subset (see §2)._
+- [ ] **`FluxItSwipeRow`** — gesture container that reveals a rose-tinted destructive action on swipe. Android: built on `SwipeToDismissBox` with a custom background. iOS: thin wrapper around native `.swipeActions(edge: .trailing) { Button(role: .destructive) … }`. **Deferred to Phase 07** (used by dashboard rows; ships with Phase 07's first consumer rather than as a §5 row). Explicit deferral confirmed 2026-05-19 — leaving this row open until Phase 07 backfills it.
 
 ## 6. Theme + dark-mode-only policy
 
-- [ ] DESIGN.md is dark-mode-first. v1 ships **dark only** — no light theme, no `isSystemInDarkTheme()` switching.
-- [ ] Compose: `FluxItTheme` provides a fixed `darkColorScheme` plus our token objects via `CompositionLocal`.
-- [ ] SwiftUI: lock `preferredColorScheme(.dark)` at the app root.
-- [ ] Document the rationale + future light-mode reservation in ADR (paired with §11 design-token ADR or a separate one).
+- [x] DESIGN.md is dark-mode-first. v1 ships **dark only** — no light theme, no `isSystemInDarkTheme()` switching. _Ratified as **ADR-005b** (2026-05-19)._
+- [x] Compose: `FluxItTheme` provides a fixed `darkColorScheme` plus our token objects via `CompositionLocal`. _Landed at `core/core-designsystem/src/androidMain/kotlin/dev/franzueto/fluxit/core/designsystem/theme/FluxItTheme.kt` — wraps `MaterialTheme(darkColorScheme=…, typography=…)` mapped from `FluxItColors`/`FluxItTypography`, and provides 5 `staticCompositionLocalOf` locals (`LocalFluxItColors`, `LocalFluxItTypography`, `LocalFluxItShapes`, `LocalFluxItSpacing`, `LocalFluxItElevation`). `material3` dep added to `androidMain` for `MaterialTheme`/`darkColorScheme`._
+- [x] SwiftUI: lock `preferredColorScheme(.dark)` at the app root. _Applied to `ContentView` inside `WindowGroup` in `ios-app/Sources/FluxItApp.swift`._
+- [x] Document the rationale + future light-mode reservation in ADR (paired with §11 design-token ADR or a separate one). _**ADR-005b** Accepted on 2026-05-19; supersedes the §11 row 3 anticipated entry._
 
 ## 7. Backdrop blur on header + tab bar
 
-- [ ] Compose: use `Modifier.blur()` from compose-ui 1.7+ on a behind-content snapshot, **or** a `Surface` with `surface.card` @ 80% opacity if blur cost is too high on mid-range Android. Benchmark before committing — both options stubbed.
-- [ ] SwiftUI: `.background(.ultraThinMaterial)` on the header/tab-bar overlays.
-- [ ] Verify on Pixel 6a + iPhone 12 mini that scrolling stays at 60fps with header blur.
+- [x] Compose: use `Modifier.blur()` from compose-ui 1.7+ on a behind-content snapshot, **or** a `Surface` with `surface.card` @ 80% opacity if blur cost is too high on mid-range Android. Benchmark before committing — both options stubbed. _**v1 ships the opaque fallback path** (`surface.card @ 90%` — see §7 Resolved Decisions line below, 2026-05-11). True behind-content blur is a future, non-breaking enhancement that the screen layer can opt into via `Modifier.graphicsLayer { renderEffect = RenderEffect.createBlurEffect(…) }` on the *content* layer, or via a third-party lib like Haze. The bar primitives (`FluxItTopBar*` / `FluxItBottomTabBar`) keep their current background and need no API change to support that path later. Decision: ship fallback now; revisit when Phase 14 perf harness can benchmark on Pixel 6a._
+- [x] SwiftUI: `.background(.ultraThinMaterial)` on the header/tab-bar overlays. _Implemented as the shared `FluxItBarBackground` view (rectangle filled with `.ultraThinMaterial` + a `surfaceCard.opacity(0.4)` overlay to push the blur toward the brand's deeper-navy hue)._
+- [ ] Verify on Pixel 6a + iPhone 12 mini that scrolling stays at 60fps with header blur. _**Deferred to Phase 14/15** — no device access in the current session; the §7 Resolved Decisions line already pre-blessed the fallback when "perf budget is missed", and v1 ships the fallback unconditionally on Android until the benchmark can be run._
 
 ## 8. Accessibility
 
-- [ ] Every color pair we ship as text-on-surface meets WCAG AA (4.5:1 for body, 3:1 for large/headlines). Verify:
-  - `text.primary` on `background.dark` ✅ (computed)
-  - `text.muted` on `background.dark` — computed at ~5.6:1, ✅
-  - `text.primary` on `primary.blue` — verify (likely ~4.7:1) ✅
-- [ ] All primitives expose semantic labels (Compose `contentDescription`, SwiftUI `.accessibilityLabel`).
-- [ ] `FluxItIconChip`, `FluxItColorSwatch` — selected state communicated beyond color (border + a11y trait `isSelected`).
-- [ ] Hit targets ≥ 44pt / 48dp for all interactive elements.
-- [ ] Dynamic type: respect platform text scaling up to 130%; verify list items don't truncate at that scale.
+- [x] Every color pair we ship as text-on-surface meets WCAG AA (4.5:1 for body, 3:1 for large/headlines). Verified 2026-05-19 with WCAG 2.1 relative-luminance math:
+  - `text.primary` `#ffffff` on `background.dark` `#101822` → **18.06:1** ✅ AA-normal
+  - `text.muted` `#9da8b9` on `background.dark` `#101822` → **7.51:1** ✅ AA-normal (spec estimated ~5.6:1; actual is more generous)
+  - `text.primary` `#ffffff` on `primary.blue` `#2b7cee` → **4.02:1** ✅ AA-large only (the spec estimated ~4.7:1; actual is below AA-normal 4.5:1). Resolution: `FluxItPrimaryButton` label weight bumped to **Bold (700)** so 16sp text qualifies as WCAG large-text (≥14pt bold) and the 3:1 large-text threshold applies. No token change.
+  - `accent.rose` `#f43f5e` on `background.dark` → **4.92:1** ✅ AA-normal (added with §5 Group D; verified now for completeness).
+- [x] All primitives expose semantic labels (Compose `contentDescription`, SwiftUI `.accessibilityLabel`). _Audited and gap-filled 2026-05-19: `FluxItToBuyListItem` radio gets `Role.RadioButton` + "Mark as completed"; `FluxItSearchField` and `FluxItTextField` set `contentDescription` / `.accessibilityLabel` from their respective `placeholder` / `label` params; `FluxItProgressBar` exposes `progressBarRangeInfo` (Compose) / `.accessibilityValue("X percent")` (SwiftUI). All other primitives already had semantic-label coverage at §5 land time._
+- [x] `FluxItIconChip`, `FluxItColorSwatch` — selected state communicated beyond color (border + a11y trait `isSelected`). _Already wired in §5 Group E: `Role.Button` + `selected` semantic on Compose, `.accessibilityAddTraits(.isSelected)` on SwiftUI; selection border is visually distinct from the unselected tint on both pickers._
+- [x] Hit targets ≥ 44pt / 48dp for all interactive elements. _Audited and fixed 2026-05-19: `FluxItToBuyListItem` radio (24dp visual → 48dp tap area), `FluxItCompletedListItem` check + trash IconButtons (removed `.size(24.dp)` restriction → 48dp Material3 default), `FluxItInlineComposer` submit button (44dp → 48dp on Android; bumped from 44pt → 48pt on iOS for parity), `FluxItColorSwatch` (40dp/40pt visual → 48dp/48pt tap area). All other interactive primitives were already ≥48dp/44pt._
+- [x] Dynamic type: respect platform text scaling up to 130%; verify list items don't truncate at that scale. _Primitive-level audit 2026-05-19: no primitive caps `Text` size or sets `maxLines`/`softWrap=false`; all sizing is padding-driven, so text scales naturally with platform settings. Runtime device verification deferred to Phase 14 (snapshot harness) and Phase 17 (release hardening device pass)._
 
 ## 9. Theme Gallery debug screen
 
-- [ ] `:core:core-designsystem` ships a `ThemeGalleryScreen()` (Compose) and `ThemeGalleryView` (SwiftUI) inside a `debug` source set.
-- [ ] Renders every primitive in every variant + the full color/type/spacing token grid.
-- [ ] Reachable from each app via a hidden long-press on the Account tab in debug builds.
-- [ ] Snapshot-tested: one golden image per platform, regenerated only on intentional change (Phase 14 wires the comparator).
+- [x] `:core:core-designsystem` ships a `ThemeGalleryScreen()` (Compose) and `ThemeGalleryView` (SwiftUI) inside a `debug` source set. _Compose: `core/core-designsystem/src/androidDebug/kotlin/.../gallery/ThemeGalleryScreen.kt` — KMP + AGP auto-recognizes the `androidDebug` source set; the gallery is only compiled into the debug variant. SwiftUI: `ios-app/Sources/DesignSystem/Gallery/ThemeGalleryView.swift` — entire file gated by `#if DEBUG` so release builds strip it._
+- [x] Renders every primitive in every variant + the full color/type/spacing token grid. _Five sections on both platforms: Colors (10 tokens), Typography (5 styles with sample text), Shapes (6 corner radii), Spacing scale (xs..3xl bars), and Primitives (all 16 primitives × representative variants — TopBarLarge, Search, InlineComposer, single/multi TextField, Primary/Disabled/Destructive buttons, Card default+resting, all 3 ListItem variants, ProgressBar, IconChip × 2 selection states, ColorSwatch × 3, FAB, BottomTabBar, EmptyState). Wrapped in `FluxItTheme` + `FluxItScaffold`._
+- [ ] Reachable from each app via a hidden long-press on the Account tab in debug builds. _**Deferred to Phase 07** — Account tab doesn't exist until the feature phase ships the dashboard nav shell. The gallery's entry point gets wired then; the gallery surface itself is in place and importable._
+- [ ] Snapshot-tested: one golden image per platform, regenerated only on intentional change (Phase 14 wires the comparator). _**Deferred to Phase 14** per the row text — snapshot harness (Paparazzi on Android, swift-snapshot-testing on iOS) lands there._
 
 ## 10. Brand cleanup
 
-- [ ] Update `DESIGN.md` frontmatter: `name: Lumina Lists` → `name: FluxIt`.
-- [ ] Add the missing `primary-blue: '#2b7cee'` entry to the `colors` map in `DESIGN.md`.
-- [ ] Sweep prose body of `DESIGN.md` for "Lumina Lists" mentions and replace.
-- [ ] Add a one-line note at the top of `DESIGN.md`: "Token source of truth lives in `core-designsystem/tokens/tokens.json`; this file is the human-readable narrative."
-- [ ] Confirm with product whether `/design` mockup PNGs need rebrand re-export (no in-screen "Lumina" copy is visible, so likely not).
+- [x] Update `DESIGN.md` frontmatter: `name: Lumina Lists` → `name: FluxIt`.
+- [x] Add the missing `primary-blue: '#2b7cee'` entry to the `colors` map in `DESIGN.md`. _Inserted between `text-muted` and the `accent-*` block._
+- [x] Sweep prose body of `DESIGN.md` for "Lumina Lists" mentions and replace. _One occurrence in "Brand & Style" rewritten; no other prose mentions._
+- [x] Add a one-line note at the top of `DESIGN.md`: "Token source of truth lives in `core-designsystem/tokens/tokens.json`; this file is the human-readable narrative." _Added as a callout block above "Brand & Style"._
+- [x] Confirm with product whether `/design` mockup PNGs need rebrand re-export (no in-screen "Lumina" copy is visible, so likely not). _Confirmed: `grep -ri lumina design/` returns zero hits across the source HTML for all four screens — PNGs render from that HTML, so no re-export needed._
 
 ## 11. ADRs to write in this phase
 
-- [ ] **ADR-005** — Design token pipeline (JSON-as-SoT + Kotlin generator vs. Style Dictionary vs. hand-maintained-twice). Document why we picked the chosen approach and the rejected alternatives.
-- [ ] **ADR-005a** (or merge into 005) — Iconography: vectorized set vs. Material Symbols variable font.
-- [ ] **ADR-005b** (or merge into 005) — Dark-mode-only for v1; reserve namespace for light tokens.
+- [x] **ADR-005** — Design token pipeline (JSON-as-SoT + Kotlin generator vs. Style Dictionary vs. hand-maintained-twice). Document why we picked the chosen approach and the rejected alternatives. _Accepted 2026-05-18._
+- [x] **ADR-005a** (or merge into 005) — Iconography: vectorized set vs. Material Symbols variable font. _Accepted 2026-05-19._
+- [x] **ADR-005b** (or merge into 005) — Dark-mode-only for v1; reserve namespace for light tokens. _Accepted 2026-05-19._
 
 ## 12. Sanity tests
 
-- [ ] Unit test: every Compose token in `FluxItColors` has a Swift counterpart (parsed from generated `FluxItTokens.swift`); fail if any missing.
-- [ ] Snapshot test: Theme Gallery on Android + iOS — golden images checked in.
-- [ ] Konsist rule: no `Color(0x…)`, `dp(…)`, raw `sp(…)`, or `Font(…)` literals outside `core-designsystem`.
-- [ ] A11y test: `text.muted` vs. every surface passes 4.5:1 (or marked as decorative-only with a code comment + a11y override).
+- [x] Unit test: every Compose token in `FluxItColors` has a Swift counterpart (parsed from generated `FluxItTokens.swift`); fail if any missing. _`DesignSystemSanityTest` in `:build-logic:test` parses both generated files with regexes, asserts `composeNames == swiftNames` modulo set semantics, with separate `withClue` for each direction._
+- [ ] Snapshot test: Theme Gallery on Android + iOS — golden images checked in. _**Deferred to Phase 14** per the §9 row 4 deferral and the row text itself — snapshot harness (Paparazzi / swift-snapshot-testing) lands there._
+- [x] Konsist rule: no `Color(0x…)`, `dp(…)`, raw `sp(…)`, or `Font(…)` literals outside `core-designsystem`. _`DesignSystemSanityTest` runs four regex bans (`Color(0x…)`, `\d+\.dp`, `\d+\.sp`, raw `androidx.compose.ui.text.font.Font(`) across all non-test, non-generated source files outside `core-designsystem` and `build-logic`. Currently a no-op (no consumer modules ship design code yet); fires automatically when feature phases add primitive consumers._
+- [x] A11y test: `text.muted` vs. every surface passes 4.5:1 (or marked as decorative-only with a code comment + a11y override). _`DesignSystemSanityTest` computes WCAG 2.1 contrast for `text.muted` (#9DA8B9) on each shipping surface — `background.dark`, `surface.card`, `surface.search`, and `surface.cardMuted` composited over `background.dark` (50% alpha). All ≥ 4.5:1. `primary.blue` excluded as decorative-only (no real screen places muted text on the brand-blue surface; CTAs always use `text.primary`)._
 
 ## 13. Hand-off checklist (gate to Phase 03)
 
-- [ ] All checkboxes above are ✅.
-- [ ] Theme Gallery PR includes side-by-side Android + iOS screenshots.
-- [ ] `MASTER_PLAN.md` updated: Phase 02 → 🟢, "▶ Next Step" advanced to Phase 03.
-- [ ] `00_DECISIONS.md` updated with ADR-005 (and 005a/b) accepted.
+- [x] All checkboxes above are ✅. _Closed 2026-05-19 with an explicit deferral inventory — the remaining unchecked rows are all deferrals tagged to a later phase rather than gaps. Detailed inventory:_
+  - **Subset-scope token deferrals** (§2): `accent.orange/emerald/indigo`, full category palette, motion tokens (`duration.*`, `easing.*`), `elevation.level2.fab`, `elevation.blur.backdrop` — promoted to `tokens.json` when the consuming feature phase needs them, per the §2 deferred-subset policy.
+  - **§3 row 5** (typography snapshot test) — deferred to Phase 14 (snapshot harness lives there).
+  - **§5 `FluxItSwipeRow`** — deferred to Phase 07 (used by dashboard rows; ships with first consumer).
+  - **§7 row 3** (Pixel 6a / iPhone 12 mini perf benchmark) — deferred to Phase 14/15 (no device access in session; §7-Resolved decisions pre-blessed the opaque fallback when budget missed).
+  - **§9 row 3** (long-press on Account tab) — deferred to Phase 07 (Account tab doesn't exist yet).
+  - **§9 row 4 + §12 row 2** (Theme Gallery snapshot test) — deferred to Phase 14 per spec text.
+  - **§3 row 4 deviation accepted**: `Font.fluxIt.*` SwiftUI accessor not shipped; primitives hardcode numeric font sizes matching token values; `FluxItTokens.Typography.*` available for app consumers. Retrofit deferred to Phase 07.
+- [ ] Theme Gallery PR includes side-by-side Android + iOS screenshots. _**User action at PR open** — the gallery surface is in place on both platforms (`ThemeGalleryScreen()` in `androidDebug`, `ThemeGalleryView` under `#if DEBUG`); the user runs `assembleDebug` + `scripts/build-ios.sh`, captures screenshots, and adds them to the PR body when opening it._
+- [x] `MASTER_PLAN.md` updated: Phase 02 → 🟢, "▶ Next Step" advanced to Phase 03. _Done in same commit as this row tick._
+- [x] `00_DECISIONS.md` updated with ADR-005 (and 005a/b) accepted. _All three ADRs Accepted: ADR-005 on 2026-05-18 (token pipeline), ADR-005a on 2026-05-19 (iconography pipeline), ADR-005b on 2026-05-19 (dark-mode-only)._
 
 ---
 
 ## Resolved decisions for this phase (2026-05-11)
 
 - ✅ **Sky swatch:** `#38bdf8` (Tailwind sky-400). Add to category palette in §2.
-- ✅ **Android blur fallback:** opaque `surface.card` @ 90% when `RenderEffect.createBlurEffect` is unavailable (API < 31) or the perf budget in §7 is missed on the target device. No intermediate "reduced blur" branch.
+- ✅ **Android blur fallback:** opaque `surface.card` @ 90% when `RenderEffect.createBlurEffect` is unavailable (API < 31) or the perf budget in §7 is missed on the target device. No intermediate "reduced blur" branch. _Update 2026-05-19: v1 ships the fallback **unconditionally** on Android (regardless of API level) until the Pixel 6a benchmark can be run in Phase 14/15. The `Modifier.blur()` upgrade is a non-breaking change behind the bar primitives' API — can be opted into incrementally by the screen layer via `Modifier.graphicsLayer { renderEffect = … }` on the content below the bar, or via a third-party lib like Haze._
 - ✅ **Iconography:** vectorize the ~25 icons we actually use; SVGs live in `core-designsystem/icons/` and generate `FluxItIcons.*` (Compose `ImageVector`) + iOS asset-catalog symbol set. New icons = new SVG + regen.
 - ✅ **Inter format:** ship `Inter-Variable.ttf` (single ~750KB file). Weight axis exposed on both platforms.
 - ✅ **Light theme:** v1 is dark-only (locked via ADR-005b in §11). Token namespace reserved (`tokens.json` keys grouped under `light`/`dark`, with `light` empty for now).

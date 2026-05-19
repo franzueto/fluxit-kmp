@@ -119,11 +119,115 @@
 
 ---
 
+### ADR-005 — Design token pipeline: hand-authored `tokens.json` + Gradle-resident Kotlin generator
+- **Status:** Accepted (flipped from Proposed on 2026-05-18 after first clean Compose + SwiftUI round-trip and a green `assembleDebug`)
+- **Date:** 2026-05-18
+- **Context:** Phase 02 requires a single source of truth for color/type/shape/spacing/elevation tokens that emits both Compose (Kotlin) and SwiftUI (Swift) consumables. ADR-001 locked native UI on each platform, so the same token must surface twice in two different type systems without drift. Three concrete approaches are on the table:
+  1. **Style Dictionary** (Amazon, JS) — the industry default for multi-platform token export. Mature transforms, large ecosystem, but pulls a Node toolchain into CI for a single ~one-file emission step.
+  2. **Hand-maintained-twice** — author `FluxItColors.kt` and `FluxItTokens.swift` directly, code-review for parity. Zero tooling, infinite drift surface.
+  3. **JSON-as-SoT + a small in-repo Kotlin generator** — `core-designsystem/tokens/tokens.json` in W3C Design Tokens Community Group format, with a Gradle task in `build-logic` that emits both Kotlin and Swift outputs. ~200 lines of generator code, no extra toolchain.
+  The repo already runs Gradle on every CI job and already produces a Kotlin/JVM `build-logic` module; adding a generator there is incremental. The repo does not currently run Node anywhere; adopting Style Dictionary would be the first dependency on a non-JVM runtime.
+- **Decision:** Approach **(3)** — JSON SoT plus a Kotlin generator.
+  - **Source of truth:** `core/core-designsystem/tokens/tokens.json`, hand-authored, [W3C Design Tokens CG format](https://design-tokens.github.io/community-group/format/). Light/dark token groups present from day one; `light` empty for v1 (dark-mode-only is the §11 sub-decision tracked separately).
+  - **Generator:** a Gradle task `:core:core-designsystem:generateTokens` defined in a `build-logic` convention plugin. Reads `tokens.json`, emits:
+    - Kotlin: `FluxItColors.kt`, `FluxItTypography.kt`, `FluxItShapes.kt`, `FluxItSpacing.kt`, `FluxItElevation.kt` into `core-designsystem/build/generated/source/tokens/` (registered as a Kotlin source set; gitignored).
+    - Swift: `FluxItTokens.swift` into `ios-app/Generated/` (gitignored; xcodegen `project.yml` globs `Generated/**.swift` so the file is picked up on the next `scripts/build-ios.sh`).
+  - **Wiring:**
+    - Compose side — `generateTokens` is wired as a `dependsOn` of `compileKotlin`.
+    - iOS side — `scripts/build-ios.sh` runs `:core:core-designsystem:generateTokens` before invoking `xcodegen` + `xcodebuild`. (Future option: add an Xcode "Run Script" build phase that calls the same Gradle task, evaluated in Phase 15.)
+  - **CI guard:** a `verifyTokensInSync` task re-runs the generator and fails the build if the working tree is dirty afterward. Catches the "edited generated file by hand" case.
+  - **Status flip:** this ADR stays **Proposed** until the generator lands and produces a clean Compose+SwiftUI round-trip with the verifier green; a follow-up commit on `phase/02-design-system` flips it to **Accepted**.
+- **Consequences:**
+  - ➕ Zero new runtimes in CI. Generator runs inside the Gradle process every build already does.
+  - ➕ The generator is a Kotlin program in the same repo, reviewed under the same Konsist/detekt rules — auditable, not a vendored binary.
+  - ➕ `tokens.json` is the only file designers (or future you) edit to change a color across both platforms.
+  - ➕ Adding a token = JSON edit + regen. No "did we add it on both sides?" review burden.
+  - ➖ ~200 lines of generator code we own. If the W3C DTCG spec evolves materially (currently Editor's Draft), we maintain.
+  - ➖ Swift output lives outside Gradle's standard `build/` tree (it lands under `ios-app/Generated/`). Mitigated by gitignore + the `verifyTokensInSync` guard.
+  - 🔁 If we later add platform targets (e.g. web, watchOS) the generator gains one more emitter — additive, not a rewrite.
+  - 🔁 If the generator ever exceeds ~500 LOC or we need richer transforms (calc(), references, math), revisit by superseding ADR with a Style Dictionary migration plan.
+- **Alternatives considered:**
+  - **Style Dictionary** (option 1) — rejected for v1: drags Node into a JVM-only CI, and our token surface is small enough that a hand-rolled generator is cheaper to own than the dependency. Re-evaluate at the threshold above.
+  - **Hand-maintained-twice** (option 2) — rejected: ADR-001 means every screen consumes tokens on two platforms; drift is the failure mode we most need to design out.
+  - **Kotlin-as-SoT** (e.g. an `object FluxItTokens` Kotlin file, then generate Swift from it via KSP or reflection) — rejected: locks designers into editing Kotlin to change a hex value, and KSP-to-Swift generation is not a paved path.
+  - **YAML SoT** instead of JSON — equivalent in expressiveness; rejected because the W3C DTCG format is JSON-native and design tools (Figma Tokens plugin, etc.) already export to that JSON shape, keeping a future import path open.
+- **Open sub-decisions (deferred to their own ADR entries this phase):**
+  - **ADR-005a** — iconography source (vectorized 25-icon set vs. Material Symbols Variable font). _Drafted 2026-05-18, see below._
+  - **ADR-005b** — dark-mode-only for v1; reserve namespace for light tokens.
+
+---
+
+### ADR-005a — Iconography: vectorized in-repo SVG set with Compose `ImageVector.Builder` + iOS asset-catalog emitters
+- **Status:** Accepted (flipped from Proposed on 2026-05-19 after first clean Compose + SwiftUI round-trip — `assembleDebug` green on Android, `scripts/build-ios.sh` green on iOS, all 29 generator unit tests passing)
+- **Date:** 2026-05-18 (Proposed); 2026-05-19 (Accepted; Decision section amended)
+- **Context:** Phase 02 §4 owes a concrete iconography pipeline. The screen audit identifies ~25 icons actually used across the v1 surfaces (cart, home, briefcase, plane, fork-knife, dumbbell, star, more, trash, chevron, search, plus, check, bell, camera, settings, account, calendar, list, arrow-up, plus filled-state variants for the four tab icons). Two structural choices need ratifying:
+  1. **Source format.** Ship Google's Material Symbols Variable font (~3MB) as a single asset and reference glyphs by codepoint, OR vectorize the ~25 icons as in-repo SVGs and generate platform-native vector primitives. The "vectorize" direction was already recorded verbally in Phase 02 §2's "Resolved decisions" block (2026-05-11); this ADR formalizes it and locks the generator shape.
+  2. **Per-platform emission strategy.** Once SVGs are the source, three sub-choices: where do SVGs live, how does the Compose emitter surface them, and how does the iOS emitter surface them. The token pipeline (ADR-005) sets a precedent — JSON source, in-process Kotlin generator, two emitters writing platform-idiomatic output — and the iconography pipeline should mirror that shape rather than invent a parallel toolchain.
+- **Decision:**
+  - **Source format:** vectorize the ~25 icons we actually ship. SVGs are hand-curated (or exported from Figma) and checked into the repo. New icons = add SVG + regen; no font-codepoint indirection, no ~3MB ride-along binary.
+  - **SVG location:** `core/core-designsystem/icons/*.svg`, one file per icon. Sibling to `core/core-designsystem/tokens/tokens.json`. Mirrors the token-pipeline layout so future contributors find both inputs in the same place. Filled-state variants are sibling files with a `-filled` suffix (e.g. `lists.svg` + `lists-filled.svg`).
+  - **Generator:** a new Gradle task `:core:core-designsystem:generateIcons`, defined in `build-logic` alongside the existing token generator. Reuses the convention-plugin pattern from `fluxit.designsystem.tokens`. Inputs: every file under `core/core-designsystem/icons/*.svg`. Two emitters:
+    - **Compose emitter:** parses each SVG's `<path d="…">` data and emits a single Kotlin file `FluxItIcons.kt` into `core-designsystem/build/generated/source/icons/androidMain/` (settled on androidMain — `commonMain` deferred until a Compose Multiplatform target ships). Each icon becomes a `val FluxItIcons.Cart: ImageVector` getter with a top-level `private var _cart: ImageVector? = null` memoization backing field (mirroring the official Material Icons codegen pattern). The emitter constructs `ImageVector.Builder` **directly** rather than the `materialIcon` helper, because `materialIcon` hardcodes the viewport to 24×24 — Material Symbols ship on a 960×960 grid, and dropping one level keeps the original coordinate space intact (24dp default render size + 960×960 viewport). Absolute Y coordinates are shifted by `-viewBoxMinY` so the Compose viewport anchors at (0,0); relative deltas pass through unshifted. Path commands translate 1:1 to `moveTo`/`lineTo`/`horizontalLineTo`/`verticalLineTo`/`curveTo`/`reflectiveCurveTo`/`quadTo`/`reflectiveQuadTo`/`close` (plus `*Relative` variants) on the path builder. Pure-Kotlin output, no AGP vector-drawable compile step.
+    - **iOS emitter:** generates an asset-catalog bundle at `ios-app/Resources/FluxItIcons.xcassets/`, with one `ic-<name>.imageset/` per icon containing `Contents.json` (`template-rendering-intent: template` + `preserves-vector-representation: true`) and a copy of the source SVG renamed to `ic-<name>.svg`. The `ic-` prefix on imageset names avoids collisions with future non-icon image assets. Same emitter also writes a **sibling** Swift accessor file `FluxItIcons.swift` at `ios-app/Generated/icons/` — a `public extension FluxItTokens { enum Icons { … } }` rather than mutating the existing `FluxItTokens.swift` (settled: independent emitters at output time, joined via Swift `extension`). Accessors are of the form `static let cart: Image = Image("ic-cart")`. SwiftUI loads SVGs natively from xcassets since iOS 13; tinting goes through `.foregroundStyle()` as for any monochrome `Image`.
+  - **Wiring:**
+    - Compose side — `:core:core-designsystem:generateIcons` joins `generateTokens` as a `dependsOn` of every `compile*Kotlin*` task. Both tasks run before Kotlin compile; output dirs are siblings under `build/generated/source/`.
+    - iOS side — `scripts/build-ios.sh` invokes `generateIcons` alongside `generateTokens`, before xcodegen. `ios-app/project.yml` already includes `Resources` recursively, so the generated xcassets bundle is picked up without any project.yml edit; one separate `project.yml` change clears `ASSETCATALOG_COMPILER_APPICON_NAME` so `actool` doesn't fail looking for an `AppIcon.appiconset` (a real AppIcon ships in Phase 17 release hardening). The xcassets bundle is gitignored at `ios-app/Resources/FluxItIcons.xcassets/`; the sibling Swift accessor lands under `ios-app/Generated/icons/` (covered by the existing `ios-app/Generated/` gitignore rule).
+  - **CI guard:** a separate `verifyIconsInSync` task (parallel to `verifyTokensInSync`) re-runs `generateIcons` and asserts every expected output is present and non-trivial: one Kotlin file (`FluxItIcons.kt`), one Swift accessor file (`FluxItIcons.swift`), one xcassets root `Contents.json`, and one `<name>.imageset/{Contents.json + .svg}` per source SVG. Catches "added an SVG but forgot to commit / regenerate" and silent emitter regressions.
+- **Consequences:**
+  - ➕ No ~3MB font ride-along; binary size cost is exactly the ~25 icons we use.
+  - ➕ One source format (SVG) for both platforms; no font/codepoint indirection drift between Android and iOS.
+  - ➕ Pure-Kotlin Compose output keeps the door open for a future Compose Multiplatform target (ADR-001's v2 note) without an AGP-resource detour.
+  - ➕ Asset-catalog imagesets are the conventional iOS approach — SwiftUI `Image("ic-cart")` works in previews, supports `.symbolRenderingMode`-ish tinting via `.foregroundStyle()`, and is what Xcode tooling expects.
+  - ➕ Generator structure mirrors ADR-005 (same plugin, same `verify*InSync` pattern), so the second pipeline costs less to learn than the first did.
+  - ➖ The SVG-path-to-`materialIcon` translator is ~150 LOC of new code we own. SVG path data is a small grammar (`M/L/C/Q/Z` plus relative variants) but corner cases (arcs `A`, transforms on `<g>`, `fill-rule`) need explicit handling or explicit rejection-at-parse.
+  - ➖ The translator constrains the SVG dialect: single `<path>` per icon, no transforms, no gradients, no multi-color. Mitigated by curating the source set; flagged at parse time with a clear error if violated.
+  - ➖ Adding an icon is a two-step ritual (drop SVG, run `generateIcons` — or rely on `compileKotlin`'s `dependsOn`). Same cost shape as the token pipeline; not a new burden.
+  - 🔁 If we ever ship more than ~50 icons, revisit by superseding with a Material Symbols Variable font ADR — the binary-size argument flips around the 1–2MB mark depending on filled-variant count.
+  - 🔁 If a future icon needs multi-color or gradient (e.g. branded illustrations), it's out of scope for this pipeline. Such cases route through a separate "illustrations" channel — TBD when the first one appears, not pre-engineered now.
+- **Alternatives considered:**
+  - **Material Symbols Variable font** — rejected: ~3MB binary cost for 25 glyphs is a 100× overshoot, and codepoint-by-glyph-name indirection ("\\ue8b8" for `home`) is the exact stringly-typed brittleness Konsist is meant to prevent. Re-evaluate at the ~50-icon threshold.
+  - **SF Symbols on iOS** (paired with vectorized Compose on Android) — rejected: glyph-to-glyph metrics don't match between SF Symbols and Material/custom SVGs, so a "cart" icon would visibly differ in weight and proportion between Android and iOS. ADR-001's native-feel argument cuts the other way here — visual parity beats per-platform native-ness for a custom icon set.
+  - **Compose emitter via `R.drawable.ic_cart` + `ImageVector.vectorResource(...)`** (copy SVG into `androidMain/res/drawable/` per icon, emit a thin getter facade) — rejected: ties the Compose API to AGP's vector-drawable compile step, less portable to a future CMP target, and trades ~150 LOC of translator code for an AGP-coupling we'd then need to remove. Net-neutral on size, net-negative on portability.
+  - **Inline pure-Swift `Shape` per icon on iOS** (mirroring the Compose `materialIcon` approach exactly, path data baked into a `struct CartShape: Shape`) — rejected: SwiftUI `Shape`-as-`Image` is unconventional, tinting routes through `.fill()` rather than `.foregroundStyle()`, and previews/asset-catalog tooling don't recognize the shapes. Asset-catalog imagesets are the idiomatic iOS path.
+  - **Co-locate SVGs at `design/icons/` (repo root)** — rejected: treats the SVGs as design artifacts external to the module that consumes them, which means the `generateIcons` task references an out-of-module path and Konsist module-boundary rules get noisier. Keeping inputs and outputs both inside `core/core-designsystem/` is cleaner.
+- **Resolves Open Questions in Phase 02:** §4 row 1 (font vs. vectorize) and the three generator-shape questions surfaced when picking up §4 (2026-05-18).
+
+---
+
+### ADR-005b — Dark-mode-only for v1; reserve `light`/`dark` token namespace for a future light theme
+- **Status:** Accepted (flipped from Proposed on 2026-05-19 after Compose `FluxItTheme` wired and SwiftUI `.preferredColorScheme(.dark)` locked at app root — `assembleDebug` green on Android, `scripts/build-ios.sh` green on iOS)
+- **Date:** 2026-05-19
+- **Context:** `DESIGN.md` is authored dark-mode-first — every mockup, swatch, and elevation rule in `/design` assumes a dark background, and the brand voice ("calming, sophisticated, dependable") is expressed through deep neutrals + a single accent blue (`#2b7cee`). ADR-005 already noted this as a deferred sub-decision: the token JSON is structured with `light`/`dark` groups, but only `dark` is populated. Phase 02 §6 now needs the policy ratified before the theme wrapper is wired:
+  - **Compose:** does `FluxItTheme` provide `darkColorScheme(…)` unconditionally, or does it branch on `isSystemInDarkTheme()` and fall back to a (currently empty) light palette? An unconditional dark theme removes a whole branch of the composition tree and one `CompositionLocal` failure mode.
+  - **SwiftUI:** does the app root pin `preferredColorScheme(.dark)`, or does it respect the system setting and risk SwiftUI's automatic Dynamic Color resolution lightening surfaces that were authored for dark contrast?
+  - **Token generator:** does `tokens.json` need a populated `light` group for v1 (even if synthetic / placeholder), or can the `light` group stay structurally present but empty, with the generator emitting only the `dark` group?
+  Phase 02 §2's "Resolved decisions" (2026-05-11) already lists "✅ Light theme: v1 is dark-only" — this ADR formalizes that line so the implementation rows in §6 reference an accepted ADR rather than a phase-file aside.
+- **Decision:** v1 is **dark-only**. No light theme, no system-setting following.
+  - **Compose side:** `FluxItTheme` provides a fixed `darkColorScheme(…)` plus the generated token objects (`FluxItColors`, `FluxItTypography`, `FluxItShapes`, `FluxItSpacing`, `FluxItElevation`) via `CompositionLocal`. No `isSystemInDarkTheme()` branch; no light `ColorScheme` constructed.
+  - **SwiftUI side:** the app root applies `.preferredColorScheme(.dark)` on the top-level view (in `FluxItApp.swift` or wherever `@main` lives). The generated `FluxItTokens` namespace is already platform-agnostic and stays single-valued.
+  - **Token JSON shape:** `tokens.json` keeps the `light`/`dark` group structure from ADR-005, with `light` left empty (`{}`) for v1. The generator emits only the populated `dark` group and ignores empty groups silently. This reserves the namespace so v2 light-theme is additive — populating `light` + adding a single branch — rather than a JSON-schema migration.
+  - **Status flip:** ratified on the same commit as the wiring. Compose `FluxItTheme` Composable landed at `core/core-designsystem/src/androidMain/kotlin/dev/franzueto/fluxit/core/designsystem/theme/FluxItTheme.kt` (provides 5 `staticCompositionLocalOf`-backed `Local*` CompositionLocals — colors / typography / shapes / spacing / elevation — wrapping a `MaterialTheme` with a fixed `darkColorScheme(…)` mapped from `FluxItColors` and a `Typography` mapped from `FluxItTypography`); SwiftUI `.preferredColorScheme(.dark)` applied to the `ContentView` inside `WindowGroup` at `ios-app/Sources/FluxItApp.swift`. Mirrors the ADR-005 / ADR-005a accept pattern.
+- **Consequences:**
+  - ➕ One theme path through both UI stacks. No `isSystemInDarkTheme()` branching in Compose, no Dynamic Color surprises in SwiftUI.
+  - ➕ One set of token values to author, review, and screenshot-test. Phase 14's snapshot harness (Paparazzi / swift-snapshot-testing) captures one golden per primitive per platform, not two.
+  - ➕ Brand consistency: every screenshot, store-listing asset, and onboarding capture is dark-themed by construction — no risk of a light-mode review build leaking screenshots that don't match marketing materials.
+  - ➕ `tokens.json` namespace stays forward-compatible: v2 light-theme is purely additive (populate the `light` group, add one branch to `FluxItTheme`, surface the SwiftUI accessor) — no migration of token IDs.
+  - ➖ Users who run their device in light mode get a dark app regardless. For a portfolio app demonstrating a deliberate brand voice this is acceptable; for a productivity tool with broad audience expectations it would not be.
+  - ➖ Reviewers on the Play / App Store may flag "doesn't respect system theme" — mitigation: a single line in the store listing's description ("FluxIt is dark by design — light theme coming in a future update").
+  - 🔁 v2 light theme is **additive, not a rewrite**: populate the `light` group in `tokens.json`, regenerate, add an `isSystemInDarkTheme()` branch (or a user-facing toggle) to `FluxItTheme`, and surface the corresponding SwiftUI accessor. No call sites of the token namespace need to change.
+- **Alternatives considered:**
+  - **System-following (both themes at v1)** — rejected: doubles the token-authoring surface, doubles snapshot-test goldens, and requires both palettes to meet WCAG AA against their own surfaces (Phase 02 §8). Phase 02 has not budgeted a light-theme pass and `DESIGN.md` doesn't specify one. Cost is real; v1 value is marginal for a portfolio launch.
+  - **Light-only** — rejected immediately: every mockup in `/design` is dark; reversing the brand at v1 would invalidate the entire visual design.
+  - **Both at v1, dark as default** — rejected: same cost as system-following without the "respect the user" benefit. Worst of both worlds.
+  - **Drop the `light` group from `tokens.json` entirely until v2** — rejected: the empty-group structure is ~zero bytes and reserves the namespace; removing it now means a JSON-schema change later. Cheap to keep, expensive to add back.
+- **Resolves Open Questions in Phase 02:** §6 row 1 (dark-only policy) and the deferred sub-decision flagged in ADR-005's "Open sub-decisions" section. §11 row 3 (ADR-005b) is now drafted.
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
 
-- **ADR-005** (Phase 02): Design token pipeline — single source of truth for color/type/spacing, generation strategy for Compose + SwiftUI.
 - **ADR-006** (Phase 03): SQLDelight schema versioning + migration policy.
 - **ADR-007** (Phase 05): MVI store contract — intents/state/effects, error model, optimistic update pattern.
 - **ADR-008** (Phase 06): expect/actual vs. Koin-injected interfaces for platform capabilities (we'll likely standardize on injected interfaces).
