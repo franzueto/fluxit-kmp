@@ -21,6 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItColors
@@ -104,11 +108,22 @@ public fun FluxItToBuyListItem(
         Box(
             modifier =
                 Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .border(width = 2.dp, color = FluxItColors.textMuted, shape = CircleShape)
-                    .clickable(onClick = onToggle),
-        )
+                    .size(48.dp)
+                    .clickable(onClick = onToggle)
+                    .semantics {
+                        role = Role.RadioButton
+                        contentDescription = "Mark as completed"
+                    },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .border(width = 2.dp, color = FluxItColors.textMuted, shape = CircleShape),
+            )
+        }
         Text(
             text = title,
             style = FluxItTypography.bodyMd,
@@ -143,7 +158,7 @@ public fun FluxItCompletedListItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        IconButton(onClick = onToggle, modifier = Modifier.size(24.dp)) {
+        IconButton(onClick = onToggle) {
             Icon(imageVector = checkIcon, contentDescription = "Completed", tint = FluxItColors.primaryBlue)
         }
         Text(
@@ -152,7 +167,7 @@ public fun FluxItCompletedListItem(
             color = FluxItColors.textMuted,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+        IconButton(onClick = onDelete) {
             Icon(imageVector = trashIcon, contentDescription = "Delete", tint = FluxItColors.textMuted)
         }
     }

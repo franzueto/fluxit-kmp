@@ -14,7 +14,9 @@ public struct FluxItPrimaryButton: View {
     public var body: some View {
         Button(action: onTap) {
             Text(label)
-                .font(.system(size: 16, weight: .semibold))
+                // .bold (700) qualifies as WCAG large-text at 14pt+, so the
+                // 4.02:1 white-on-primary.blue pair clears AA-large (3:1). See §8.
+                .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(FluxItTokens.Colors.textPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)

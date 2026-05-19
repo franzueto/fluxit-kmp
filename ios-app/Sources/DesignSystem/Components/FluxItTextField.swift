@@ -38,6 +38,7 @@ public struct FluxItTextField: View {
             .foregroundStyle(FluxItTokens.Colors.textPrimary)
             .tint(FluxItTokens.Colors.primaryBlue)
             .textFieldStyle(.plain)
+            .accessibilityLabel(label)
             .padding(.horizontal, 12)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)

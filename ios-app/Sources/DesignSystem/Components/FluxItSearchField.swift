@@ -25,6 +25,7 @@ public struct FluxItSearchField: View {
                     .foregroundStyle(FluxItTokens.Colors.textPrimary)
                     .tint(FluxItTokens.Colors.primaryBlue)
                     .textFieldStyle(.plain)
+                    .accessibilityLabel(placeholder)
             }
         }
         .padding(.horizontal, 12)

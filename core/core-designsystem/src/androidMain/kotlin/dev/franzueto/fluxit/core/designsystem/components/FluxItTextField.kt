@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItColors
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItTypography
@@ -52,7 +54,11 @@ public fun FluxItTextField(
                 cursorBrush = SolidColor(FluxItColors.primaryBlue),
                 singleLine = singleLine,
                 minLines = minLines,
-                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 24.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 24.dp)
+                        .semantics { contentDescription = label },
             )
         }
     }

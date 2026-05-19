@@ -98,8 +98,11 @@ public struct FluxItToBuyListItem: View {
                     Circle()
                         .strokeBorder(FluxItTokens.Colors.textMuted, lineWidth: 2)
                         .frame(width: 24, height: 24)
+                        .frame(width: 44, height: 44) // expand tap area without changing the visual
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Mark as completed")
                 Text(title)
                     .font(.system(size: 16))
                     .foregroundStyle(FluxItTokens.Colors.textPrimary)
@@ -143,7 +146,10 @@ public struct FluxItCompletedListItem: View {
     public var body: some View {
         HStack(spacing: 12) {
             Button(action: onToggle) {
-                checkIcon.foregroundStyle(FluxItTokens.Colors.primaryBlue)
+                checkIcon
+                    .foregroundStyle(FluxItTokens.Colors.primaryBlue)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Completed")
@@ -153,7 +159,10 @@ public struct FluxItCompletedListItem: View {
                 .foregroundStyle(FluxItTokens.Colors.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: onDelete) {
-                trashIcon.foregroundStyle(FluxItTokens.Colors.textMuted)
+                trashIcon
+                    .foregroundStyle(FluxItTokens.Colors.textMuted)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Delete")

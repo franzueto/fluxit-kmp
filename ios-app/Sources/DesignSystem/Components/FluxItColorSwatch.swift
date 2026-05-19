@@ -27,6 +27,8 @@ public struct FluxItColorSwatch: View {
                 }
             }
             .frame(width: 40, height: 40)
+            .frame(width: 48, height: 48) // expand tap area without changing the visual
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel ?? "")

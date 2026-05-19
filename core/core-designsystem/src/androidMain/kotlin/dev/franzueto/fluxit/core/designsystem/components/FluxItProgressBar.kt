@@ -9,6 +9,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItColors
 
@@ -25,7 +28,10 @@ public fun FluxItProgressBar(
                 .fillMaxWidth()
                 .height(6.dp)
                 .clip(RoundedCornerShape(3.dp))
-                .background(FluxItColors.dividerSubtle),
+                .background(FluxItColors.dividerSubtle)
+                .semantics {
+                    progressBarRangeInfo = ProgressBarRangeInfo(current = clamped, range = 0f..1f)
+                },
     ) {
         Box(
             modifier =

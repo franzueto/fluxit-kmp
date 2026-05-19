@@ -62,7 +62,7 @@ public fun FluxItInlineComposer(
             onClick = onSubmit,
             modifier =
                 Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(FluxItColors.primaryBlue),
         ) {

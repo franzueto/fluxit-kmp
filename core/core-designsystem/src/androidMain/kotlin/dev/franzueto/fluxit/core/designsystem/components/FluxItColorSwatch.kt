@@ -30,16 +30,8 @@ public fun FluxItColorSwatch(
     Box(
         modifier =
             modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(color)
-                .then(
-                    if (selected) {
-                        Modifier.border(width = 3.dp, color = FluxItColors.textPrimary, shape = CircleShape)
-                    } else {
-                        Modifier
-                    },
-                ).clickable(onClick = onClick)
+                .size(48.dp)
+                .clickable(onClick = onClick)
                 .semantics {
                     role = Role.Button
                     this.selected = selected
@@ -47,5 +39,21 @@ public fun FluxItColorSwatch(
                         this.contentDescription = contentDescription
                     }
                 },
-    )
+        contentAlignment = androidx.compose.ui.Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(color)
+                    .then(
+                        if (selected) {
+                            Modifier.border(width = 3.dp, color = FluxItColors.textPrimary, shape = CircleShape)
+                        } else {
+                            Modifier
+                        },
+                    ),
+        )
+    }
 }

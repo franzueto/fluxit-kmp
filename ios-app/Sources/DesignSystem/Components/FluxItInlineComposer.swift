@@ -35,7 +35,7 @@ public struct FluxItInlineComposer: View {
             Button(action: onSubmit) {
                 submitIcon
                     .foregroundStyle(FluxItTokens.Colors.textPrimary)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 48, height: 48)
                     .background(FluxItTokens.Colors.primaryBlue)
                     .clipShape(Circle())
             }
