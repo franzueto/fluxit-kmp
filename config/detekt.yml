@@ -39,9 +39,18 @@ complexity:
   active: true
   LongMethod:
     threshold: 80
+    # Compose component / gallery code in core-designsystem is mostly
+    # declarative layout — splitting just to satisfy a line budget hurts
+    # readability. Detekt still runs there for naming/exceptions/coroutines.
+    excludes:
+      - '**/core/core-designsystem/**'
   LongParameterList:
     functionThreshold: 8
     constructorThreshold: 10  # MVI state data classes can run long.
+    # Compose components legitimately take many optional slots (icons,
+    # callbacks, modifiers); enforce on app/feature/data code instead.
+    excludes:
+      - '**/core/core-designsystem/**'
   TooManyFunctions:
     thresholdInClasses: 20
     thresholdInFiles: 20
@@ -51,6 +60,10 @@ complexity:
 
 naming:
   active: true
+  FunctionNaming:
+    # @Composable functions are PascalCase by Jetpack Compose convention.
+    ignoreAnnotated:
+      - 'Composable'
   MatchingDeclarationName:
     # Disabled: KMP convention is to suffix actual files with `.android.kt` /
     # `.ios.kt` (e.g. Platform.android.kt declares `actual class Platform`).
