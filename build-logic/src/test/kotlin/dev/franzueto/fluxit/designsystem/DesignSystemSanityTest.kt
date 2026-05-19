@@ -2,6 +2,9 @@ package dev.franzueto.fluxit.designsystem
 
 import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.verify.assertFalse
+import dev.franzueto.fluxit.tokens.KotlinEmitter
+import dev.franzueto.fluxit.tokens.SwiftEmitter
+import dev.franzueto.fluxit.tokens.TokenParser
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -60,26 +63,30 @@ class DesignSystemSanityTest : FunSpec({
     }
 
     test("every FluxItColors entry on Compose has a Swift counterpart") {
-        val composeFile =
-            File(
-                repoRoot,
-                "core/core-designsystem/build/generated/source/tokens/androidMain/FluxItColors.kt",
-            )
-        val swiftFile = File(repoRoot, "ios-app/Generated/FluxItTokens.swift")
+        // Parse the source-of-truth tokens.json and re-emit both the Compose
+        // and Swift outputs in memory via the same emitters the Gradle tasks
+        // use. This keeps the parity check self-contained — it doesn't require
+        // :core:core-designsystem:generateTokens to have run first, and works
+        // on a fresh CI checkout where ios-app/Generated/ is gitignored.
+        val tokensJson = File(repoRoot, "core/core-designsystem/tokens/tokens.json")
 
-        withClue("Run :core:core-designsystem:generateTokens first") {
-            check(composeFile.exists()) { "missing $composeFile" }
-            check(swiftFile.exists()) { "missing $swiftFile" }
+        withClue("tokens source-of-truth must exist") {
+            check(tokensJson.exists()) { "missing $tokensJson" }
         }
 
+        val doc = TokenParser.parse(tokensJson)
+        val composeSource = KotlinEmitter.emit(doc)["FluxItColors.kt"]
+            ?: error("KotlinEmitter did not produce FluxItColors.kt")
+        val swiftSource = SwiftEmitter.emit(doc)["FluxItTokens.swift"]
+            ?: error("SwiftEmitter did not produce FluxItTokens.swift")
         val composeNames =
             Regex("""public val (\w+): Color""")
-                .findAll(composeFile.readText())
+                .findAll(composeSource)
                 .map { it.groupValues[1] }
                 .toSortedSet()
         val swiftNames =
             Regex("""public static let (\w+): Color""")
-                .findAll(swiftFile.readText())
+                .findAll(swiftSource)
                 .map { it.groupValues[1] }
                 .toSortedSet()
 
