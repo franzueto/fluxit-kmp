@@ -2,7 +2,7 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-19 (Phase 02 §6 complete; ADR-005b Accepted)
+**Last updated:** 2026-05-19 (Phase 02 §6 + §10 complete; ADR-005b Accepted; DESIGN.md rebranded)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
 **Repo phase:** Foundation complete — Phase 01 closed (Android + iOS shells build green; all four quality gates wired; CI proven green on PR #4 plus three Dependabot PRs; doc seeds + ADR log in place; KMP test harness proven via `:core:core-utils`). Phase 02 (Design System) is up next.
 
@@ -10,7 +10,7 @@
 
 ## ▶ Next Step
 
-**Phase 02 — Design System §10 (Brand cleanup).** §§1–4 and §6 are complete — token pipeline accepted as ADR-005, icon pipeline accepted as ADR-005a, theme + dark-mode lock accepted as **ADR-005b** (Compose `FluxItTheme` wraps `MaterialTheme(darkColorScheme=…)` + 5 `Local*` CompositionLocals; SwiftUI app root pins `.preferredColorScheme(.dark)`). §10 is the small palate-cleanser before §5: rebrand `DESIGN.md` frontmatter ("Lumina Lists" → "FluxIt"), add the missing `primary-blue: '#2b7cee'` entry to the YAML colors map, sweep prose mentions, and add a header line pointing readers to `tokens.json` as the SoT. Phase 02 still owes after §10: §5 primitives (the big one, blocks Phases 07–10), §7 backdrop blur, §8 accessibility verification, §9 Theme Gallery debug screen, §12 sanity tests (Konsist + snapshots), §13 hand-off gate.
+**Phase 02 — Design System §5 (Reusable primitives).** §§1–4, §6, and §10 are complete — token pipeline (ADR-005), icon pipeline (ADR-005a), theme + dark-mode lock (ADR-005b), and `DESIGN.md` rebranded (frontmatter `name: FluxIt`, `primary-blue: '#2b7cee'` added to the YAML map, prose swept of "Lumina Lists", tokens-as-SoT callout added). §5 is the big one — it ships the reusable Compose + SwiftUI primitives that every feature phase (07–10) consumes: tab bar, FAB, search input, list item, swatch / icon-chip pickers, empty-state, destructive button, swipe row. Remaining after §5: §7 backdrop blur (perf benchmark), §8 accessibility verification, §9 Theme Gallery debug screen, §12 sanity tests (Konsist + snapshots), §13 hand-off gate.
 
 ---
 
@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (9 ADRs) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
-| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 50% |
+| 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟠 In progress | 55% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |

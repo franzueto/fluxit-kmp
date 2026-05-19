@@ -1,11 +1,12 @@
 ---
-name: Lumina Lists
+name: FluxIt
 colors:
   background-dark: '#101822'
   surface-card: '#1e2632'
   surface-search: '#1e2632'
   text-primary: '#ffffff'
   text-muted: '#9da8b9'
+  primary-blue: '#2b7cee'
   accent-orange: '#f97316'
   accent-emerald: '#10b981'
   accent-rose: '#f43f5e'
@@ -52,9 +53,11 @@ spacing:
   fab-offset: 2rem
 ---
 
+> **Token source of truth lives in [`core/core-designsystem/tokens/tokens.json`](core/core-designsystem/tokens/tokens.json) (DTCG format, ADR-005).** This file is the human-readable narrative — descriptive of the design language, not the build's input. Code changes flow `tokens.json` → generated `FluxItColors` / `FluxItTypography` / `FluxItShapes` / `FluxItSpacing` / `FluxItElevation` on Android + `FluxItTokens.swift` on iOS.
+
 ## Brand & Style
 
-Lumina Lists is defined by a **Corporate / Modern** aesthetic with subtle **Glassmorphic** influences. It targets high-performance individuals who require a tool that is both efficient and aesthetically calming. The brand personality is organized, dependable, and sophisticated, avoiding the playfulness of typical consumer apps in favor of a focused, utility-first experience.
+FluxIt is defined by a **Corporate / Modern** aesthetic with subtle **Glassmorphic** influences. It targets high-performance individuals who require a tool that is both efficient and aesthetically calming. The brand personality is organized, dependable, and sophisticated, avoiding the playfulness of typical consumer apps in favor of a focused, utility-first experience.
 
 The visual style utilizes a dark-mode-first approach where depth is created through varying levels of surface luminosity rather than traditional heavy shadows. It prioritizes clarity, utilizing a generous vertical rhythm and clear iconography to reduce cognitive load during list management.
 

@@ -159,11 +159,11 @@ Each primitive ships in **both** Compose and SwiftUI with identical name and pro
 
 ## 10. Brand cleanup
 
-- [ ] Update `DESIGN.md` frontmatter: `name: Lumina Lists` → `name: FluxIt`.
-- [ ] Add the missing `primary-blue: '#2b7cee'` entry to the `colors` map in `DESIGN.md`.
-- [ ] Sweep prose body of `DESIGN.md` for "Lumina Lists" mentions and replace.
-- [ ] Add a one-line note at the top of `DESIGN.md`: "Token source of truth lives in `core-designsystem/tokens/tokens.json`; this file is the human-readable narrative."
-- [ ] Confirm with product whether `/design` mockup PNGs need rebrand re-export (no in-screen "Lumina" copy is visible, so likely not).
+- [x] Update `DESIGN.md` frontmatter: `name: Lumina Lists` → `name: FluxIt`.
+- [x] Add the missing `primary-blue: '#2b7cee'` entry to the `colors` map in `DESIGN.md`. _Inserted between `text-muted` and the `accent-*` block._
+- [x] Sweep prose body of `DESIGN.md` for "Lumina Lists" mentions and replace. _One occurrence in "Brand & Style" rewritten; no other prose mentions._
+- [x] Add a one-line note at the top of `DESIGN.md`: "Token source of truth lives in `core-designsystem/tokens/tokens.json`; this file is the human-readable narrative." _Added as a callout block above "Brand & Style"._
+- [x] Confirm with product whether `/design` mockup PNGs need rebrand re-export (no in-screen "Lumina" copy is visible, so likely not). _Confirmed: `grep -ri lumina design/` returns zero hits across the source HTML for all four screens — PNGs render from that HTML, so no re-export needed._
 
 ## 11. ADRs to write in this phase
 
