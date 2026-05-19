@@ -85,6 +85,9 @@ internal object KotlinIconEmitter {
             "ktlint:standard:max-line-length",
             "ktlint:standard:multiline-expression-wrapping",
             "ktlint:standard:spacing-between-declarations-with-comments",
+            "ktlint:standard:indent",
+            "ktlint:standard:chain-method-continuation",
+            "ktlint:standard:backing-property-naming",
         )
 
         package $PACKAGE
