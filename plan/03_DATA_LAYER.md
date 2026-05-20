@@ -253,11 +253,17 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
 
 ## 12. Open questions for this phase
 
-- [ ] **Recurrence rule scope.** v1 supports `None / Daily / Weekly / Monthly`? Or just `None`? Reminders UX in Phase 09 / 13 will pin this; setting field is in the schema either way.
-- [ ] **Search semantics.** Dashboard search field: lists only, or lists + items? `LIKE` substring is fine for v1 either way; FTS5 deferred.
-- [ ] **Delete UX semantics.** Trash icon on the dashboard list-row — soft delete with no undo, or with a toast-undo within 5s? Either fits the schema; impacts Phase 07.
-- [ ] **Photo encoding.** Re-encode camera captures to JPEG at quality 0.85 max-dimension 2048 before write? Cuts byte size 3–5×; loses metadata. Default proposal: yes, re-encode.
-- [ ] **Default `sort_order` direction.** Newest list at the top of the dashboard, or appended at the bottom? Mockup ordering ("Supermarket" first, "Work Q4 Goals" last) reads chronological-newest-first — confirm.
+**Resolved 2026-05-19** before §2 schema code landed. Decisions below are
+load-bearing for §2 (Schema), §3 (Adapters), §5 (Repository contracts),
+§7 (Photo storage), and downstream Phase 06 (`platform-photo`) +
+Phase 07 (dashboard delete UX) + Phase 08 (list-detail search) +
+Phase 09 (reminders UX).
+
+- [x] **Recurrence rule scope** — **Full v1 set: `None / Daily / Weekly / Monthly`.** `RecurrenceRule` sealed class ships all four variants (`None`, `Daily`, `Weekly(daysOfWeek: Set<DayOfWeek>)`, `Monthly(dayOfMonth: Int)`). Custom RRULE deferred to v2 (JSON schema is forward-compatible per §3 row 6). Schema cost identical to None-only; Phase 09 gets a real reminders feature surface.
+- [x] **Search semantics** — **Lists only for v1.** Dashboard search field calls `ListsRepository.search(query)`, backed by `searchByName` LIKE-substring in `Lists.sq`. No `Items.sq` search query in v1. Item-level / cross-list search is a Phase 08 feature on the list-detail screen and gets its own repository surface then. FTS5 deferred either way.
+- [x] **Delete UX semantics** — **5-second toast-undo.** Tap trash → row hides + 5-second undo toast. The state layer (Phase 05) holds the pending op; `softDelete()` commits when the toast dismisses, the UNDO action cancels before commit. Data layer never sees a "pending delete" status — same schema either way. Impacts Phase 07's dashboard wiring.
+- [x] **Photo encoding** — **Re-encode to JPEG q=0.85, longest side ≤ 2048px.** `PhotoStorage.write()` re-encodes every capture; `photo.mime_type` will be `'image/jpeg'` in practice (column stays TEXT-typed for v2 flexibility). Cuts byte size 3–5×; sub-perceptible quality loss at item-thumbnail scale; strips EXIF metadata (privacy win for shared/backed-up DBs). Re-encoding lives in `platform-photo` (Phase 06); `:shared:data`'s `PhotosRepository.ingest(bytes, mime, w, h)` records whatever `platform-photo` produced — no encoding logic in the data layer.
+- [x] **Default `sort_order` direction** — **Newest at top.** `ListsRepository.create(draft)` mints `sort_order = (currentMin - 1.0)`; first list gets `1.0`. Matches the design mockup ordering ("Supermarket" first, "Work Q4 Goals" last) and the notes-app / chat-app conventions. Same fractional-indexing pattern for items within a list (Phase 08 will confirm direction).
 
 ## 13. Hand-off checklist (gate to Phase 04)
 
