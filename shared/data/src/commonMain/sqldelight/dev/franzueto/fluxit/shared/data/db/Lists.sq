@@ -1,0 +1,87 @@
+-- Lists.sq — Phase 03 §2 Lists table.
+--
+-- Column conventions (uniform across all FluxIt tables; see ADR-006b):
+--   id          TEXT NOT NULL PRIMARY KEY — UUID v4 lowercase (ADR-006a).
+--   icon        TEXT NOT NULL             — FluxItIconRef enum name (ADR-006c).
+--   color       TEXT NOT NULL             — FluxItColorToken enum name (ADR-006c).
+--   sort_order  REAL NOT NULL             — fractional indexing; lower = higher on screen.
+--                                           Newest list at top: new row gets currentMin - 1.0
+--                                           (resolved §12 row 5).
+--   *_at        INTEGER (epoch ms UTC)    — adapter converts to kotlinx.datetime.Instant in §3.
+--   deleted_at  INTEGER (nullable)        — soft-delete tombstone (ADR-006b); every read
+--                                           query filters WHERE deleted_at IS NULL.
+
+CREATE TABLE list (
+    id              TEXT NOT NULL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    icon            TEXT NOT NULL,
+    color           TEXT NOT NULL,
+    is_starred      INTEGER NOT NULL DEFAULT 0,
+    sort_order      REAL NOT NULL,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    deleted_at      INTEGER
+);
+
+CREATE INDEX list_sort_idx ON list (deleted_at, sort_order);
+CREATE INDEX list_starred_idx ON list (is_starred) WHERE deleted_at IS NULL;
+
+selectAllActive:
+SELECT *
+FROM list
+WHERE deleted_at IS NULL
+ORDER BY sort_order ASC;
+
+selectById:
+SELECT *
+FROM list
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Substring search via INSTR (resolved §12 row 2: lists only; LIKE wildcards
+-- in user input would need escaping — INSTR sidesteps the issue entirely).
+searchByName:
+SELECT *
+FROM list
+WHERE deleted_at IS NULL AND INSTR(LOWER(name), LOWER(:query)) > 0
+ORDER BY sort_order ASC;
+
+insert:
+INSERT INTO list (id, name, icon, color, is_starred, sort_order, created_at, updated_at, deleted_at)
+VALUES (:id, :name, :icon, :color, :is_starred, :sort_order, :created_at, :updated_at, NULL);
+
+updateMetadata:
+UPDATE list
+SET name = :name,
+    icon = :icon,
+    color = :color,
+    is_starred = :is_starred,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+updateSortOrder:
+UPDATE list
+SET sort_order = :sort_order,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Soft delete (ADR-006b). Application cascade to items + LIST-owned reminders
+-- lives in the repository layer (single transaction), not here.
+softDelete:
+UPDATE list
+SET deleted_at = :deleted_at,
+    updated_at = :deleted_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Hard delete. v1 never calls this (ADR-006b: lists are forever-tombstoned in v1);
+-- exposed for the v2 sync compaction phase.
+hardDelete:
+DELETE FROM list
+WHERE id = :id;
+
+countActive:
+SELECT COUNT(*)
+FROM list
+WHERE deleted_at IS NULL;
+
+-- selectWithCounts (joins to item for total_items / completed_items /
+-- last_activity_at) is deferred to §2B, when Items.sq lands.

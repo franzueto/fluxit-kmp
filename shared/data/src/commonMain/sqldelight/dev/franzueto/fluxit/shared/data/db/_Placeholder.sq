@@ -1,6 +1,0 @@
--- Throwaway table so the SQLDelight gradle plugin has at least one .sq file
--- to generate FluxItDatabase from. Phase 03 §2's first commit deletes this
--- when Lists.sq / Items.sq / Reminders.sq / Photos.sq land.
-CREATE TABLE _placeholder (
-    id INTEGER NOT NULL PRIMARY KEY
-);
