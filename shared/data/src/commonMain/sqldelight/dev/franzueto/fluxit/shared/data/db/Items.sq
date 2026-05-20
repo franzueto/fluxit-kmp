@@ -4,9 +4,9 @@
 --   list_id  REFERENCES list(id) ON DELETE CASCADE — engine-level cascade is
 --            dead code in v1 (ADR-006b: lists are forever-tombstoned; we never
 --            hard-delete a list). Kept for safety + v2-sync compaction.
---   photo_id will gain `REFERENCES photo(id) ON DELETE SET NULL` in §2D when
---            the photo table lands. Plain TEXT column for now keeps §2B
---            green on its own.
+--   photo_id REFERENCES photo(id) ON DELETE SET NULL — fires when the photo
+--            janitor (§7) hard-deletes an orphan; engine-level safety net so
+--            no item ever points at a deleted photo row.
 
 CREATE TABLE item (
     id              TEXT NOT NULL PRIMARY KEY,
@@ -16,7 +16,7 @@ CREATE TABLE item (
     description     TEXT,
     is_completed    INTEGER NOT NULL DEFAULT 0,
     is_starred      INTEGER NOT NULL DEFAULT 0,
-    photo_id        TEXT,
+    photo_id        TEXT REFERENCES photo(id) ON DELETE SET NULL,
     sort_order      REAL NOT NULL,
     created_at      INTEGER NOT NULL,
     updated_at      INTEGER NOT NULL,

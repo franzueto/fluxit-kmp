@@ -86,6 +86,11 @@ val generateSchemaSql by tasks.registering {
 val verifySchemaInSync by tasks.registering {
     group = "verification"
     description = "Fail if shared/data/schema.sql diverges from the .sq DDL (ADR-006)."
+    // When a single Gradle invocation runs both generateSchemaSql and check,
+    // Gradle's parallel executor may schedule verifySchemaInSync against the
+    // pre-generation schema.sql contents. mustRunAfter pins the order without
+    // forcing a hard dependency (verify must still pass when run alone).
+    mustRunAfter(generateSchemaSql)
     inputs.dir(sqDelightDir).withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(schemaSqlFile).withPathSensitivity(PathSensitivity.RELATIVE)
     val rootDir = sqDelightDir.asFile

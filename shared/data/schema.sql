@@ -6,9 +6,9 @@
 --   list_id  REFERENCES list(id) ON DELETE CASCADE — engine-level cascade is
 --            dead code in v1 (ADR-006b: lists are forever-tombstoned; we never
 --            hard-delete a list). Kept for safety + v2-sync compaction.
---   photo_id will gain `REFERENCES photo(id) ON DELETE SET NULL` in §2D when
---            the photo table lands. Plain TEXT column for now keeps §2B
---            green on its own.
+--   photo_id REFERENCES photo(id) ON DELETE SET NULL — fires when the photo
+--            janitor (§7) hard-deletes an orphan; engine-level safety net so
+--            no item ever points at a deleted photo row.
 
 CREATE TABLE item (
     id              TEXT NOT NULL PRIMARY KEY,
@@ -18,7 +18,7 @@ CREATE TABLE item (
     description     TEXT,
     is_completed    INTEGER NOT NULL DEFAULT 0,
     is_starred      INTEGER NOT NULL DEFAULT 0,
-    photo_id        TEXT,
+    photo_id        TEXT REFERENCES photo(id) ON DELETE SET NULL,
     sort_order      REAL NOT NULL,
     created_at      INTEGER NOT NULL,
     updated_at      INTEGER NOT NULL,
@@ -62,6 +62,39 @@ CREATE TABLE list (
 
 CREATE INDEX list_sort_idx ON list (deleted_at, sort_order);
 CREATE INDEX list_starred_idx ON list (is_starred) WHERE deleted_at IS NULL;
+
+-- dev/franzueto/fluxit/shared/data/db/Photos.sq
+
+-- Photos.sq — Phase 03 §2 Photos table.
+--
+-- Photos have an asymmetric lifecycle vs. lists / items / reminders
+-- (ADR-006b): soft-delete → 24h grace → hard-delete by the photo janitor
+-- (§7, scheduled by Phase 04's PhotoJanitor use case). Soft-delete does
+-- NOT cascade from item.softDelete — a photo may be referenced by items
+-- in other live lists; the janitor is the only place that checks live
+-- references and reaps.
+--
+-- No updated_at column: photos are immutable once ingested. The
+-- platform-photo layer (Phase 06) re-encodes captures to JPEG q=0.85
+-- max-dim 2048 (resolved §12 row 4) before write; the data layer just
+-- records the resulting file's metadata.
+--
+-- relative_path is relative to the app sandbox photo root, never an
+-- absolute path (resolved by PhotoStorage.resolveAbsolute() at the
+-- Compose / SwiftUI image-loading site).
+
+CREATE TABLE photo (
+    id              TEXT NOT NULL PRIMARY KEY,
+    relative_path   TEXT NOT NULL,
+    mime_type       TEXT NOT NULL,
+    width_px        INTEGER NOT NULL,
+    height_px       INTEGER NOT NULL,
+    byte_size       INTEGER NOT NULL,
+    created_at      INTEGER NOT NULL,
+    deleted_at      INTEGER
+);
+
+CREATE INDEX photo_orphan_idx ON photo (deleted_at);
 
 -- dev/franzueto/fluxit/shared/data/db/Reminders.sq
 
