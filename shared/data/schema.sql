@@ -62,3 +62,43 @@ CREATE TABLE list (
 
 CREATE INDEX list_sort_idx ON list (deleted_at, sort_order);
 CREATE INDEX list_starred_idx ON list (is_starred) WHERE deleted_at IS NULL;
+
+-- dev/franzueto/fluxit/shared/data/db/Reminders.sq
+
+-- Reminders.sq — Phase 03 §2 Reminders table.
+--
+-- Owner FK is polymorphic (owner_type discriminates between LIST and ITEM
+-- targets). SQLite can't express a discriminated FK; reminder.owner_id has
+-- no engine-level FK by design. Integrity is application-enforced — the
+-- use-case layer only calls RemindersRepository.schedule(spec) holding a
+-- typed ListId or ItemId from a freshly-observed live row. The cascade
+-- side is also application-level (ADR-006b §Decision: ListsRepository
+-- .softDelete cascades to LIST-owned reminders; ItemsRepository.softDelete
+-- cascades to ITEM-owned reminders).
+--
+-- owner_type is stored as 'LIST' | 'ITEM' (uppercase, matching the enum
+-- name); §3's OwnerTypeAdapter wraps it as a typed enum.
+--
+-- recurrence is nullable TEXT containing the RecurrenceRule sealed-class
+-- JSON (resolved §12 row 1: full v1 set — None / Daily / Weekly / Monthly).
+-- §3's RecurrenceRuleAdapter handles the JSON round-trip.
+--
+-- platform_handle is nullable until the platform layer (Phase 06) actually
+-- schedules the notification with WorkManager / UNUserNotificationCenter
+-- and writes back the request id via setPlatformHandle.
+
+CREATE TABLE reminder (
+    id              TEXT NOT NULL PRIMARY KEY,
+    owner_type      TEXT NOT NULL,
+    owner_id        TEXT NOT NULL,
+    fires_at        INTEGER NOT NULL,
+    recurrence      TEXT,
+    platform_handle TEXT,
+    is_active       INTEGER NOT NULL DEFAULT 1,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    deleted_at      INTEGER
+);
+
+CREATE INDEX reminder_owner_idx ON reminder (owner_type, owner_id) WHERE deleted_at IS NULL;
+CREATE INDEX reminder_fires_at_idx ON reminder (fires_at, is_active) WHERE deleted_at IS NULL;
