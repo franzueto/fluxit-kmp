@@ -83,5 +83,29 @@ SELECT COUNT(*)
 FROM list
 WHERE deleted_at IS NULL;
 
--- selectWithCounts (joins to item for total_items / completed_items /
--- last_activity_at) is deferred to §2B, when Items.sq lands.
+-- Dashboard query: every active list with derived total_items /
+-- completed_items / last_activity_at. LEFT JOIN to item (live items
+-- only) so lists with zero items still appear; COALESCE collapses the
+-- NULL aggregates to 0. last_activity_at is MAX(item.updated_at) ∪
+-- list.updated_at so a freshly-created empty list still has a useful
+-- activity timestamp.
+selectWithCounts:
+SELECT
+    list.id              AS id,
+    list.name            AS name,
+    list.icon            AS icon,
+    list.color           AS color,
+    list.is_starred      AS is_starred,
+    list.sort_order      AS sort_order,
+    list.created_at      AS created_at,
+    list.updated_at      AS updated_at,
+    COUNT(item.id)       AS total_items,
+    COALESCE(SUM(item.is_completed), 0) AS completed_items,
+    COALESCE(MAX(item.updated_at), list.updated_at) AS last_activity_at
+FROM list
+LEFT JOIN item
+    ON item.list_id = list.id
+    AND item.deleted_at IS NULL
+WHERE list.deleted_at IS NULL
+GROUP BY list.id
+ORDER BY list.sort_order ASC;
