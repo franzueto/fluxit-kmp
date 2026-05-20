@@ -267,11 +267,51 @@
 
 ---
 
+### ADR-006a — TEXT primary keys with UUID v4 string ids
+- **Status:** Proposed (flips to Accepted once Phase 03 §9 lands `expect fun newId(): String` with `java.util.UUID.randomUUID()` on Android and `NSUUID().UUIDString.lowercased()` on iOS, plus the Konsist rule forbidding `Random` / `currentTimeMillis()` as id sources)
+- **Date:** 2026-05-19
+- **Context:** Phase 03 §2's table header line ("All tables use **TEXT primary keys** … so future sync doesn't require an integer-id remap") already commits to TEXT PKs; this ADR ratifies *which* string id format and locks it. Three candidates were on the table:
+  1. **`INTEGER PRIMARY KEY AUTOINCREMENT`.** SQLite's native fast path. ROWID-aliased, sequential, ~8 bytes per id, zero generation cost. Lethal at the v2 sync boundary: two devices creating rows offline both assign id=1 to different lists; reconciliation requires a global remap that touches every foreign key in the database (`item.list_id`, `item.photo_id`, `reminder.owner_id`). ADR-003 already commits to v1 contracts that "v2 sync can swap implementations without touching call sites" — autoincrement breaks that promise at the schema level, not just the call-site level.
+  2. **UUID v4.** Random 128-bit ids, globally unique with collision probability ~2^-122 (effectively zero). Cross-platform mint with zero dependencies: `java.util.UUID.randomUUID()` on Android (JVM standard library), `NSUUID().UUIDString` on iOS (Foundation standard library). 36-byte string form (`550e8400-e29b-41d4-a716-446655440000`). Not time-sortable — but every FluxIt table has a `created_at INTEGER` column anyway, so chronological queries don't need PK ordering.
+  3. **ULID.** 128-bit, Crockford-base32-encoded (26 chars), lexicographically time-sortable. The clean fix to UUID v4's "PK not sortable" complaint. Two real costs: (a) no platform-stdlib generator — needs a ~50-line hand-roll or a small dep like `com.aventrix.jnanoid` ported, (b) the encoded timestamp leaks creation time to anyone who can read a list/item id, which matters slightly more for an app where lists may eventually be shared (v2). Time-sortability is also a partial win: a sorted index on `(deleted_at, created_at, id)` gives the same query plan today without the ULID encode/decode.
+- **Decision:** **UUID v4 strings**, lowercase, hyphenated, no braces, no `urn:uuid:` prefix.
+  - **On-disk shape:** SQLite `TEXT` column, 36-byte canonical form (e.g. `550e8400-e29b-41d4-a716-446655440000`). One representation everywhere — no `BLOB`-encoded compact form, no upper-case variant, no braces. Anything that round-trips through the DB matches `^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`.
+  - **Generation surface:** a single `expect fun newId(): String` declared in `:core:core-utils` (commonMain), with `actual` per platform:
+    - **Android (JVM):** `java.util.UUID.randomUUID().toString()`. JVM `SecureRandom` underneath.
+    - **iOS:** `platform.Foundation.NSUUID().UUIDString.lowercased()`. Apple-provided CSPRNG underneath.
+    - **Tests:** an `internal val idGenerator: () -> String = ::newId` indirection where tests need deterministic ids; tests pass a `FakeIdGenerator` returning `"00000000-0000-4000-8000-000000000001"` etc. (still UUID-v4-shaped so regexes in production code don't trip).
+  - **`newId()` lives in `:core:core-utils`, not `:shared:data`.** Reason: ids are minted at the *use-case* layer (in `:shared:domain` repositories' `create(...)` impls *call into* the data layer, but the id itself is generated above the DB so that retry/replay scenarios produce stable ids). Putting `newId()` in core-utils makes it available to both `domain` and `data` without cycles. (Phase 04 will surface a `ListId` / `ItemId` / etc. value class layer on top; those are inline TEXT-backed value classes — they don't change the underlying storage decision.)
+  - **Banned id sources:** `kotlin.random.Random`, `kotlinx.datetime.Clock.System.now().toEpochMilliseconds()`, `System.currentTimeMillis()`, hash-of-content schemes (e.g. `name.hashCode().toString()`). Enforced by a Konsist rule in `:build-logic`'s arch test set: any file (outside test source sets and outside the actual implementation of `newId()` itself) that assigns to a property named `*id` from those sources is a violation. This protects against the "I'll just use a counter for now" pattern that creates duplicate-id bugs in the v2 sync window.
+  - **No `created_at`-based id ordering.** Lists are sorted by `sort_order REAL` (fractional indexing — §8); items inherit that. The dashboard's chronological-newest-first feel (§12 row 5 — still an open question) comes from `created_at DESC`, not PK order. The PK is opaque to product code.
+  - **Status flip:** stays Proposed until §9's commit lands `expect fun newId(): String` in `:core:core-utils` with both actuals + the Konsist banned-source rule. Pattern matches ADR-006's status-flip discipline.
+- **Consequences:**
+  - ➕ Cross-device sync (v2) needs no id remap. A list created offline on phone A and one created offline on phone B collide with probability effectively zero; merge is a simple union.
+  - ➕ Zero new dependencies. Both platforms' standard libraries cover generation; the only cross-platform code is the `expect fun newId()` declaration.
+  - ➕ Deterministic-test path is trivial — `FakeIdGenerator` returns shaped ids and is injected wherever ids are minted. No DB-fake gymnastics.
+  - ➕ 36-byte canonical form is human-readable in SQLite browser tools, in Kermit logs, and in stack traces. Aids debugging vs. opaque blobs.
+  - ➕ Stable Konsist rule against "I'll use a counter" id sources means the v1→v2 sync transition isn't blocked by a stowaway integer-id field that snuck into some draft type.
+  - ➖ 36 bytes per id × 2 ids per `item` row (own + `list_id`) + 2 more (`photo_id`, FK targets) = ~108–144 bytes of id overhead per item row. At realistic scales (thousands of items per user) this is negligible; at millions it would matter. Premature to optimize.
+  - ➖ TEXT PK indexes are larger and slightly slower than INTEGER ROWID. Mitigated by SQLite's b-tree handling 36-byte keys efficiently and by the small data volumes a personal list app sees.
+  - ➖ Not time-sortable by PK. Acceptable because every table has `created_at INTEGER` and the partial indexes from §2 (`list_sort_idx`, `item_list_idx`) already cover the queries that matter.
+  - ➖ The ban on `Random` / `currentTimeMillis()` as id sources catches *intent* via a Konsist regex, not via the type system. A determined developer could route through a wrapper function. Acceptable: the rule is honest documentation of what good looks like, not a sandbox.
+  - 🔁 If the schema ever needs a PK shape that's both globally unique *and* time-sortable (e.g. a v2 audit log where chronological scans dominate), revisit by superseding with a ULID ADR for the specific table. Different tables can use different id shapes — the rule here is the *default*.
+  - 🔁 If the codebase ever needs a non-Foundation/non-JVM target (e.g. Compose-Multiplatform-on-Web, watchOS without Foundation), the `expect fun newId()` shape makes adding a `wasmJsMain` / `watchosMain` actual a one-file change.
+- **Alternatives considered:**
+  - **INTEGER AUTOINCREMENT** (option 1) — rejected: see Context. The "remap on first sync" cost is a project-killer for the v2 milestone that the v1 schema is meant to enable. Doubling down on autoincrement now is paying a small win today and a multi-week debt later.
+  - **ULID** (option 3) — rejected: the costs (own a generator, time-leaks the creation timestamp in every visible id) outweigh the wins (PK-sortable; the `created_at` column already serves that role). Re-evaluate per-table if a future feature needs PK-time-order as a primary access pattern.
+  - **UUID v7** (time-ordered v7 from RFC 9562) — would resolve UUID v4's only real complaint (not time-sortable). Rejected for v1 because (a) neither platform's standard library ships a v7 generator yet (as of Android 14 / iOS 17), so adoption would mean owning a generator just like ULID, and (b) v7 ids still leak the creation timestamp to anyone reading them. Re-evaluate when both platforms' stdlibs ship native v7 support.
+  - **UUID v4 stored as 16-byte `BLOB` instead of 36-byte `TEXT`** — rejected: ~3× space win in id columns is real but small at FluxIt's scale, and `BLOB` ids are unreadable in `sqlite3` shells / SQLite browser / log lines. Debugging cost exceeds storage cost.
+  - **Composite ids** (e.g. `<device_uuid>:<local_counter>`) — rejected: solves no problem UUID v4 doesn't already solve, while introducing the parsing/concat surface that pure-random ids skip entirely.
+  - **`newId()` lives in `:shared:data`** instead of `:core:core-utils` — rejected: ids are minted *above* the data layer (use-case-level, where retry/replay produces stable ids); putting the generator in `:shared:data` either forces an upward dependency from `domain` or duplicates generation logic. `:core:core-utils` is the existing leaf module designed for this kind of platform-agnostic primitive.
+- **Resolves Open Questions in Phase 03:** §9 row 1 (id format) and the implicit "v2-sync-safe?" question that §2's TEXT-PK header line raises. Does **not** resolve §12 (those are product-shape questions).
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
 
-- **ADR-006a / 006b / 006c** (Phase 03): sub-ADRs of ADR-006 — UUID v4 ids; soft-delete tombstones; `:shared:data` ↔ `:core:core-designsystem` coupling for `IconNameAdapter`.
+- **ADR-006b / 006c** (Phase 03): remaining sub-ADRs of ADR-006 — soft-delete tombstones; `:shared:data` ↔ `:core:core-designsystem` coupling for `IconNameAdapter`.
 - **ADR-007** (Phase 05): MVI store contract — intents/state/effects, error model, optimistic update pattern.
 - **ADR-008** (Phase 06): expect/actual vs. Koin-injected interfaces for platform capabilities (we'll likely standardize on injected interfaces).
 - **ADR-009** (Phase 13): Notification permission UX — when to ask, how to recover from denial.
