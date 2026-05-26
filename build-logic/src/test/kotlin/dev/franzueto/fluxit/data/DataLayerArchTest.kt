@@ -53,4 +53,44 @@ class DataLayerArchTest : FunSpec({
                 file.imports.any { imp -> imp.name.startsWith("app.cash.sqldelight") }
             }
     }
+
+    // Phase 03 §9 + ADR-006a: entity ids must come from newId() / IdGenerator,
+    // never from ad-hoc sources that would create collisions or leak creation
+    // time. The actual `newId()` impls in :core:core-utils are the only place
+    // these primitives are allowed; test source sets are exempt (FakeClock,
+    // deterministic seeds, etc.).
+    test("entity ids are minted via newId() / IdGenerator, not Random or Clock-derived sources") {
+        val bannedIdAssignment =
+            Regex(
+                """\b(?:val|var)\s+\w*[Ii]d\s*[:=][^\n]*?""" +
+                    """(?:""" +
+                    """kotlin\.random\.Random|""" +
+                    """\bRandom\.(?:nextLong|nextInt|nextBytes)|""" +
+                    """currentTimeMillis|""" +
+                    """toEpochMilliseconds|""" +
+                    """\.hashCode\(\)""" +
+                    """)""",
+            )
+        scope()
+            .files
+            .filter { file ->
+                "/build/" !in file.path &&
+                    "/build-logic/" !in file.path &&
+                    "/src/test/" !in file.path &&
+                    "/src/commonTest/" !in file.path &&
+                    "/src/androidTest/" !in file.path &&
+                    "/src/androidUnitTest/" !in file.path &&
+                    "/src/iosTest/" !in file.path &&
+                    !file.name.endsWith("Test.kt") &&
+                    !file.name.endsWith("Spec.kt") &&
+                    // The newId() actuals themselves are the canonical source.
+                    !file.name.startsWith("Ids.")
+            }
+            .assertFalse(
+                additionalMessage = "Mint entity ids via dev.franzueto.fluxit.core.utils.newId() / IdGenerator. " +
+                    "Random / currentTimeMillis / Instant.toEpochMilliseconds / hashCode() are banned id sources (ADR-006a).",
+            ) { file ->
+                bannedIdAssignment.containsMatchIn(file.text)
+            }
+    }
 })
