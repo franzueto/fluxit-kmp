@@ -17,11 +17,11 @@
 
 ## 1. Module wiring
 
-- [ ] `:shared:data/build.gradle.kts` applies `fluxit.kmp.library` + SQLDelight plugin.
-- [ ] Dependencies: `:shared:domain` (interfaces only), `kotlinx-coroutines-core`, `kotlinx-datetime`, `kotlinx-serialization-json`, SQLDelight runtime + coroutines extension + primitive adapters, Kermit.
-- [ ] No dependency on Android framework, AndroidX, UIKit, Foundation. Verified by Konsist.
-- [ ] iOS source set adds `app.cash.sqldelight:native-driver`; Android adds `app.cash.sqldelight:android-driver`; common defines `expect class DriverFactory`.
-- [ ] Database name constant in `:shared:data`: `"fluxit.db"` (production), `":memory:"` (test).
+- [x] `:shared:data/build.gradle.kts` applies `fluxit.kmp.library` + SQLDelight plugin.
+- [x] Dependencies: `:shared:domain` (interfaces only), `kotlinx-coroutines-core`, `kotlinx-datetime`, `kotlinx-serialization-json`, SQLDelight runtime + coroutines extension + primitive adapters, Kermit.
+- [x] No dependency on Android framework, AndroidX, UIKit, Foundation. Verified by Konsist (`DataLayerArchTest`).
+- [x] iOS source set adds `app.cash.sqldelight:native-driver`; Android adds `app.cash.sqldelight:android-driver`; common defines `expect class DriverFactory`.
+- [x] Database name constant in `:shared:data`: `"fluxit.db"` (production), `":memory:"` (test).
 
 ## 2. Schema (SQLDelight `.sq` files)
 
@@ -47,16 +47,16 @@ CREATE INDEX list_starred_idx ON list (is_starred) WHERE deleted_at IS NULL;
 ```
 
 Queries to author (each emits `Flow` via SQLDelight coroutines extension):
-- [ ] `selectAllActive` — `WHERE deleted_at IS NULL ORDER BY sort_order ASC`
-- [ ] `selectById(id)`
-- [ ] `searchByName(query)` — `WHERE name LIKE '%' || :query || '%' AND deleted_at IS NULL`
-- [ ] `insert(list)` (full row)
-- [ ] `updateMetadata(id, name, icon, color, is_starred, updated_at)`
-- [ ] `updateSortOrder(id, sort_order, updated_at)`
-- [ ] `softDelete(id, deleted_at)`
-- [ ] `hardDelete(id)` — used only by v2 sync compaction; not called in v1
-- [ ] `countActive`
-- [ ] `selectWithCounts` — joins to `item` to expose `total_items`, `completed_items`, `last_activity_at` for the dashboard
+- [x] `selectAllActive` — `WHERE deleted_at IS NULL ORDER BY sort_order ASC`
+- [x] `selectById(id)`
+- [x] `searchByName(query)` — substring via `INSTR(LOWER(name), LOWER(:query)) > 0` (avoids LIKE `%`/`_` escape problem; resolved §12 row 2)
+- [x] `insert(list)` (full row)
+- [x] `updateMetadata(id, name, icon, color, is_starred, updated_at)`
+- [x] `updateSortOrder(id, sort_order, updated_at)`
+- [x] `softDelete(id, deleted_at)`
+- [x] `hardDelete(id)` — used only by v2 sync compaction; not called in v1
+- [x] `countActive`
+- [x] `selectWithCounts` — joins to `item` to expose `total_items`, `completed_items`, `last_activity_at` for the dashboard
 
 ### `Items.sq`
 
@@ -81,16 +81,16 @@ CREATE INDEX item_photo_idx ON item (photo_id);
 ```
 
 Queries:
-- [ ] `selectByListGroupedByStatus` — returns two logical groups (active, completed) ordered by `sort_order` so the UI can render `TO BUY` / `COMPLETED` sections without client-side splitting.
-- [ ] `selectById(id)` — for Edit Item screen.
-- [ ] `insert(item)`
-- [ ] `updateContent(id, title, subtitle, description, photo_id, updated_at)`
-- [ ] `setCompleted(id, is_completed, updated_at)`
-- [ ] `setStarred(id, is_starred, updated_at)`
-- [ ] `updateSortOrder(id, sort_order, updated_at)`
-- [ ] `softDelete(id, deleted_at)`
-- [ ] `softDeleteCompletedByList(list_id, deleted_at)` — backs the "Clear completed" action (Phase 08). Uses SQLDelight 2 `RETURNING id` so the use case can return the deleted ids for bulk-undo.
-- [ ] `countByList(list_id)` and `countCompletedByList(list_id)` — drive the `13/20` progress bar.
+- [x] `selectByListGroupedByStatus` — single result set ordered by `(is_completed ASC, sort_order ASC)`; the §6 mapper partitions into TO BUY / COMPLETED (spec's "two logical groups" is the mapper output, not the SQL).
+- [x] `selectById(id)` — for Edit Item screen.
+- [x] `insert(item)`
+- [x] `updateContent(id, title, subtitle, description, photo_id, updated_at)`
+- [x] `setCompleted(id, is_completed, updated_at)`
+- [x] `setStarred(id, is_starred, updated_at)`
+- [x] `updateSortOrder(id, sort_order, updated_at)`
+- [x] `softDelete(id, deleted_at)`
+- [x] `softDeleteCompletedByList(list_id, deleted_at)` — backs the "Clear completed" action (Phase 08). **No `RETURNING id`:** §12 row 3 toast-undo holds cleared ids in state-layer memory during the 5s window, and `RETURNING` needs SQLite ≥ 3.35 which post-dates Android 26's bundled SQLite. Sidesteps bundling a newer driver.
+- [x] `countByList(list_id)` and `countCompletedByList(list_id)` — drive the `13/20` progress bar.
 
 ### `Reminders.sq`
 
@@ -113,10 +113,10 @@ CREATE INDEX reminder_fires_at_idx ON reminder (fires_at, is_active) WHERE delet
 ```
 
 Queries:
-- [ ] `selectActiveByOwner(owner_type, owner_id)`
-- [ ] `selectAllUpcoming(now, limit)` — backs v2 Calendar tab.
-- [ ] `insert`, `updateFiresAt`, `setPlatformHandle`, `setActive`, `softDelete`.
-- [ ] `selectNeedingReschedule(now)` — recurring reminders past their last fire; used on app start to repopulate platform schedule.
+- [x] `selectActiveByOwner(owner_type, owner_id)`
+- [x] `selectAllUpcoming(now, limit)` — backs v2 Calendar tab (schema serves both phases without change).
+- [x] `insert`, `updateFiresAt` (atomic with `:recurrence` per §5's reschedule contract), `setPlatformHandle`, `setActive`, `softDelete`.
+- [x] `selectNeedingReschedule(now)` — recurring reminders past their last fire; used on app start to repopulate platform schedule.
 
 ### `Photos.sq`
 
@@ -136,37 +136,37 @@ CREATE INDEX photo_orphan_idx ON photo (deleted_at);
 ```
 
 Queries:
-- [ ] `selectById(id)`
-- [ ] `insert`
-- [ ] `softDelete`
-- [ ] `selectOrphaned` — photos with no referencing `item` and `deleted_at` older than 24h; consumed by a janitor (§7).
+- [x] `selectById(id)`
+- [x] `insert`
+- [x] `softDelete`
+- [x] `selectOrphaned` — photos with no referencing `item` and `deleted_at` older than 24h; consumed by a janitor (§7). Ordered `deleted_at ASC` so oldest tombstones reap first.
 
 ### Schema versioning + migrations
 
-- [ ] `databaseVersion = 1` declared in Gradle `sqldelight { databases { … } }`.
-- [ ] `migrations/` folder pre-created (empty for v1).
-- [ ] `schema.sql` dump produced by `./gradlew :shared:data:generateMainFluxItDatabaseSchema`; checked in.
-- [ ] CI step runs the dump and `git diff --exit-code schema.sql` to catch unintentional schema drift.
-- [ ] Migration unit-test harness wired now (even with zero migrations) so adding migration #1 in v2 is mechanical.
+- [x] `databaseVersion = 1` (SQLDelight 2 default) declared in Gradle `sqldelight { databases { … } }`.
+- [ ] `migrations/` folder pre-created (empty for v1). _Deferred to §10 alongside the migration test harness — no migrations exist yet and an empty directory would be checked in for its own sake._
+- [x] `schema.sql` dump produced by the hand-rolled `:shared:data:generateSchemaSql` task (SQLDelight's built-in `generateMainFluxItDatabaseSchema` produces a binary `.db`, not human-readable SQL); checked in at `shared/data/schema.sql`.
+- [x] CI gate: `:shared:data:verifySchemaInSync` re-runs the generator in-memory and fails the build on drift; wired into `:shared:data:check`. Mirrors Phase 02's `verifyTokensInSync` / `verifyIconsInSync` pattern.
+- [ ] Migration unit-test harness wired now (even with zero migrations) so adding migration #1 in v2 is mechanical. _Deferred to §10._
 
 ## 3. Column adapters
 
 Living in `:shared:data/src/commonMain/.../db/Adapters.kt`:
 
-- [ ] `InstantAdapter` — `kotlinx.datetime.Instant` ↔ `Long` (epoch ms).
-- [ ] `BooleanIntAdapter` — `Boolean` ↔ `Int (0/1)` (SQLite has no native bool).
-- [ ] `OwnerTypeAdapter` — `enum class ReminderOwnerType { LIST, ITEM }` ↔ `String`.
-- [ ] `IconNameAdapter` — `enum class FluxItIconRef` ↔ `String`. Enum is the *generated* icon name set from Phase 02 — adds a build-time dependency on `:core:core-designsystem`'s generated icons file. **Trade-off acknowledged:** keeps DB rows referentially safe but couples data ↔ designsystem; documented in §11.
-- [ ] `ColorTokenAdapter` — `enum class ColorToken` ↔ `String` (token keys, e.g. `PRIMARY_BLUE`, `ACCENT_SKY`).
-- [ ] `RecurrenceRuleAdapter` — `RecurrenceRule` (sealed class: `None`, `Daily`, `Weekly(daysOfWeek)`, `Monthly(dayOfMonth)`) ↔ JSON via `kotlinx.serialization`. v1 scope locked by Phase 09; `Custom(rrule)` deferred to v2 (re-add the variant when needed — JSON schema is forward-compatible).
+- [x] `InstantAdapter` — `kotlinx.datetime.Instant` ↔ `Long` (epoch ms).
+- [x] ~~`BooleanIntAdapter` — `Boolean` ↔ `Int (0/1)`~~. **Not needed:** SQLDelight 2 ships built-in `INTEGER AS Boolean` codegen — the three boolean columns (`is_starred`, `is_completed`, `is_active`) are handled directly by the row constructor, no `is_*Adapter` parameter exposed. Documented inline in `Adapters.kt`.
+- [x] `OwnerTypeAdapter` — `enum class ReminderOwnerType { LIST, ITEM }` ↔ `String` via SQLDelight's `EnumColumnAdapter`.
+- [x] `IconNameAdapter` — `enum class FluxItIconRef` ↔ `String` via `EnumColumnAdapter`. **Coupling direction reversed** from the original spec: per Phase 04 §2 (anticipated ADR-007a supersedes ADR-006c), domain owns the enum; the design system *consumes* it for icon registration. Enum lives at `shared/domain/.../model/FluxItIconRef.kt`.
+- [x] `ColorTokenAdapter` — `enum class ColorToken` ↔ `String` (token keys: `PRIMARY_BLUE`, `ACCENT_ROSE`, `ACCENT_EMERALD`, `ACCENT_ORANGE`, `ACCENT_INDIGO`, `ACCENT_SKY`). Same coupling-reversal note as `IconNameAdapter`.
+- [x] `RecurrenceRuleAdapter` — `RecurrenceRule` sealed `@Serializable` (`None / Daily / Weekly(daysOfWeek) / Monthly(dayOfMonth)`) ↔ JSON via `kotlinx.serialization`. v1 scope per resolved §12 row 1; `Custom(rrule)` deferred to v2 (JSON schema forward-compatible). Discriminator pinned to `"type"` + `ignoreUnknownKeys = true` for v2 reads.
 
 ## 4. Driver factories (expect/actual)
 
-- [ ] `commonMain`: `expect class DriverFactory { fun create(): SqlDriver }`
-- [ ] `androidMain`: `actual class DriverFactory(private val context: Context)` using `AndroidSqliteDriver`. Foreign keys ON, WAL ON.
-- [ ] `iosMain`: `actual class DriverFactory` using `NativeSqliteDriver`. Foreign keys ON.
-- [ ] `commonTest`: in-memory driver via `JdbcSqliteDriver(IN_MEMORY)`; `Schema.create()` invoked per test.
-- [ ] All drivers register the column adapters from §3 in one shared `FluxItDatabase.invoke(driver)` factory.
+- [x] `commonMain`: `expect class DriverFactory { fun create(): SqlDriver }`
+- [x] `androidMain`: `actual class DriverFactory(private val context: Context)` using `AndroidSqliteDriver`. Foreign keys ON, WAL ON.
+- [x] `iosMain`: `actual class DriverFactory` using `NativeSqliteDriver`. Foreign keys ON.
+- [ ] `commonTest`: in-memory driver via `JdbcSqliteDriver(IN_MEMORY)`; `Schema.create()` invoked per test. **Partial:** JVM-side helper lives at `shared/data/src/androidUnitTest/.../db/TestDrivers.kt` and is exercised by `FluxItDatabaseFactorySmokeTest`. iOS-side `NativeSqliteDriver` in-memory helper + `expect fun inMemoryDriver(): SqlDriver` promotion to `commonTest` is deferred to §10 with the rest of the test pyramid.
+- [x] Shared `fluxItDatabase(driver: SqlDriver): FluxItDatabase` factory in `commonMain` (`FluxItDatabaseFactory.kt`) wires every generated `Table.Adapter` with the §3 column adapters in one place. Both platforms call this with their `DriverFactory.create()` output. (Note: SQLDelight 2's generated `List` class needs an `import … as ListRow` alias to avoid the `kotlin.collections.List` clash — established pattern in the factory.)
 
 ## 5. Repository contracts (declared in `:shared:domain`, implemented here)
 
@@ -228,10 +228,11 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
 
 ## 9. ID generation
 
-- [ ] Use **UUID v4** strings (lowercase, no braces). `expect fun newId(): String` with `actual` per platform:
+- [x] Use **UUID v4** strings (lowercase, no braces). `expect fun newId(): String` in `:core:core-utils` with `actual` per platform:
   - Android: `java.util.UUID.randomUUID().toString()`
-  - iOS: `NSUUID().UUIDString.lowercased()`
-- [ ] Tested via Konsist: no `Random` or `currentTimeMillis()` used to mint IDs anywhere.
+  - iOS: `NSUUID().UUIDString().lowercase()`
+  - Plus `IdGenerator` fun-interface seam (`IdGenerator.System` binds to `::newId`) so repositories can inject the abstraction; tests pass `FakeIdGenerator` returning UUID-v4-shaped strings.
+- [x] Tested via Konsist: `DataLayerArchTest` rule "entity ids are minted via newId() / IdGenerator, not Random or Clock-derived sources" bans `Random.nextLong/Int/Bytes`, `currentTimeMillis`, `Instant.toEpochMilliseconds`, and `.hashCode()` as id sources outside `Ids.*` files and test source sets.
 
 ## 10. Testing
 
@@ -246,10 +247,10 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
 
 ## 11. ADRs to write in this phase
 
-- [ ] **ADR-006** — SQLDelight 2 over Room KMP. Why: SQL-first ergonomics, mature iOS, mature `selectXxx()` Flow extension, no kapt/ksp host gotcha on iOS.
-- [ ] **ADR-006a** — UUID v4 string IDs (vs. ULID, vs. autoincrement int). Why: trivial cross-platform mint, sortable-enough via `created_at`, safe for v2 sync.
-- [ ] **ADR-006b** — Soft-delete + tombstones from day one. Why: cheap insurance for v2 sync; cost is a `WHERE deleted_at IS NULL` on every read query, mitigated by partial indexes.
-- [ ] **ADR-006c** — Coupling `:shared:data` to `:core:core-designsystem` for the `IconNameAdapter` enum. Why this is OK: icon names are part of the *product domain* (a list "is a cart"), not just visual chrome; designsystem is a leaf module so the dependency edge is acyclic.
+- [x] **ADR-006** — SQLDelight 2 over Room KMP. **Status: Proposed** (flips to Accepted at §13 hand-off; all status-flip preconditions are now satisfied — schema landed, `verifySchemaInSync` green, dump checked in. Migration test harness is the one remaining precondition, lands with §10.)
+- [x] **ADR-006a** — UUID v4 string ids (vs. ULID, vs. autoincrement int). **Status: Proposed** (flip preconditions satisfied: `newId()` actuals shipped, Konsist banned-source rule active. Flips at §13.)
+- [x] **ADR-006b** — Soft-delete + tombstones from day one. **Status: Proposed.**
+- [x] **ADR-006c** — Coupling `:shared:data` to `:core:core-designsystem` for the `IconNameAdapter` enum. **Status: Proposed but coupling direction reversed.** Phase 04 §2 supersedes the original direction — domain owns `FluxItIconRef` and `ColorToken`; designsystem consumes them. ADR-007a (anticipated in Phase 04) formalizes the reversal. ADR-006c will be marked **Superseded by ADR-007a** at §13 rather than Accepted; its rationale (icon names are product domain, not chrome) is preserved by 007a.
 
 ## 12. Open questions for this phase
 
@@ -267,8 +268,44 @@ Phase 09 (reminders UX).
 
 ## 13. Hand-off checklist (gate to Phase 04)
 
-- [ ] All checkboxes above ✅.
-- [ ] `schema.sql` dump checked in; CI verification step green.
-- [ ] Integration test runs green on Android JVM unit + iosSimulatorArm64 in CI.
+- [ ] All checkboxes above ✅. _(Progress as of 2026-05-26: §1, §2, §3, §4 (modulo iOS test driver), §9, §11 drafts, §12 done; §5, §6, §7, §8, §10 still open.)_
+- [x] `schema.sql` dump checked in; CI verification step (`verifySchemaInSync` wired into `:shared:data:check`) green.
+- [ ] Integration test runs green on Android JVM unit + iosSimulatorArm64 in CI. _(§10 deliverable.)_
 - [ ] `MASTER_PLAN.md`: Phase 03 → 🟢, ▶ Next Step → Phase 04.
-- [ ] `00_DECISIONS.md`: ADR-006 (a/b/c) accepted.
+- [ ] `00_DECISIONS.md`: ADR-006 / 006a / 006b accepted; ADR-006c marked **Superseded by ADR-007a** (Phase 04).
+
+---
+
+## Implementation log (chronological, for traceability across sessions)
+
+Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
+the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
+
+- **2026-05-26** — §3 adapters + §4 shared `fluxItDatabase(driver)` factory +
+  JVM-side in-memory test driver + smoke test. AS clauses on all four `.sq`
+  tables; `schema.sql` regenerated. `BooleanIntAdapter` omitted (SQLDelight 2
+  built-in). iOS test driver deferred to §10. _Commit `2b151f3`._
+- **2026-05-26** — Domain seed pulled forward from Phase 04 §2: `ColorToken`,
+  `FluxItIconRef`, `ReminderOwnerType` enums + `RecurrenceRule` sealed
+  `@Serializable`. Wires `:shared:domain` commonMain + `kotlinx-datetime` +
+  `kotlinx-serialization-core`. _Commit `9421fb1`._
+- **2026-05-26** — §9 `newId()` expect/actual in `:core:core-utils` (UUID v4
+  via JVM `UUID.randomUUID()` and iOS `NSUUID().UUIDString().lowercase()`) +
+  `IdGenerator` fun-interface seam + Konsist banned-id-source rule in
+  `DataLayerArchTest`. _Commit `4a798ff`._
+- **2026-05-19** — §12 open questions resolved (recurrence v1 set; lists-only
+  search; 5s toast-undo delete; JPEG q=0.85 max-dim 2048 photo encoding;
+  newest-at-top sort_order). _Commit `90130a7`._
+- **2026-05-19** — ADR-006 / 006a / 006b / 006c drafted as Proposed.
+  _Commits `675487d` (006), `349ee15` (006a), `3ac2a9b` (006b), `6f2abbb`
+  (006c)._
+- **2026-05-19** — §2D Photos.sq + Items.photo_id FK retrofit + schema task
+  ordering fix. Phase 03 §2 (Schema) complete. _Commit `36b2ce4`._
+- **2026-05-19** — §2C Reminders.sq with polymorphic owner. _Commit `221aa19`._
+- **2026-05-19** — §2B Items.sq + Lists.sq `selectWithCounts` retrofit.
+  _Commit `e5589c7`._
+- **2026-05-19** — §2A Lists.sq + hand-rolled `generateSchemaSql` /
+  `verifySchemaInSync` pipeline. _Commit `1562b39`._
+- **2026-05-19** — §1 `:shared:data` wired (SQLDelight plugin, deps,
+  DriverFactory expect/actual) + Konsist arch tests (`DataLayerArchTest`).
+  _Commits `78801bd`, `e6e9f67`._
