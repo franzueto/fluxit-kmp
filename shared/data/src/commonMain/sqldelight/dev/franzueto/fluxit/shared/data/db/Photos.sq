@@ -16,6 +16,8 @@
 -- absolute path (resolved by PhotoStorage.resolveAbsolute() at the
 -- Compose / SwiftUI image-loading site).
 
+import kotlinx.datetime.Instant;
+
 CREATE TABLE photo (
     id              TEXT NOT NULL PRIMARY KEY,
     relative_path   TEXT NOT NULL,
@@ -23,8 +25,8 @@ CREATE TABLE photo (
     width_px        INTEGER NOT NULL,
     height_px       INTEGER NOT NULL,
     byte_size       INTEGER NOT NULL,
-    created_at      INTEGER NOT NULL,
-    deleted_at      INTEGER
+    created_at      INTEGER AS Instant NOT NULL,
+    deleted_at      INTEGER AS Instant
 );
 
 CREATE INDEX photo_orphan_idx ON photo (deleted_at);

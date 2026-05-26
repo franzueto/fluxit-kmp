@@ -35,6 +35,13 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.bundles.testing.shared)
         }
+        // JVM-side in-memory SQLite driver for the §3/§4 smoke test. iOS-side
+        // NativeSqliteDriver-in-memory wiring lands with the §10 test pyramid.
+        val androidUnitTest by getting {
+            dependencies {
+                implementation(libs.sqldelight.jvm.driver)
+            }
+        }
     }
 }
 

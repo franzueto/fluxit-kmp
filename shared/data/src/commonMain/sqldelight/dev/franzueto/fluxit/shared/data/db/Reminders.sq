@@ -20,17 +20,22 @@
 -- schedules the notification with WorkManager / UNUserNotificationCenter
 -- and writes back the request id via setPlatformHandle.
 
+import dev.franzueto.fluxit.shared.domain.model.RecurrenceRule;
+import dev.franzueto.fluxit.shared.domain.model.ReminderOwnerType;
+import kotlin.Boolean;
+import kotlinx.datetime.Instant;
+
 CREATE TABLE reminder (
     id              TEXT NOT NULL PRIMARY KEY,
-    owner_type      TEXT NOT NULL,
+    owner_type      TEXT AS ReminderOwnerType NOT NULL,
     owner_id        TEXT NOT NULL,
-    fires_at        INTEGER NOT NULL,
-    recurrence      TEXT,
+    fires_at        INTEGER AS Instant NOT NULL,
+    recurrence      TEXT AS RecurrenceRule,
     platform_handle TEXT,
-    is_active       INTEGER NOT NULL DEFAULT 1,
-    created_at      INTEGER NOT NULL,
-    updated_at      INTEGER NOT NULL,
-    deleted_at      INTEGER
+    is_active       INTEGER AS Boolean NOT NULL DEFAULT 1,
+    created_at      INTEGER AS Instant NOT NULL,
+    updated_at      INTEGER AS Instant NOT NULL,
+    deleted_at      INTEGER AS Instant
 );
 
 CREATE INDEX reminder_owner_idx ON reminder (owner_type, owner_id) WHERE deleted_at IS NULL;
