@@ -292,7 +292,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   injected yet, per spec). 10 smoke tests cover schedule + recurrence
   round-trip + None-as-null + scoped owner observe + upcoming +
   reschedule + cancel + rebindPlatformHandle (set/clear) +
-  not-found paths + item-owner round-trip. _Commit `<pending>`._
+  not-found paths + item-owner round-trip. _Commit `cb1c0eb`._
 - **2026-05-27** — §5 Items slice (2/4): `ItemId`, `PhotoId`, `Item`,
   `ItemDraft`, `ItemPatch`, `ItemsSection` entities in `:shared:domain`;
   `ItemsRepository` interface + `SqlItemsRepository` impl + `ItemMapper` in
