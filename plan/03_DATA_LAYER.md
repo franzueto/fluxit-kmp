@@ -290,7 +290,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   `updateAppearance`, `updateStarred`, `selectMinActiveSortOrder`,
   `selectActiveSortOrder`, `selectActiveIdsBySortOrder`. JVM smoke test
   covers create/rename/setStarred/reorder/delete/search + validation +
-  not-found + rebalance trigger. _Commit `<pending>`._
+  not-found + rebalance trigger. _Commit `7d1d15d`._
 - **2026-05-26** — §3 adapters + §4 shared `fluxItDatabase(driver)` factory +
   JVM-side in-memory test driver + smoke test. AS clauses on all four `.sq`
   tables; `schema.sql` regenerated. `BooleanIntAdapter` omitted (SQLDelight 2
