@@ -291,7 +291,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   cover add (with parent-list NotFound + title validation) /
   observeByList partition / setCompleted section-swap / update / delete /
   setStarred / reorder / clearCompleted / rebalance trigger.
-  _Commit `<pending>`._
+  _Commit `04f441b`._
 - **2026-05-27** — §5 Lists slice: `Outcome<T, E>` + `DataError` taxonomy +
   `ListId`/`ListDraft`/`ListSummary`/`ListDetail` entities in `:shared:domain`;
   `ListsRepository` interface + `SqlListsRepository` impl + `ListMapper` in
