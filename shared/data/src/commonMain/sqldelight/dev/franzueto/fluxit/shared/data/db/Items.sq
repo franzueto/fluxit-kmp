@@ -103,3 +103,32 @@ countCompletedByList:
 SELECT COUNT(*)
 FROM item
 WHERE list_id = :list_id AND is_completed = 1 AND deleted_at IS NULL;
+
+-- Phase 03 §5 repository queries. Per-list rebalance scope mirrors the
+-- Lists slice's global one — every helper takes :list_id so the §8
+-- fractional-sort path stays bounded to the affected list.
+
+selectMinActiveSortOrderByList:
+SELECT MIN(sort_order) AS min_sort_order
+FROM item
+WHERE list_id = :list_id AND deleted_at IS NULL;
+
+selectActiveSortOrder:
+SELECT sort_order
+FROM item
+WHERE id = :id AND deleted_at IS NULL;
+
+selectActiveIdsByListBySortOrder:
+SELECT id
+FROM item
+WHERE list_id = :list_id AND deleted_at IS NULL
+ORDER BY sort_order ASC;
+
+-- Pre-flight check for repository.add() so we surface NotFound for the
+-- parent list before letting SQLite throw a generic FK violation. Uses
+-- the lists table directly to dodge a cross-file query (.sq files share
+-- the same database, so this is fine).
+selectListIsActive:
+SELECT 1
+FROM list
+WHERE id = :id AND deleted_at IS NULL;

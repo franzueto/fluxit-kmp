@@ -182,16 +182,16 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
   - `suspend fun setStarred(id, starred): Outcome<Unit, DataError>`
   - `suspend fun reorder(id, previous: ListId?, next: ListId?): Outcome<Unit, DataError>` (fractional sort under the hood)
   - `suspend fun delete(id): Outcome<Unit, DataError>` (soft)
-- [ ] **`ItemsRepository`**
-  - `fun observeByList(listId): Flow<ItemsSection>` where `ItemsSection = (active: List<Item>, completed: List<Item>, total, completed)`
+- [x] **`ItemsRepository`** — domain interface in `:shared:domain/.../repository/ItemsRepository.kt`; impl `SqlItemsRepository` in `:shared:data/.../repository/`. `ItemPatch` is a full content replacement (single backing UPDATE statement writes all four mutable columns atomically — callers that want "leave subtitle alone" read the current item and re-emit). `add()` pre-checks parent list existence in a transaction (`selectListIsActive`) so missing-list surfaces as typed `NotFound` instead of a driver FK exception. `clearCompleted()` returns the count inside a transaction (`countCompletedByList` → `softDeleteCompletedByList`) so the state layer's 5-second toast-undo flow has the cleared-count for messaging. §8 per-list rebalance: same midpoint-collapse trigger as Lists, scoped via `selectActiveIdsByListBySortOrder(list_id)` so a hot list doesn't disturb the others. `PhotoId` value class pulled forward into `ItemEntities.kt` (Item references Photo) so the Photos slice doesn't need to retrofit it.
+  - `fun observeByList(listId): Flow<ItemsSection>` — `ItemsSection = (active, completed, total, completedCount)`; built from `selectByListGroupedByStatus` in one Flow emission via `partition { isCompleted }`.
   - `fun observe(itemId): Flow<Item?>`
-  - `suspend fun add(listId, draft: ItemDraft): Result<ItemId, DataError>`
-  - `suspend fun update(itemId, patch: ItemPatch): Result<Unit, DataError>` (single op for content + photo)
-  - `suspend fun setCompleted(itemId, completed): Result<Unit, DataError>`
-  - `suspend fun setStarred(itemId, starred): Result<Unit, DataError>`
-  - `suspend fun reorder(itemId, between): Result<Unit, DataError>`
-  - `suspend fun delete(itemId): Result<Unit, DataError>` (soft)
-  - `suspend fun clearCompleted(listId): Result<Int, DataError>`
+  - `suspend fun add(listId, draft: ItemDraft): Outcome<ItemId, DataError>`
+  - `suspend fun update(itemId, patch: ItemPatch): Outcome<Unit, DataError>`
+  - `suspend fun setCompleted(itemId, completed): Outcome<Unit, DataError>`
+  - `suspend fun setStarred(itemId, starred): Outcome<Unit, DataError>`
+  - `suspend fun reorder(itemId, previous: ItemId?, next: ItemId?): Outcome<Unit, DataError>`
+  - `suspend fun delete(itemId): Outcome<Unit, DataError>` (soft)
+  - `suspend fun clearCompleted(listId): Outcome<Int, DataError>`
 - [ ] **`RemindersRepository`**
   - `fun observeForOwner(ownerType, ownerId): Flow<List<Reminder>>`
   - `fun observeUpcoming(limit): Flow<List<Reminder>>`
@@ -281,6 +281,17 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-27** — §5 Items slice (2/4): `ItemId`, `PhotoId`, `Item`,
+  `ItemDraft`, `ItemPatch`, `ItemsSection` entities in `:shared:domain`;
+  `ItemsRepository` interface + `SqlItemsRepository` impl + `ItemMapper` in
+  `:shared:data`. Items.sq gains `selectMinActiveSortOrderByList`,
+  `selectActiveSortOrder`, `selectActiveIdsByListBySortOrder`,
+  `selectListIsActive`. §8 per-list rebalance ships with this slice
+  (mirrors the Lists global one, scoped by `list_id`). 14 smoke tests
+  cover add (with parent-list NotFound + title validation) /
+  observeByList partition / setCompleted section-swap / update / delete /
+  setStarred / reorder / clearCompleted / rebalance trigger.
+  _Commit `<pending>`._
 - **2026-05-27** — §5 Lists slice: `Outcome<T, E>` + `DataError` taxonomy +
   `ListId`/`ListDraft`/`ListSummary`/`ListDetail` entities in `:shared:domain`;
   `ListsRepository` interface + `SqlListsRepository` impl + `ListMapper` in
