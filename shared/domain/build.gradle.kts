@@ -18,6 +18,10 @@ kotlin {
             // (Phase 04 §1 — domain ships annotations, not format).
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.core)
+            // kotlinx-coroutines-core: Flow surface on repository interfaces
+            // (Phase 03 §5). Domain owns the Flow type so use cases and state
+            // can compose reads without depending on :shared:data.
+            implementation(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

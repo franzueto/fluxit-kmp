@@ -19,6 +19,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":shared:domain"))
+            implementation(project(":core:core-utils"))
             implementation(libs.bundles.coroutines)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)

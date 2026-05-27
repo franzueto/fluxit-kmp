@@ -114,3 +114,40 @@ LEFT JOIN item
 WHERE list.deleted_at IS NULL
 GROUP BY list.id
 ORDER BY list.sort_order ASC;
+
+-- Phase 03 §5 repository queries. The §5 contract decomposes the broad
+-- updateMetadata into single-purpose writes so each repository method maps
+-- to one SQL statement (atomic, no read-modify-write window).
+
+updateName:
+UPDATE list
+SET name = :name,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+updateAppearance:
+UPDATE list
+SET icon = :icon,
+    color = :color,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+updateStarred:
+UPDATE list
+SET is_starred = :is_starred,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Sort-order minting (§8). MIN over active rows; returns NULL when the
+-- table is empty so the repository can fall back to the seed value.
+selectMinActiveSortOrder:
+SELECT MIN(sort_order) AS min_sort_order FROM list WHERE deleted_at IS NULL;
+
+selectActiveSortOrder:
+SELECT sort_order FROM list WHERE id = :id AND deleted_at IS NULL;
+
+-- Snapshot used by the §8 rebalance path: ids in current display order so
+-- the repository can rewrite sort_order to evenly-spaced integers in one
+-- transaction when fractional precision collapses.
+selectActiveIdsBySortOrder:
+SELECT id FROM list WHERE deleted_at IS NULL ORDER BY sort_order ASC;

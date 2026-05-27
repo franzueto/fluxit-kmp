@@ -172,16 +172,16 @@ Living in `:shared:data/src/commonMain/.../db/Adapters.kt`:
 
 Domain ships **interfaces and entity DTOs**; data ships **implementations and DB row mappers**. Each operation that can fail returns `Result<T, DataError>` (sealed `DataError` with `NotFound`, `Conflict`, `Storage`, `Validation(field)`, `Unknown(cause)`).
 
-- [ ] **`ListsRepository`**
+- [x] **`ListsRepository`** — domain interface in `:shared:domain/.../repository/ListsRepository.kt`; impl `SqlListsRepository` in `:shared:data/.../repository/`. `Result<T, DataError>` realized as a sealed `Outcome<T, E>` in `:shared:domain/.../error/` (kotlin.Result requires Throwable; sealed Outcome keeps the typed-error contract). Reorder takes `previous: ListId?, next: ListId?` rather than a `Pair<ListId?, ListId?>` so call sites read positionally without unpacking. §8 sort-order rebalance ships in-repository: `selectActiveIdsBySortOrder` snapshot + `transactionWithResult` rewrite to evenly-spaced integers when bracket gap < 1e-9. _(Items + Reminders + Photos still open.)_
   - `fun observeAll(): Flow<List<ListSummary>>` (with counts; backs dashboard)
   - `fun observe(id: ListId): Flow<ListDetail?>`
   - `fun search(query: String): Flow<List<ListSummary>>` (debounce handled in state layer, not here)
-  - `suspend fun create(draft: ListDraft): Result<ListId, DataError>`
-  - `suspend fun rename(id, name): Result<Unit, DataError>`
-  - `suspend fun updateAppearance(id, icon, color): Result<Unit, DataError>`
-  - `suspend fun setStarred(id, starred): Result<Unit, DataError>`
-  - `suspend fun reorder(id, between: Pair<ListId?, ListId?>): Result<Unit, DataError>` (fractional sort under the hood)
-  - `suspend fun delete(id): Result<Unit, DataError>` (soft)
+  - `suspend fun create(draft: ListDraft): Outcome<ListId, DataError>`
+  - `suspend fun rename(id, name): Outcome<Unit, DataError>`
+  - `suspend fun updateAppearance(id, icon, color): Outcome<Unit, DataError>`
+  - `suspend fun setStarred(id, starred): Outcome<Unit, DataError>`
+  - `suspend fun reorder(id, previous: ListId?, next: ListId?): Outcome<Unit, DataError>` (fractional sort under the hood)
+  - `suspend fun delete(id): Outcome<Unit, DataError>` (soft)
 - [ ] **`ItemsRepository`**
   - `fun observeByList(listId): Flow<ItemsSection>` where `ItemsSection = (active: List<Item>, completed: List<Item>, total, completed)`
   - `fun observe(itemId): Flow<Item?>`
@@ -281,6 +281,16 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-27** — §5 Lists slice: `Outcome<T, E>` + `DataError` taxonomy +
+  `ListId`/`ListDraft`/`ListSummary`/`ListDetail` entities in `:shared:domain`;
+  `ListsRepository` interface + `SqlListsRepository` impl + `ListMapper` in
+  `:shared:data`. §8 fractional rebalance trigger ships with this slice
+  (rebalance fires when bracket gap < 1e-9; full per-list compaction lands
+  with Items in the next slice). Lists.sq gains `updateName`,
+  `updateAppearance`, `updateStarred`, `selectMinActiveSortOrder`,
+  `selectActiveSortOrder`, `selectActiveIdsBySortOrder`. JVM smoke test
+  covers create/rename/setStarred/reorder/delete/search + validation +
+  not-found + rebalance trigger. _Commit `<pending>`._
 - **2026-05-26** — §3 adapters + §4 shared `fluxItDatabase(driver)` factory +
   JVM-side in-memory test driver + smoke test. AS clauses on all four `.sq`
   tables; `schema.sql` regenerated. `BooleanIntAdapter` omitted (SQLDelight 2
