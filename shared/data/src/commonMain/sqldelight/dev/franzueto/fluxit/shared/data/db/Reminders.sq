@@ -50,6 +50,12 @@ WHERE owner_type = :owner_type
     AND deleted_at IS NULL
 ORDER BY fires_at ASC;
 
+-- Phase 03 §5 repository pre-check (cancel / reschedule / rebindHandle).
+selectById:
+SELECT *
+FROM reminder
+WHERE id = :id AND deleted_at IS NULL;
+
 -- Backs the v2 Calendar tab (deferred per ADR-004). v1 doesn't call this
 -- but the query exists so the schema serves both phases without change.
 selectAllUpcoming:

@@ -192,13 +192,13 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
   - `suspend fun reorder(itemId, previous: ItemId?, next: ItemId?): Outcome<Unit, DataError>`
   - `suspend fun delete(itemId): Outcome<Unit, DataError>` (soft)
   - `suspend fun clearCompleted(listId): Outcome<Int, DataError>`
-- [ ] **`RemindersRepository`**
-  - `fun observeForOwner(ownerType, ownerId): Flow<List<Reminder>>`
-  - `fun observeUpcoming(limit): Flow<List<Reminder>>`
-  - `suspend fun schedule(spec: ReminderSpec): Result<ReminderId, DataError>` — *only* writes the row; platform scheduling lives in `platform-reminders` (Phase 06) and is wired via a `ReminderScheduler` port injected here.
-  - `suspend fun reschedule(id, firesAt, recurrence): Result<Unit, DataError>`
-  - `suspend fun cancel(id): Result<Unit, DataError>`
-  - `suspend fun rebindPlatformHandle(id, handle): Result<Unit, DataError>`
+- [x] **`RemindersRepository`** — domain interface in `:shared:domain/.../repository/RemindersRepository.kt`; impl `SqlRemindersRepository` in `:shared:data/.../repository/`. `observeForOwner` takes a typed `ReminderOwner` sealed (`OfList(ListId) | OfItem(ItemId)`) rather than the spec's `(ownerType, ownerId)` pair — Phase 04 §3's anticipated wrapper landed here so use cases never juggle the raw discriminator. `ReminderScheduler` port deliberately NOT injected at this slice: the repo is row-only (platform scheduling stays in Phase 06's `:platform:platform-reminders`, which observes `observeForOwner` and writes back via `rebindPlatformHandle`). `RecurrenceRule.None ↔ NULL` collapse at the storage edge per §3 contract (mapper reinflates so domain code never special-cases null). Reminders.sq gains `selectById` (placed after `selectActiveByOwner` so the DDL block of `schema.sql` stays untouched — `verifySchemaInSync` reads everything before the first query label as DDL).
+  - `fun observeForOwner(owner: ReminderOwner): Flow<List<Reminder>>`
+  - `fun observeUpcoming(limit): Flow<List<Reminder>>` (now-snapshot at subscription; v2 Calendar will need a wall-clock ticker)
+  - `suspend fun schedule(spec: ReminderSpec): Outcome<ReminderId, DataError>`
+  - `suspend fun reschedule(id, firesAt, recurrence): Outcome<Unit, DataError>`
+  - `suspend fun cancel(id): Outcome<Unit, DataError>` (soft-delete; Phase 06 reaps platform handles)
+  - `suspend fun rebindPlatformHandle(id, handle): Outcome<Unit, DataError>`
 - [ ] **`PhotosRepository`**
   - `suspend fun ingest(bytes: ByteArray, mime: String, width: Int, height: Int): Result<PhotoId, DataError>` — writes file via `PhotoStorage` port (Phase 06), inserts row, returns id.
   - `fun observe(photoId): Flow<Photo?>`
@@ -281,6 +281,18 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-27** — §5 Reminders slice (3/4): `ReminderId`, `ReminderOwner`
+  sealed (`OfList | OfItem`), `Reminder`, `ReminderSpec` entities in
+  `:shared:domain`; `RemindersRepository` interface +
+  `SqlRemindersRepository` impl + `ReminderMapper` in `:shared:data`.
+  Reminders.sq gains `selectById` for repo pre-checks (placed after
+  `selectActiveByOwner` so DDL portion stays untouched).
+  `RecurrenceRule.None ↔ NULL` collapse handled in repo + mapper;
+  platform scheduling deferred to Phase 06 (no `ReminderScheduler` port
+  injected yet, per spec). 10 smoke tests cover schedule + recurrence
+  round-trip + None-as-null + scoped owner observe + upcoming +
+  reschedule + cancel + rebindPlatformHandle (set/clear) +
+  not-found paths + item-owner round-trip. _Commit `<pending>`._
 - **2026-05-27** — §5 Items slice (2/4): `ItemId`, `PhotoId`, `Item`,
   `ItemDraft`, `ItemPatch`, `ItemsSection` entities in `:shared:domain`;
   `ItemsRepository` interface + `SqlItemsRepository` impl + `ItemMapper` in
