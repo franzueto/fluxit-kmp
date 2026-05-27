@@ -199,32 +199,32 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
   - `suspend fun reschedule(id, firesAt, recurrence): Outcome<Unit, DataError>`
   - `suspend fun cancel(id): Outcome<Unit, DataError>` (soft-delete; Phase 06 reaps platform handles)
   - `suspend fun rebindPlatformHandle(id, handle): Outcome<Unit, DataError>`
-- [ ] **`PhotosRepository`**
-  - `suspend fun ingest(bytes: ByteArray, mime: String, width: Int, height: Int): Result<PhotoId, DataError>` — writes file via `PhotoStorage` port (Phase 06), inserts row, returns id.
+- [x] **`PhotosRepository`** — domain interface in `:shared:domain/.../repository/PhotosRepository.kt`; impl `SqlPhotosRepository` in `:shared:data/.../repository/`. §7 `PhotoStorage` port declared at `:shared:domain/.../port/PhotoStorage.kt` (Phase 06 ships `:platform:platform-photo` impl). `ingest()` honors the §7 crash-safety order: file write → row insert → on-insert-failure file cleanup (`runCatching { storage.delete(path) }`). Cancellation mid-insert also triggers cleanup before rethrow so the file doesn't linger as a guaranteed orphan. `deleteIfOrphaned()` no-ops (returns Ok) when a live item still references the photo — the §7 janitor reruns on the 24h cycle and reaps once references drop. Photos.sq gains `selectHasLiveReference` (cross-table to `item`; placed after `selectOrphaned` so DDL block stays untouched).
+  - `suspend fun ingest(bytes, mime, width, height): Outcome<PhotoId, DataError>`
   - `fun observe(photoId): Flow<Photo?>`
-  - `suspend fun deleteIfOrphaned(photoId): Result<Unit, DataError>`
+  - `suspend fun deleteIfOrphaned(photoId): Outcome<Unit, DataError>` (Ok no-op when referenced)
 
 ## 6. Mappers
 
-- [ ] One mapper file per table: `ListMapper`, `ItemMapper`, `ReminderMapper`, `PhotoMapper`.
-- [ ] Mappers are **pure** (no IO, no `Clock`). Time injection uses `kotlinx.datetime.Clock` passed in from constructors so tests can use `FakeClock`.
-- [ ] `ListSummary` derived in SQL via the `selectWithCounts` query — *not* by combining two flows in Kotlin (single source of truth, fewer recompositions).
+- [x] One mapper file per table: `ListMapper`, `ItemMapper`, `ReminderMapper`, `PhotoMapper` (all four landed in their respective §5 slices).
+- [x] Mappers are **pure** (no IO, no `Clock`). Time injection uses `kotlinx.datetime.Clock` passed in from repository constructors so tests use a `FakeClock`.
+- [x] `ListSummary` derived in SQL via the `selectWithCounts` query — *not* by combining two flows in Kotlin (single source of truth, fewer recompositions).
 
 ## 7. Photo file storage contract
 
-- [ ] `PhotoStorage` port (declared in `:shared:domain`, implemented in `platform-photo` per Phase 06):
-  - `suspend fun write(bytes, mime): RelativePath`
+- [x] `PhotoStorage` port (declared at `:shared:domain/.../port/PhotoStorage.kt`; impl deferred to Phase 06's `:platform:platform-photo`). `RelativePath` is `String` for v1 (typed wrapper would be over-engineering at one call site; can lift later).
+  - `suspend fun write(bytes, mime): String`
   - `suspend fun read(relativePath): ByteArray?`
   - `suspend fun delete(relativePath): Boolean`
-  - `fun resolveAbsolute(relativePath): String` (used by Compose/SwiftUI for image loading)
-- [ ] **Photo janitor**: a `PhotoJanitor` use case (Phase 04) deletes orphaned photos older than 24h on app start. Acknowledged in this phase by exposing `selectOrphaned` query and `deleteIfOrphaned` in repository.
-- [ ] **Crash safety**: photo file is written **first**; row insert is in a transaction that, on failure, triggers `PhotoStorage.delete(path)`. Documented in `PhotosRepository` impl + tested.
+  - `fun resolveAbsolute(relativePath): String`
+- [x] **Photo janitor**: `selectOrphaned` query and `deleteIfOrphaned` repo method exposed. `PhotoJanitor` use case proper still belongs to Phase 04 (no behavior change there).
+- [x] **Crash safety**: `SqlPhotosRepository.ingest()` writes file first; on row insert exception OR cancellation, runs `runCatching { storage.delete(path) }` before returning/rethrow. Smoke test pins the IdGenerator to force a duplicate-PK insert failure and asserts cleanup ran.
 
 ## 8. Sort order strategy (fractional indexing)
 
-- [ ] Sort orders are `REAL` doubles. New row defaults to `(prev.sort_order + next.sort_order) / 2.0`; first row gets `1.0`.
-- [ ] When the gap between two adjacent rows shrinks below `1e-9`, a `compactSortOrders(listId)` SQL function rebalances the column to evenly spaced integers. Triggered by repository on detected collision.
-- [ ] Unit test: 1000 random reorders never produce gap collapse without compaction kicking in.
+- [x] Sort orders are `REAL` doubles. New row defaults to `(prev.sort_order + next.sort_order) / 2.0`; first row gets `1.0`. Newest-at-top minting per §12 row 5: `create()` reads `MIN(sort_order)` and mints `min - 1.0` (Lists global flavor + Items per-list flavor; see Lists.sq `selectMinActiveSortOrder` / Items.sq `selectMinActiveSortOrderByList`).
+- [x] When the gap between two adjacent rows shrinks below `1e-9`, the repository runs an in-Kotlin rebalance inside a transaction: `selectActiveIdsBySortOrder` (Lists) / `selectActiveIdsByListBySortOrder` (Items) → rewrite every row's `sort_order` to evenly-spaced integers (1.0, 2.0, ...). No SQL function — the per-row UPDATE pattern matches the rest of the repo and keeps DDL minimal. Implemented at `SqlListsRepository.rebalanceSortOrders()` + `SqlItemsRepository.rebalanceSortOrders(listId)`.
+- [ ] Unit test: 1000 random reorders never produce gap collapse without compaction kicking in. _Deferred to §10 — current Lists + Items smoke tests cover "rebalance fires under 100 forced collapses without exception"; the 1000-random scenario fits the §10 fuzz/property-test bucket._
 
 ## 9. ID generation
 
@@ -268,7 +268,7 @@ Phase 09 (reminders UX).
 
 ## 13. Hand-off checklist (gate to Phase 04)
 
-- [ ] All checkboxes above ✅. _(Progress as of 2026-05-26: §1, §2, §3, §4 (modulo iOS test driver), §9, §11 drafts, §12 done; §5, §6, §7, §8, §10 still open.)_
+- [ ] All checkboxes above ✅. _(Progress as of 2026-05-27: §1, §2, §3, §4 (modulo iOS test driver), §5 (all four repos), §6 (all four mappers), §7 (port + crash safety), §8 (rebalance), §9, §11 drafts, §12 done; §10 test pyramid still open — that's the §13 gating item.)_
 - [x] `schema.sql` dump checked in; CI verification step (`verifySchemaInSync` wired into `:shared:data:check`) green.
 - [ ] Integration test runs green on Android JVM unit + iosSimulatorArm64 in CI. _(§10 deliverable.)_
 - [ ] `MASTER_PLAN.md`: Phase 03 → 🟢, ▶ Next Step → Phase 04.
@@ -281,6 +281,19 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-27** — §5 Photos slice (4/4) — closes §5. `Photo` entity in
+  `:shared:domain/.../model/Photo.kt`; `PhotoStorage` port at
+  `:shared:domain/.../port/PhotoStorage.kt` (impl deferred to Phase 06);
+  `PhotosRepository` interface + `SqlPhotosRepository` impl +
+  `PhotoMapper` in `:shared:data`. Photos.sq gains
+  `selectHasLiveReference` for `deleteIfOrphaned`'s pre-check. §7
+  crash-safety implemented: file write → row insert → on insert
+  failure OR coroutine cancellation, `runCatching { storage.delete(path) }`
+  cleans up so a crash leaks at most one orphan file (the janitor
+  reaps via the 24h grace window). 6 smoke tests: ingest happy path,
+  ingest cleanup on PK collision, observe-after-delete, deleteIfOrphaned
+  no-op while referenced, deleteIfOrphaned soft-deletes after reference
+  removed, NotFound for unknown id. _Commit `<pending>`._
 - **2026-05-27** — §5 Reminders slice (3/4): `ReminderId`, `ReminderOwner`
   sealed (`OfList | OfItem`), `Reminder`, `ReminderSpec` entities in
   `:shared:domain`; `RemindersRepository` interface +

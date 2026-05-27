@@ -2,15 +2,15 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-27 (Phase 03 mid-flight; schema + adapters + factory + id generator + Lists + Items + Reminders repositories landed; Photos repo + tests still ahead)
+**Last updated:** 2026-05-27 (Phase 03 mid-flight; §5/§6/§7/§8 complete; §10 test pyramid + §13 hand-off still ahead)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Phase 03 (Data Layer) in progress on branch `phase/03-data-layer`. Schema + three of four repositories complete: all four `.sq` tables landed with adapter-typed columns, shared `fluxItDatabase(driver)` factory wires the §3 adapters, `verifySchemaInSync` gates schema drift in `:shared:data:check`, `SqlListsRepository` + `SqlItemsRepository` + `SqlRemindersRepository` back the §5 contracts end-to-end (Flow reads + typed `Outcome<T, DataError>` writes + §8 rebalance + `RecurrenceRule.None ↔ NULL` storage-edge collapse). ADR-006 / 006a / 006b / 006c drafted as Proposed; ADR-006c slated to be Superseded by ADR-007a (Phase 04). Remaining: §5 Photos repo, §6 photo mapper, §7 `PhotoStorage` port, §10 test pyramid (per-query / mapper / repo / migration harness / integration / concurrency + iOS in-memory driver), §13 hand-off.
+**Repo phase:** Phase 03 (Data Layer) in progress on branch `phase/03-data-layer`. All four §5 repositories (Lists, Items, Reminders, Photos) implemented end-to-end behind their domain interfaces: Flow reads + typed `Outcome<T, DataError>` writes; §6 mappers and §7 `PhotoStorage` port shipped with their respective slices; §8 fractional sort + rebalance in global (Lists) and per-list (Items) flavors. 45 smoke tests passing on the in-memory driver (15 Lists + 14 Items + 10 Reminders + 6 Photos + 4 adapter round-trips). ADR-006 / 006a / 006b / 006c drafted as Proposed; ADR-006c slated to be Superseded by ADR-007a (Phase 04). Remaining: §10 test pyramid (per-query / mapper / repo / migration harness / integration / concurrency + iOS NativeSqliteDriver in-memory helper + promote smoke tests from `androidUnitTest` to `commonTest`), §13 hand-off (flip ADR statuses, advance ▶ Next Step).
 
 ---
 
 ## ▶ Next Step
 
-**Phase 03 — Data Layer, §5 (Photos repository — final slice).** Lists + Items + Reminders slices landed. Photos closes §5 and pairs with §7's `PhotoStorage` port (declared in `:shared:domain` this slice, impl deferred to Phase 06's `:platform:platform-photo`). Repo surface: `ingest(bytes, mime, w, h)` writes file via the port + inserts the row in a transaction with file-cleanup on row-insert failure (the §7 "crash safety" invariant); `observe(photoId)` Flow; `deleteIfOrphaned(photoId)` for the §7 janitor. `PhotoId` already lives in the Items slice's `ItemEntities.kt`; the Photos slice imports it. §10's full test pyramid lands after the four repos; that's also where the iOS NativeSqliteDriver in-memory helper promotes the smoke tests from `androidUnitTest` to `commonTest`. §13 closes the phase: flip ADR-006/006a/006b to Accepted, mark ADR-006c as Superseded by ADR-007a, advance ▶ Next Step to Phase 04. Phase 02 carry-forward items still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
+**Phase 03 — Data Layer, §10 (Test pyramid) — the last gating chunk before §13 hand-off.** All four repositories shipped; the rest of the phase is test coverage proper. §10 splits into: (a) per-query unit tests in `commonTest` against the in-memory driver (one per query in each `.sq` file) — the existing smoke tests cover the repo surface, not every query path. (b) Mapper round-trip tests for `ListMapper` / `ItemMapper` / `ReminderMapper` / `PhotoMapper`. (c) Repository tests at happy + error paths (Conflict on FK violation, Validation on bad input, Storage on driver IO). (d) Migration test harness wired now (zero migrations exist) so adding migration #1 in v2 is mechanical. (e) Integration test `IntegrationFlowTest`: create-list → add-items → toggle → schedule-reminder → close → reopen → assert state. Runs on JVM + iosSimulatorArm64. (f) Concurrency test: 50 concurrent `setCompleted` on the same item never deadlock. (g) iOS-side `inMemoryDriver()` helper using `NativeSqliteDriver` + promote smoke tests + `TestDrivers.kt` from `androidUnitTest` to `commonTest` via `expect fun inMemoryDriver(): SqlDriver`. Once §10 is green on both targets in CI, §13 hand-off flips ADR-006/006a/006b to Accepted, marks 006c as Superseded by ADR-007a, and advances ▶ Next Step to Phase 04. Phase 02 carry-forward still pending: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; Phase 07 backfills `FluxItSwipeRow` + long-press → ThemeGallery wiring + optional `Font.fluxIt.*` SwiftUI accessor. §10's full test pyramid lands after the four repos; that's also where the iOS NativeSqliteDriver in-memory helper promotes the smoke tests from `androidUnitTest` to `commonTest`. §13 closes the phase: flip ADR-006/006a/006b to Accepted, mark ADR-006c as Superseded by ADR-007a, advance ▶ Next Step to Phase 04. Phase 02 carry-forward items still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
 
 ---
 
@@ -21,7 +21,7 @@
 | 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (9 Accepted + 4 Proposed for Phase 03) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟢 Complete | 100% |
-| 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟠 In progress | ~80% |
+| 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟠 In progress | ~90% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
 | 06 | Platform Modules | [`06_PLATFORM_MODULES.md`](plan/06_PLATFORM_MODULES.md) | 🟡 Planned | 0% |
@@ -37,7 +37,7 @@
 | 16 | Observability | [`16_OBSERVABILITY.md`](plan/16_OBSERVABILITY.md) | 🟡 Planned | 0% |
 | 17 | Release Hardening | [`17_RELEASE_HARDENING.md`](plan/17_RELEASE_HARDENING.md) | 🟡 Planned | 0% |
 
-**Overall v1 progress: 20% (2 of 14 active phases complete, Phase 03 ~80%)**
+**Overall v1 progress: 20% (2 of 14 active phases complete, Phase 03 ~90%)**
 _Phases 11 & 12 are explicitly out of v1 scope (see ADR-003, ADR-004)._
 
 ---
