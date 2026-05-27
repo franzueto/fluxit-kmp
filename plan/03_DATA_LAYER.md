@@ -293,7 +293,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   reaps via the 24h grace window). 6 smoke tests: ingest happy path,
   ingest cleanup on PK collision, observe-after-delete, deleteIfOrphaned
   no-op while referenced, deleteIfOrphaned soft-deletes after reference
-  removed, NotFound for unknown id. _Commit `<pending>`._
+  removed, NotFound for unknown id. _Commit `963817a`._
 - **2026-05-27** — §5 Reminders slice (3/4): `ReminderId`, `ReminderOwner`
   sealed (`OfList | OfItem`), `Reminder`, `ReminderSpec` entities in
   `:shared:domain`; `RemindersRepository` interface +
