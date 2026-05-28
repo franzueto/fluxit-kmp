@@ -271,7 +271,7 @@ Helpers with no IO; testable by themselves.
   `FakeRemindersRepository` + `FakePhotosRepository` deferred to
   **Slice 10** alongside the use cases that need them
   (`ScheduleReminder`, `AttachPhotoToItem`, `PhotoJanitor`).
-  _Commit `<TBD>`._
+  _Commit `3cfc74b`._
 - **2026-05-28** — Slice 8: §8 `RecurrenceCalculator` + reusable
   `FakeClock` fixture. New files: `rule/RecurrenceCalculator.kt`
   (`object` with `nextFireAfter(rule, after, tz): Instant?` over a
