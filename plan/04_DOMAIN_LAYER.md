@@ -248,7 +248,7 @@ Helpers with no IO; testable by themselves.
   Clock smoke test; applied via `:shared:domain:spotlessApply`.
   Heavier ports (`ReminderScheduler`, `PhotoCapture`, `AppLogger`,
   `AnalyticsSink`, `ConfigProvider`) wait for the slices that
-  consume them. _Commit `<TBD>`._
+  consume them. _Commit `2d9e27c`._
 - **2026-05-28** — Slice 4: §2/§3 shape reconciliation (decision-only,
   no code). Two questions outstanding from the original slicing plan
   closed: **(1)** `ReminderOwner` shape — discovered during this
