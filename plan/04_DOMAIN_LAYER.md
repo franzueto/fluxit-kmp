@@ -251,7 +251,7 @@ Helpers with no IO; testable by themselves.
   All §3 rows ticked with carry-forward / deferral annotations;
   `TrimmedNonBlank` re-typing of `ListDraft.name` / `ItemDraft.title`
   deferred to the §7 use-case slices that own the validation. _Commit
-  `<TBD>`._
+  `a151f2e`._
 - **2026-05-28** — Slice 3: §2 value-object gap fill. New files in
   `:shared:domain` commonMain: `model/RelativePath.kt` (`value class`
   with non-blank `init` guard), `model/TrimmedNonBlank.kt` (`value
