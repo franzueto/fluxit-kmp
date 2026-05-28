@@ -290,7 +290,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   `"...%012d".format(n)` calls replaced with `padStart(12, '0')` for
   KMP-common compatibility. 45/45 tests pass on both
   `:shared:data:testDebugUnitTest` (JVM) and
-  `:shared:data:iosSimulatorArm64Test` (iOS). _Commit `<pending>`._
+  `:shared:data:iosSimulatorArm64Test` (iOS). _Commit `2c3673f`._
 - **2026-05-27** — §5 Photos slice (4/4) — closes §5. `Photo` entity in
   `:shared:domain/.../model/Photo.kt`; `PhotoStorage` port at
   `:shared:domain/.../port/PhotoStorage.kt` (impl deferred to Phase 06);
