@@ -292,7 +292,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   calls. Test passes on both `:shared:data:testDebugUnitTest` and
   `:shared:data:iosSimulatorArm64Test`. Detekt LongMethod resolved by
   factoring the per-session repo wiring into a private `openSession()`
-  helper. _Commit `<pending>`._
+  helper. _Commit `f9ad8ba`._
 - **2026-05-28** — §10 foundation: `expect fun inMemoryDriver()` in
   `commonTest`; JVM actual reuses the prior JdbcSqliteDriver helper;
   iOS actual uses `NativeSqliteDriver` with
