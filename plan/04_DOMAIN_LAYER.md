@@ -110,16 +110,17 @@ Domain-owned interfaces for capabilities that have to live per-platform. This is
 
 Single sealed hierarchy per concern; all use cases return `Result<T, DomainError>` where `DomainError` is the union.
 
-- [ ] **`sealed class DomainError`**
+- [x] **`sealed class DomainError`**
   - `data class Validation(val field: String, val rule: ValidationError)` — never thrown; always returned.
   - `data class NotFound(val entity: String, val id: String)`
   - `data class Conflict(val message: String)` — e.g. trying to add an item to a deleted list.
   - `data class StorageFailure(val cause: Throwable?)` — wraps `DataError.Storage`.
   - `data class SchedulerFailure(val reason: SchedulerError)`
   - `data class CaptureFailure(val reason: CaptureError)`
-- [ ] **`sealed class ValidationError`** — `Empty`, `TooLong(max: Int)`, `OutOfRange(min, max)`, `InvalidFormat`. Used by `TrimmedNonBlank.of` and the `ReminderSpec` validator.
-- [ ] **`Result<T, E>`** — adopt `kotlin.Result<T>`? **No** — its error is fixed to `Throwable`, which loses type information. Use a tiny in-house `sealed interface Outcome<out T, out E> { Success(value: T); Failure(error: E) }` with `map`, `flatMap`, `mapError`, `fold`. (Name: `Outcome` to avoid collision with `kotlin.Result`.) Lives in `:shared:domain` and is re-exported from `:core:core-utils` for non-domain callers.
-- [ ] Every `DataError` from Phase 03 maps to a `DomainError` via a single extension function `DataError.toDomain(): DomainError`. Tested.
+  _Slice 6 (2026-05-28): four variants shipped (`Validation`, `NotFound`, `Conflict`, `StorageFailure`). `SchedulerFailure` / `CaptureFailure` deferred to the slices that introduce the `ReminderScheduler` / `PhotoCapture` ports respectively — adding them now would require placeholder `SchedulerError` / `CaptureError` types that the consuming ports would then have to reshape. KDoc on the sealed class names the two deferred variants so future readers see the gap is intentional._
+- [x] **`sealed class ValidationError`** — `Empty`, `TooLong(max: Int)`, `OutOfRange(min, max)`, `InvalidFormat`. Used by `TrimmedNonBlank.of` and the `ReminderSpec` validator. _Slice 3 (2026-05-28) seeded `Empty`, `TooLong(max)`, `InvalidFormat`. `OutOfRange(min, max)` lands with the `ReminderSpec` validator slice (likely §7 `ScheduleReminder` or §8 `RecurrenceCalculator`) that first needs it — keeping the sum closed but growing on demand._
+- [x] **`Result<T, E>`** — adopt `kotlin.Result<T>`? **No** — its error is fixed to `Throwable`, which loses type information. Use a tiny in-house `sealed interface Outcome<out T, out E> { Success(value: T); Failure(error: E) }` with `map`, `flatMap`, `mapError`, `fold`. (Name: `Outcome` to avoid collision with `kotlin.Result`.) Lives in `:shared:domain` and is re-exported from `:core:core-utils` for non-domain callers. _Phase 03 §5 shipped `Outcome<out T, out E>` with `Ok`/`Err` constructors (reconciled spelling per ADR-007) and `map` / `flatMap`. Slice 6 (2026-05-28) added `mapError` and `fold` so the `repo.create(draft).mapError { it.toDomain(entity = "List") }` use-case pattern works. Re-export from `:core:core-utils` deferred to the slice that introduces the first non-domain consumer (likely Phase 05's state layer)._
+- [x] Every `DataError` from Phase 03 maps to a `DomainError` via a single extension function `DataError.toDomain(): DomainError`. Tested. _Slice 6 (2026-05-28); shipped as `DataError.toDomain(entity: String = "unknown"): DomainError` so call sites supply the entity-type hint for `NotFound` (e.g. `it.toDomain(entity = "List")`). All five `DataError` variants covered with 6 unit tests including the design call-out that `DataError.Validation` (storage-side constraint violation) maps to `DomainError.Conflict`, **not** `DomainError.Validation` — the latter is reserved for use-case-edge input validators._
 
 ## 7. Use cases
 
@@ -229,6 +230,36 @@ Helpers with no IO; testable by themselves.
 
 ## Implementation log (chronological, for traceability across sessions)
 
+- **2026-05-28** — Slice 6: §6 error model build-out. New file
+  `:shared:domain/error/DomainError.kt`: sealed class with four
+  variants (`Validation(field, rule: ValidationError)`, `NotFound
+  (entity, id)`, `Conflict(message)`, `StorageFailure(cause)`) plus
+  the `DataError.toDomain(entity: String = "unknown"): DomainError`
+  extension that bridges Phase 03's data-layer failure sum to the
+  use-case-layer failure sum at the repository → use-case seam.
+  Design call-out (encoded in KDoc + test): `DataError.Validation`
+  (storage-side FK/unique constraint violation) maps to
+  `DomainError.Conflict`, NOT `DomainError.Validation` — the latter
+  is reserved for use-case-edge input validators (e.g.
+  `TrimmedNonBlank.of` failures); user-input validation never
+  travels through DataError because it runs before the repo call.
+  `DomainError.SchedulerFailure(reason: SchedulerError)` and
+  `DomainError.CaptureFailure(reason: CaptureError)` deferred to
+  the slices that introduce `ReminderScheduler` / `PhotoCapture`
+  ports — adding them now would require placeholder error sums that
+  the consuming ports would then have to reshape. `error/Outcome.kt`
+  gained `mapError` and `fold` extensions — `mapError` is the
+  combinator the new mapper pattern uses
+  (`repo.create(...).mapError { it.toDomain(entity = "List") }`),
+  `fold` is the standard "pattern-match inline and produce one
+  output" companion. Tests in commonTest: `DomainErrorMapperTest`
+  (6: entity-label propagation + default; conflict reason
+  preservation; storage/unknown cause preservation; the validation
+  → conflict design call-out) and `OutcomeCombinatorsTest` (5:
+  mapError on Ok/Err; the headline use-case lift pattern;
+  fold on Ok/Err). The §6 `Outcome` re-export from `:core:core-utils`
+  is still deferred — lands with the first non-domain consumer
+  (Phase 05 state layer). _Commit `<TBD>`._
 - **2026-05-28** — Slice 5: §5 platform ports first wave. New files in
   `:shared:domain` commonMain: `port/Clock.kt` (`fun interface Clock`
   with `companion object { val System }` binding to
