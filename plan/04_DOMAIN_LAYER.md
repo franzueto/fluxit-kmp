@@ -234,4 +234,4 @@ Helpers with no IO; testable by themselves.
   Proposed (Outcome type, use-case shape). Pending list renumbered: the
   Phase 05 MVI ADR moves from collision-spot "ADR-007" to ADR-014. ADR-006c
   Status pointer cleaned up to drop the "anticipated" qualifier. _Commit
-  `<TBD>`._
+  `52cf043`._
