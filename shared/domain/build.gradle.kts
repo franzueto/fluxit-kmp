@@ -22,6 +22,13 @@ kotlin {
             // (Phase 03 §5). Domain owns the Flow type so use cases and state
             // can compose reads without depending on :shared:data.
             implementation(libs.kotlinx.coroutines.core)
+            // :core:core-utils owns the platform-neutral `newId()` expect/
+            // actual (ADR-006a — placed in core-utils so both :shared:domain
+            // and :shared:data can depend on it without a cycle) and the
+            // `IdGenerator` fun-interface seam. Phase 04 §5 re-exports
+            // IdGenerator as a domain port via typealias so use-case call
+            // sites import from `dev.franzueto.fluxit.shared.domain.port`.
+            implementation(project(":core:core-utils"))
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

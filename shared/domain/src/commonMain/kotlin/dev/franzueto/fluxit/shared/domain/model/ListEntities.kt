@@ -1,5 +1,6 @@
 package dev.franzueto.fluxit.shared.domain.model
 
+import dev.franzueto.fluxit.shared.domain.port.IdGenerator
 import kotlinx.datetime.Instant
 import kotlin.jvm.JvmInline
 
@@ -13,6 +14,15 @@ public value class ListId(
 ) {
     init {
         require(value.isNotEmpty()) { "ListId must not be empty" }
+    }
+
+    public companion object {
+        /**
+         * Mint a fresh [ListId] via the injected [IdGenerator]. Use cases
+         * call this rather than constructing `ListId(idGen.newId())` directly
+         * so the id-minting seam stays in one place (Phase 04 §2 / §5).
+         */
+        public fun new(idGen: IdGenerator): ListId = ListId(idGen.newId())
     }
 }
 

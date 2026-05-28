@@ -34,7 +34,7 @@
 
 Use Kotlin `value class` for zero-cost wrappers; prevents passing an `ItemId` where a `ListId` is expected.
 
-- [x] `value class ListId(val raw: String)` + `companion object { fun new(idGen: IdGenerator) }`. _Phase 03 §5 carry-forward; companion `new(idGen)` factory deferred to the slice that introduces the `IdGenerator` port (§5)._
+- [x] `value class ListId(val raw: String)` + `companion object { fun new(idGen: IdGenerator) }`. _Phase 03 §5 carry-forward; `ListId.Companion.new(idGen)` factory added in Slice 5 (2026-05-28) alongside the §5 `IdGenerator` port typealias._
 - [x] `value class ItemId(val raw: String)`. _Phase 03 §5 carry-forward._
 - [x] `value class ReminderId(val raw: String)`. _Phase 03 §5 carry-forward._
 - [x] `value class PhotoId(val raw: String)`. _Phase 03 §5 carry-forward._
@@ -88,8 +88,8 @@ Re-declared here as the canonical signatures. Each method's contract is document
 
 Domain-owned interfaces for capabilities that have to live per-platform. This is the seam that keeps domain pure.
 
-- [ ] **`Clock`** — `fun now(): Instant`. Production binds to `kotlinx.datetime.Clock.System`; tests inject `FakeClock(initial: Instant)` with `advanceBy(Duration)`.
-- [ ] **`IdGenerator`** — `fun newId(): String`. Production: UUIDv4 per Phase 03 §9; tests: deterministic counter.
+- [x] **`Clock`** — `fun now(): Instant`. Production binds to `kotlinx.datetime.Clock.System`; tests inject `FakeClock(initial: Instant)` with `advanceBy(Duration)`. _Slice 5 (2026-05-28); shipped as `fun interface Clock` with a `companion object { val System: Clock = Clock { kotlinx.datetime.Clock.System.now() } }` binding. The richer `FakeClock(initial, advanceBy(Duration))` fixture lands with the slice that first needs time-advance semantics (likely `RecurrenceCalculator` / `ScheduleReminder`); Slice 5 covers the seam with inline `Clock { fixed }` lambdas in tests._
+- [x] **`IdGenerator`** — `fun newId(): String`. Production: UUIDv4 per Phase 03 §9; tests: deterministic counter. _Slice 5 (2026-05-28); shipped as a typealias in `:shared:domain/port/IdGenerator.kt` pointing at `dev.franzueto.fluxit.core.utils.IdGenerator` (per ADR-006a — the seam physically lives in `:core:core-utils` to avoid the `:shared:data` → `:shared:domain` cycle). Use cases import from `dev.franzueto.fluxit.shared.domain.port` so the §5 port surface stays coherent. `:shared:domain/build.gradle.kts` gained `implementation(project(":core:core-utils"))`; Konsist test (Slice 2) does not ban this edge (`:core:core-utils` is platform-neutral primitives, not designsystem)._
 - [ ] **`ReminderScheduler`**
   - `suspend fun schedule(reminder: Reminder): Result<PlatformHandle, SchedulerError>`
   - `suspend fun cancel(handle: PlatformHandle): Result<Unit, SchedulerError>`
@@ -229,6 +229,26 @@ Helpers with no IO; testable by themselves.
 
 ## Implementation log (chronological, for traceability across sessions)
 
+- **2026-05-28** — Slice 5: §5 platform ports first wave. New files in
+  `:shared:domain` commonMain: `port/Clock.kt` (`fun interface Clock`
+  with `companion object { val System }` binding to
+  `kotlinx.datetime.Clock.System`) and `port/IdGenerator.kt`
+  (`typealias IdGenerator = dev.franzueto.fluxit.core.utils.IdGenerator`
+  — re-export so the §5 surface stays coherent at the domain port
+  package without duplicating the type or breaking ADR-006a's
+  core-utils ownership). Build script gained
+  `implementation(project(":core:core-utils"))`. `ListEntities.kt`
+  gained `ListId.Companion.new(idGen)` — the §2 deferred row from
+  Slice 3 — using the new port. Tests in commonTest:
+  `port/ClockTest` (System bracketed by direct Clock.System calls;
+  fun-interface lambda construction returns the lambda's value
+  stably) and `model/ListIdFactoryTest` (factory delegates to
+  injected IdGenerator; sequential calls produce distinct ids via a
+  counter-based fake). Spotless required a one-off line-wrap on the
+  Clock smoke test; applied via `:shared:domain:spotlessApply`.
+  Heavier ports (`ReminderScheduler`, `PhotoCapture`, `AppLogger`,
+  `AnalyticsSink`, `ConfigProvider`) wait for the slices that
+  consume them. _Commit `<TBD>`._
 - **2026-05-28** — Slice 4: §2/§3 shape reconciliation (decision-only,
   no code). Two questions outstanding from the original slicing plan
   closed: **(1)** `ReminderOwner` shape — discovered during this
