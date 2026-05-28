@@ -258,7 +258,7 @@ Helpers with no IO; testable by themselves.
   concentrate depth enough in 1000 iterations to hit 1e-9); split
   into the property + targeted tests above. `RecurrenceCalculator`
   is deferred to its own slice with the time-zone / DST property
-  surface and the `FakeClock` advance-by fixture. _Commit `<TBD>`._
+  surface and the `FakeClock` advance-by fixture. _Commit `826753f`._
 - **2026-05-28** — Slice 6: §6 error model build-out. New file
   `:shared:domain/error/DomainError.kt`: sealed class with four
   variants (`Validation(field, rule: ValidationError)`, `NotFound
