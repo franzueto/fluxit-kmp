@@ -290,7 +290,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   in-memory + JVM persistent + iOS in-memory + iOS persistent) to
   match prod. FK violations surface as `DataError.Storage` today;
   promotion to `Conflict` flagged as future work pending stable
-  SQLDelight exception discrimination. _Commit `<pending>`._
+  SQLDelight exception discrimination. _Commit `5d8c79d`._
 - **2026-05-28** — §10 per-query gap coverage:
   `UncoveredQueriesTest.kt` directly exercises the 8 queries the repo
   layer never calls (and therefore the smoke / integration tests can't
