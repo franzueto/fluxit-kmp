@@ -16,9 +16,9 @@
 
 ## 1. Module wiring
 
-- [ ] `:shared:domain/build.gradle.kts` applies `fluxit.kmp.library` with `commonMain` only.
-- [ ] Dependencies (commonMain): `kotlinx-coroutines-core` (for `Flow` and `suspend`), `kotlinx-datetime`, `kotlinx-serialization-core` (for `RecurrenceRule` only — no JSON impl), Kermit (logging at this layer is acceptable; allows use cases to log decisions).
-- [ ] No dependency on `:shared:data`, `:platform-*`, `:core-designsystem`. Verified by Konsist.
+- [x] `:shared:domain/build.gradle.kts` applies `fluxit.kmp.library` with `commonMain` only. _Phase 03 carry-forward._
+- [x] Dependencies (commonMain): `kotlinx-coroutines-core` (for `Flow` and `suspend`), `kotlinx-datetime`, `kotlinx-serialization-core` (for `RecurrenceRule` only — no JSON impl), Kermit (logging at this layer is acceptable; allows use cases to log decisions). _Kermit deferred to the slice that lands `AppLogger` (§5) — no domain code imports it yet, no reason to add the dep ahead of use._
+- [x] No dependency on `:shared:data`, `:platform-*`, `:core-designsystem`. Verified by Konsist. _Slice 2 (2026-05-28): `:build-logic:test` `ArchitectureTest` extended to ban `android.*`, `androidx.*`, `platform.UIKit`, `platform.Foundation`, `dev.franzueto.fluxit.platform.*`, `app.cash.sqldelight.*`, `org.koin.core.*`, `dev.franzueto.fluxit.core.designsystem.*` (ADR-007a), `arrow.*` (ADR-007), and qualified-code uses of `kotlin.Result` (ADR-007)._
 - [ ] Source layout:
   ```
   :shared:domain/src/commonMain/kotlin/com/fluxit/domain/
@@ -229,6 +229,18 @@ Helpers with no IO; testable by themselves.
 
 ## Implementation log (chronological, for traceability across sessions)
 
+- **2026-05-28** — Slice 2: §1 Konsist forbidden-imports test extended in
+  `:build-logic`'s `ArchitectureTest`. The pre-existing "no Android/iOS"
+  test grew into a Phase 04 §1 + ADR-007 + ADR-007a consolidated ban
+  list: `app.cash.sqldelight.*`, `org.koin.core.*`,
+  `dev.franzueto.fluxit.core.designsystem.*`, `arrow.*`, plus a tight
+  regex (`kotlin\.Result[<.(]`) for qualified-code uses of
+  `kotlin.Result` (KDoc mentions in `Outcome.kt` deliberately allowed —
+  documenting *why* domain doesn't use it is fine). Test source sets
+  exempted so commonTest can interop with platform Result-returning APIs.
+  Phase 04 §1 rows 1–3 ticked; row 4 (source layout) stays open until
+  the §3 / §5 / §7 slices populate `model/`, `port/`, `error/`,
+  `usecase/`, `rule/`. _Commit `<TBD>`._
 - **2026-05-28** — Slice 1: ADR-007a Accepted (domain owns `ColorToken` +
   `FluxItIconRef`; supersedes ADR-006c) + ADR-007 and ADR-007b drafted as
   Proposed (Outcome type, use-case shape). Pending list renumbered: the

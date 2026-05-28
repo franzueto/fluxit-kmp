@@ -18,19 +18,57 @@ class ArchitectureTest : FunSpec({
     // Konsist's scopeFromDirectory treats its argument as relative to the cwd.
     val scope = { Konsist.scopeFromDirectory("..") }
 
-    test("shared:domain has no Android, iOS, or platform-module imports") {
+    test("shared:domain has no forbidden imports (Phase 04 §1 + ADR-007 + ADR-007a)") {
+        // Phase 04 §1 exit criteria: :shared:domain stays pure Kotlin —
+        // no Android/iOS framework, no SQLDelight, no Koin runtime, no
+        // designsystem (per ADR-007a — domain owns the tokens, design-
+        // system consumes them; the inward arrow stays forbidden), no
+        // Arrow (per ADR-007 — Outcome<T, E> is in-house).
+        //
+        // kotlin.Result is also forbidden at the domain boundary
+        // (ADR-007), but `kotlin.*` is auto-imported by the compiler so
+        // a "no `import kotlin.Result`" rule catches ~nothing in
+        // practice. Instead we scan file text for code-shape uses of
+        // the qualified reference — `kotlin.Result<`, `kotlin.Result.`,
+        // `kotlin.Result(` — which catch the fully-qualified type
+        // params, method calls, and constructors people actually write.
+        // Bare KDoc mentions ("distinct from kotlin.Result") slip
+        // through the regex, which is the point: documenting *why*
+        // domain doesn't use it is allowed. Bare `Result<T>` usage at
+        // the symbol level stays a reviewer-discipline matter; the
+        // domain already exports `Outcome` as the only result-shaped
+        // return type, so a stray `Result<...>` would stand out at
+        // review.
         scope()
             .files
-            .filter { "/shared/domain/" in it.path }
-            .assertFalse(additionalMessage = "Domain must stay platform-agnostic — no android.*, platform.*, or iOS UIKit/Foundation imports.") { file ->
-                file.imports.any { imp ->
+            .filter { "/shared/domain/" in it.path && "/build/" !in it.path }
+            .filter { file ->
+                // Allow test source sets to use kotlin.Result for
+                // interop with platform APIs that return it.
+                "/src/commonTest/" !in file.path &&
+                    "/src/androidUnitTest/" !in file.path &&
+                    "/src/iosTest/" !in file.path
+            }
+            .assertFalse(
+                additionalMessage = "Domain must stay pure — no Android/iOS framework, " +
+                    "no SQLDelight, no Koin runtime, no designsystem (ADR-007a), " +
+                    "no Arrow / kotlin.Result (ADR-007 — use Outcome<T, E>).",
+            ) { file ->
+                val forbiddenImport = file.imports.any { imp ->
                     val n = imp.name
                     n.startsWith("android.") ||
                         n.startsWith("androidx.") ||
                         n.startsWith("platform.UIKit") ||
                         n.startsWith("platform.Foundation") ||
-                        n.startsWith("dev.franzueto.fluxit.platform.")
+                        n.startsWith("dev.franzueto.fluxit.platform.") ||
+                        n.startsWith("app.cash.sqldelight.") ||
+                        n.startsWith("org.koin.core.") ||
+                        n.startsWith("dev.franzueto.fluxit.core.designsystem.") ||
+                        n.startsWith("arrow.")
                 }
+                val kotlinResultRef = Regex("kotlin\\.Result[<.(]")
+                    .containsMatchIn(file.text)
+                forbiddenImport || kotlinResultRef
             }
     }
 
