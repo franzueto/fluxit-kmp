@@ -171,8 +171,8 @@ Each use case is a small class with `operator fun invoke(...)` (or `suspend oper
 
 Helpers with no IO; testable by themselves.
 
-- [ ] **`CompletionCalculator`** — given `(total, completed)`, returns the progress bar fraction and the `13/20` string. Centralized so Phase 08 doesn't reinvent it.
-- [ ] **`SortOrderArithmetic`** — `between(prev: Double?, next: Double?): Double` and `needsCompaction(orders: List<Double>): Boolean`. Property-based test: 1000 random reorders never collapse without compaction.
+- [x] **`CompletionCalculator`** — given `(total, completed)`, returns the progress bar fraction and the `13/20` string. Centralized so Phase 08 doesn't reinvent it. _Slice 7 (2026-05-28); shipped as `object CompletionCalculator` with `fraction(total, completed): Float`, `display(total, completed): String`, `isFullyComplete(total, completed): Boolean`. All three apply `require(total >= 0)` + `require(completed in 0..total)` guards; empty lists return `0f` for fraction and `false` for isFullyComplete (a 0/0 list is not "complete" — matches dashboard intent)._
+- [x] **`SortOrderArithmetic`** — `between(prev: Double?, next: Double?): Double` and `needsCompaction(orders: List<Double>): Boolean`. Property-based test: 1000 random reorders never collapse without compaction. _Slice 7 (2026-05-28); shipped as `object SortOrderArithmetic` with `SEED_SORT_ORDER = 1.0` + `REBALANCE_EPSILON = 1e-9` constants matching `SqlListsRepository`'s companion verbatim. The data layer duplicates this math inline today (Phase 03 §5/§8); migrating those impls to consume this helper is a mechanical follow-up tracked for whenever a §7 use case (e.g. `ReorderList` / `ReorderItem`) needs to compute the target in pure code before calling the repo. Property test: 1000 random inserts via `between()` produce midpoints strictly inside their brackets. Targeted test: 60 inserts always into the tightest gap trigger at least one compaction, with the post-compaction list passing `needsCompaction == false` (the random-inserts case doesn't concentrate depth enough to hit the 1e-9 threshold, so the compaction path needs its own targeted exercise — first attempt's `compactions >= 1` assertion on the random run failed and was split into the two tests above)._
 - [ ] **`RecurrenceCalculator`** — `nextFireAfter(rule: RecurrenceRule, after: Instant, tz: TimeZone): Instant?`. Used by `ReminderScheduler` re-arming logic. v1 scope locked (Phase 09): `None / Daily / Weekly(daysOfWeek) / Monthly(dayOfMonth)`. Required behaviors:
   - `None` → returns `null` (no next fire).
   - `Daily` → `after + 24h` snapped to the original wall-clock time in `tz` (handles DST transitions: spring-forward skips, fall-back uses first occurrence).
@@ -180,7 +180,7 @@ Helpers with no IO; testable by themselves.
   - `Monthly(dayOfMonth)` → same day-of-month next month at original wall-clock time. **Edge case**: if `dayOfMonth = 31` and target month has 30 (or Feb), clamp to last day of that month (e.g. Jan 31 → Feb 28/29 → Mar 31). Documented in KDoc + property test.
   - All variants: result is always strictly `> after` (no infinite loops on equal instants).
 - [ ] Property tests: `(rule, after, tz) → next` always advances time; iterating 1000 times for Daily/Weekly/Monthly never produces non-monotonic sequences; Monthly clamping behaves correctly across full year cycles in `Europe/London` (DST), `Asia/Kolkata` (no DST, +5:30 offset), `Pacific/Apia` (DST + dateline shift) test zones.
-- [ ] **`PaletteCatalog`** — single source for the available `ColorToken` and `FluxItIconRef` values surfaced in the Create List picker. Avoids "what icons can the user pick?" being answered in three places.
+- [x] **`PaletteCatalog`** — single source for the available `ColorToken` and `FluxItIconRef` values surfaced in the Create List picker. Avoids "what icons can the user pick?" being answered in three places. _Slice 7 (2026-05-28); shipped as `object PaletteCatalog` wrapping `ColorToken.entries` (6 swatches) and `FluxItIconRef.entries` (8 icons). v1 surfaces the full enum; v2 picker-subset / A/B refinements wrap the catalog without touching the enum. Tests assert entry-list parity + the exact 6 / 8 counts (catches accidental enum drift)._
 
 ## 9. Concurrency contract
 
@@ -230,6 +230,35 @@ Helpers with no IO; testable by themselves.
 
 ## Implementation log (chronological, for traceability across sessions)
 
+- **2026-05-28** — Slice 7: §8 pure business rules first wave. New
+  files under `:shared:domain/rule/`:
+  `rule/CompletionCalculator.kt` — `object` with `fraction`,
+  `display`, `isFullyComplete` (all guarded with
+  `require(total >= 0)` + `require(completed in 0..total)`; empty
+  list returns `0f` / `false` per the dashboard "0/0 is not
+  complete" intent);
+  `rule/SortOrderArithmetic.kt` — `object` with `between(prev, next)`
+  + `needsCompaction(orders)` + `SEED_SORT_ORDER = 1.0` +
+  `REBALANCE_EPSILON = 1e-9` (constants match
+  `SqlListsRepository`'s companion verbatim; the data layer
+  duplicates the math inline today and will migrate to consume this
+  helper when a §7 use case first needs to compute targets in pure
+  code before calling the repo);
+  `rule/PaletteCatalog.kt` — `object` wrapping `ColorToken.entries`
+  (6 swatches) + `FluxItIconRef.entries` (8 icons) as the single
+  Create-List-picker source.
+  Tests in commonTest: `CompletionCalculatorTest` (9 — happy paths,
+  guard rejections, the 0/0-is-not-complete edge), `PaletteCatalogTest`
+  (4 — entry-list parity + exact counts catching accidental enum drift),
+  `SortOrderArithmeticTest` (11 — between/needsCompaction unit cases,
+  threshold-exclusive boundary, the §8 random-inserts property test +
+  a targeted "tightest-gap inserts trigger compaction" test).
+  First-attempt stress test asserted `compactions >= 1` on the random
+  insert loop and failed (random selection across 3 brackets doesn't
+  concentrate depth enough in 1000 iterations to hit 1e-9); split
+  into the property + targeted tests above. `RecurrenceCalculator`
+  is deferred to its own slice with the time-zone / DST property
+  surface and the `FakeClock` advance-by fixture. _Commit `<TBD>`._
 - **2026-05-28** — Slice 6: §6 error model build-out. New file
   `:shared:domain/error/DomainError.kt`: sealed class with four
   variants (`Validation(field, rule: ValidationError)`, `NotFound
