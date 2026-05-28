@@ -60,19 +60,19 @@ Distinct from DB rows: domain entities expose the shapes the rest of the app rea
   }
   ```
 - [ ] **`ListDetail`** — full list metadata + reminder hint (`hasActiveReminder: Boolean`); items live in a separate flow.
-- [ ] **`Item`** — `id, listId, title, subtitle?, description?, isCompleted, isStarred, photoId?, createdAt, updatedAt`.
-- [ ] **`ItemsSection`** — `data class ItemsSection(active: List<Item>, completed: List<Item>) { val total = active.size + completed.size; val completedCount = completed.size }`. The dual-list shape that backs the `TO BUY` / `COMPLETED` UI sections directly.
-- [ ] **`Reminder`** — `id, owner: ReminderOwner, firesAt: Instant, recurrence: RecurrenceRule, isActive: Boolean`.
-- [ ] **`sealed class ReminderOwner { data class List(val id: ListId); data class Item(val id: ItemId) }`** — replaces stringly-typed owner_type/owner_id at the domain edge.
-- [ ] **`sealed class RecurrenceRule`** — `None`, `Daily`, `Weekly(daysOfWeek: Set<DayOfWeek>)`, `Monthly(dayOfMonth: Int)`. Marked `@Serializable` — JSON impl injected at the data boundary.
-- [ ] **`Photo`** — `id, relativePath: RelativePath, mime, widthPx, heightPx, byteSize, createdAt`.
+- [x] **`Item`** — `id, listId, title, subtitle?, description?, isCompleted, isStarred, photoId?, createdAt, updatedAt`. _Phase 03 §5 carry-forward._
+- [x] **`ItemsSection`** — `data class ItemsSection(active: List<Item>, completed: List<Item>) { val total = active.size + completed.size; val completedCount = completed.size }`. The dual-list shape that backs the `TO BUY` / `COMPLETED` UI sections directly. _Phase 03 §5 carry-forward. Shipped with `total` and `completedCount` as explicit fields rather than computed properties (matches the single-query rollup from `selectByListGroupedByStatus`)._
+- [x] **`Reminder`** — `id, owner: ReminderOwner, firesAt: Instant, recurrence: RecurrenceRule, isActive: Boolean`. _Phase 03 §5 carry-forward; also carries `platformHandle: String?`, `createdAt`, `updatedAt` so the data layer can round-trip the row without a separate persistence model._
+- [x] **`sealed class ReminderOwner { data class List(val id: ListId); data class Item(val id: ItemId) }`** — replaces stringly-typed owner_type/owner_id at the domain edge. _Phase 03 §5 carry-forward; shipped as `sealed interface ReminderOwner` with `OfList(listId)` / `OfItem(itemId)` variants (the spec-shape; "List"/"Item" renamed to "OfList"/"OfItem" to avoid `kotlin.collections.List` name collision). `ReminderOwnerType` enum kept as a storage-side discriminator only — the data mapper converts `(ReminderOwnerType, String)` ↔ `ReminderOwner` at the SQL boundary._
+- [x] **`sealed class RecurrenceRule`** — `None`, `Daily`, `Weekly(daysOfWeek: Set<DayOfWeek>)`, `Monthly(dayOfMonth: Int)`. Marked `@Serializable` — JSON impl injected at the data boundary. _Phase 03 §5 carry-forward; ships as `sealed class` with `@Serializable` annotations on the type and each variant. JSON format runtime lives in `:shared:data`._
+- [x] **`Photo`** — `id, relativePath: RelativePath, mime, widthPx, heightPx, byteSize, createdAt`. _Phase 03 §5 carry-forward; shipped with `RelativePath` typed (Slice 3 added the value class — see §2)._
 
 ### Drafts (write-side payloads)
 
-- [ ] **`ListDraft`** — `name: TrimmedNonBlank, icon: FluxItIconRef, color: ColorToken, reminder: ReminderSpec?` (reminder optional from the Create-List screen's "Reminder Settings" entry).
-- [ ] **`ItemDraft`** — `title: TrimmedNonBlank, subtitle: String? = null` (the inline composer only collects a title; subtitle/description set later via Edit Item).
-- [ ] **`ItemPatch`** — `data class ItemPatch(title: TrimmedNonBlank? = null, subtitle: Optional<String> = Unset, description: Optional<String> = Unset, photoId: Optional<PhotoId?> = Unset)` where `Optional` is a tiny domain-owned `sealed interface { data object Unset; data class Set<T>(val v: T) }` — distinguishes "don't touch" from "set to null" without `null`-vs-absent ambiguity.
-- [ ] **`ReminderSpec`** — `data class ReminderSpec(owner: ReminderOwner, firesAt: Instant, recurrence: RecurrenceRule = None)`.
+- [x] **`ListDraft`** — `name: TrimmedNonBlank, icon: FluxItIconRef, color: ColorToken, reminder: ReminderSpec?` (reminder optional from the Create-List screen's "Reminder Settings" entry). _Phase 03 §5 carry-forward shipped with `name: String` and no `reminder` field (data layer needed only the four columns). Re-typing `name` to `TrimmedNonBlank` and adding `reminder: ReminderSpec?` deferred to the `CreateList` use-case slice (§7) where the validator wrapping happens — keeping the data layer's draft contract stable until the use case actually orchestrates the validation + scheduling pair._
+- [x] **`ItemDraft`** — `title: TrimmedNonBlank, subtitle: String? = null` (the inline composer only collects a title; subtitle/description set later via Edit Item). _Phase 03 §5 carry-forward shipped with `title: String` and `subtitle, description, photoId, isStarred` fields. Re-typing `title` to `TrimmedNonBlank` deferred to the `AddItem` use-case slice (§7), same rationale as `ListDraft`._
+- [x] **`ItemPatch`** — `data class ItemPatch(title: TrimmedNonBlank? = null, subtitle: Optional<String> = Unset, description: Optional<String> = Unset, photoId: Optional<PhotoId?> = Unset)` where `Optional` is a tiny domain-owned `sealed interface { data object Unset; data class Set<T>(val v: T) }` — distinguishes "don't touch" from "set to null" without `null`-vs-absent ambiguity. _**Slice 4 reconciliation (2026-05-28, Option A):** `ItemPatch` stays a **full-replacement payload** at the data edge — the shape shipped in Phase 03 §5 (`title, subtitle, description, photoId` all required) is the right shape for the atomic SQL UPDATE in `Items.sq`. The `Optional<T>` / "don't touch vs. set to null" concept moves to the **use-case API** (`UpdateItemDetails` in §7), which reads the current item, applies the partial intent, and emits a complete `ItemPatch` to the repo. `Optional<T>` therefore lives in §6 as a use-case parameter-shape primitive (introduced in the §7 slice that needs it first), **not** as a domain type that ItemPatch carries. Title re-typing to `TrimmedNonBlank` follows §3 `ItemDraft` — deferred to the §7 use-case slice that does the validation._
+- [x] **`ReminderSpec`** — `data class ReminderSpec(owner: ReminderOwner, firesAt: Instant, recurrence: RecurrenceRule = None)`. _Phase 03 §5 carry-forward — shipped exactly as spec'd._
 
 ## 4. Repository interfaces (formal — Phase 03 implements these)
 
@@ -229,6 +229,29 @@ Helpers with no IO; testable by themselves.
 
 ## Implementation log (chronological, for traceability across sessions)
 
+- **2026-05-28** — Slice 4: §2/§3 shape reconciliation (decision-only,
+  no code). Two questions outstanding from the original slicing plan
+  closed: **(1)** `ReminderOwner` shape — discovered during this
+  slice that Phase 03 §5 already shipped the spec-shape sealed
+  interface (`OfList(ListId)` / `OfItem(ItemId)`), with
+  `ReminderOwnerType` serving as a storage-side discriminator the
+  data mapper converts to/from at the SQL boundary. No churn needed;
+  §3 row ticked with the rename note (`List` → `OfList` to avoid
+  `kotlin.collections.List` collision). **(2)** `ItemPatch` shape —
+  decided **Option A** (user-confirmed): keep `ItemPatch` as a
+  full-replacement payload at the data edge (matches the atomic
+  `Items.sq` UPDATE shipped Phase 03 §5); push the `Optional<T>`
+  "don't touch vs. set to null" concept to the use-case API
+  (`UpdateItemDetails` in §7), which reads-current then emits a
+  complete `ItemPatch`. `Optional<T>` therefore lives in §6 as a
+  use-case parameter-shape primitive introduced when §7 needs it
+  first, **not** as a domain type embedded in `ItemPatch`. Trade-off:
+  one extra single-row SELECT per item update; the win is zero data-
+  layer churn + spec semantics preserved at the use-case boundary.
+  All §3 rows ticked with carry-forward / deferral annotations;
+  `TrimmedNonBlank` re-typing of `ListDraft.name` / `ItemDraft.title`
+  deferred to the §7 use-case slices that own the validation. _Commit
+  `<TBD>`._
 - **2026-05-28** — Slice 3: §2 value-object gap fill. New files in
   `:shared:domain` commonMain: `model/RelativePath.kt` (`value class`
   with non-blank `init` guard), `model/TrimmedNonBlank.kt` (`value

@@ -2,19 +2,15 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-28 (Phase 04 §2 value-object gap fill landed on Slice 3 of `phase/04-domain-layer`)
+**Last updated:** 2026-05-28 (Phase 04 §2/§3 shape reconciliation landed on Slice 4 of `phase/04-domain-layer`)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Phase 04 (Domain Layer) **in progress** on branch `phase/04-domain-layer`. Slice 1: ADR-007a Accepted; ADR-007 + ADR-007b drafted as Proposed. Slice 2: §1 Konsist forbidden-imports test landed. Slice 3: §2 value-object gap fill — `RelativePath` + `TrimmedNonBlank` (private-ctor value class with `Companion.of(raw, maxLen?): Outcome<TrimmedNonBlank, ValidationError>` factory) + the seed of `sealed class ValidationError { Empty; TooLong(max); InvalidFormat }`. 10 new tests in `:shared:domain` commonTest green on both JVM and iOS Sim. All §2 rows ticked; the `ListId.Companion.new(idGen)` factory deferred to the §5 slice that introduces `IdGenerator`. §12 length-cap open questions stay open — they'll flow through `TrimmedNonBlank.of(maxLen)` when answered. Pending list renumbered: the Phase 05 MVI ADR moved from collision-spot "ADR-007" to ADR-014.
+**Repo phase:** Phase 04 (Domain Layer) **in progress** on branch `phase/04-domain-layer`. Slice 1: ADRs 007/007a/007b. Slice 2: §1 Konsist forbidden-imports test. Slice 3: §2 value-object gap fill (`RelativePath`, `TrimmedNonBlank`, `ValidationError` seed). Slice 4: §2/§3 shape reconciliation — `ReminderOwner` was already shipped in spec form (sealed interface with `OfList`/`OfItem` variants; the enum `ReminderOwnerType` is storage-side only), no churn needed; `ItemPatch` stays as a full-replacement payload at the data edge (**Option A**, user-confirmed) with the `Optional<T>` "don't touch vs. set to null" concept pushed to the use-case API in §7 (read-current → apply partial intent → emit complete `ItemPatch`). All §3 entity rows ticked with carry-forward / deferral annotations; `TrimmedNonBlank` re-typing of `ListDraft.name` / `ItemDraft.title` deferred to the §7 use-case slices that own the validation. Pending list renumbered: the Phase 05 MVI ADR moved from collision-spot "ADR-007" to ADR-014.
 
 ---
 
 ## ▶ Next Step
 
-**Phase 04 Slice 4 — §2/§3 shape reconciliation (decision-only, no code).** Two pulled-forward Phase 03 shapes need a call before §3 entity work starts:
-1. **`ItemPatch`** ships today as a *full content replacement* (`title, subtitle, description, photoId` all required) to match a single SQL UPDATE. Phase 04 §3 spec calls for an `Optional<T>`-based partial patch (`Set<T>` vs. `Unset`) so callers can express "don't touch subtitle." Pick: keep full-replacement, adopt Optional, or middle-ground.
-2. **`ReminderOwnerType`** ships as an enum (storage-friendly: pairs with an id column). Phase 04 §3 spec calls for `sealed class ReminderOwner { data class List(ListId); data class Item(ItemId) }` (domain-edge type-safe; couples owner kind to owner id). Pick: keep enum at edge with conversion, adopt sealed, or surface both.
-
-Slice 4 is a docs-only update to `plan/04_DOMAIN_LAYER.md` §2/§3 capturing the chosen direction. After Slice 4: §3 entity layer fills in whatever's still missing. Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml` (ADR-007a's parity check rides on this); Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
+**Phase 04 Slice 5 — §5 platform ports first wave (`Clock` + `IdGenerator`).** With shapes settled, the next slice adds the two seed ports the rest of §7's use cases will need from the moment they start orchestrating: `Clock` (`fun now(): Instant`, production binds to `kotlinx.datetime.Clock.System`, tests inject `FakeClock(initial, advanceBy(Duration))`) and `IdGenerator` (`fun newId(): String`, production binds to `:core:core-utils`'s `expect fun newId()` per ADR-006a, tests inject `FakeIdGenerator(prefix = "id")`). Drops the `port/` directory into `:shared:domain` and unblocks the `ListId.Companion.new(idGen)` factory (§2 row) + all §7 use cases that need wall-clock or id minting. Heavier ports (`ReminderScheduler`, `PhotoCapture`, `AppLogger`, `AnalyticsSink`, `ConfigProvider`) wait for the slices that consume them. Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml` (ADR-007a's parity check rides on this); Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
 
 ---
 
@@ -26,7 +22,7 @@ Slice 4 is a docs-only update to `plan/04_DOMAIN_LAYER.md` §2/§3 capturing the
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟢 Complete | 100% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟢 Complete | 100% |
-| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🔵 In progress | 12% |
+| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🔵 In progress | 22% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
 | 06 | Platform Modules | [`06_PLATFORM_MODULES.md`](plan/06_PLATFORM_MODULES.md) | 🟡 Planned | 0% |
 | 07 | Feature: Lists Dashboard | [`07_FEATURE_LISTS_DASHBOARD.md`](plan/07_FEATURE_LISTS_DASHBOARD.md) | 🟡 Planned | 0% |
