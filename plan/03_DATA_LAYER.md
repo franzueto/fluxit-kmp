@@ -241,7 +241,7 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
 - [ ] **Mapper tests** — round-trip every entity.
 - [ ] **Migration test harness** registered (even with zero migrations) so future migrations get coverage by convention.
 - [x] **Integration test** — `IntegrationFlowTest` at `shared/data/src/commonTest/.../integration/`. Covers create-list → add-3-items → toggle one complete → schedule a Daily-recurrence reminder → `driver.close()` → reopen via `PersistentTestDb.openDriver()` → assert list / items section (`active=[Eggs, Bread]`, `completed=[Milk]`, `total=3`, `completedCount=1`) / reminder (id + firesAt + Daily recurrence + active) all round-trip. Persistent driver is an `expect/actual` pair: JVM uses `JdbcSqliteDriver("jdbc:sqlite:<temp.db>")` + first-open `Schema.create()` guard via file-existence probe; iOS uses `NativeSqliteDriver(schema, name, onConfiguration = { basePath = NSTemporaryDirectory()/<random>/ })` — sqliter handles version-aware create/migrate internally. Runs on both `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test`.
-- [ ] **Concurrency test**: 50 concurrent `setCompleted` calls on the same item never deadlock; final state is consistent.
+- [x] **Concurrency test** — `SqlItemsRepositoryConcurrencyTest` at `shared/data/src/commonTest/.../concurrency/`. Launches 50 alternating `setCompleted(true)` / `setCompleted(false)` calls via `async`/`awaitAll` over `Dispatchers.Default`, then asserts (a) every call returned `Outcome.Ok` (no Storage errors from connection contention), (b) the row is still readable after the storm and decodes to a valid Boolean. Final value is non-deterministic by design (last-write-wins under contention; asserting either side would be a race). No explicit `withTimeout` — `runTest` virtual time would fire any wall-clock timeout instantly, so a real hang is caught by the test harness's outer timeout instead. Repos take `Dispatchers.Default` (not `Unconfined`) so the Flow operators don't accidentally serialize the writes through the test scheduler. Runs on both JVM + iOS Sim.
 - [ ] Turbine for all `Flow` assertions; coroutine `runTest` with virtual time.
 - [ ] Coverage target: ≥ 90% for `:shared:data` (enforced by Phase 14 gate, but goal noted now).
 
@@ -281,6 +281,16 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-28** — §10 concurrency test:
+  `SqlItemsRepositoryConcurrencyTest` fires 50 alternating
+  `setCompleted(true|false)` calls in parallel on the same item via
+  `Dispatchers.Default` + `async`/`awaitAll`. Asserts every call returned
+  `Outcome.Ok` and the row is still readable. First-pass attempt used
+  `withTimeout(5_000)`; failed because `runTest` runs in virtual time
+  (timeout fires immediately). Removed in favor of the test harness's
+  outer wall-clock timeout catching a real hang. Passes on both
+  `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test`.
+  _Commit `<pending>`._
 - **2026-05-28** — §10 integration test: `IntegrationFlowTest` walks
   the DoD exit-criteria scenario end-to-end across Lists + Items +
   Reminders + a close-and-reopen boundary. New `PersistentTestDb`
