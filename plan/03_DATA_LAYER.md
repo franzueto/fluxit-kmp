@@ -147,7 +147,7 @@ Queries:
 - [ ] `migrations/` folder pre-created (empty for v1). _Deferred to §10 alongside the migration test harness — no migrations exist yet and an empty directory would be checked in for its own sake._
 - [x] `schema.sql` dump produced by the hand-rolled `:shared:data:generateSchemaSql` task (SQLDelight's built-in `generateMainFluxItDatabaseSchema` produces a binary `.db`, not human-readable SQL); checked in at `shared/data/schema.sql`.
 - [x] CI gate: `:shared:data:verifySchemaInSync` re-runs the generator in-memory and fails the build on drift; wired into `:shared:data:check`. Mirrors Phase 02's `verifyTokensInSync` / `verifyIconsInSync` pattern.
-- [ ] Migration unit-test harness wired now (even with zero migrations) so adding migration #1 in v2 is mechanical. _Deferred to §10._
+- [x] Migration unit-test harness wired at `commonTest/.../db/MigrationHarnessTest.kt`. 3 tests pin the v1 invariants: `Schema.version == 1`, `Schema.create()` succeeds on a fresh driver, `Schema.migrate(driver, 1, 1)` is a no-op (proves the migration call path is wired). The class KDoc documents the four-step convention for adding migration #N (drop `<N>.sqm`, bump `databaseVersion`, regen `schema.sql`, add a per-migration test). _SQLDelight gradle's `verifyMigrations = true` flag deferred — needs an `.db` snapshot per version, no value until migration #1 exists._
 
 ## 3. Column adapters
 
@@ -239,7 +239,7 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
 - [x] **Unit tests** (`commonTest`) — one per query in each `.sq` file. The 37 queries reached by the repository layer are covered transitively by the smoke + integration tests; the eight that no repo call path exercises (`Lists.selectAllActive` / `updateMetadata` / `hardDelete` / `countActive`, `Items.countByList`, `Reminders.setActive` / `selectNeedingReschedule`, `Photos.selectOrphaned`) get direct `db.<table>Queries.<query>(...)` coverage in `commonTest/.../db/UncoveredQueriesTest.kt`. Intentionally bypasses the repository layer so a refactor that drops a repo call site can't silently lose SQL coverage. 8 tests, fixed-Instant clock, both targets.
 - [x] **Repository tests** — happy paths covered by the four `Sql*RepositorySmokeTest` files; error paths covered by smoke-test Validation/NotFound assertions + `commonTest/.../repository/RepositoryErrorPathTest.kt` for the gaps (updateAppearance / setStarred / reorder NotFound on Lists; setCompleted / setStarred / reorder NotFound on Items; FK-violation Storage paths on Items.add and Items.update via bogus `photoId`). FK enforcement required test-driver-side `PRAGMA foreign_keys = ON` (JVM) + `extendedConfig.foreignKeyConstraints = true` (iOS) — flipped on in `TestDrivers.android.kt` / `TestDrivers.ios.kt` / `PersistentTestDb.{android,ios}.kt` so test drivers match the production `DriverFactory` config. FK violations currently surface as `DataError.Storage`; promotion to `DataError.Conflict` is deferred until SQLDelight exposes a stable cross-platform exception discriminator (the `Conflict` variant is already in the taxonomy; test pins current behavior to make the future flip deliberate).
 - [x] **Mapper tests** — `commonTest/.../mapper/{List,Item,Reminder,Photo}MapperTest.kt`. 8 tests covering: List → Detail full-field, SelectWithCounts → Summary with the `completed_items: Double` coercion (SQLDelight infers Double for `COALESCE(SUM(boolean), 0)`); Item → domain with both `photo_id` set and null → null `PhotoId`; Reminder → domain for both `OfList`/`OfItem` owner variants + `RecurrenceRule.Weekly` round-trip + the `null ↔ None` reinflation contract; Photo → domain with the `Long → Int` width/height narrowing documented inline (px never exceed §12 row 4's 2048-longest-side cap; byte_size stays Long for v2 file sizes).
-- [ ] **Migration test harness** registered (even with zero migrations) so future migrations get coverage by convention.
+- [x] **Migration test harness** registered — `MigrationHarnessTest.kt` (see §2 entry for details + the four-step convention for adding migration #N).
 - [x] **Integration test** — `IntegrationFlowTest` at `shared/data/src/commonTest/.../integration/`. Covers create-list → add-3-items → toggle one complete → schedule a Daily-recurrence reminder → `driver.close()` → reopen via `PersistentTestDb.openDriver()` → assert list / items section (`active=[Eggs, Bread]`, `completed=[Milk]`, `total=3`, `completedCount=1`) / reminder (id + firesAt + Daily recurrence + active) all round-trip. Persistent driver is an `expect/actual` pair: JVM uses `JdbcSqliteDriver("jdbc:sqlite:<temp.db>")` + first-open `Schema.create()` guard via file-existence probe; iOS uses `NativeSqliteDriver(schema, name, onConfiguration = { basePath = NSTemporaryDirectory()/<random>/ })` — sqliter handles version-aware create/migrate internally. Runs on both `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test`.
 - [x] **Concurrency test** — `SqlItemsRepositoryConcurrencyTest` at `shared/data/src/commonTest/.../concurrency/`. Launches 50 alternating `setCompleted(true)` / `setCompleted(false)` calls via `async`/`awaitAll` over `Dispatchers.Default`, then asserts (a) every call returned `Outcome.Ok` (no Storage errors from connection contention), (b) the row is still readable after the storm and decodes to a valid Boolean. Final value is non-deterministic by design (last-write-wins under contention; asserting either side would be a race). No explicit `withTimeout` — `runTest` virtual time would fire any wall-clock timeout instantly, so a real hang is caught by the test harness's outer timeout instead. Repos take `Dispatchers.Default` (not `Unconfined`) so the Flow operators don't accidentally serialize the writes through the test scheduler. Runs on both JVM + iOS Sim.
 - [ ] Turbine for all `Flow` assertions; coroutine `runTest` with virtual time.
@@ -268,9 +268,9 @@ Phase 09 (reminders UX).
 
 ## 13. Hand-off checklist (gate to Phase 04)
 
-- [ ] All checkboxes above ✅. _(Progress as of 2026-05-27: §1, §2, §3, §4 (modulo iOS test driver), §5 (all four repos), §6 (all four mappers), §7 (port + crash safety), §8 (rebalance), §9, §11 drafts, §12 done; §10 test pyramid still open — that's the §13 gating item.)_
+- [x] All checkboxes above ✅. _(2026-05-28: §1, §2, §3, §4 (incl. iOS test driver via expect/actual), §5 (all four repos), §6 (all four mappers), §7 (port + janitor + crash safety), §8 (rebalance — Lists global + Items per-list), §9, §10 (commonTest foundation + integration + concurrency + mapper + per-query gap + error-path + migration harness — 74 tests on both targets), §11, §12 all done. Only the ADR status flips + Master Plan ▶ Next Step advance remain.)_
 - [x] `schema.sql` dump checked in; CI verification step (`verifySchemaInSync` wired into `:shared:data:check`) green.
-- [ ] Integration test runs green on Android JVM unit + iosSimulatorArm64 in CI. _(§10 deliverable.)_
+- [x] Integration test runs green on Android JVM unit + iosSimulatorArm64. `IntegrationFlowTest` + 73 sibling tests pass on both `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test` locally. CI matrix wiring is Phase 15's deliverable; the test infrastructure is ready for it.
 - [ ] `MASTER_PLAN.md`: Phase 03 → 🟢, ▶ Next Step → Phase 04.
 - [ ] `00_DECISIONS.md`: ADR-006 / 006a / 006b accepted; ADR-006c marked **Superseded by ADR-007a** (Phase 04).
 
@@ -281,6 +281,14 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-28** — §10 migration harness: `MigrationHarnessTest.kt`
+  pins the v1 schema baseline with 3 tests (version == 1,
+  Schema.create() succeeds, Schema.migrate(1, 1) no-op). Class KDoc
+  documents the four-step recipe for adding migration #N in v2 so
+  the eventual migration is mechanical. SQLDelight gradle's
+  `verifyMigrations = true` flag intentionally NOT enabled —
+  requires a `.db` snapshot per version, no signal until migration
+  #1 exists. §10 complete; only §13 hand-off remains. _Commit `<pending>`._
 - **2026-05-28** — §10 repository error-path coverage: 8 tests in
   `RepositoryErrorPathTest.kt` covering NotFound paths the smoke tests
   missed (Lists.updateAppearance/setStarred/reorder,
