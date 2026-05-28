@@ -165,7 +165,7 @@ Living in `:shared:data/src/commonMain/.../db/Adapters.kt`:
 - [x] `commonMain`: `expect class DriverFactory { fun create(): SqlDriver }`
 - [x] `androidMain`: `actual class DriverFactory(private val context: Context)` using `AndroidSqliteDriver`. Foreign keys ON, WAL ON.
 - [x] `iosMain`: `actual class DriverFactory` using `NativeSqliteDriver`. Foreign keys ON.
-- [ ] `commonTest`: in-memory driver via `JdbcSqliteDriver(IN_MEMORY)`; `Schema.create()` invoked per test. **Partial:** JVM-side helper lives at `shared/data/src/androidUnitTest/.../db/TestDrivers.kt` and is exercised by `FluxItDatabaseFactorySmokeTest`. iOS-side `NativeSqliteDriver` in-memory helper + `expect fun inMemoryDriver(): SqlDriver` promotion to `commonTest` is deferred to §10 with the rest of the test pyramid.
+- [x] `commonTest`: `expect fun inMemoryDriver(): SqlDriver` in `commonTest/.../db/TestDrivers.kt`; JVM actual uses `JdbcSqliteDriver(IN_MEMORY)` + manual `Schema.create()`; iOS actual uses `NativeSqliteDriver(name=..., onConfiguration={ inMemory = true })` (the native driver runs `Schema.create()` internally on construction). All five §3–§5 smoke tests promoted from `androidUnitTest` to `commonTest`; they execute against both targets via `:shared:data:test` (JVM) and `:shared:data:iosSimulatorArm64Test` (iOS).
 - [x] Shared `fluxItDatabase(driver: SqlDriver): FluxItDatabase` factory in `commonMain` (`FluxItDatabaseFactory.kt`) wires every generated `Table.Adapter` with the §3 column adapters in one place. Both platforms call this with their `DriverFactory.create()` output. (Note: SQLDelight 2's generated `List` class needs an `import … as ListRow` alias to avoid the `kotlin.collections.List` clash — established pattern in the factory.)
 
 ## 5. Repository contracts (declared in `:shared:domain`, implemented here)
@@ -281,6 +281,16 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-28** — §10 foundation: `expect fun inMemoryDriver()` in
+  `commonTest`; JVM actual reuses the prior JdbcSqliteDriver helper;
+  iOS actual uses `NativeSqliteDriver` with
+  `DatabaseConfiguration.inMemory = true` and a randomized name. All
+  five smoke test files (`FluxItDatabaseFactorySmokeTest` + four
+  `Sql*RepositorySmokeTest`) moved from `androidUnitTest` → `commonTest`;
+  `"...%012d".format(n)` calls replaced with `padStart(12, '0')` for
+  KMP-common compatibility. 45/45 tests pass on both
+  `:shared:data:testDebugUnitTest` (JVM) and
+  `:shared:data:iosSimulatorArm64Test` (iOS). _Commit `<pending>`._
 - **2026-05-27** — §5 Photos slice (4/4) — closes §5. `Photo` entity in
   `:shared:domain/.../model/Photo.kt`; `PhotoStorage` port at
   `:shared:domain/.../port/PhotoStorage.kt` (impl deferred to Phase 06);
