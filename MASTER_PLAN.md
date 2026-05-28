@@ -2,15 +2,15 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-28 (Phase 03 ~95%; §1–§12 all complete including the full §10 test pyramid — 74 tests on both targets. Only §13 hand-off remains: ADR status flips + Master Plan advance to Phase 04.)
+**Last updated:** 2026-05-28 (Phase 03 complete; Phase 04 (Domain Layer) is the next pickup)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Phase 03 (Data Layer) in progress on branch `phase/03-data-layer`. All four §5 repositories (Lists, Items, Reminders, Photos) implemented end-to-end behind their domain interfaces: Flow reads + typed `Outcome<T, DataError>` writes; §6 mappers and §7 `PhotoStorage` port shipped with their respective slices; §8 fractional sort + rebalance in global (Lists) and per-list (Items) flavors. 45 smoke tests passing on the in-memory driver (15 Lists + 14 Items + 10 Reminders + 6 Photos + 4 adapter round-trips). ADR-006 / 006a / 006b / 006c drafted as Proposed; ADR-006c slated to be Superseded by ADR-007a (Phase 04). Remaining: §10 test pyramid (per-query / mapper / repo / migration harness / integration / concurrency + iOS NativeSqliteDriver in-memory helper + promote smoke tests from `androidUnitTest` to `commonTest`), §13 hand-off (flip ADR statuses, advance ▶ Next Step).
+**Repo phase:** Phase 03 (Data Layer) **complete** on branch `phase/03-data-layer`. All §1–§13 closed: schema + adapters + driver factories + four repositories (Lists/Items/Reminders/Photos behind `:shared:domain` interfaces) + `PhotoStorage` port + fractional sort with §8 rebalance + the full §10 test pyramid (74 tests on both JVM and iOS Sim, including the close→reopen integration test, 50-way concurrent setCompleted, mapper round-trips, per-query gap coverage, repo error paths with FK enforcement, and the migration harness with v2-recipe KDoc). ADRs 006/006a/006b flipped Proposed → Accepted; ADR-006c marked Superseded by ADR-007a (anticipated Phase 04 §2). Ready to merge to `main` once the user opens the Phase 03 PR; Phase 04 starts on a new branch.
 
 ---
 
 ## ▶ Next Step
 
-**Phase 03 — Data Layer, §13 (hand-off) — the only chunk left.** Every §10 sub-bullet shipped: foundation expect/actual (`inMemoryDriver` + `PersistentTestDb` across JVM + iOS), `IntegrationFlowTest` (create → add → toggle → schedule → close → reopen), `SqlItemsRepositoryConcurrencyTest` (50 parallel `setCompleted` with no deadlock), mapper round-trips, per-query gap coverage for the 8 queries no repo path reaches, repository error-path tests (NotFound + FK-violation Storage, with `PRAGMA foreign_keys = ON` flipped on all four test drivers to match prod), and the `MigrationHarnessTest` v1 baseline + v2-migration recipe. 74 tests green on both `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test`. **§13 hand-off** is a docs-only commit: flip ADR-006 / 006a / 006b from Proposed → Accepted; mark ADR-006c as Superseded by anticipated ADR-007a; bump Phase 03 row to 🟢 Complete / 100%; advance this ▶ Next Step to Phase 04 (Domain Layer — entities, use cases, validators on top of the shipped repositories). Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
+**Phase 04 — Domain Layer.** Phase 03 closed; the data layer ships `:shared:domain` interfaces (ListsRepository / ItemsRepository / RemindersRepository / PhotosRepository) + entity DTOs + the `Outcome<T, DataError>` typed-error result + the `PhotoStorage` port. Phase 04 fills out the domain proper: entities (incrementally — most of the value types and sealed sums already shipped pulled-forward in Phase 03 to satisfy adapter / repo signatures), use cases (PhotoJanitor, CascadeListDelete per ADR-006b, reminder rescheduler hooks, etc.), validators (the "name too long vs. name empty" split that the `DataError.Validation` taxonomy explicitly defers to this layer), and ADR-007a codifying the `:shared:domain`-owns-the-tokens decision that Phase 03 §3 already implemented. Start with `plan/04_DOMAIN_LAYER.md` §1 and consult the Phase 03 §11 ADR drafts (`plan/00_DECISIONS.md`) for context on what's already nailed down. Phase 03 ships to `main` first — branch `phase/03-data-layer` has the full sequence, ready for PR. Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
 
 ---
 
@@ -18,10 +18,10 @@
 
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
-| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (9 Accepted + 4 Proposed for Phase 03) | n/a |
+| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (12 Accepted + 1 Superseded after Phase 03 hand-off) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟢 Complete | 100% |
-| 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟠 In progress | ~95% |
+| 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟢 Complete | 100% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
 | 06 | Platform Modules | [`06_PLATFORM_MODULES.md`](plan/06_PLATFORM_MODULES.md) | 🟡 Planned | 0% |
@@ -37,7 +37,7 @@
 | 16 | Observability | [`16_OBSERVABILITY.md`](plan/16_OBSERVABILITY.md) | 🟡 Planned | 0% |
 | 17 | Release Hardening | [`17_RELEASE_HARDENING.md`](plan/17_RELEASE_HARDENING.md) | 🟡 Planned | 0% |
 
-**Overall v1 progress: 20% (2 of 14 active phases complete, Phase 03 ~90%)**
+**Overall v1 progress: 21% (3 of 14 active phases complete)**
 _Phases 11 & 12 are explicitly out of v1 scope (see ADR-003, ADR-004)._
 
 ---

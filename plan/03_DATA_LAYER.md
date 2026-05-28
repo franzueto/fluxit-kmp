@@ -271,8 +271,8 @@ Phase 09 (reminders UX).
 - [x] All checkboxes above ✅. _(2026-05-28: §1, §2, §3, §4 (incl. iOS test driver via expect/actual), §5 (all four repos), §6 (all four mappers), §7 (port + janitor + crash safety), §8 (rebalance — Lists global + Items per-list), §9, §10 (commonTest foundation + integration + concurrency + mapper + per-query gap + error-path + migration harness — 74 tests on both targets), §11, §12 all done. Only the ADR status flips + Master Plan ▶ Next Step advance remain.)_
 - [x] `schema.sql` dump checked in; CI verification step (`verifySchemaInSync` wired into `:shared:data:check`) green.
 - [x] Integration test runs green on Android JVM unit + iosSimulatorArm64. `IntegrationFlowTest` + 73 sibling tests pass on both `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test` locally. CI matrix wiring is Phase 15's deliverable; the test infrastructure is ready for it.
-- [ ] `MASTER_PLAN.md`: Phase 03 → 🟢, ▶ Next Step → Phase 04.
-- [ ] `00_DECISIONS.md`: ADR-006 / 006a / 006b accepted; ADR-006c marked **Superseded by ADR-007a** (Phase 04).
+- [x] `MASTER_PLAN.md`: Phase 03 → 🟢, ▶ Next Step → Phase 04.
+- [x] `00_DECISIONS.md`: ADR-006 / 006a / 006b accepted; ADR-006c marked **Superseded by ADR-007a** (Phase 04); ADR-007a entry added to "Pending / Anticipated ADRs".
 
 ---
 
@@ -281,6 +281,15 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-28** — §13 hand-off. Phase 03 closed. ADR-006 / 006a / 006b
+  flipped Proposed → Accepted in `plan/00_DECISIONS.md` (preconditions
+  all met per the original status-flip discipline). ADR-006c marked
+  Superseded by anticipated ADR-007a — original ADR retained for
+  history per the no-edit-accepted-ADRs rule. ADR-007a entry added to
+  the Pending / Anticipated section. `MASTER_PLAN.md` Phase 03 row →
+  🟢 Complete / 100%; ▶ Next Step rewritten to Phase 04 (Domain Layer);
+  overall v1 progress 20% → 21%; ADR counter (12 Accepted + 1
+  Superseded). _Commit `<pending>`._
 - **2026-05-28** — §10 migration harness: `MigrationHarnessTest.kt`
   pins the v1 schema baseline with 3 tests (version == 1,
   Schema.create() succeeds, Schema.migrate(1, 1) no-op). Class KDoc

@@ -225,7 +225,7 @@
 ---
 
 ### ADR-006 — SQLDelight schema versioning + migration policy
-- **Status:** Proposed (flips to Accepted once Phase 03 §2's four `.sq` files land green, `schema.sql` is checked in, `verifySchemaInSync` is wired, and the migration test harness from §10 runs with zero migrations registered)
+- **Status:** Accepted (flipped from Proposed on 2026-05-28 at Phase 03 §13 hand-off; preconditions all met — four `.sq` files landed green, `schema.sql` checked in, `verifySchemaInSync` wired into `:shared:data:check`, `MigrationHarnessTest` registers the zero-migration baseline + documents the v2-migration recipe in its KDoc)
 - **Date:** 2026-05-19
 - **Context:** Phase 03 §2 is about to land the v1 schema (four tables: `list`, `item`, `reminder`, `photo`). Before the schema lands, the project needs a ratified answer to: how is the database versioned, what is the legal way to evolve it once a build ships, and how do CI gates catch accidental drift? Three concrete questions surface from §2 / §10:
   1. **Version-number scheme.** SQLDelight 2's migration model is file-based: `<N>.sqm` files named by the version they migrate *to*, `databaseVersion = N` in Gradle bumped per migration. v1 ships as `databaseVersion = 1` with zero `.sqm` files (the `Schema.create(driver)` path runs the current `.sq` files' `CREATE TABLE` statements). The decision is what the bump cadence and naming discipline look like *after* v1 — and whether to allow squashing during the pre-launch portfolio phase.
@@ -268,7 +268,7 @@
 ---
 
 ### ADR-006a — TEXT primary keys with UUID v4 string ids
-- **Status:** Proposed (flips to Accepted once Phase 03 §9 lands `expect fun newId(): String` with `java.util.UUID.randomUUID()` on Android and `NSUUID().UUIDString.lowercased()` on iOS, plus the Konsist rule forbidding `Random` / `currentTimeMillis()` as id sources)
+- **Status:** Accepted (flipped from Proposed on 2026-05-28 at Phase 03 §13 hand-off; preconditions all met — `expect fun newId(): String` in `:core:core-utils` with JVM `java.util.UUID.randomUUID()` + iOS `NSUUID().UUIDString().lowercase()` actuals, plus the Konsist `DataLayerArchTest` rule banning `Random` / `currentTimeMillis` / `.hashCode()` as id sources outside `Ids.*` files)
 - **Date:** 2026-05-19
 - **Context:** Phase 03 §2's table header line ("All tables use **TEXT primary keys** … so future sync doesn't require an integer-id remap") already commits to TEXT PKs; this ADR ratifies *which* string id format and locks it. Three candidates were on the table:
   1. **`INTEGER PRIMARY KEY AUTOINCREMENT`.** SQLite's native fast path. ROWID-aliased, sequential, ~8 bytes per id, zero generation cost. Lethal at the v2 sync boundary: two devices creating rows offline both assign id=1 to different lists; reconciliation requires a global remap that touches every foreign key in the database (`item.list_id`, `item.photo_id`, `reminder.owner_id`). ADR-003 already commits to v1 contracts that "v2 sync can swap implementations without touching call sites" — autoincrement breaks that promise at the schema level, not just the call-site level.
@@ -308,7 +308,7 @@
 ---
 
 ### ADR-006b — Soft-delete + tombstones from day one
-- **Status:** Proposed (flips to Accepted once Phase 03 §2's four `.sq` files land with `deleted_at INTEGER` on every table, all read queries carry `WHERE deleted_at IS NULL`, and the application-cascade behavior is exercised by the integration test)
+- **Status:** Accepted (flipped from Proposed on 2026-05-28 at Phase 03 §13 hand-off; preconditions all met — every `.sq` table has `deleted_at INTEGER`, every read query filters `WHERE deleted_at IS NULL`, `Photos.sq` has `selectOrphaned` for the §7 janitor, and `IntegrationFlowTest` exercises soft-delete + tombstone survival across a close/reopen cycle. Application-level cascade across Lists → Items → Reminders is a Phase 04 use-case-layer concern per the ADR; data-layer plumbing is in place.)
 - **Date:** 2026-05-19
 - **Context:** Phase 03 §2's table header line already commits to "Soft-deletes via `deleted_at` so v2 sync can replicate tombstones; v1 queries always filter `WHERE deleted_at IS NULL`." This ADR ratifies the *full* policy — column shape, cascade semantics, undo path, photo lifecycle, and the cost trade — before the schema lands so the contract is uniform across all four tables and across both repositories and use cases. Five sub-questions surface:
   1. **Per-table vs. universal.** Does every table soft-delete, or only the ones with v2-sync implications? §2's column inventory already shows `deleted_at INTEGER` on all four (`list`, `item`, `reminder`, `photo`); this ADR ratifies "all four, no exceptions" so future schema additions inherit the rule by convention.
@@ -361,7 +361,7 @@
 ---
 
 ### ADR-006c — `:shared:data` depends on `:core:core-designsystem` for token-enum adapters
-- **Status:** Proposed (flips to Accepted once Phase 03 §3 lands `IconNameAdapter` + `ColorTokenAdapter` against generated commonMain enums; this requires a small Phase 02 retrofit — see Decision)
+- **Status:** Superseded by ADR-007a (Phase 04, anticipated; see Pending / Anticipated ADRs section below) on 2026-05-28 at Phase 03 §13 hand-off. The decision's coupling direction (`:shared:data` → `:core:core-designsystem`) was reversed during Phase 03 §3 — `ColorToken` and `FluxItIconRef` enums shipped in `:shared:domain` and `:core:core-designsystem` consumes them. Phase 04 §2 codifies the reversal in ADR-007a; the rationale here (icon names + token keys are product domain, not chrome) is preserved by 007a. Original ADR-006c is retained for historical context — do not edit in place per the project's ADR-edit discipline.
 - **Date:** 2026-05-19
 - **Context:** Phase 03 §3 row 4 declares `IconNameAdapter` and §3 row 5 declares `ColorTokenAdapter` — both convert a DB-stored `TEXT` column to a typed Kotlin enum on read. The valid icon name set and the valid color token key set are *generated* artifacts owned by `:core:core-designsystem` (ADR-005 for color tokens, ADR-005a for icons). Two architectural questions follow:
   1. **Should the data layer carry typed enums at all?** The alternative is `String` everywhere — adapters disappear, every consumer parses the string at point-of-use, and the v1 list-icon picker (Phase 09) gets to ship "you can save any string and we won't validate." Cheap up front, lethal in two years when somebody types `"car"` instead of `"cart"` and ships it to production.
@@ -405,6 +405,7 @@
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
+- **ADR-007a** (Phase 04 §2): Domain owns `ColorToken` + `FluxItIconRef`; `:core:core-designsystem` consumes them. Supersedes ADR-006c; the coupling-direction reversal already shipped in Phase 03 §3, ADR-007a will codify the rationale and pin the new dependency direction.
 - **ADR-007** (Phase 05): MVI store contract — intents/state/effects, error model, optimistic update pattern.
 - **ADR-008** (Phase 06): expect/actual vs. Koin-injected interfaces for platform capabilities (we'll likely standardize on injected interfaces).
 - **ADR-009** (Phase 13): Notification permission UX — when to ask, how to recover from denial.
