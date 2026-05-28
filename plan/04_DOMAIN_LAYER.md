@@ -245,7 +245,7 @@ Helpers with no IO; testable by themselves.
   §5 slice that introduces the `IdGenerator` port. §12 length-cap
   open questions (description, list-name) stay open — the
   `TrimmedNonBlank.of(maxLen)` parameter is the seam they'll flow
-  through when answered. _Commit `<TBD>`._
+  through when answered. _Commit `597c035`._
 - **2026-05-28** — Slice 2: §1 Konsist forbidden-imports test extended in
   `:build-logic`'s `ArchitectureTest`. The pre-existing "no Android/iOS"
   test grew into a Phase 04 §1 + ADR-007 + ADR-007a consolidated ban
