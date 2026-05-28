@@ -5,4 +5,14 @@
 
 [tools]
 java = "temurin-21.0.5+11"
-ruby = "3.3.6"
+ruby = "3.4.9"
+
+# Ensure Ruby can be compiled from source on platforms without prebuilt binaries
+# (e.g. macOS 26 / darwin25). OpenSSL must be installed: `brew install openssl`
+[settings.ruby]
+compile = true
+
+[env]
+# Points ruby-build to Homebrew keg-only libs when compiling Ruby from source.
+# Required on macOS where openssl, libyaml, and readline are keg-only.
+RUBY_CONFIGURE_OPTS = "--with-openssl-dir=/opt/homebrew/opt/openssl@3 --with-libyaml-dir=/opt/homebrew/opt/libyaml --with-readline-dir=/opt/homebrew/opt/readline"

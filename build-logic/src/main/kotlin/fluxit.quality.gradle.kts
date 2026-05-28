@@ -35,8 +35,15 @@ extensions.configure<KtlintExtension>("ktlint") {
         reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.CHECKSTYLE)
     }
     filter {
-        exclude("**/generated/**")
-        exclude("**/build/**")
+        // Predicate exclusion: the ant-glob form (`**/build/**`) is silently
+        // ignored by the per-source-set ktlint tasks under
+        // org.jlleitschuh.gradle.ktlint when src dirs sit inside build/
+        // (e.g. SQLDelight's build/generated/sqldelight/code/**). A path
+        // predicate runs against every input file regardless of source root.
+        exclude { entry ->
+            val path = entry.file.invariantSeparatorsPath
+            "/build/" in path || "/generated/" in path
+        }
     }
 }
 

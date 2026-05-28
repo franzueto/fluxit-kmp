@@ -2,15 +2,15 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-19 (Phase 02 closed at §13 hand-off gate; advancing to Phase 03 Data Layer)
+**Last updated:** 2026-05-28 (Phase 03 complete; Phase 04 (Domain Layer) is the next pickup)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Foundation complete — Phase 01 closed (Android + iOS shells build green; all four quality gates wired; CI proven green on PR #4 plus three Dependabot PRs; doc seeds + ADR log in place; KMP test harness proven via `:core:core-utils`). Phase 02 (Design System) is up next.
+**Repo phase:** Phase 03 (Data Layer) **complete** on branch `phase/03-data-layer`. All §1–§13 closed: schema + adapters + driver factories + four repositories (Lists/Items/Reminders/Photos behind `:shared:domain` interfaces) + `PhotoStorage` port + fractional sort with §8 rebalance + the full §10 test pyramid (74 tests on both JVM and iOS Sim, including the close→reopen integration test, 50-way concurrent setCompleted, mapper round-trips, per-query gap coverage, repo error paths with FK enforcement, and the migration harness with v2-recipe KDoc). ADRs 006/006a/006b flipped Proposed → Accepted; ADR-006c marked Superseded by ADR-007a (anticipated Phase 04 §2). Ready to merge to `main` once the user opens the Phase 03 PR; Phase 04 starts on a new branch.
 
 ---
 
 ## ▶ Next Step
 
-**Phase 03 — Data Layer.** Phase 02 closed 2026-05-19 at the §13 hand-off gate. The branch `phase/02-design-system` is ready to push and open as a single PR per the one-PR-per-phase cadence; user runs `assembleDebug` + `scripts/build-ios.sh` locally, captures Theme Gallery screenshots, and attaches them to the PR body. Phase 03 stands up the persistent data layer: SQLDelight 2 schema for `Lists`/`Items`/`Reminders`/`PhotoRefs` with TEXT primary keys (UUIDv4/ULID per the anticipated ADR-006a) + INTEGER epoch-ms timestamps + soft-delete via `deleted_at`; type-safe queries surfaced as `Flow`s; repository implementations behind `:shared:domain` interfaces. Local-only v1 per ADR-003. Anticipated **ADR-006** here (SQLDelight schema versioning + migration policy). Phase 02 carry-forward items for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; add `mustRunAfter(generateTokens)` / `mustRunAfter(generateIcons)` to fix the same-invocation Gradle warning; Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
+**Phase 04 — Domain Layer.** Phase 03 closed; the data layer ships `:shared:domain` interfaces (ListsRepository / ItemsRepository / RemindersRepository / PhotosRepository) + entity DTOs + the `Outcome<T, DataError>` typed-error result + the `PhotoStorage` port. Phase 04 fills out the domain proper: entities (incrementally — most of the value types and sealed sums already shipped pulled-forward in Phase 03 to satisfy adapter / repo signatures), use cases (PhotoJanitor, CascadeListDelete per ADR-006b, reminder rescheduler hooks, etc.), validators (the "name too long vs. name empty" split that the `DataError.Validation` taxonomy explicitly defers to this layer), and ADR-007a codifying the `:shared:domain`-owns-the-tokens decision that Phase 03 §3 already implemented. Start with `plan/04_DOMAIN_LAYER.md` §1 and consult the Phase 03 §11 ADR drafts (`plan/00_DECISIONS.md`) for context on what's already nailed down. Phase 03 ships to `main` first — branch `phase/03-data-layer` has the full sequence, ready for PR. Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
 
 ---
 
@@ -18,10 +18,10 @@
 
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
-| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (9 ADRs) | n/a |
+| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (12 Accepted + 1 Superseded after Phase 03 hand-off) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟢 Complete | 100% |
-| 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟡 Planned | 0% |
+| 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟢 Complete | 100% |
 | 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
 | 06 | Platform Modules | [`06_PLATFORM_MODULES.md`](plan/06_PLATFORM_MODULES.md) | 🟡 Planned | 0% |
@@ -37,7 +37,7 @@
 | 16 | Observability | [`16_OBSERVABILITY.md`](plan/16_OBSERVABILITY.md) | 🟡 Planned | 0% |
 | 17 | Release Hardening | [`17_RELEASE_HARDENING.md`](plan/17_RELEASE_HARDENING.md) | 🟡 Planned | 0% |
 
-**Overall v1 progress: 14% (2 / 14 active phases complete)**
+**Overall v1 progress: 21% (3 of 14 active phases complete)**
 _Phases 11 & 12 are explicitly out of v1 scope (see ADR-003, ADR-004)._
 
 ---

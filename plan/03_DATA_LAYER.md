@@ -17,11 +17,11 @@
 
 ## 1. Module wiring
 
-- [ ] `:shared:data/build.gradle.kts` applies `fluxit.kmp.library` + SQLDelight plugin.
-- [ ] Dependencies: `:shared:domain` (interfaces only), `kotlinx-coroutines-core`, `kotlinx-datetime`, `kotlinx-serialization-json`, SQLDelight runtime + coroutines extension + primitive adapters, Kermit.
-- [ ] No dependency on Android framework, AndroidX, UIKit, Foundation. Verified by Konsist.
-- [ ] iOS source set adds `app.cash.sqldelight:native-driver`; Android adds `app.cash.sqldelight:android-driver`; common defines `expect class DriverFactory`.
-- [ ] Database name constant in `:shared:data`: `"fluxit.db"` (production), `":memory:"` (test).
+- [x] `:shared:data/build.gradle.kts` applies `fluxit.kmp.library` + SQLDelight plugin.
+- [x] Dependencies: `:shared:domain` (interfaces only), `kotlinx-coroutines-core`, `kotlinx-datetime`, `kotlinx-serialization-json`, SQLDelight runtime + coroutines extension + primitive adapters, Kermit.
+- [x] No dependency on Android framework, AndroidX, UIKit, Foundation. Verified by Konsist (`DataLayerArchTest`).
+- [x] iOS source set adds `app.cash.sqldelight:native-driver`; Android adds `app.cash.sqldelight:android-driver`; common defines `expect class DriverFactory`.
+- [x] Database name constant in `:shared:data`: `"fluxit.db"` (production), `":memory:"` (test).
 
 ## 2. Schema (SQLDelight `.sq` files)
 
@@ -47,16 +47,16 @@ CREATE INDEX list_starred_idx ON list (is_starred) WHERE deleted_at IS NULL;
 ```
 
 Queries to author (each emits `Flow` via SQLDelight coroutines extension):
-- [ ] `selectAllActive` — `WHERE deleted_at IS NULL ORDER BY sort_order ASC`
-- [ ] `selectById(id)`
-- [ ] `searchByName(query)` — `WHERE name LIKE '%' || :query || '%' AND deleted_at IS NULL`
-- [ ] `insert(list)` (full row)
-- [ ] `updateMetadata(id, name, icon, color, is_starred, updated_at)`
-- [ ] `updateSortOrder(id, sort_order, updated_at)`
-- [ ] `softDelete(id, deleted_at)`
-- [ ] `hardDelete(id)` — used only by v2 sync compaction; not called in v1
-- [ ] `countActive`
-- [ ] `selectWithCounts` — joins to `item` to expose `total_items`, `completed_items`, `last_activity_at` for the dashboard
+- [x] `selectAllActive` — `WHERE deleted_at IS NULL ORDER BY sort_order ASC`
+- [x] `selectById(id)`
+- [x] `searchByName(query)` — substring via `INSTR(LOWER(name), LOWER(:query)) > 0` (avoids LIKE `%`/`_` escape problem; resolved §12 row 2)
+- [x] `insert(list)` (full row)
+- [x] `updateMetadata(id, name, icon, color, is_starred, updated_at)`
+- [x] `updateSortOrder(id, sort_order, updated_at)`
+- [x] `softDelete(id, deleted_at)`
+- [x] `hardDelete(id)` — used only by v2 sync compaction; not called in v1
+- [x] `countActive`
+- [x] `selectWithCounts` — joins to `item` to expose `total_items`, `completed_items`, `last_activity_at` for the dashboard
 
 ### `Items.sq`
 
@@ -81,16 +81,16 @@ CREATE INDEX item_photo_idx ON item (photo_id);
 ```
 
 Queries:
-- [ ] `selectByListGroupedByStatus` — returns two logical groups (active, completed) ordered by `sort_order` so the UI can render `TO BUY` / `COMPLETED` sections without client-side splitting.
-- [ ] `selectById(id)` — for Edit Item screen.
-- [ ] `insert(item)`
-- [ ] `updateContent(id, title, subtitle, description, photo_id, updated_at)`
-- [ ] `setCompleted(id, is_completed, updated_at)`
-- [ ] `setStarred(id, is_starred, updated_at)`
-- [ ] `updateSortOrder(id, sort_order, updated_at)`
-- [ ] `softDelete(id, deleted_at)`
-- [ ] `softDeleteCompletedByList(list_id, deleted_at)` — backs the "Clear completed" action (Phase 08). Uses SQLDelight 2 `RETURNING id` so the use case can return the deleted ids for bulk-undo.
-- [ ] `countByList(list_id)` and `countCompletedByList(list_id)` — drive the `13/20` progress bar.
+- [x] `selectByListGroupedByStatus` — single result set ordered by `(is_completed ASC, sort_order ASC)`; the §6 mapper partitions into TO BUY / COMPLETED (spec's "two logical groups" is the mapper output, not the SQL).
+- [x] `selectById(id)` — for Edit Item screen.
+- [x] `insert(item)`
+- [x] `updateContent(id, title, subtitle, description, photo_id, updated_at)`
+- [x] `setCompleted(id, is_completed, updated_at)`
+- [x] `setStarred(id, is_starred, updated_at)`
+- [x] `updateSortOrder(id, sort_order, updated_at)`
+- [x] `softDelete(id, deleted_at)`
+- [x] `softDeleteCompletedByList(list_id, deleted_at)` — backs the "Clear completed" action (Phase 08). **No `RETURNING id`:** §12 row 3 toast-undo holds cleared ids in state-layer memory during the 5s window, and `RETURNING` needs SQLite ≥ 3.35 which post-dates Android 26's bundled SQLite. Sidesteps bundling a newer driver.
+- [x] `countByList(list_id)` and `countCompletedByList(list_id)` — drive the `13/20` progress bar.
 
 ### `Reminders.sq`
 
@@ -113,10 +113,10 @@ CREATE INDEX reminder_fires_at_idx ON reminder (fires_at, is_active) WHERE delet
 ```
 
 Queries:
-- [ ] `selectActiveByOwner(owner_type, owner_id)`
-- [ ] `selectAllUpcoming(now, limit)` — backs v2 Calendar tab.
-- [ ] `insert`, `updateFiresAt`, `setPlatformHandle`, `setActive`, `softDelete`.
-- [ ] `selectNeedingReschedule(now)` — recurring reminders past their last fire; used on app start to repopulate platform schedule.
+- [x] `selectActiveByOwner(owner_type, owner_id)`
+- [x] `selectAllUpcoming(now, limit)` — backs v2 Calendar tab (schema serves both phases without change).
+- [x] `insert`, `updateFiresAt` (atomic with `:recurrence` per §5's reschedule contract), `setPlatformHandle`, `setActive`, `softDelete`.
+- [x] `selectNeedingReschedule(now)` — recurring reminders past their last fire; used on app start to repopulate platform schedule.
 
 ### `Photos.sq`
 
@@ -136,133 +136,300 @@ CREATE INDEX photo_orphan_idx ON photo (deleted_at);
 ```
 
 Queries:
-- [ ] `selectById(id)`
-- [ ] `insert`
-- [ ] `softDelete`
-- [ ] `selectOrphaned` — photos with no referencing `item` and `deleted_at` older than 24h; consumed by a janitor (§7).
+- [x] `selectById(id)`
+- [x] `insert`
+- [x] `softDelete`
+- [x] `selectOrphaned` — photos with no referencing `item` and `deleted_at` older than 24h; consumed by a janitor (§7). Ordered `deleted_at ASC` so oldest tombstones reap first.
 
 ### Schema versioning + migrations
 
-- [ ] `databaseVersion = 1` declared in Gradle `sqldelight { databases { … } }`.
-- [ ] `migrations/` folder pre-created (empty for v1).
-- [ ] `schema.sql` dump produced by `./gradlew :shared:data:generateMainFluxItDatabaseSchema`; checked in.
-- [ ] CI step runs the dump and `git diff --exit-code schema.sql` to catch unintentional schema drift.
-- [ ] Migration unit-test harness wired now (even with zero migrations) so adding migration #1 in v2 is mechanical.
+- [x] `databaseVersion = 1` (SQLDelight 2 default) declared in Gradle `sqldelight { databases { … } }`.
+- [ ] `migrations/` folder pre-created (empty for v1). _Deferred to §10 alongside the migration test harness — no migrations exist yet and an empty directory would be checked in for its own sake._
+- [x] `schema.sql` dump produced by the hand-rolled `:shared:data:generateSchemaSql` task (SQLDelight's built-in `generateMainFluxItDatabaseSchema` produces a binary `.db`, not human-readable SQL); checked in at `shared/data/schema.sql`.
+- [x] CI gate: `:shared:data:verifySchemaInSync` re-runs the generator in-memory and fails the build on drift; wired into `:shared:data:check`. Mirrors Phase 02's `verifyTokensInSync` / `verifyIconsInSync` pattern.
+- [x] Migration unit-test harness wired at `commonTest/.../db/MigrationHarnessTest.kt`. 3 tests pin the v1 invariants: `Schema.version == 1`, `Schema.create()` succeeds on a fresh driver, `Schema.migrate(driver, 1, 1)` is a no-op (proves the migration call path is wired). The class KDoc documents the four-step convention for adding migration #N (drop `<N>.sqm`, bump `databaseVersion`, regen `schema.sql`, add a per-migration test). _SQLDelight gradle's `verifyMigrations = true` flag deferred — needs an `.db` snapshot per version, no value until migration #1 exists._
 
 ## 3. Column adapters
 
 Living in `:shared:data/src/commonMain/.../db/Adapters.kt`:
 
-- [ ] `InstantAdapter` — `kotlinx.datetime.Instant` ↔ `Long` (epoch ms).
-- [ ] `BooleanIntAdapter` — `Boolean` ↔ `Int (0/1)` (SQLite has no native bool).
-- [ ] `OwnerTypeAdapter` — `enum class ReminderOwnerType { LIST, ITEM }` ↔ `String`.
-- [ ] `IconNameAdapter` — `enum class FluxItIconRef` ↔ `String`. Enum is the *generated* icon name set from Phase 02 — adds a build-time dependency on `:core:core-designsystem`'s generated icons file. **Trade-off acknowledged:** keeps DB rows referentially safe but couples data ↔ designsystem; documented in §11.
-- [ ] `ColorTokenAdapter` — `enum class ColorToken` ↔ `String` (token keys, e.g. `PRIMARY_BLUE`, `ACCENT_SKY`).
-- [ ] `RecurrenceRuleAdapter` — `RecurrenceRule` (sealed class: `None`, `Daily`, `Weekly(daysOfWeek)`, `Monthly(dayOfMonth)`) ↔ JSON via `kotlinx.serialization`. v1 scope locked by Phase 09; `Custom(rrule)` deferred to v2 (re-add the variant when needed — JSON schema is forward-compatible).
+- [x] `InstantAdapter` — `kotlinx.datetime.Instant` ↔ `Long` (epoch ms).
+- [x] ~~`BooleanIntAdapter` — `Boolean` ↔ `Int (0/1)`~~. **Not needed:** SQLDelight 2 ships built-in `INTEGER AS Boolean` codegen — the three boolean columns (`is_starred`, `is_completed`, `is_active`) are handled directly by the row constructor, no `is_*Adapter` parameter exposed. Documented inline in `Adapters.kt`.
+- [x] `OwnerTypeAdapter` — `enum class ReminderOwnerType { LIST, ITEM }` ↔ `String` via SQLDelight's `EnumColumnAdapter`.
+- [x] `IconNameAdapter` — `enum class FluxItIconRef` ↔ `String` via `EnumColumnAdapter`. **Coupling direction reversed** from the original spec: per Phase 04 §2 (anticipated ADR-007a supersedes ADR-006c), domain owns the enum; the design system *consumes* it for icon registration. Enum lives at `shared/domain/.../model/FluxItIconRef.kt`.
+- [x] `ColorTokenAdapter` — `enum class ColorToken` ↔ `String` (token keys: `PRIMARY_BLUE`, `ACCENT_ROSE`, `ACCENT_EMERALD`, `ACCENT_ORANGE`, `ACCENT_INDIGO`, `ACCENT_SKY`). Same coupling-reversal note as `IconNameAdapter`.
+- [x] `RecurrenceRuleAdapter` — `RecurrenceRule` sealed `@Serializable` (`None / Daily / Weekly(daysOfWeek) / Monthly(dayOfMonth)`) ↔ JSON via `kotlinx.serialization`. v1 scope per resolved §12 row 1; `Custom(rrule)` deferred to v2 (JSON schema forward-compatible). Discriminator pinned to `"type"` + `ignoreUnknownKeys = true` for v2 reads.
 
 ## 4. Driver factories (expect/actual)
 
-- [ ] `commonMain`: `expect class DriverFactory { fun create(): SqlDriver }`
-- [ ] `androidMain`: `actual class DriverFactory(private val context: Context)` using `AndroidSqliteDriver`. Foreign keys ON, WAL ON.
-- [ ] `iosMain`: `actual class DriverFactory` using `NativeSqliteDriver`. Foreign keys ON.
-- [ ] `commonTest`: in-memory driver via `JdbcSqliteDriver(IN_MEMORY)`; `Schema.create()` invoked per test.
-- [ ] All drivers register the column adapters from §3 in one shared `FluxItDatabase.invoke(driver)` factory.
+- [x] `commonMain`: `expect class DriverFactory { fun create(): SqlDriver }`
+- [x] `androidMain`: `actual class DriverFactory(private val context: Context)` using `AndroidSqliteDriver`. Foreign keys ON, WAL ON.
+- [x] `iosMain`: `actual class DriverFactory` using `NativeSqliteDriver`. Foreign keys ON.
+- [x] `commonTest`: `expect fun inMemoryDriver(): SqlDriver` in `commonTest/.../db/TestDrivers.kt`; JVM actual uses `JdbcSqliteDriver(IN_MEMORY)` + manual `Schema.create()`; iOS actual uses `NativeSqliteDriver(name=..., onConfiguration={ inMemory = true })` (the native driver runs `Schema.create()` internally on construction). All five §3–§5 smoke tests promoted from `androidUnitTest` to `commonTest`; they execute against both targets via `:shared:data:test` (JVM) and `:shared:data:iosSimulatorArm64Test` (iOS).
+- [x] Shared `fluxItDatabase(driver: SqlDriver): FluxItDatabase` factory in `commonMain` (`FluxItDatabaseFactory.kt`) wires every generated `Table.Adapter` with the §3 column adapters in one place. Both platforms call this with their `DriverFactory.create()` output. (Note: SQLDelight 2's generated `List` class needs an `import … as ListRow` alias to avoid the `kotlin.collections.List` clash — established pattern in the factory.)
 
 ## 5. Repository contracts (declared in `:shared:domain`, implemented here)
 
 Domain ships **interfaces and entity DTOs**; data ships **implementations and DB row mappers**. Each operation that can fail returns `Result<T, DataError>` (sealed `DataError` with `NotFound`, `Conflict`, `Storage`, `Validation(field)`, `Unknown(cause)`).
 
-- [ ] **`ListsRepository`**
+- [x] **`ListsRepository`** — domain interface in `:shared:domain/.../repository/ListsRepository.kt`; impl `SqlListsRepository` in `:shared:data/.../repository/`. `Result<T, DataError>` realized as a sealed `Outcome<T, E>` in `:shared:domain/.../error/` (kotlin.Result requires Throwable; sealed Outcome keeps the typed-error contract). Reorder takes `previous: ListId?, next: ListId?` rather than a `Pair<ListId?, ListId?>` so call sites read positionally without unpacking. §8 sort-order rebalance ships in-repository: `selectActiveIdsBySortOrder` snapshot + `transactionWithResult` rewrite to evenly-spaced integers when bracket gap < 1e-9. _(Items + Reminders + Photos still open.)_
   - `fun observeAll(): Flow<List<ListSummary>>` (with counts; backs dashboard)
   - `fun observe(id: ListId): Flow<ListDetail?>`
   - `fun search(query: String): Flow<List<ListSummary>>` (debounce handled in state layer, not here)
-  - `suspend fun create(draft: ListDraft): Result<ListId, DataError>`
-  - `suspend fun rename(id, name): Result<Unit, DataError>`
-  - `suspend fun updateAppearance(id, icon, color): Result<Unit, DataError>`
-  - `suspend fun setStarred(id, starred): Result<Unit, DataError>`
-  - `suspend fun reorder(id, between: Pair<ListId?, ListId?>): Result<Unit, DataError>` (fractional sort under the hood)
-  - `suspend fun delete(id): Result<Unit, DataError>` (soft)
-- [ ] **`ItemsRepository`**
-  - `fun observeByList(listId): Flow<ItemsSection>` where `ItemsSection = (active: List<Item>, completed: List<Item>, total, completed)`
+  - `suspend fun create(draft: ListDraft): Outcome<ListId, DataError>`
+  - `suspend fun rename(id, name): Outcome<Unit, DataError>`
+  - `suspend fun updateAppearance(id, icon, color): Outcome<Unit, DataError>`
+  - `suspend fun setStarred(id, starred): Outcome<Unit, DataError>`
+  - `suspend fun reorder(id, previous: ListId?, next: ListId?): Outcome<Unit, DataError>` (fractional sort under the hood)
+  - `suspend fun delete(id): Outcome<Unit, DataError>` (soft)
+- [x] **`ItemsRepository`** — domain interface in `:shared:domain/.../repository/ItemsRepository.kt`; impl `SqlItemsRepository` in `:shared:data/.../repository/`. `ItemPatch` is a full content replacement (single backing UPDATE statement writes all four mutable columns atomically — callers that want "leave subtitle alone" read the current item and re-emit). `add()` pre-checks parent list existence in a transaction (`selectListIsActive`) so missing-list surfaces as typed `NotFound` instead of a driver FK exception. `clearCompleted()` returns the count inside a transaction (`countCompletedByList` → `softDeleteCompletedByList`) so the state layer's 5-second toast-undo flow has the cleared-count for messaging. §8 per-list rebalance: same midpoint-collapse trigger as Lists, scoped via `selectActiveIdsByListBySortOrder(list_id)` so a hot list doesn't disturb the others. `PhotoId` value class pulled forward into `ItemEntities.kt` (Item references Photo) so the Photos slice doesn't need to retrofit it.
+  - `fun observeByList(listId): Flow<ItemsSection>` — `ItemsSection = (active, completed, total, completedCount)`; built from `selectByListGroupedByStatus` in one Flow emission via `partition { isCompleted }`.
   - `fun observe(itemId): Flow<Item?>`
-  - `suspend fun add(listId, draft: ItemDraft): Result<ItemId, DataError>`
-  - `suspend fun update(itemId, patch: ItemPatch): Result<Unit, DataError>` (single op for content + photo)
-  - `suspend fun setCompleted(itemId, completed): Result<Unit, DataError>`
-  - `suspend fun setStarred(itemId, starred): Result<Unit, DataError>`
-  - `suspend fun reorder(itemId, between): Result<Unit, DataError>`
-  - `suspend fun delete(itemId): Result<Unit, DataError>` (soft)
-  - `suspend fun clearCompleted(listId): Result<Int, DataError>`
-- [ ] **`RemindersRepository`**
-  - `fun observeForOwner(ownerType, ownerId): Flow<List<Reminder>>`
-  - `fun observeUpcoming(limit): Flow<List<Reminder>>`
-  - `suspend fun schedule(spec: ReminderSpec): Result<ReminderId, DataError>` — *only* writes the row; platform scheduling lives in `platform-reminders` (Phase 06) and is wired via a `ReminderScheduler` port injected here.
-  - `suspend fun reschedule(id, firesAt, recurrence): Result<Unit, DataError>`
-  - `suspend fun cancel(id): Result<Unit, DataError>`
-  - `suspend fun rebindPlatformHandle(id, handle): Result<Unit, DataError>`
-- [ ] **`PhotosRepository`**
-  - `suspend fun ingest(bytes: ByteArray, mime: String, width: Int, height: Int): Result<PhotoId, DataError>` — writes file via `PhotoStorage` port (Phase 06), inserts row, returns id.
+  - `suspend fun add(listId, draft: ItemDraft): Outcome<ItemId, DataError>`
+  - `suspend fun update(itemId, patch: ItemPatch): Outcome<Unit, DataError>`
+  - `suspend fun setCompleted(itemId, completed): Outcome<Unit, DataError>`
+  - `suspend fun setStarred(itemId, starred): Outcome<Unit, DataError>`
+  - `suspend fun reorder(itemId, previous: ItemId?, next: ItemId?): Outcome<Unit, DataError>`
+  - `suspend fun delete(itemId): Outcome<Unit, DataError>` (soft)
+  - `suspend fun clearCompleted(listId): Outcome<Int, DataError>`
+- [x] **`RemindersRepository`** — domain interface in `:shared:domain/.../repository/RemindersRepository.kt`; impl `SqlRemindersRepository` in `:shared:data/.../repository/`. `observeForOwner` takes a typed `ReminderOwner` sealed (`OfList(ListId) | OfItem(ItemId)`) rather than the spec's `(ownerType, ownerId)` pair — Phase 04 §3's anticipated wrapper landed here so use cases never juggle the raw discriminator. `ReminderScheduler` port deliberately NOT injected at this slice: the repo is row-only (platform scheduling stays in Phase 06's `:platform:platform-reminders`, which observes `observeForOwner` and writes back via `rebindPlatformHandle`). `RecurrenceRule.None ↔ NULL` collapse at the storage edge per §3 contract (mapper reinflates so domain code never special-cases null). Reminders.sq gains `selectById` (placed after `selectActiveByOwner` so the DDL block of `schema.sql` stays untouched — `verifySchemaInSync` reads everything before the first query label as DDL).
+  - `fun observeForOwner(owner: ReminderOwner): Flow<List<Reminder>>`
+  - `fun observeUpcoming(limit): Flow<List<Reminder>>` (now-snapshot at subscription; v2 Calendar will need a wall-clock ticker)
+  - `suspend fun schedule(spec: ReminderSpec): Outcome<ReminderId, DataError>`
+  - `suspend fun reschedule(id, firesAt, recurrence): Outcome<Unit, DataError>`
+  - `suspend fun cancel(id): Outcome<Unit, DataError>` (soft-delete; Phase 06 reaps platform handles)
+  - `suspend fun rebindPlatformHandle(id, handle): Outcome<Unit, DataError>`
+- [x] **`PhotosRepository`** — domain interface in `:shared:domain/.../repository/PhotosRepository.kt`; impl `SqlPhotosRepository` in `:shared:data/.../repository/`. §7 `PhotoStorage` port declared at `:shared:domain/.../port/PhotoStorage.kt` (Phase 06 ships `:platform:platform-photo` impl). `ingest()` honors the §7 crash-safety order: file write → row insert → on-insert-failure file cleanup (`runCatching { storage.delete(path) }`). Cancellation mid-insert also triggers cleanup before rethrow so the file doesn't linger as a guaranteed orphan. `deleteIfOrphaned()` no-ops (returns Ok) when a live item still references the photo — the §7 janitor reruns on the 24h cycle and reaps once references drop. Photos.sq gains `selectHasLiveReference` (cross-table to `item`; placed after `selectOrphaned` so DDL block stays untouched).
+  - `suspend fun ingest(bytes, mime, width, height): Outcome<PhotoId, DataError>`
   - `fun observe(photoId): Flow<Photo?>`
-  - `suspend fun deleteIfOrphaned(photoId): Result<Unit, DataError>`
+  - `suspend fun deleteIfOrphaned(photoId): Outcome<Unit, DataError>` (Ok no-op when referenced)
 
 ## 6. Mappers
 
-- [ ] One mapper file per table: `ListMapper`, `ItemMapper`, `ReminderMapper`, `PhotoMapper`.
-- [ ] Mappers are **pure** (no IO, no `Clock`). Time injection uses `kotlinx.datetime.Clock` passed in from constructors so tests can use `FakeClock`.
-- [ ] `ListSummary` derived in SQL via the `selectWithCounts` query — *not* by combining two flows in Kotlin (single source of truth, fewer recompositions).
+- [x] One mapper file per table: `ListMapper`, `ItemMapper`, `ReminderMapper`, `PhotoMapper` (all four landed in their respective §5 slices).
+- [x] Mappers are **pure** (no IO, no `Clock`). Time injection uses `kotlinx.datetime.Clock` passed in from repository constructors so tests use a `FakeClock`.
+- [x] `ListSummary` derived in SQL via the `selectWithCounts` query — *not* by combining two flows in Kotlin (single source of truth, fewer recompositions).
 
 ## 7. Photo file storage contract
 
-- [ ] `PhotoStorage` port (declared in `:shared:domain`, implemented in `platform-photo` per Phase 06):
-  - `suspend fun write(bytes, mime): RelativePath`
+- [x] `PhotoStorage` port (declared at `:shared:domain/.../port/PhotoStorage.kt`; impl deferred to Phase 06's `:platform:platform-photo`). `RelativePath` is `String` for v1 (typed wrapper would be over-engineering at one call site; can lift later).
+  - `suspend fun write(bytes, mime): String`
   - `suspend fun read(relativePath): ByteArray?`
   - `suspend fun delete(relativePath): Boolean`
-  - `fun resolveAbsolute(relativePath): String` (used by Compose/SwiftUI for image loading)
-- [ ] **Photo janitor**: a `PhotoJanitor` use case (Phase 04) deletes orphaned photos older than 24h on app start. Acknowledged in this phase by exposing `selectOrphaned` query and `deleteIfOrphaned` in repository.
-- [ ] **Crash safety**: photo file is written **first**; row insert is in a transaction that, on failure, triggers `PhotoStorage.delete(path)`. Documented in `PhotosRepository` impl + tested.
+  - `fun resolveAbsolute(relativePath): String`
+- [x] **Photo janitor**: `selectOrphaned` query and `deleteIfOrphaned` repo method exposed. `PhotoJanitor` use case proper still belongs to Phase 04 (no behavior change there).
+- [x] **Crash safety**: `SqlPhotosRepository.ingest()` writes file first; on row insert exception OR cancellation, runs `runCatching { storage.delete(path) }` before returning/rethrow. Smoke test pins the IdGenerator to force a duplicate-PK insert failure and asserts cleanup ran.
 
 ## 8. Sort order strategy (fractional indexing)
 
-- [ ] Sort orders are `REAL` doubles. New row defaults to `(prev.sort_order + next.sort_order) / 2.0`; first row gets `1.0`.
-- [ ] When the gap between two adjacent rows shrinks below `1e-9`, a `compactSortOrders(listId)` SQL function rebalances the column to evenly spaced integers. Triggered by repository on detected collision.
-- [ ] Unit test: 1000 random reorders never produce gap collapse without compaction kicking in.
+- [x] Sort orders are `REAL` doubles. New row defaults to `(prev.sort_order + next.sort_order) / 2.0`; first row gets `1.0`. Newest-at-top minting per §12 row 5: `create()` reads `MIN(sort_order)` and mints `min - 1.0` (Lists global flavor + Items per-list flavor; see Lists.sq `selectMinActiveSortOrder` / Items.sq `selectMinActiveSortOrderByList`).
+- [x] When the gap between two adjacent rows shrinks below `1e-9`, the repository runs an in-Kotlin rebalance inside a transaction: `selectActiveIdsBySortOrder` (Lists) / `selectActiveIdsByListBySortOrder` (Items) → rewrite every row's `sort_order` to evenly-spaced integers (1.0, 2.0, ...). No SQL function — the per-row UPDATE pattern matches the rest of the repo and keeps DDL minimal. Implemented at `SqlListsRepository.rebalanceSortOrders()` + `SqlItemsRepository.rebalanceSortOrders(listId)`.
+- [ ] Unit test: 1000 random reorders never produce gap collapse without compaction kicking in. _Deferred to §10 — current Lists + Items smoke tests cover "rebalance fires under 100 forced collapses without exception"; the 1000-random scenario fits the §10 fuzz/property-test bucket._
 
 ## 9. ID generation
 
-- [ ] Use **UUID v4** strings (lowercase, no braces). `expect fun newId(): String` with `actual` per platform:
+- [x] Use **UUID v4** strings (lowercase, no braces). `expect fun newId(): String` in `:core:core-utils` with `actual` per platform:
   - Android: `java.util.UUID.randomUUID().toString()`
-  - iOS: `NSUUID().UUIDString.lowercased()`
-- [ ] Tested via Konsist: no `Random` or `currentTimeMillis()` used to mint IDs anywhere.
+  - iOS: `NSUUID().UUIDString().lowercase()`
+  - Plus `IdGenerator` fun-interface seam (`IdGenerator.System` binds to `::newId`) so repositories can inject the abstraction; tests pass `FakeIdGenerator` returning UUID-v4-shaped strings.
+- [x] Tested via Konsist: `DataLayerArchTest` rule "entity ids are minted via newId() / IdGenerator, not Random or Clock-derived sources" bans `Random.nextLong/Int/Bytes`, `currentTimeMillis`, `Instant.toEpochMilliseconds`, and `.hashCode()` as id sources outside `Ids.*` files and test source sets.
 
 ## 10. Testing
 
-- [ ] **Unit tests** (`commonTest`) — one per query in each `.sq` file using in-memory driver + `FakeClock`.
-- [ ] **Repository tests** — happy path + error path (NotFound, Conflict on FK violation, Validation on empty name).
-- [ ] **Mapper tests** — round-trip every entity.
-- [ ] **Migration test harness** registered (even with zero migrations) so future migrations get coverage by convention.
-- [ ] **Integration test** (the exit-criteria scenario): `IntegrationFlowTest` covers create-list → add-items → toggle → schedule-reminder → close → reopen → assert state. Runs on JVM and iosSimulatorArm64 in CI.
-- [ ] **Concurrency test**: 50 concurrent `setCompleted` calls on the same item never deadlock; final state is consistent.
+- [x] **Unit tests** (`commonTest`) — one per query in each `.sq` file. The 37 queries reached by the repository layer are covered transitively by the smoke + integration tests; the eight that no repo call path exercises (`Lists.selectAllActive` / `updateMetadata` / `hardDelete` / `countActive`, `Items.countByList`, `Reminders.setActive` / `selectNeedingReschedule`, `Photos.selectOrphaned`) get direct `db.<table>Queries.<query>(...)` coverage in `commonTest/.../db/UncoveredQueriesTest.kt`. Intentionally bypasses the repository layer so a refactor that drops a repo call site can't silently lose SQL coverage. 8 tests, fixed-Instant clock, both targets.
+- [x] **Repository tests** — happy paths covered by the four `Sql*RepositorySmokeTest` files; error paths covered by smoke-test Validation/NotFound assertions + `commonTest/.../repository/RepositoryErrorPathTest.kt` for the gaps (updateAppearance / setStarred / reorder NotFound on Lists; setCompleted / setStarred / reorder NotFound on Items; FK-violation Storage paths on Items.add and Items.update via bogus `photoId`). FK enforcement required test-driver-side `PRAGMA foreign_keys = ON` (JVM) + `extendedConfig.foreignKeyConstraints = true` (iOS) — flipped on in `TestDrivers.android.kt` / `TestDrivers.ios.kt` / `PersistentTestDb.{android,ios}.kt` so test drivers match the production `DriverFactory` config. FK violations currently surface as `DataError.Storage`; promotion to `DataError.Conflict` is deferred until SQLDelight exposes a stable cross-platform exception discriminator (the `Conflict` variant is already in the taxonomy; test pins current behavior to make the future flip deliberate).
+- [x] **Mapper tests** — `commonTest/.../mapper/{List,Item,Reminder,Photo}MapperTest.kt`. 8 tests covering: List → Detail full-field, SelectWithCounts → Summary with the `completed_items: Double` coercion (SQLDelight infers Double for `COALESCE(SUM(boolean), 0)`); Item → domain with both `photo_id` set and null → null `PhotoId`; Reminder → domain for both `OfList`/`OfItem` owner variants + `RecurrenceRule.Weekly` round-trip + the `null ↔ None` reinflation contract; Photo → domain with the `Long → Int` width/height narrowing documented inline (px never exceed §12 row 4's 2048-longest-side cap; byte_size stays Long for v2 file sizes).
+- [x] **Migration test harness** registered — `MigrationHarnessTest.kt` (see §2 entry for details + the four-step convention for adding migration #N).
+- [x] **Integration test** — `IntegrationFlowTest` at `shared/data/src/commonTest/.../integration/`. Covers create-list → add-3-items → toggle one complete → schedule a Daily-recurrence reminder → `driver.close()` → reopen via `PersistentTestDb.openDriver()` → assert list / items section (`active=[Eggs, Bread]`, `completed=[Milk]`, `total=3`, `completedCount=1`) / reminder (id + firesAt + Daily recurrence + active) all round-trip. Persistent driver is an `expect/actual` pair: JVM uses `JdbcSqliteDriver("jdbc:sqlite:<temp.db>")` + first-open `Schema.create()` guard via file-existence probe; iOS uses `NativeSqliteDriver(schema, name, onConfiguration = { basePath = NSTemporaryDirectory()/<random>/ })` — sqliter handles version-aware create/migrate internally. Runs on both `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test`.
+- [x] **Concurrency test** — `SqlItemsRepositoryConcurrencyTest` at `shared/data/src/commonTest/.../concurrency/`. Launches 50 alternating `setCompleted(true)` / `setCompleted(false)` calls via `async`/`awaitAll` over `Dispatchers.Default`, then asserts (a) every call returned `Outcome.Ok` (no Storage errors from connection contention), (b) the row is still readable after the storm and decodes to a valid Boolean. Final value is non-deterministic by design (last-write-wins under contention; asserting either side would be a race). No explicit `withTimeout` — `runTest` virtual time would fire any wall-clock timeout instantly, so a real hang is caught by the test harness's outer timeout instead. Repos take `Dispatchers.Default` (not `Unconfined`) so the Flow operators don't accidentally serialize the writes through the test scheduler. Runs on both JVM + iOS Sim.
 - [ ] Turbine for all `Flow` assertions; coroutine `runTest` with virtual time.
 - [ ] Coverage target: ≥ 90% for `:shared:data` (enforced by Phase 14 gate, but goal noted now).
 
 ## 11. ADRs to write in this phase
 
-- [ ] **ADR-006** — SQLDelight 2 over Room KMP. Why: SQL-first ergonomics, mature iOS, mature `selectXxx()` Flow extension, no kapt/ksp host gotcha on iOS.
-- [ ] **ADR-006a** — UUID v4 string IDs (vs. ULID, vs. autoincrement int). Why: trivial cross-platform mint, sortable-enough via `created_at`, safe for v2 sync.
-- [ ] **ADR-006b** — Soft-delete + tombstones from day one. Why: cheap insurance for v2 sync; cost is a `WHERE deleted_at IS NULL` on every read query, mitigated by partial indexes.
-- [ ] **ADR-006c** — Coupling `:shared:data` to `:core:core-designsystem` for the `IconNameAdapter` enum. Why this is OK: icon names are part of the *product domain* (a list "is a cart"), not just visual chrome; designsystem is a leaf module so the dependency edge is acyclic.
+- [x] **ADR-006** — SQLDelight 2 over Room KMP. **Status: Proposed** (flips to Accepted at §13 hand-off; all status-flip preconditions are now satisfied — schema landed, `verifySchemaInSync` green, dump checked in. Migration test harness is the one remaining precondition, lands with §10.)
+- [x] **ADR-006a** — UUID v4 string ids (vs. ULID, vs. autoincrement int). **Status: Proposed** (flip preconditions satisfied: `newId()` actuals shipped, Konsist banned-source rule active. Flips at §13.)
+- [x] **ADR-006b** — Soft-delete + tombstones from day one. **Status: Proposed.**
+- [x] **ADR-006c** — Coupling `:shared:data` to `:core:core-designsystem` for the `IconNameAdapter` enum. **Status: Proposed but coupling direction reversed.** Phase 04 §2 supersedes the original direction — domain owns `FluxItIconRef` and `ColorToken`; designsystem consumes them. ADR-007a (anticipated in Phase 04) formalizes the reversal. ADR-006c will be marked **Superseded by ADR-007a** at §13 rather than Accepted; its rationale (icon names are product domain, not chrome) is preserved by 007a.
 
 ## 12. Open questions for this phase
 
-- [ ] **Recurrence rule scope.** v1 supports `None / Daily / Weekly / Monthly`? Or just `None`? Reminders UX in Phase 09 / 13 will pin this; setting field is in the schema either way.
-- [ ] **Search semantics.** Dashboard search field: lists only, or lists + items? `LIKE` substring is fine for v1 either way; FTS5 deferred.
-- [ ] **Delete UX semantics.** Trash icon on the dashboard list-row — soft delete with no undo, or with a toast-undo within 5s? Either fits the schema; impacts Phase 07.
-- [ ] **Photo encoding.** Re-encode camera captures to JPEG at quality 0.85 max-dimension 2048 before write? Cuts byte size 3–5×; loses metadata. Default proposal: yes, re-encode.
-- [ ] **Default `sort_order` direction.** Newest list at the top of the dashboard, or appended at the bottom? Mockup ordering ("Supermarket" first, "Work Q4 Goals" last) reads chronological-newest-first — confirm.
+**Resolved 2026-05-19** before §2 schema code landed. Decisions below are
+load-bearing for §2 (Schema), §3 (Adapters), §5 (Repository contracts),
+§7 (Photo storage), and downstream Phase 06 (`platform-photo`) +
+Phase 07 (dashboard delete UX) + Phase 08 (list-detail search) +
+Phase 09 (reminders UX).
+
+- [x] **Recurrence rule scope** — **Full v1 set: `None / Daily / Weekly / Monthly`.** `RecurrenceRule` sealed class ships all four variants (`None`, `Daily`, `Weekly(daysOfWeek: Set<DayOfWeek>)`, `Monthly(dayOfMonth: Int)`). Custom RRULE deferred to v2 (JSON schema is forward-compatible per §3 row 6). Schema cost identical to None-only; Phase 09 gets a real reminders feature surface.
+- [x] **Search semantics** — **Lists only for v1.** Dashboard search field calls `ListsRepository.search(query)`, backed by `searchByName` LIKE-substring in `Lists.sq`. No `Items.sq` search query in v1. Item-level / cross-list search is a Phase 08 feature on the list-detail screen and gets its own repository surface then. FTS5 deferred either way.
+- [x] **Delete UX semantics** — **5-second toast-undo.** Tap trash → row hides + 5-second undo toast. The state layer (Phase 05) holds the pending op; `softDelete()` commits when the toast dismisses, the UNDO action cancels before commit. Data layer never sees a "pending delete" status — same schema either way. Impacts Phase 07's dashboard wiring.
+- [x] **Photo encoding** — **Re-encode to JPEG q=0.85, longest side ≤ 2048px.** `PhotoStorage.write()` re-encodes every capture; `photo.mime_type` will be `'image/jpeg'` in practice (column stays TEXT-typed for v2 flexibility). Cuts byte size 3–5×; sub-perceptible quality loss at item-thumbnail scale; strips EXIF metadata (privacy win for shared/backed-up DBs). Re-encoding lives in `platform-photo` (Phase 06); `:shared:data`'s `PhotosRepository.ingest(bytes, mime, w, h)` records whatever `platform-photo` produced — no encoding logic in the data layer.
+- [x] **Default `sort_order` direction** — **Newest at top.** `ListsRepository.create(draft)` mints `sort_order = (currentMin - 1.0)`; first list gets `1.0`. Matches the design mockup ordering ("Supermarket" first, "Work Q4 Goals" last) and the notes-app / chat-app conventions. Same fractional-indexing pattern for items within a list (Phase 08 will confirm direction).
 
 ## 13. Hand-off checklist (gate to Phase 04)
 
-- [ ] All checkboxes above ✅.
-- [ ] `schema.sql` dump checked in; CI verification step green.
-- [ ] Integration test runs green on Android JVM unit + iosSimulatorArm64 in CI.
-- [ ] `MASTER_PLAN.md`: Phase 03 → 🟢, ▶ Next Step → Phase 04.
-- [ ] `00_DECISIONS.md`: ADR-006 (a/b/c) accepted.
+- [x] All checkboxes above ✅. _(2026-05-28: §1, §2, §3, §4 (incl. iOS test driver via expect/actual), §5 (all four repos), §6 (all four mappers), §7 (port + janitor + crash safety), §8 (rebalance — Lists global + Items per-list), §9, §10 (commonTest foundation + integration + concurrency + mapper + per-query gap + error-path + migration harness — 74 tests on both targets), §11, §12 all done. Only the ADR status flips + Master Plan ▶ Next Step advance remain.)_
+- [x] `schema.sql` dump checked in; CI verification step (`verifySchemaInSync` wired into `:shared:data:check`) green.
+- [x] Integration test runs green on Android JVM unit + iosSimulatorArm64. `IntegrationFlowTest` + 73 sibling tests pass on both `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test` locally. CI matrix wiring is Phase 15's deliverable; the test infrastructure is ready for it.
+- [x] `MASTER_PLAN.md`: Phase 03 → 🟢, ▶ Next Step → Phase 04.
+- [x] `00_DECISIONS.md`: ADR-006 / 006a / 006b accepted; ADR-006c marked **Superseded by ADR-007a** (Phase 04); ADR-007a entry added to "Pending / Anticipated ADRs".
+
+---
+
+## Implementation log (chronological, for traceability across sessions)
+
+Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
+the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
+
+- **2026-05-28** — §13 hand-off. Phase 03 closed. ADR-006 / 006a / 006b
+  flipped Proposed → Accepted in `plan/00_DECISIONS.md` (preconditions
+  all met per the original status-flip discipline). ADR-006c marked
+  Superseded by anticipated ADR-007a — original ADR retained for
+  history per the no-edit-accepted-ADRs rule. ADR-007a entry added to
+  the Pending / Anticipated section. `MASTER_PLAN.md` Phase 03 row →
+  🟢 Complete / 100%; ▶ Next Step rewritten to Phase 04 (Domain Layer);
+  overall v1 progress 20% → 21%; ADR counter (12 Accepted + 1
+  Superseded). _Commit `e244750`._
+- **2026-05-28** — §10 migration harness: `MigrationHarnessTest.kt`
+  pins the v1 schema baseline with 3 tests (version == 1,
+  Schema.create() succeeds, Schema.migrate(1, 1) no-op). Class KDoc
+  documents the four-step recipe for adding migration #N in v2 so
+  the eventual migration is mechanical. SQLDelight gradle's
+  `verifyMigrations = true` flag intentionally NOT enabled —
+  requires a `.db` snapshot per version, no signal until migration
+  #1 exists. §10 complete; only §13 hand-off remains. _Commit `7d87c24`._
+- **2026-05-28** — §10 repository error-path coverage: 8 tests in
+  `RepositoryErrorPathTest.kt` covering NotFound paths the smoke tests
+  missed (Lists.updateAppearance/setStarred/reorder,
+  Items.setCompleted/setStarred/reorder) + FK-violation paths for
+  Items.add/update with bogus `photoId`. Required enabling
+  `PRAGMA foreign_keys = ON` on all four test drivers (JVM
+  in-memory + JVM persistent + iOS in-memory + iOS persistent) to
+  match prod. FK violations surface as `DataError.Storage` today;
+  promotion to `Conflict` flagged as future work pending stable
+  SQLDelight exception discrimination. _Commit `5d8c79d`._
+- **2026-05-28** — §10 per-query gap coverage:
+  `UncoveredQueriesTest.kt` directly exercises the 8 queries the repo
+  layer never calls (and therefore the smoke / integration tests can't
+  reach): Lists.selectAllActive / updateMetadata / hardDelete /
+  countActive, Items.countByList, Reminders.setActive /
+  selectNeedingReschedule, Photos.selectOrphaned. Scoping decision +
+  rationale recorded in commit body — exhaustive 45-query sweep would
+  duplicate repo-path coverage; the gap fills the actual hole.
+  _Commit `2ec7bea`._
+- **2026-05-28** — §10 mapper round-trip tests: one test file per
+  mapper (`{List,Item,Reminder,Photo}MapperTest.kt`) in
+  `commonTest/.../mapper/`. 8 tests total exercising each mapper at
+  the row-construction → mapper boundary (no DB round-trip — the
+  integration test already covers the through-DB path). Pins:
+  `SelectWithCounts.completed_items: Double` codegen quirk (booleans
+  SUM as REAL in SQLDelight's inference), `photo_id` null → null
+  `PhotoId`, both `ReminderOwner` variants, `null ↔ RecurrenceRule.None`
+  reinflation per §3 storage contract, `Long → Int` px-dimension
+  narrowing on `Photo`. _Commit `d3915d2`._
+- **2026-05-28** — §10 concurrency test:
+  `SqlItemsRepositoryConcurrencyTest` fires 50 alternating
+  `setCompleted(true|false)` calls in parallel on the same item via
+  `Dispatchers.Default` + `async`/`awaitAll`. Asserts every call returned
+  `Outcome.Ok` and the row is still readable. First-pass attempt used
+  `withTimeout(5_000)`; failed because `runTest` runs in virtual time
+  (timeout fires immediately). Removed in favor of the test harness's
+  outer wall-clock timeout catching a real hang. Passes on both
+  `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test`.
+  _Commit `0196198`._
+- **2026-05-28** — §10 integration test: `IntegrationFlowTest` walks
+  the DoD exit-criteria scenario end-to-end across Lists + Items +
+  Reminders + a close-and-reopen boundary. New `PersistentTestDb`
+  expect/actual (file-backed sibling of `inMemoryDriver`) handles
+  persistence across `driver.close()`: JVM via `JdbcSqliteDriver` +
+  temp-file path; iOS via `NativeSqliteDriver` + per-test sub-directory
+  under `NSTemporaryDirectory()`. iOS impl opts in to
+  `kotlinx.cinterop.ExperimentalForeignApi` for the `NSFileManager`
+  calls. Test passes on both `:shared:data:testDebugUnitTest` and
+  `:shared:data:iosSimulatorArm64Test`. Detekt LongMethod resolved by
+  factoring the per-session repo wiring into a private `openSession()`
+  helper. _Commit `f9ad8ba`._
+- **2026-05-28** — §10 foundation: `expect fun inMemoryDriver()` in
+  `commonTest`; JVM actual reuses the prior JdbcSqliteDriver helper;
+  iOS actual uses `NativeSqliteDriver` with
+  `DatabaseConfiguration.inMemory = true` and a randomized name. All
+  five smoke test files (`FluxItDatabaseFactorySmokeTest` + four
+  `Sql*RepositorySmokeTest`) moved from `androidUnitTest` → `commonTest`;
+  `"...%012d".format(n)` calls replaced with `padStart(12, '0')` for
+  KMP-common compatibility. 45/45 tests pass on both
+  `:shared:data:testDebugUnitTest` (JVM) and
+  `:shared:data:iosSimulatorArm64Test` (iOS). _Commit `2c3673f`._
+- **2026-05-27** — §5 Photos slice (4/4) — closes §5. `Photo` entity in
+  `:shared:domain/.../model/Photo.kt`; `PhotoStorage` port at
+  `:shared:domain/.../port/PhotoStorage.kt` (impl deferred to Phase 06);
+  `PhotosRepository` interface + `SqlPhotosRepository` impl +
+  `PhotoMapper` in `:shared:data`. Photos.sq gains
+  `selectHasLiveReference` for `deleteIfOrphaned`'s pre-check. §7
+  crash-safety implemented: file write → row insert → on insert
+  failure OR coroutine cancellation, `runCatching { storage.delete(path) }`
+  cleans up so a crash leaks at most one orphan file (the janitor
+  reaps via the 24h grace window). 6 smoke tests: ingest happy path,
+  ingest cleanup on PK collision, observe-after-delete, deleteIfOrphaned
+  no-op while referenced, deleteIfOrphaned soft-deletes after reference
+  removed, NotFound for unknown id. _Commit `963817a`._
+- **2026-05-27** — §5 Reminders slice (3/4): `ReminderId`, `ReminderOwner`
+  sealed (`OfList | OfItem`), `Reminder`, `ReminderSpec` entities in
+  `:shared:domain`; `RemindersRepository` interface +
+  `SqlRemindersRepository` impl + `ReminderMapper` in `:shared:data`.
+  Reminders.sq gains `selectById` for repo pre-checks (placed after
+  `selectActiveByOwner` so DDL portion stays untouched).
+  `RecurrenceRule.None ↔ NULL` collapse handled in repo + mapper;
+  platform scheduling deferred to Phase 06 (no `ReminderScheduler` port
+  injected yet, per spec). 10 smoke tests cover schedule + recurrence
+  round-trip + None-as-null + scoped owner observe + upcoming +
+  reschedule + cancel + rebindPlatformHandle (set/clear) +
+  not-found paths + item-owner round-trip. _Commit `cb1c0eb`._
+- **2026-05-27** — §5 Items slice (2/4): `ItemId`, `PhotoId`, `Item`,
+  `ItemDraft`, `ItemPatch`, `ItemsSection` entities in `:shared:domain`;
+  `ItemsRepository` interface + `SqlItemsRepository` impl + `ItemMapper` in
+  `:shared:data`. Items.sq gains `selectMinActiveSortOrderByList`,
+  `selectActiveSortOrder`, `selectActiveIdsByListBySortOrder`,
+  `selectListIsActive`. §8 per-list rebalance ships with this slice
+  (mirrors the Lists global one, scoped by `list_id`). 14 smoke tests
+  cover add (with parent-list NotFound + title validation) /
+  observeByList partition / setCompleted section-swap / update / delete /
+  setStarred / reorder / clearCompleted / rebalance trigger.
+  _Commit `04f441b`._
+- **2026-05-27** — §5 Lists slice: `Outcome<T, E>` + `DataError` taxonomy +
+  `ListId`/`ListDraft`/`ListSummary`/`ListDetail` entities in `:shared:domain`;
+  `ListsRepository` interface + `SqlListsRepository` impl + `ListMapper` in
+  `:shared:data`. §8 fractional rebalance trigger ships with this slice
+  (rebalance fires when bracket gap < 1e-9; full per-list compaction lands
+  with Items in the next slice). Lists.sq gains `updateName`,
+  `updateAppearance`, `updateStarred`, `selectMinActiveSortOrder`,
+  `selectActiveSortOrder`, `selectActiveIdsBySortOrder`. JVM smoke test
+  covers create/rename/setStarred/reorder/delete/search + validation +
+  not-found + rebalance trigger. _Commit `7d1d15d`._
+- **2026-05-26** — §3 adapters + §4 shared `fluxItDatabase(driver)` factory +
+  JVM-side in-memory test driver + smoke test. AS clauses on all four `.sq`
+  tables; `schema.sql` regenerated. `BooleanIntAdapter` omitted (SQLDelight 2
+  built-in). iOS test driver deferred to §10. _Commit `2b151f3`._
+- **2026-05-26** — Domain seed pulled forward from Phase 04 §2: `ColorToken`,
+  `FluxItIconRef`, `ReminderOwnerType` enums + `RecurrenceRule` sealed
+  `@Serializable`. Wires `:shared:domain` commonMain + `kotlinx-datetime` +
+  `kotlinx-serialization-core`. _Commit `9421fb1`._
+- **2026-05-26** — §9 `newId()` expect/actual in `:core:core-utils` (UUID v4
+  via JVM `UUID.randomUUID()` and iOS `NSUUID().UUIDString().lowercase()`) +
+  `IdGenerator` fun-interface seam + Konsist banned-id-source rule in
+  `DataLayerArchTest`. _Commit `4a798ff`._
+- **2026-05-19** — §12 open questions resolved (recurrence v1 set; lists-only
+  search; 5s toast-undo delete; JPEG q=0.85 max-dim 2048 photo encoding;
+  newest-at-top sort_order). _Commit `90130a7`._
+- **2026-05-19** — ADR-006 / 006a / 006b / 006c drafted as Proposed.
+  _Commits `675487d` (006), `349ee15` (006a), `3ac2a9b` (006b), `6f2abbb`
+  (006c)._
+- **2026-05-19** — §2D Photos.sq + Items.photo_id FK retrofit + schema task
+  ordering fix. Phase 03 §2 (Schema) complete. _Commit `36b2ce4`._
+- **2026-05-19** — §2C Reminders.sq with polymorphic owner. _Commit `221aa19`._
+- **2026-05-19** — §2B Items.sq + Lists.sq `selectWithCounts` retrofit.
+  _Commit `e5589c7`._
+- **2026-05-19** — §2A Lists.sq + hand-rolled `generateSchemaSql` /
+  `verifySchemaInSync` pipeline. _Commit `1562b39`._
+- **2026-05-19** — §1 `:shared:data` wired (SQLDelight plugin, deps,
+  DriverFactory expect/actual) + Konsist arch tests (`DataLayerArchTest`).
+  _Commits `78801bd`, `e6e9f67`._

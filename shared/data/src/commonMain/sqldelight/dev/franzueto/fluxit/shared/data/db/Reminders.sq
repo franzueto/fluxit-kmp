@@ -1,0 +1,112 @@
+-- Reminders.sq — Phase 03 §2 Reminders table.
+--
+-- Owner FK is polymorphic (owner_type discriminates between LIST and ITEM
+-- targets). SQLite can't express a discriminated FK; reminder.owner_id has
+-- no engine-level FK by design. Integrity is application-enforced — the
+-- use-case layer only calls RemindersRepository.schedule(spec) holding a
+-- typed ListId or ItemId from a freshly-observed live row. The cascade
+-- side is also application-level (ADR-006b §Decision: ListsRepository
+-- .softDelete cascades to LIST-owned reminders; ItemsRepository.softDelete
+-- cascades to ITEM-owned reminders).
+--
+-- owner_type is stored as 'LIST' | 'ITEM' (uppercase, matching the enum
+-- name); §3's OwnerTypeAdapter wraps it as a typed enum.
+--
+-- recurrence is nullable TEXT containing the RecurrenceRule sealed-class
+-- JSON (resolved §12 row 1: full v1 set — None / Daily / Weekly / Monthly).
+-- §3's RecurrenceRuleAdapter handles the JSON round-trip.
+--
+-- platform_handle is nullable until the platform layer (Phase 06) actually
+-- schedules the notification with WorkManager / UNUserNotificationCenter
+-- and writes back the request id via setPlatformHandle.
+
+import dev.franzueto.fluxit.shared.domain.model.RecurrenceRule;
+import dev.franzueto.fluxit.shared.domain.model.ReminderOwnerType;
+import kotlin.Boolean;
+import kotlinx.datetime.Instant;
+
+CREATE TABLE reminder (
+    id              TEXT NOT NULL PRIMARY KEY,
+    owner_type      TEXT AS ReminderOwnerType NOT NULL,
+    owner_id        TEXT NOT NULL,
+    fires_at        INTEGER AS Instant NOT NULL,
+    recurrence      TEXT AS RecurrenceRule,
+    platform_handle TEXT,
+    is_active       INTEGER AS Boolean NOT NULL DEFAULT 1,
+    created_at      INTEGER AS Instant NOT NULL,
+    updated_at      INTEGER AS Instant NOT NULL,
+    deleted_at      INTEGER AS Instant
+);
+
+CREATE INDEX reminder_owner_idx ON reminder (owner_type, owner_id) WHERE deleted_at IS NULL;
+CREATE INDEX reminder_fires_at_idx ON reminder (fires_at, is_active) WHERE deleted_at IS NULL;
+
+selectActiveByOwner:
+SELECT *
+FROM reminder
+WHERE owner_type = :owner_type
+    AND owner_id = :owner_id
+    AND is_active = 1
+    AND deleted_at IS NULL
+ORDER BY fires_at ASC;
+
+-- Phase 03 §5 repository pre-check (cancel / reschedule / rebindHandle).
+selectById:
+SELECT *
+FROM reminder
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Backs the v2 Calendar tab (deferred per ADR-004). v1 doesn't call this
+-- but the query exists so the schema serves both phases without change.
+selectAllUpcoming:
+SELECT *
+FROM reminder
+WHERE fires_at > :now
+    AND is_active = 1
+    AND deleted_at IS NULL
+ORDER BY fires_at ASC
+LIMIT :limit;
+
+insert:
+INSERT INTO reminder (id, owner_type, owner_id, fires_at, recurrence, platform_handle, is_active, created_at, updated_at, deleted_at)
+VALUES (:id, :owner_type, :owner_id, :fires_at, :recurrence, :platform_handle, :is_active, :created_at, :updated_at, NULL);
+
+updateFiresAt:
+UPDATE reminder
+SET fires_at = :fires_at,
+    recurrence = :recurrence,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Called by the platform layer (Phase 06) after it successfully schedules
+-- with WorkManager / UNUserNotificationCenter and obtains a handle.
+setPlatformHandle:
+UPDATE reminder
+SET platform_handle = :platform_handle,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+setActive:
+UPDATE reminder
+SET is_active = :is_active,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+softDelete:
+UPDATE reminder
+SET deleted_at = :deleted_at,
+    updated_at = :deleted_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Recurring reminders past their next fire-time; used on app start to
+-- repopulate the platform schedule (the OS may have dropped them across
+-- a reboot or app reinstall). The "compute next fire" logic lives in the
+-- platform-reminders layer; this query just surfaces the candidate rows.
+selectNeedingReschedule:
+SELECT *
+FROM reminder
+WHERE recurrence IS NOT NULL
+    AND fires_at <= :now
+    AND is_active = 1
+    AND deleted_at IS NULL
+ORDER BY fires_at ASC;

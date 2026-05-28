@@ -1,0 +1,73 @@
+-- Photos.sq — Phase 03 §2 Photos table.
+--
+-- Photos have an asymmetric lifecycle vs. lists / items / reminders
+-- (ADR-006b): soft-delete → 24h grace → hard-delete by the photo janitor
+-- (§7, scheduled by Phase 04's PhotoJanitor use case). Soft-delete does
+-- NOT cascade from item.softDelete — a photo may be referenced by items
+-- in other live lists; the janitor is the only place that checks live
+-- references and reaps.
+--
+-- No updated_at column: photos are immutable once ingested. The
+-- platform-photo layer (Phase 06) re-encodes captures to JPEG q=0.85
+-- max-dim 2048 (resolved §12 row 4) before write; the data layer just
+-- records the resulting file's metadata.
+--
+-- relative_path is relative to the app sandbox photo root, never an
+-- absolute path (resolved by PhotoStorage.resolveAbsolute() at the
+-- Compose / SwiftUI image-loading site).
+
+import kotlinx.datetime.Instant;
+
+CREATE TABLE photo (
+    id              TEXT NOT NULL PRIMARY KEY,
+    relative_path   TEXT NOT NULL,
+    mime_type       TEXT NOT NULL,
+    width_px        INTEGER NOT NULL,
+    height_px       INTEGER NOT NULL,
+    byte_size       INTEGER NOT NULL,
+    created_at      INTEGER AS Instant NOT NULL,
+    deleted_at      INTEGER AS Instant
+);
+
+CREATE INDEX photo_orphan_idx ON photo (deleted_at);
+
+selectById:
+SELECT *
+FROM photo
+WHERE id = :id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO photo (id, relative_path, mime_type, width_px, height_px, byte_size, created_at, deleted_at)
+VALUES (:id, :relative_path, :mime_type, :width_px, :height_px, :byte_size, :created_at, NULL);
+
+softDelete:
+UPDATE photo
+SET deleted_at = :deleted_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Backs the photo janitor (§7). Caller passes a cutoff = (now - 24h).
+-- A row qualifies as orphaned when:
+--   1. It has been soft-deleted (deleted_at IS NOT NULL).
+--   2. The soft-delete is older than the grace window (deleted_at < :cutoff).
+--   3. No live item still references it (NOT EXISTS … item.deleted_at IS NULL).
+-- The janitor then deletes the file via PhotoStorage.delete(relative_path)
+-- and issues a hardDelete (no .sq query yet — Phase 04 inlines a DELETE
+-- in the janitor's transaction; we can extract if the pattern repeats).
+-- Phase 03 §5 PhotosRepository.deleteIfOrphaned pre-check: returns 1 if
+-- any live item still references this photo, no row otherwise.
+selectHasLiveReference:
+SELECT 1
+FROM item
+WHERE photo_id = :id AND deleted_at IS NULL
+LIMIT 1;
+
+selectOrphaned:
+SELECT *
+FROM photo
+WHERE deleted_at IS NOT NULL
+    AND deleted_at < :cutoff
+    AND NOT EXISTS (
+        SELECT 1 FROM item
+        WHERE item.photo_id = photo.id AND item.deleted_at IS NULL
+    )
+ORDER BY deleted_at ASC;

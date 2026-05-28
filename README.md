@@ -8,7 +8,7 @@ A high-performance list-making app for Android and iOS, built natively with **Ko
 
 - **JDK 21** (Temurin recommended). Pinned via `.tool-versions` / `mise.toml`.
 - **Xcode 16+** (iOS 16 deployment target, Swift 5.10+). Apple has no CLI version manager — match the version your team agrees on; CI uses the `macos-latest` image's default Xcode.
-- **Ruby 3.3.x** (for Fastlane, wired up in Phase 15).
+- **Ruby 3.4.9** — pinned in `mise.toml` and compiled from source by mise. Before running `mise install`, install the required Homebrew build dependencies (see [iOS setup](#how-to-run--ios)).
 - **Android SDK** with platform 35 + build-tools 35.0.0 (installed during Phase 01 §6).
 - **Gradle** is supplied by the wrapper (`./gradlew`) — do not install separately.
 
@@ -59,19 +59,25 @@ Fresh-clone setup:
 
 Fresh-clone setup (macOS only):
 
-1. Install [`xcodegen`](https://github.com/yonaskolb/XcodeGen):
+1. Install Homebrew dependencies. `xcodegen` generates the Xcode project; `openssl`, `libyaml`, and `readline` are keg-only libraries that ruby-build needs to compile Ruby from source (required on macOS 26 / darwin25 and any platform without a prebuilt binary):
 
    ```bash
-   brew install xcodegen
+   brew install xcodegen openssl libyaml readline
    ```
 
-2. Run the iOS smoke build. This regenerates `ios-app/FluxIt.xcodeproj` from [`ios-app/project.yml`](ios-app/project.yml) (the project file is gitignored — `project.yml` is the source of truth) and assembles the shared XCFramework before invoking `xcodebuild`:
+2. Install all pinned tool versions (JDK 21 + Ruby 3.4.9):
+
+   ```bash
+   mise install
+   ```
+
+3. Run the iOS smoke build. This regenerates `ios-app/FluxIt.xcodeproj` from [`ios-app/project.yml`](ios-app/project.yml) (the project file is gitignored — `project.yml` is the source of truth) and assembles the shared XCFramework before invoking `xcodebuild`:
 
    ```bash
    scripts/build-ios.sh
    ```
 
-3. To work in Xcode, run the script once to materialize the project, then:
+4. To work in Xcode, run the script once to materialize the project, then:
 
    ```bash
    open ios-app/FluxIt.xcodeproj

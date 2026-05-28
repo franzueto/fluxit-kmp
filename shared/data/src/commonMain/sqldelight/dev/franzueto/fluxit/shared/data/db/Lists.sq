@@ -1,0 +1,153 @@
+-- Lists.sq — Phase 03 §2 Lists table.
+--
+-- Column conventions (uniform across all FluxIt tables; see ADR-006b):
+--   id          TEXT NOT NULL PRIMARY KEY — UUID v4 lowercase (ADR-006a).
+--   icon        TEXT NOT NULL             — FluxItIconRef enum name (ADR-006c).
+--   color       TEXT NOT NULL             — ColorToken enum name (ADR-006c).
+--   sort_order  REAL NOT NULL             — fractional indexing; lower = higher on screen.
+--                                           Newest list at top: new row gets currentMin - 1.0
+--                                           (resolved §12 row 5).
+--   *_at        INTEGER (epoch ms UTC)    — adapter converts to kotlinx.datetime.Instant in §3.
+--   deleted_at  INTEGER (nullable)        — soft-delete tombstone (ADR-006b); every read
+--                                           query filters WHERE deleted_at IS NULL.
+
+import dev.franzueto.fluxit.shared.domain.model.ColorToken;
+import dev.franzueto.fluxit.shared.domain.model.FluxItIconRef;
+import kotlin.Boolean;
+import kotlinx.datetime.Instant;
+
+CREATE TABLE list (
+    id              TEXT NOT NULL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    icon            TEXT AS FluxItIconRef NOT NULL,
+    color           TEXT AS ColorToken NOT NULL,
+    is_starred      INTEGER AS Boolean NOT NULL DEFAULT 0,
+    sort_order      REAL NOT NULL,
+    created_at      INTEGER AS Instant NOT NULL,
+    updated_at      INTEGER AS Instant NOT NULL,
+    deleted_at      INTEGER AS Instant
+);
+
+CREATE INDEX list_sort_idx ON list (deleted_at, sort_order);
+CREATE INDEX list_starred_idx ON list (is_starred) WHERE deleted_at IS NULL;
+
+selectAllActive:
+SELECT *
+FROM list
+WHERE deleted_at IS NULL
+ORDER BY sort_order ASC;
+
+selectById:
+SELECT *
+FROM list
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Substring search via INSTR (resolved §12 row 2: lists only; LIKE wildcards
+-- in user input would need escaping — INSTR sidesteps the issue entirely).
+searchByName:
+SELECT *
+FROM list
+WHERE deleted_at IS NULL AND INSTR(LOWER(name), LOWER(:query)) > 0
+ORDER BY sort_order ASC;
+
+insert:
+INSERT INTO list (id, name, icon, color, is_starred, sort_order, created_at, updated_at, deleted_at)
+VALUES (:id, :name, :icon, :color, :is_starred, :sort_order, :created_at, :updated_at, NULL);
+
+updateMetadata:
+UPDATE list
+SET name = :name,
+    icon = :icon,
+    color = :color,
+    is_starred = :is_starred,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+updateSortOrder:
+UPDATE list
+SET sort_order = :sort_order,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Soft delete (ADR-006b). Application cascade to items + LIST-owned reminders
+-- lives in the repository layer (single transaction), not here.
+softDelete:
+UPDATE list
+SET deleted_at = :deleted_at,
+    updated_at = :deleted_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Hard delete. v1 never calls this (ADR-006b: lists are forever-tombstoned in v1);
+-- exposed for the v2 sync compaction phase.
+hardDelete:
+DELETE FROM list
+WHERE id = :id;
+
+countActive:
+SELECT COUNT(*)
+FROM list
+WHERE deleted_at IS NULL;
+
+-- Dashboard query: every active list with derived total_items /
+-- completed_items / last_activity_at. LEFT JOIN to item (live items
+-- only) so lists with zero items still appear; COALESCE collapses the
+-- NULL aggregates to 0. last_activity_at is MAX(item.updated_at) ∪
+-- list.updated_at so a freshly-created empty list still has a useful
+-- activity timestamp.
+selectWithCounts:
+SELECT
+    list.id              AS id,
+    list.name            AS name,
+    list.icon            AS icon,
+    list.color           AS color,
+    list.is_starred      AS is_starred,
+    list.sort_order      AS sort_order,
+    list.created_at      AS created_at,
+    list.updated_at      AS updated_at,
+    COUNT(item.id)       AS total_items,
+    COALESCE(SUM(item.is_completed), 0) AS completed_items,
+    COALESCE(MAX(item.updated_at), list.updated_at) AS last_activity_at
+FROM list
+LEFT JOIN item
+    ON item.list_id = list.id
+    AND item.deleted_at IS NULL
+WHERE list.deleted_at IS NULL
+GROUP BY list.id
+ORDER BY list.sort_order ASC;
+
+-- Phase 03 §5 repository queries. The §5 contract decomposes the broad
+-- updateMetadata into single-purpose writes so each repository method maps
+-- to one SQL statement (atomic, no read-modify-write window).
+
+updateName:
+UPDATE list
+SET name = :name,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+updateAppearance:
+UPDATE list
+SET icon = :icon,
+    color = :color,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+updateStarred:
+UPDATE list
+SET is_starred = :is_starred,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Sort-order minting (§8). MIN over active rows; returns NULL when the
+-- table is empty so the repository can fall back to the seed value.
+selectMinActiveSortOrder:
+SELECT MIN(sort_order) AS min_sort_order FROM list WHERE deleted_at IS NULL;
+
+selectActiveSortOrder:
+SELECT sort_order FROM list WHERE id = :id AND deleted_at IS NULL;
+
+-- Snapshot used by the §8 rebalance path: ids in current display order so
+-- the repository can rewrite sort_order to evenly-spaced integers in one
+-- transaction when fractional precision collapses.
+selectActiveIdsBySortOrder:
+SELECT id FROM list WHERE deleted_at IS NULL ORDER BY sort_order ASC;

@@ -1,0 +1,134 @@
+-- Items.sq — Phase 03 §2 Items table.
+--
+-- FK notes:
+--   list_id  REFERENCES list(id) ON DELETE CASCADE — engine-level cascade is
+--            dead code in v1 (ADR-006b: lists are forever-tombstoned; we never
+--            hard-delete a list). Kept for safety + v2-sync compaction.
+--   photo_id REFERENCES photo(id) ON DELETE SET NULL — fires when the photo
+--            janitor (§7) hard-deletes an orphan; engine-level safety net so
+--            no item ever points at a deleted photo row.
+
+import kotlin.Boolean;
+import kotlinx.datetime.Instant;
+
+CREATE TABLE item (
+    id              TEXT NOT NULL PRIMARY KEY,
+    list_id         TEXT NOT NULL REFERENCES list(id) ON DELETE CASCADE,
+    title           TEXT NOT NULL,
+    subtitle        TEXT,
+    description     TEXT,
+    is_completed    INTEGER AS Boolean NOT NULL DEFAULT 0,
+    is_starred      INTEGER AS Boolean NOT NULL DEFAULT 0,
+    photo_id        TEXT REFERENCES photo(id) ON DELETE SET NULL,
+    sort_order      REAL NOT NULL,
+    created_at      INTEGER AS Instant NOT NULL,
+    updated_at      INTEGER AS Instant NOT NULL,
+    deleted_at      INTEGER AS Instant
+);
+
+CREATE INDEX item_list_idx ON item (list_id, is_completed, sort_order) WHERE deleted_at IS NULL;
+CREATE INDEX item_photo_idx ON item (photo_id);
+
+-- Single result set ordered (is_completed ASC, sort_order ASC) so the UI
+-- mapper (Phase 04) can partition into TO BUY / COMPLETED sections without
+-- a second query. Spec's "returns two logical groups" refers to the
+-- mapper's output shape, not the SQL.
+selectByListGroupedByStatus:
+SELECT *
+FROM item
+WHERE list_id = :list_id AND deleted_at IS NULL
+ORDER BY is_completed ASC, sort_order ASC;
+
+selectById:
+SELECT *
+FROM item
+WHERE id = :id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO item (id, list_id, title, subtitle, description, is_completed, is_starred, photo_id, sort_order, created_at, updated_at, deleted_at)
+VALUES (:id, :list_id, :title, :subtitle, :description, :is_completed, :is_starred, :photo_id, :sort_order, :created_at, :updated_at, NULL);
+
+updateContent:
+UPDATE item
+SET title = :title,
+    subtitle = :subtitle,
+    description = :description,
+    photo_id = :photo_id,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+setCompleted:
+UPDATE item
+SET is_completed = :is_completed,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+setStarred:
+UPDATE item
+SET is_starred = :is_starred,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+updateSortOrder:
+UPDATE item
+SET sort_order = :sort_order,
+    updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
+
+softDelete:
+UPDATE item
+SET deleted_at = :deleted_at,
+    updated_at = :deleted_at
+WHERE id = :id AND deleted_at IS NULL;
+
+-- Bulk "Clear completed" — backs Phase 08's action button. Spec called for
+-- a RETURNING clause to surface the cleared ids; we don't need it because
+-- the resolved §12 row-3 toast-undo flow keeps the cleared ids in state
+-- layer memory during the 5-second window (state already knows what to
+-- undo). RETURNING also needs SQLite >= 3.35 which post-dates ADR-013's
+-- minSdk=26 floor (Android 26 ships SQLite 3.18); avoiding it sidesteps
+-- the question of bundling a newer SQLite.
+softDeleteCompletedByList:
+UPDATE item
+SET deleted_at = :deleted_at,
+    updated_at = :deleted_at
+WHERE list_id = :list_id AND is_completed = 1 AND deleted_at IS NULL;
+
+countByList:
+SELECT COUNT(*)
+FROM item
+WHERE list_id = :list_id AND deleted_at IS NULL;
+
+countCompletedByList:
+SELECT COUNT(*)
+FROM item
+WHERE list_id = :list_id AND is_completed = 1 AND deleted_at IS NULL;
+
+-- Phase 03 §5 repository queries. Per-list rebalance scope mirrors the
+-- Lists slice's global one — every helper takes :list_id so the §8
+-- fractional-sort path stays bounded to the affected list.
+
+selectMinActiveSortOrderByList:
+SELECT MIN(sort_order) AS min_sort_order
+FROM item
+WHERE list_id = :list_id AND deleted_at IS NULL;
+
+selectActiveSortOrder:
+SELECT sort_order
+FROM item
+WHERE id = :id AND deleted_at IS NULL;
+
+selectActiveIdsByListBySortOrder:
+SELECT id
+FROM item
+WHERE list_id = :list_id AND deleted_at IS NULL
+ORDER BY sort_order ASC;
+
+-- Pre-flight check for repository.add() so we surface NotFound for the
+-- parent list before letting SQLite throw a generic FK violation. Uses
+-- the lists table directly to dodge a cross-file query (.sq files share
+-- the same database, so this is fine).
+selectListIsActive:
+SELECT 1
+FROM list
+WHERE id = :id AND deleted_at IS NULL;
