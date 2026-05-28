@@ -290,7 +290,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   (timeout fires immediately). Removed in favor of the test harness's
   outer wall-clock timeout catching a real hang. Passes on both
   `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test`.
-  _Commit `<pending>`._
+  _Commit `0196198`._
 - **2026-05-28** — §10 integration test: `IntegrationFlowTest` walks
   the DoD exit-criteria scenario end-to-end across Lists + Items +
   Reminders + a close-and-reopen boundary. New `PersistentTestDb`
