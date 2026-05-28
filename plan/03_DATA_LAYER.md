@@ -237,7 +237,7 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
 ## 10. Testing
 
 - [x] **Unit tests** (`commonTest`) — one per query in each `.sq` file. The 37 queries reached by the repository layer are covered transitively by the smoke + integration tests; the eight that no repo call path exercises (`Lists.selectAllActive` / `updateMetadata` / `hardDelete` / `countActive`, `Items.countByList`, `Reminders.setActive` / `selectNeedingReschedule`, `Photos.selectOrphaned`) get direct `db.<table>Queries.<query>(...)` coverage in `commonTest/.../db/UncoveredQueriesTest.kt`. Intentionally bypasses the repository layer so a refactor that drops a repo call site can't silently lose SQL coverage. 8 tests, fixed-Instant clock, both targets.
-- [ ] **Repository tests** — happy path + error path (NotFound, Conflict on FK violation, Validation on empty name).
+- [x] **Repository tests** — happy paths covered by the four `Sql*RepositorySmokeTest` files; error paths covered by smoke-test Validation/NotFound assertions + `commonTest/.../repository/RepositoryErrorPathTest.kt` for the gaps (updateAppearance / setStarred / reorder NotFound on Lists; setCompleted / setStarred / reorder NotFound on Items; FK-violation Storage paths on Items.add and Items.update via bogus `photoId`). FK enforcement required test-driver-side `PRAGMA foreign_keys = ON` (JVM) + `extendedConfig.foreignKeyConstraints = true` (iOS) — flipped on in `TestDrivers.android.kt` / `TestDrivers.ios.kt` / `PersistentTestDb.{android,ios}.kt` so test drivers match the production `DriverFactory` config. FK violations currently surface as `DataError.Storage`; promotion to `DataError.Conflict` is deferred until SQLDelight exposes a stable cross-platform exception discriminator (the `Conflict` variant is already in the taxonomy; test pins current behavior to make the future flip deliberate).
 - [x] **Mapper tests** — `commonTest/.../mapper/{List,Item,Reminder,Photo}MapperTest.kt`. 8 tests covering: List → Detail full-field, SelectWithCounts → Summary with the `completed_items: Double` coercion (SQLDelight infers Double for `COALESCE(SUM(boolean), 0)`); Item → domain with both `photo_id` set and null → null `PhotoId`; Reminder → domain for both `OfList`/`OfItem` owner variants + `RecurrenceRule.Weekly` round-trip + the `null ↔ None` reinflation contract; Photo → domain with the `Long → Int` width/height narrowing documented inline (px never exceed §12 row 4's 2048-longest-side cap; byte_size stays Long for v2 file sizes).
 - [ ] **Migration test harness** registered (even with zero migrations) so future migrations get coverage by convention.
 - [x] **Integration test** — `IntegrationFlowTest` at `shared/data/src/commonTest/.../integration/`. Covers create-list → add-3-items → toggle one complete → schedule a Daily-recurrence reminder → `driver.close()` → reopen via `PersistentTestDb.openDriver()` → assert list / items section (`active=[Eggs, Bread]`, `completed=[Milk]`, `total=3`, `completedCount=1`) / reminder (id + firesAt + Daily recurrence + active) all round-trip. Persistent driver is an `expect/actual` pair: JVM uses `JdbcSqliteDriver("jdbc:sqlite:<temp.db>")` + first-open `Schema.create()` guard via file-existence probe; iOS uses `NativeSqliteDriver(schema, name, onConfiguration = { basePath = NSTemporaryDirectory()/<random>/ })` — sqliter handles version-aware create/migrate internally. Runs on both `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test`.
@@ -281,6 +281,16 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-28** — §10 repository error-path coverage: 8 tests in
+  `RepositoryErrorPathTest.kt` covering NotFound paths the smoke tests
+  missed (Lists.updateAppearance/setStarred/reorder,
+  Items.setCompleted/setStarred/reorder) + FK-violation paths for
+  Items.add/update with bogus `photoId`. Required enabling
+  `PRAGMA foreign_keys = ON` on all four test drivers (JVM
+  in-memory + JVM persistent + iOS in-memory + iOS persistent) to
+  match prod. FK violations surface as `DataError.Storage` today;
+  promotion to `Conflict` flagged as future work pending stable
+  SQLDelight exception discrimination. _Commit `<pending>`._
 - **2026-05-28** — §10 per-query gap coverage:
   `UncoveredQueriesTest.kt` directly exercises the 8 queries the repo
   layer never calls (and therefore the smoke / integration tests can't

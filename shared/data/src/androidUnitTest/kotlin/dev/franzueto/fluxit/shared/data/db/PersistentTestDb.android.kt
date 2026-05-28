@@ -20,6 +20,10 @@ internal actual class PersistentTestDb actual constructor() {
         if (firstOpen) {
             FluxItDatabase.Schema.create(driver)
         }
+        // Foreign-key enforcement is per-connection in SQLite, so it has to
+        // run on every reopen, not just the first. Matches DriverFactory's
+        // production wiring.
+        driver.execute(identifier = null, sql = "PRAGMA foreign_keys = ON", parameters = 0)
         return driver
     }
 

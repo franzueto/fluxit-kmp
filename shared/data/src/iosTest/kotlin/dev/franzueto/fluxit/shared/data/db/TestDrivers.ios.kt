@@ -16,6 +16,10 @@ internal actual fun inMemoryDriver(): SqlDriver =
         schema = FluxItDatabase.Schema,
         name = "test-${Random.nextLong()}.db",
         onConfiguration = { config: DatabaseConfiguration ->
-            config.copy(inMemory = true)
+            // FK enforcement matches production (DriverFactory.ios).
+            config.copy(
+                inMemory = true,
+                extendedConfig = config.extendedConfig.copy(foreignKeyConstraints = true),
+            )
         },
     )

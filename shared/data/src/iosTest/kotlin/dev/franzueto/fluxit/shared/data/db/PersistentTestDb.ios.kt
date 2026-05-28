@@ -31,7 +31,11 @@ internal actual class PersistentTestDb actual constructor() {
             name = dbName,
             onConfiguration = { config: DatabaseConfiguration ->
                 config.copy(
-                    extendedConfig = config.extendedConfig.copy(basePath = dirPath),
+                    extendedConfig =
+                        config.extendedConfig.copy(
+                            basePath = dirPath,
+                            foreignKeyConstraints = true,
+                        ),
                 )
             },
         )
