@@ -267,7 +267,7 @@ Helpers with no IO; testable by themselves.
   to split across lines); applied `:shared:domain:ktlintFormat` once.
   All four §11 repository fakes (Lists + Items from Slice 9, Reminders
   + Photos from Slice 10) now in place, ready for §7 use cases.
-  _Commit `<TBD>`._
+  _Commit `8807bf2`._
 - **2026-05-28** — Slice 9: §11 repository fakes — Lists + Items wave.
   New files in `:shared:domain` commonTest:
   `repository/FakeListsRepository.kt` (MutableStateFlow-backed,
