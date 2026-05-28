@@ -257,7 +257,7 @@ Helpers with no IO; testable by themselves.
   bodies — replaced with `assertFailsWith<IllegalArgumentException>`
   blocks (the idiom other domain tests already use). Konsist Phase
   04 §1 rule passed unchanged — no new forbidden imports introduced.
-  _Commit `<TBD>`._
+  _Commit `a12ac91`._
 - **2026-05-28** — Slice 7: §8 pure business rules first wave. New
   files under `:shared:domain/rule/`:
   `rule/CompletionCalculator.kt` — `object` with `fraction`,
