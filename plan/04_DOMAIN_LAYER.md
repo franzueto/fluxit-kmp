@@ -240,7 +240,7 @@ Helpers with no IO; testable by themselves.
   exempted so commonTest can interop with platform Result-returning APIs.
   Phase 04 §1 rows 1–3 ticked; row 4 (source layout) stays open until
   the §3 / §5 / §7 slices populate `model/`, `port/`, `error/`,
-  `usecase/`, `rule/`. _Commit `<TBD>`._
+  `usecase/`, `rule/`. _Commit `6f03845`._
 - **2026-05-28** — Slice 1: ADR-007a Accepted (domain owns `ColorToken` +
   `FluxItIconRef`; supersedes ADR-006c) + ADR-007 and ADR-007b drafted as
   Proposed (Outcome type, use-case shape). Pending list renumbered: the
