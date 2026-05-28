@@ -205,7 +205,7 @@ Helpers with no IO; testable by themselves.
   - `FakeIdGenerator(prefix = "id")` — yields `id-1, id-2, …`.
   - `FakeReminderScheduler` with controllable failure modes.
   - `RecordingAnalyticsSink` to assert event emission.
-  _Partial — landing in waves. **Slice 8 (2026-05-28):** `FakeClock(initial, advanceBy, setTo)` reusable fixture._ **Slice 9 (2026-05-28):** `FakeListsRepository` + `FakeItemsRepository` — MutableStateFlow-backed, tombstone-filtering on reads, sort-order minting + per-list compaction via `SortOrderArithmetic`, `NotFound` on writes to missing/tombstoned ids. Counters NOT computed inside `FakeListsRepository` (use-case tests combine with `FakeItemsRepository` via `flow.combine` when they need the dashboard projection). Cascade NOT implemented in fakes — per ADR-006b that's a use-case-layer concern. 15 new tests cover read/write/observe contract + key behaviors (search, reorder + brackets, newest-at-top, completed-section partitioning, clearCompleted count + filtering, NotFound paths). `FakeRemindersRepository` + `FakePhotosRepository` deferred to **Slice 10** alongside the use cases that consume them. `FakeIdGenerator` is currently an inline `IdGenerator { counter }` lambda in each test file — extracting to a shared `FakeIdGenerator(prefix)` fixture lands when a §7 slice first needs the named class. `FakeReminderScheduler` + `RecordingAnalyticsSink` land with the slices that introduce the underlying ports._
+  _Partial — landing in waves. **Slice 8 (2026-05-28):** `FakeClock(initial, advanceBy, setTo)` reusable fixture._ **Slice 9 (2026-05-28):** `FakeListsRepository` + `FakeItemsRepository` — MutableStateFlow-backed, tombstone-filtering on reads, sort-order minting + per-list compaction via `SortOrderArithmetic`, `NotFound` on writes to missing/tombstoned ids. Counters NOT computed inside `FakeListsRepository` (use-case tests combine with `FakeItemsRepository` via `flow.combine` when they need the dashboard projection). Cascade NOT implemented in fakes — per ADR-006b that's a use-case-layer concern. 15 new tests cover read/write/observe contract + key behaviors (search, reorder + brackets, newest-at-top, completed-section partitioning, clearCompleted count + filtering, NotFound paths). `FakeRemindersRepository` + `FakePhotosRepository` deferred to **Slice 10** alongside the use cases that consume them. `FakeIdGenerator` is currently an inline `IdGenerator { counter }` lambda in each test file — extracting to a shared `FakeIdGenerator(prefix)` fixture lands when a §7 slice first needs the named class. `FakeReminderScheduler` + `RecordingAnalyticsSink` land with the slices that introduce the underlying ports. **Slice 10 (2026-05-28):** `FakeRemindersRepository` (MutableStateFlow-backed; `cancel` tombstones row + flips `isActive`; `observeUpcoming(limit)` snapshots `clock.now()` once at subscription via `flow { now = clock.now(); emitAll(state.map {…}) }` matching the §5 spec — re-subscribing yields a fresh snapshot) + `FakePhotosRepository` (file-first-then-row contract via injected `FakePhotoStorage`; `deleteIfOrphaned` honors an injected `isReferenced: (PhotoId) -> Boolean` callback — defaults to `{ false }`, use-case wiring passes a real check against `FakeItemsRepository.state` when `PhotoJanitor` lands). `FakePhotoStorage` test helper added under `port/` as the in-memory `PhotoStorage` impl. All four §11 repository fakes now in place._
 - [ ] **Property tests** for `SortOrderArithmetic` and `RecurrenceCalculator` (using Kotest property test integration).
 - [ ] **Konsist tests** in `:shared:domain` test source:
   - No imports from forbidden packages (see exit criteria).
@@ -232,6 +232,42 @@ Helpers with no IO; testable by themselves.
 
 ## Implementation log (chronological, for traceability across sessions)
 
+- **2026-05-28** — Slice 10: §11 repository fakes wave two — Reminders +
+  Photos. New files: `repository/FakeRemindersRepository.kt`
+  (MutableStateFlow-backed; `observeForOwner` filters by owner + active
+  + non-tombstoned; `observeUpcoming(limit)` uses `flow { val now =
+  clock.now(); emitAll(state.map { … filter firesAt > now … }) }` so
+  each new collector freezes its own snapshot — matches the §5 spec
+  semantics + the SqlRemindersRepository's `WHERE fires_at > :nowSnapshot`
+  binding; `schedule` mints id + writes row with `isActive=true,
+  platformHandle=null`; `cancel` flips `isActive=false` AND sets
+  `deletedAt`; `reschedule` updates fires_at + recurrence;
+  `rebindPlatformHandle` round-trips the WorkManager / UN handle id);
+  `repository/FakePhotosRepository.kt` (delegates `ingest` to an
+  injected `PhotoStorage` for the file-first contract; `deleteIfOrphaned`
+  consults an injected `isReferenced: (PhotoId) -> Boolean` callback
+  defaulting to `{ false }` — soft-deletes only when unreferenced, no-op
+  Ok otherwise, hard-delete + file removal stays the §7 PhotoJanitor's
+  job not this method's; `observe(id)` filters tombstones);
+  `port/FakePhotoStorage.kt` (in-memory `PhotoStorage` impl;
+  `write(bytes, mime)` mints sequential `"photos/<n>.bin"` paths,
+  `delete` returns true iff the file existed, `storedPaths` /
+  `exists()` test seams). Tests: `FakeRemindersRepositoryTest` (9 —
+  schedule + observe; observe filters by owner; cancel tombstones;
+  reschedule updates both fields; rebindPlatformHandle round-trips +
+  clears; NotFound on missing id; observeUpcoming snapshots now; limit
+  + ascending sort; rejects non-positive limit) and
+  `FakePhotosRepositoryTest` (6 — ingest writes file + row, observable
+  with metadata; distinct ids/paths across calls; observe null for
+  unknown id; deleteIfOrphaned soft-deletes unreferenced + leaves file
+  for janitor; deleteIfOrphaned is no-op when referenced; NotFound for
+  missing id). Style detour: ktlint reformatted both test files
+  (function-signature inline, chain-method-continuation forcing the
+  `.observeForOwner(listOwner).first().single().platformHandle` chain
+  to split across lines); applied `:shared:domain:ktlintFormat` once.
+  All four §11 repository fakes (Lists + Items from Slice 9, Reminders
+  + Photos from Slice 10) now in place, ready for §7 use cases.
+  _Commit `<TBD>`._
 - **2026-05-28** — Slice 9: §11 repository fakes — Lists + Items wave.
   New files in `:shared:domain` commonTest:
   `repository/FakeListsRepository.kt` (MutableStateFlow-backed,
