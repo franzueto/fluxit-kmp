@@ -173,13 +173,14 @@ Helpers with no IO; testable by themselves.
 
 - [x] **`CompletionCalculator`** — given `(total, completed)`, returns the progress bar fraction and the `13/20` string. Centralized so Phase 08 doesn't reinvent it. _Slice 7 (2026-05-28); shipped as `object CompletionCalculator` with `fraction(total, completed): Float`, `display(total, completed): String`, `isFullyComplete(total, completed): Boolean`. All three apply `require(total >= 0)` + `require(completed in 0..total)` guards; empty lists return `0f` for fraction and `false` for isFullyComplete (a 0/0 list is not "complete" — matches dashboard intent)._
 - [x] **`SortOrderArithmetic`** — `between(prev: Double?, next: Double?): Double` and `needsCompaction(orders: List<Double>): Boolean`. Property-based test: 1000 random reorders never collapse without compaction. _Slice 7 (2026-05-28); shipped as `object SortOrderArithmetic` with `SEED_SORT_ORDER = 1.0` + `REBALANCE_EPSILON = 1e-9` constants matching `SqlListsRepository`'s companion verbatim. The data layer duplicates this math inline today (Phase 03 §5/§8); migrating those impls to consume this helper is a mechanical follow-up tracked for whenever a §7 use case (e.g. `ReorderList` / `ReorderItem`) needs to compute the target in pure code before calling the repo. Property test: 1000 random inserts via `between()` produce midpoints strictly inside their brackets. Targeted test: 60 inserts always into the tightest gap trigger at least one compaction, with the post-compaction list passing `needsCompaction == false` (the random-inserts case doesn't concentrate depth enough to hit the 1e-9 threshold, so the compaction path needs its own targeted exercise — first attempt's `compactions >= 1` assertion on the random run failed and was split into the two tests above)._
-- [ ] **`RecurrenceCalculator`** — `nextFireAfter(rule: RecurrenceRule, after: Instant, tz: TimeZone): Instant?`. Used by `ReminderScheduler` re-arming logic. v1 scope locked (Phase 09): `None / Daily / Weekly(daysOfWeek) / Monthly(dayOfMonth)`. Required behaviors:
+- [x] **`RecurrenceCalculator`** — `nextFireAfter(rule: RecurrenceRule, after: Instant, tz: TimeZone): Instant?`. Used by `ReminderScheduler` re-arming logic. v1 scope locked (Phase 09): `None / Daily / Weekly(daysOfWeek) / Monthly(dayOfMonth)`. Required behaviors:
   - `None` → returns `null` (no next fire).
   - `Daily` → `after + 24h` snapped to the original wall-clock time in `tz` (handles DST transitions: spring-forward skips, fall-back uses first occurrence).
   - `Weekly(days)` → next instant whose day-of-week ∈ `days`, at the original wall-clock time.
   - `Monthly(dayOfMonth)` → same day-of-month next month at original wall-clock time. **Edge case**: if `dayOfMonth = 31` and target month has 30 (or Feb), clamp to last day of that month (e.g. Jan 31 → Feb 28/29 → Mar 31). Documented in KDoc + property test.
   - All variants: result is always strictly `> after` (no infinite loops on equal instants).
-- [ ] Property tests: `(rule, after, tz) → next` always advances time; iterating 1000 times for Daily/Weekly/Monthly never produces non-monotonic sequences; Monthly clamping behaves correctly across full year cycles in `Europe/London` (DST), `Asia/Kolkata` (no DST, +5:30 offset), `Pacific/Apia` (DST + dateline shift) test zones.
+  _Slice 8 (2026-05-28); shipped as `object RecurrenceCalculator` with a single `findNext(after, tz, advance)` core loop that all three non-`None` variants share. The DST skip / fall-back resolution leverages kotlinx-datetime's `LocalDateTime.toInstant(tz)` policy (earlier-of-ambiguous for fall-back) + a wall-clock round-trip check that detects spring-forward gaps and advances another step. 400-iteration safety cap on the search loop._
+- [x] Property tests: `(rule, after, tz) → next` always advances time; iterating 1000 times for Daily/Weekly/Monthly never produces non-monotonic sequences; Monthly clamping behaves correctly across full year cycles in `Europe/London` (DST), `Asia/Kolkata` (no DST, +5:30 offset), `Pacific/Apia` (DST + dateline shift) test zones. _Slice 8 (2026-05-28); three iteration property tests cover all three TZs (Daily across 365 iterations in London — both DST transitions; Monthly(31) for 24 months in Apia — dateline-shift edge; Weekly across 200 iterations in Kolkata — fixed +5:30). Each iteration asserts strict `next > current` monotonicity + per-variant invariants (Monthly's dayOfMonth ∈ 28..31; Weekly's dayOfWeek ∈ days). Plus 19 deterministic unit tests covering all variants + the spring-forward / fall-back / clamping edge cases per spec._
 - [x] **`PaletteCatalog`** — single source for the available `ColorToken` and `FluxItIconRef` values surfaced in the Create List picker. Avoids "what icons can the user pick?" being answered in three places. _Slice 7 (2026-05-28); shipped as `object PaletteCatalog` wrapping `ColorToken.entries` (6 swatches) and `FluxItIconRef.entries` (8 icons). v1 surfaces the full enum; v2 picker-subset / A/B refinements wrap the catalog without touching the enum. Tests assert entry-list parity + the exact 6 / 8 counts (catches accidental enum drift)._
 
 ## 9. Concurrency contract
@@ -230,6 +231,33 @@ Helpers with no IO; testable by themselves.
 
 ## Implementation log (chronological, for traceability across sessions)
 
+- **2026-05-28** — Slice 8: §8 `RecurrenceCalculator` + reusable
+  `FakeClock` fixture. New files: `rule/RecurrenceCalculator.kt`
+  (`object` with `nextFireAfter(rule, after, tz): Instant?` over a
+  shared `findNext(after, tz, advance)` core loop that wall-clock-
+  round-trips each candidate to detect DST spring-forward gaps and
+  advances another iteration; 400-iteration safety cap; fall-back
+  ambiguity resolved by kotlinx-datetime's default earlier-of-
+  ambiguous policy); `port/FakeClock.kt` (commonTest fixture —
+  initial Instant, `advanceBy(Duration)` with non-negative guard,
+  `setTo(Instant)` for fixture reset). Tests: `FakeClockTest` (5 —
+  initial-then-stable; advance-by accumulates; zero allowed;
+  negative throws; setTo jumps) + `RecurrenceCalculatorTest` (22 —
+  None/Daily/Weekly/Monthly happy paths in UTC; Daily DST spring-
+  forward skip + fall-back first-occurrence in Europe/London;
+  Daily across Kolkata's fixed +5:30; Weekly single/multi-day +
+  non-included-day advance; Weekly empty-set throws; Monthly
+  one-month advance + Jan 31 → Feb 28 (common) → Feb 29 (leap) →
+  Mar 31 (restoration) clamping chain + 30-day-month clamp +
+  Dec→Jan rollover; Monthly invalid-day throws; three iteration
+  property tests covering Daily/Monthly/Weekly across London/Apia/
+  Kolkata for monotonicity + per-variant invariants). Two style
+  detours: ktlint's `chain-method-continuation` rule mangled the
+  `kotlin.runCatching {…}.also {…}` idiom across multiple test
+  bodies — replaced with `assertFailsWith<IllegalArgumentException>`
+  blocks (the idiom other domain tests already use). Konsist Phase
+  04 §1 rule passed unchanged — no new forbidden imports introduced.
+  _Commit `<TBD>`._
 - **2026-05-28** — Slice 7: §8 pure business rules first wave. New
   files under `:shared:domain/rule/`:
   `rule/CompletionCalculator.kt` — `object` with `fraction`,
