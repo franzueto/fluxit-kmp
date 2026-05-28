@@ -290,7 +290,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   SUM as REAL in SQLDelight's inference), `photo_id` null → null
   `PhotoId`, both `ReminderOwner` variants, `null ↔ RecurrenceRule.None`
   reinflation per §3 storage contract, `Long → Int` px-dimension
-  narrowing on `Photo`. _Commit `<pending>`._
+  narrowing on `Photo`. _Commit `d3915d2`._
 - **2026-05-28** — §10 concurrency test:
   `SqlItemsRepositoryConcurrencyTest` fires 50 alternating
   `setCompleted(true|false)` calls in parallel on the same item via
