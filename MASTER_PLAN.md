@@ -2,15 +2,19 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-28 (Phase 04 §1 Konsist forbidden-imports test landed on Slice 2 of `phase/04-domain-layer`)
+**Last updated:** 2026-05-28 (Phase 04 §2 value-object gap fill landed on Slice 3 of `phase/04-domain-layer`)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Phase 04 (Domain Layer) **in progress** on branch `phase/04-domain-layer`. Slice 1: ADR-007a Accepted; ADR-007 + ADR-007b drafted as Proposed. Slice 2: §1 Konsist forbidden-imports test landed in `:build-logic`'s `ArchitectureTest` — bans `app.cash.sqldelight.*`, `org.koin.core.*`, `dev.franzueto.fluxit.core.designsystem.*` (ADR-007a), `arrow.*` (ADR-007), and qualified-code uses of `kotlin.Result` (ADR-007), alongside the pre-existing Android/iOS/platform-module bans. Test source sets exempted. Phase 04 §1 rows 1–3 closed; row 4 (source layout) deferred until §3/§5/§7 slices populate the directories. Pending list renumbered: the Phase 05 MVI ADR moved from collision-spot "ADR-007" to ADR-014.
+**Repo phase:** Phase 04 (Domain Layer) **in progress** on branch `phase/04-domain-layer`. Slice 1: ADR-007a Accepted; ADR-007 + ADR-007b drafted as Proposed. Slice 2: §1 Konsist forbidden-imports test landed. Slice 3: §2 value-object gap fill — `RelativePath` + `TrimmedNonBlank` (private-ctor value class with `Companion.of(raw, maxLen?): Outcome<TrimmedNonBlank, ValidationError>` factory) + the seed of `sealed class ValidationError { Empty; TooLong(max); InvalidFormat }`. 10 new tests in `:shared:domain` commonTest green on both JVM and iOS Sim. All §2 rows ticked; the `ListId.Companion.new(idGen)` factory deferred to the §5 slice that introduces `IdGenerator`. §12 length-cap open questions stay open — they'll flow through `TrimmedNonBlank.of(maxLen)` when answered. Pending list renumbered: the Phase 05 MVI ADR moved from collision-spot "ADR-007" to ADR-014.
 
 ---
 
 ## ▶ Next Step
 
-**Phase 04 Slice 3 — §2 value-object gap fill.** Add `value class RelativePath(val raw: String)` + `value class TrimmedNonBlank private constructor(val value: String)` with a `Companion.of(raw: String, maxLen: Int? = null): Outcome<TrimmedNonBlank, ValidationError>` factory, plus the minimal seed of `sealed class ValidationError { Empty; TooLong(max: Int); InvalidFormat }` (full §6 hierarchy lands incrementally with the use-case slices that need its other variants). Unit-test the factory's empty/whitespace/over-max/happy branches. After Slice 3: Slice 4 (decision-only reconciliation of the `ItemPatch` Optional-vs-full-replacement shape and `ReminderOwner` sealed-vs-enum shape before any §3 entity work). Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml` (ADR-007a's parity check rides on this); Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
+**Phase 04 Slice 4 — §2/§3 shape reconciliation (decision-only, no code).** Two pulled-forward Phase 03 shapes need a call before §3 entity work starts:
+1. **`ItemPatch`** ships today as a *full content replacement* (`title, subtitle, description, photoId` all required) to match a single SQL UPDATE. Phase 04 §3 spec calls for an `Optional<T>`-based partial patch (`Set<T>` vs. `Unset`) so callers can express "don't touch subtitle." Pick: keep full-replacement, adopt Optional, or middle-ground.
+2. **`ReminderOwnerType`** ships as an enum (storage-friendly: pairs with an id column). Phase 04 §3 spec calls for `sealed class ReminderOwner { data class List(ListId); data class Item(ItemId) }` (domain-edge type-safe; couples owner kind to owner id). Pick: keep enum at edge with conversion, adopt sealed, or surface both.
+
+Slice 4 is a docs-only update to `plan/04_DOMAIN_LAYER.md` §2/§3 capturing the chosen direction. After Slice 4: §3 entity layer fills in whatever's still missing. Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml` (ADR-007a's parity check rides on this); Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
 
 ---
 
@@ -22,7 +26,7 @@
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟢 Complete | 100% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟢 Complete | 100% |
-| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🔵 In progress | 6% |
+| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🔵 In progress | 12% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
 | 06 | Platform Modules | [`06_PLATFORM_MODULES.md`](plan/06_PLATFORM_MODULES.md) | 🟡 Planned | 0% |
 | 07 | Feature: Lists Dashboard | [`07_FEATURE_LISTS_DASHBOARD.md`](plan/07_FEATURE_LISTS_DASHBOARD.md) | 🟡 Planned | 0% |

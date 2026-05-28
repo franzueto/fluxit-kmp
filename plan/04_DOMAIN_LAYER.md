@@ -34,14 +34,14 @@
 
 Use Kotlin `value class` for zero-cost wrappers; prevents passing an `ItemId` where a `ListId` is expected.
 
-- [ ] `value class ListId(val raw: String)` + `companion object { fun new(idGen: IdGenerator) }`
-- [ ] `value class ItemId(val raw: String)`
-- [ ] `value class ReminderId(val raw: String)`
-- [ ] `value class PhotoId(val raw: String)`
-- [ ] `value class RelativePath(val raw: String)` — for photo storage paths
-- [ ] `value class TrimmedNonBlank private constructor(val value: String)` with `Companion.of(raw: String): Result<TrimmedNonBlank, ValidationError>` — used by `ListDraft.name`, `ItemDraft.title`. Centralizes the "non-empty after trim" rule.
-- [ ] `enum class ColorToken { PRIMARY_BLUE, ACCENT_ROSE, ACCENT_EMERALD, ACCENT_ORANGE, ACCENT_INDIGO, ACCENT_SKY }` — mirrors the Create List swatch palette from Phase 02. Domain owns this enum (not designsystem) because it's part of the *product model* a list "is colored X".
-- [ ] `enum class FluxItIconRef { CART, HOME, BRIEFCASE, PLANE, FORK_KNIFE, DUMBBELL, STAR, MORE }` — the 8 icon-picker choices from the Create List screen. Same rationale as `ColorToken`. **Note:** Phase 03 referenced `IconNameAdapter` against the designsystem-generated enum — reconcile by having designsystem *consume* this domain enum to drive icon registration, **not** the other way around. ADR-006c is updated/superseded — see ADR-007a in §10.
+- [x] `value class ListId(val raw: String)` + `companion object { fun new(idGen: IdGenerator) }`. _Phase 03 §5 carry-forward; companion `new(idGen)` factory deferred to the slice that introduces the `IdGenerator` port (§5)._
+- [x] `value class ItemId(val raw: String)`. _Phase 03 §5 carry-forward._
+- [x] `value class ReminderId(val raw: String)`. _Phase 03 §5 carry-forward._
+- [x] `value class PhotoId(val raw: String)`. _Phase 03 §5 carry-forward._
+- [x] `value class RelativePath(val raw: String)` — for photo storage paths. _Slice 3 (2026-05-28); non-blank `init` guard, path-shape validation deferred to the `PhotoStorage` impl at the data/platform boundary._
+- [x] `value class TrimmedNonBlank private constructor(val value: String)` with `Companion.of(raw: String): Result<TrimmedNonBlank, ValidationError>` — used by `ListDraft.name`, `ItemDraft.title`. Centralizes the "non-empty after trim" rule. _Slice 3 (2026-05-28); factory returns `Outcome<TrimmedNonBlank, ValidationError>` (reconciled spelling per ADR-007), `maxLen: Int? = null` parameter for the optional cap (per-field caps land with the use-case slices that own them — §12 description/list-name length-cap rows stay open)._
+- [x] `enum class ColorToken { PRIMARY_BLUE, ACCENT_ROSE, ACCENT_EMERALD, ACCENT_ORANGE, ACCENT_INDIGO, ACCENT_SKY }` — mirrors the Create List swatch palette from Phase 02. Domain owns this enum (not designsystem) because it's part of the *product model* a list "is colored X". _Phase 03 §3 carry-forward (ratified by ADR-007a Slice 1)._
+- [x] `enum class FluxItIconRef { CART, HOME, BRIEFCASE, PLANE, FORK_KNIFE, DUMBBELL, STAR, MORE }` — the 8 icon-picker choices from the Create List screen. Same rationale as `ColorToken`. **Note:** Phase 03 referenced `IconNameAdapter` against the designsystem-generated enum — reconcile by having designsystem *consume* this domain enum to drive icon registration, **not** the other way around. ADR-006c is updated/superseded — see ADR-007a in §10. _Phase 03 §3 carry-forward (ratified by ADR-007a Slice 1)._
 
 ## 3. Entities (immutable data classes)
 
@@ -229,6 +229,23 @@ Helpers with no IO; testable by themselves.
 
 ## Implementation log (chronological, for traceability across sessions)
 
+- **2026-05-28** — Slice 3: §2 value-object gap fill. New files in
+  `:shared:domain` commonMain: `model/RelativePath.kt` (`value class`
+  with non-blank `init` guard), `model/TrimmedNonBlank.kt` (`value
+  class` with private ctor + `Companion.of(raw, maxLen?)` factory
+  returning `Outcome<TrimmedNonBlank, ValidationError>`), and
+  `error/ValidationError.kt` (seed of the §6 sum: `Empty`,
+  `TooLong(max)`, `InvalidFormat` — only the variants Slice 3 needs;
+  rest grow with the use-case slices that introduce them). Tests in
+  commonTest: 7 for `TrimmedNonBlank` (empty/whitespace/happy/inner-
+  whitespace-preserved/at-max/over-max/null-disables-cap) and 3 for
+  `RelativePath` (typical/empty/whitespace). All Phase 03 §2 value-
+  class rows ticked; pulled-forward IDs annotated as Phase 03 carry-
+  forward. The `ListId.Companion.new(idGen)` factory deferred to the
+  §5 slice that introduces the `IdGenerator` port. §12 length-cap
+  open questions (description, list-name) stay open — the
+  `TrimmedNonBlank.of(maxLen)` parameter is the seam they'll flow
+  through when answered. _Commit `<TBD>`._
 - **2026-05-28** — Slice 2: §1 Konsist forbidden-imports test extended in
   `:build-logic`'s `ArchitectureTest`. The pre-existing "no Android/iOS"
   test grew into a Phase 04 §1 + ADR-007 + ADR-007a consolidated ban
