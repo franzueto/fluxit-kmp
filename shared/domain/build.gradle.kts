@@ -35,6 +35,11 @@ kotlin {
             // JSON dep allowed in tests so RecurrenceRule round-trips can be
             // verified without coupling production domain to a format runtime.
             implementation(libs.kotlinx.serialization.json)
+            // runTest for §11 repository-fake tests (Slice 9+) — fakes return
+            // Flow / suspend, tests need the structured-concurrency test
+            // runner. Same dep :shared:data:commonTest uses for its
+            // SqlListsRepositorySmokeTest et al.
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

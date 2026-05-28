@@ -199,12 +199,13 @@ Helpers with no IO; testable by themselves.
 ## 11. Testing
 
 - [ ] **One test class per use case** — happy path, each validation branch, each `DomainError` it can produce. Uses fakes from `domain-test-fixtures` (a sibling `commonTest`-only fixture package, not a separate module yet).
-- [ ] **Fakes** (in `commonTest`):
+- [x] **Fakes** (in `commonTest`):
   - `FakeListsRepository`, `FakeItemsRepository`, `FakeRemindersRepository`, `FakePhotosRepository` — backed by in-memory `MutableStateFlow`s.
   - `FakeClock(initial)` with `advanceBy`.
   - `FakeIdGenerator(prefix = "id")` — yields `id-1, id-2, …`.
   - `FakeReminderScheduler` with controllable failure modes.
   - `RecordingAnalyticsSink` to assert event emission.
+  _Partial — landing in waves. **Slice 8 (2026-05-28):** `FakeClock(initial, advanceBy, setTo)` reusable fixture._ **Slice 9 (2026-05-28):** `FakeListsRepository` + `FakeItemsRepository` — MutableStateFlow-backed, tombstone-filtering on reads, sort-order minting + per-list compaction via `SortOrderArithmetic`, `NotFound` on writes to missing/tombstoned ids. Counters NOT computed inside `FakeListsRepository` (use-case tests combine with `FakeItemsRepository` via `flow.combine` when they need the dashboard projection). Cascade NOT implemented in fakes — per ADR-006b that's a use-case-layer concern. 15 new tests cover read/write/observe contract + key behaviors (search, reorder + brackets, newest-at-top, completed-section partitioning, clearCompleted count + filtering, NotFound paths). `FakeRemindersRepository` + `FakePhotosRepository` deferred to **Slice 10** alongside the use cases that consume them. `FakeIdGenerator` is currently an inline `IdGenerator { counter }` lambda in each test file — extracting to a shared `FakeIdGenerator(prefix)` fixture lands when a §7 slice first needs the named class. `FakeReminderScheduler` + `RecordingAnalyticsSink` land with the slices that introduce the underlying ports._
 - [ ] **Property tests** for `SortOrderArithmetic` and `RecurrenceCalculator` (using Kotest property test integration).
 - [ ] **Konsist tests** in `:shared:domain` test source:
   - No imports from forbidden packages (see exit criteria).
@@ -231,6 +232,46 @@ Helpers with no IO; testable by themselves.
 
 ## Implementation log (chronological, for traceability across sessions)
 
+- **2026-05-28** — Slice 9: §11 repository fakes — Lists + Items wave.
+  New files in `:shared:domain` commonTest:
+  `repository/FakeListsRepository.kt` (MutableStateFlow-backed,
+  internal `Row` carrying full storage shape including `sortOrder`/
+  `createdAt`/`updatedAt`/`deletedAt`; reads filter tombstones +
+  sort by sort_order; `create` mints id via injected `IdGenerator`
+  and `now` via injected `Clock`, lands new lists at the top per
+  the §12 row 5 newest-at-top resolution; `reorder` uses
+  `SortOrderArithmetic.between` for bracket midpoint + triggers a
+  per-list `compact()` when `needsCompaction` flips true; `delete`
+  is soft via `deletedAt`; counters left at 0 since list-item
+  rollups are a use-case `flow.combine` concern, not a repo
+  responsibility);
+  `repository/FakeItemsRepository.kt` (same pattern + `add` appends
+  to active-section tail to match the `SqlItemsRepository` inline-
+  composer behavior; `observeByList` partitions live items into
+  active/completed sections + computes the ItemsSection rollups;
+  `clearCompleted` returns the count cleared; `update` is full-
+  replacement matching the ItemPatch shape Slice 4 ratified).
+  Build script: `:shared:domain` commonTest dep added —
+  `libs.kotlinx.coroutines.test` — for `runTest`. Tests:
+  `FakeListsRepositoryTest` (7 — empty → create flow; observe + null
+  after delete; search lowercase substring; rename + setStarred +
+  updateAppearance all reflected; NotFound on missing or
+  tombstoned id; reorder bracket math; newest-at-top after two
+  creates) and `FakeItemsRepositoryTest` (8 — add → active section;
+  setCompleted moves between sections; update applies patch
+  atomically; clearCompleted with count + filtering; clearCompleted
+  on empty returns 0; observeByList filters to owning list;
+  NotFound on missing id; observe(id) emits null after delete).
+  Style detour: ktlint's `function-signature` +
+  `multiline-expression-wrapping` + `chain-method-continuation`
+  rules forced several reformats — applied via
+  `:shared:domain:ktlintFormat`. While in the file also dropped a
+  dead-code `.map { r -> if (r.deletedAt != null) r else r }`
+  no-op left over from an in-flight refactor of `compact()`.
+  `FakeRemindersRepository` + `FakePhotosRepository` deferred to
+  **Slice 10** alongside the use cases that need them
+  (`ScheduleReminder`, `AttachPhotoToItem`, `PhotoJanitor`).
+  _Commit `<TBD>`._
 - **2026-05-28** — Slice 8: §8 `RecurrenceCalculator` + reusable
   `FakeClock` fixture. New files: `rule/RecurrenceCalculator.kt`
   (`object` with `nextFireAfter(rule, after, tz): Instant?` over a
