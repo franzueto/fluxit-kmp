@@ -288,7 +288,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   the eventual migration is mechanical. SQLDelight gradle's
   `verifyMigrations = true` flag intentionally NOT enabled —
   requires a `.db` snapshot per version, no signal until migration
-  #1 exists. §10 complete; only §13 hand-off remains. _Commit `<pending>`._
+  #1 exists. §10 complete; only §13 hand-off remains. _Commit `7d87c24`._
 - **2026-05-28** — §10 repository error-path coverage: 8 tests in
   `RepositoryErrorPathTest.kt` covering NotFound paths the smoke tests
   missed (Lists.updateAppearance/setStarred/reorder,
