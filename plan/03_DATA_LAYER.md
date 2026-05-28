@@ -289,7 +289,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   selectNeedingReschedule, Photos.selectOrphaned. Scoping decision +
   rationale recorded in commit body — exhaustive 45-query sweep would
   duplicate repo-path coverage; the gap fills the actual hole.
-  _Commit `<pending>`._
+  _Commit `2ec7bea`._
 - **2026-05-28** — §10 mapper round-trip tests: one test file per
   mapper (`{List,Item,Reminder,Photo}MapperTest.kt`) in
   `commonTest/.../mapper/`. 8 tests total exercising each mapper at
