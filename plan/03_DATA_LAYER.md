@@ -240,7 +240,7 @@ Domain ships **interfaces and entity DTOs**; data ships **implementations and DB
 - [ ] **Repository tests** — happy path + error path (NotFound, Conflict on FK violation, Validation on empty name).
 - [ ] **Mapper tests** — round-trip every entity.
 - [ ] **Migration test harness** registered (even with zero migrations) so future migrations get coverage by convention.
-- [ ] **Integration test** (the exit-criteria scenario): `IntegrationFlowTest` covers create-list → add-items → toggle → schedule-reminder → close → reopen → assert state. Runs on JVM and iosSimulatorArm64 in CI.
+- [x] **Integration test** — `IntegrationFlowTest` at `shared/data/src/commonTest/.../integration/`. Covers create-list → add-3-items → toggle one complete → schedule a Daily-recurrence reminder → `driver.close()` → reopen via `PersistentTestDb.openDriver()` → assert list / items section (`active=[Eggs, Bread]`, `completed=[Milk]`, `total=3`, `completedCount=1`) / reminder (id + firesAt + Daily recurrence + active) all round-trip. Persistent driver is an `expect/actual` pair: JVM uses `JdbcSqliteDriver("jdbc:sqlite:<temp.db>")` + first-open `Schema.create()` guard via file-existence probe; iOS uses `NativeSqliteDriver(schema, name, onConfiguration = { basePath = NSTemporaryDirectory()/<random>/ })` — sqliter handles version-aware create/migrate internally. Runs on both `:shared:data:testDebugUnitTest` and `:shared:data:iosSimulatorArm64Test`.
 - [ ] **Concurrency test**: 50 concurrent `setCompleted` calls on the same item never deadlock; final state is consistent.
 - [ ] Turbine for all `Flow` assertions; coroutine `runTest` with virtual time.
 - [ ] Coverage target: ≥ 90% for `:shared:data` (enforced by Phase 14 gate, but goal noted now).
@@ -281,6 +281,18 @@ Phase 09 (reminders UX).
 Latest-on-top. Each entry: `YYYY-MM-DD — short summary` + the commit SHA(s)
 the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
 
+- **2026-05-28** — §10 integration test: `IntegrationFlowTest` walks
+  the DoD exit-criteria scenario end-to-end across Lists + Items +
+  Reminders + a close-and-reopen boundary. New `PersistentTestDb`
+  expect/actual (file-backed sibling of `inMemoryDriver`) handles
+  persistence across `driver.close()`: JVM via `JdbcSqliteDriver` +
+  temp-file path; iOS via `NativeSqliteDriver` + per-test sub-directory
+  under `NSTemporaryDirectory()`. iOS impl opts in to
+  `kotlinx.cinterop.ExperimentalForeignApi` for the `NSFileManager`
+  calls. Test passes on both `:shared:data:testDebugUnitTest` and
+  `:shared:data:iosSimulatorArm64Test`. Detekt LongMethod resolved by
+  factoring the per-session repo wiring into a private `openSession()`
+  helper. _Commit `<pending>`._
 - **2026-05-28** — §10 foundation: `expect fun inMemoryDriver()` in
   `commonTest`; JVM actual reuses the prior JdbcSqliteDriver helper;
   iOS actual uses `NativeSqliteDriver` with
