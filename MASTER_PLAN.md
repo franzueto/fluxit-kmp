@@ -2,15 +2,15 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-28 (Phase 03 complete; Phase 04 (Domain Layer) is the next pickup)
+**Last updated:** 2026-05-28 (Phase 04 §10 ADR-007a Accepted; ADR-007 + ADR-007b drafted as Proposed on Slice 1 of `phase/04-domain-layer`)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Phase 03 (Data Layer) **complete** on branch `phase/03-data-layer`. All §1–§13 closed: schema + adapters + driver factories + four repositories (Lists/Items/Reminders/Photos behind `:shared:domain` interfaces) + `PhotoStorage` port + fractional sort with §8 rebalance + the full §10 test pyramid (74 tests on both JVM and iOS Sim, including the close→reopen integration test, 50-way concurrent setCompleted, mapper round-trips, per-query gap coverage, repo error paths with FK enforcement, and the migration harness with v2-recipe KDoc). ADRs 006/006a/006b flipped Proposed → Accepted; ADR-006c marked Superseded by ADR-007a (anticipated Phase 04 §2). Ready to merge to `main` once the user opens the Phase 03 PR; Phase 04 starts on a new branch.
+**Repo phase:** Phase 04 (Domain Layer) **in progress** on branch `phase/04-domain-layer`. Slice 1 (pure docs): ADR-007a flipped Proposed → Accepted ratifying the Phase 03 §3 as-built state (domain owns `ColorToken` + `FluxItIconRef`); ADR-007 (Outcome<T,E> over kotlin.Result / Arrow) and ADR-007b (use-case shape — small classes with `operator fun invoke`) drafted as Proposed with preconditions that flip them Accepted on §13 hand-off. Pending list renumbered: the Phase 05 MVI ADR moved from collision-spot "ADR-007" to ADR-014. Next: §1 Konsist forbidden-imports test + §2 value-object gap fill (`RelativePath`, `TrimmedNonBlank`).
 
 ---
 
 ## ▶ Next Step
 
-**Phase 04 — Domain Layer.** Phase 03 closed; the data layer ships `:shared:domain` interfaces (ListsRepository / ItemsRepository / RemindersRepository / PhotosRepository) + entity DTOs + the `Outcome<T, DataError>` typed-error result + the `PhotoStorage` port. Phase 04 fills out the domain proper: entities (incrementally — most of the value types and sealed sums already shipped pulled-forward in Phase 03 to satisfy adapter / repo signatures), use cases (PhotoJanitor, CascadeListDelete per ADR-006b, reminder rescheduler hooks, etc.), validators (the "name too long vs. name empty" split that the `DataError.Validation` taxonomy explicitly defers to this layer), and ADR-007a codifying the `:shared:domain`-owns-the-tokens decision that Phase 03 §3 already implemented. Start with `plan/04_DOMAIN_LAYER.md` §1 and consult the Phase 03 §11 ADR drafts (`plan/00_DECISIONS.md`) for context on what's already nailed down. Phase 03 ships to `main` first — branch `phase/03-data-layer` has the full sequence, ready for PR. Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
+**Phase 04 Slice 2 — §1 Konsist forbidden-imports test + module wiring confirmation.** With ADRs in place, the next slice adds a Konsist test in `:shared:domain`'s test source enforcing the exit-criteria ban list (`app.cash.sqldelight.*`, `android.*`, `platform.*`, `androidx.*`, `org.koin.core.*`, `kotlinx.coroutines.GlobalScope`, `kotlinx.coroutines.runBlocking`) and the ADR-007a-derived rule that `:shared:domain` may not depend on `:core:core-designsystem`. Kermit dep deferred to the slice that lands `AppLogger` (§5). After Slice 2: Slice 3 (§2 value objects — `RelativePath`, `TrimmedNonBlank`, seed of `ValidationError`), then Slice 4 (decision-only reconciliation of the `ItemPatch` Optional-vs-full-replacement shape and `ReminderOwner` sealed-vs-enum shape before any §3 entity work). Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml` (ADR-007a's parity check rides on this); Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
 
 ---
 
@@ -18,11 +18,11 @@
 
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
-| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (12 Accepted + 1 Superseded after Phase 03 hand-off) | n/a |
+| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (13 Accepted + 1 Superseded + 2 Proposed after Phase 04 Slice 1) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟢 Complete | 100% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟢 Complete | 100% |
-| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
+| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🔵 In progress | 3% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
 | 06 | Platform Modules | [`06_PLATFORM_MODULES.md`](plan/06_PLATFORM_MODULES.md) | 🟡 Planned | 0% |
 | 07 | Feature: Lists Dashboard | [`07_FEATURE_LISTS_DASHBOARD.md`](plan/07_FEATURE_LISTS_DASHBOARD.md) | 🟡 Planned | 0% |

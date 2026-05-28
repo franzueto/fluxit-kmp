@@ -361,7 +361,7 @@
 ---
 
 ### ADR-006c — `:shared:data` depends on `:core:core-designsystem` for token-enum adapters
-- **Status:** Superseded by ADR-007a (Phase 04, anticipated; see Pending / Anticipated ADRs section below) on 2026-05-28 at Phase 03 §13 hand-off. The decision's coupling direction (`:shared:data` → `:core:core-designsystem`) was reversed during Phase 03 §3 — `ColorToken` and `FluxItIconRef` enums shipped in `:shared:domain` and `:core:core-designsystem` consumes them. Phase 04 §2 codifies the reversal in ADR-007a; the rationale here (icon names + token keys are product domain, not chrome) is preserved by 007a. Original ADR-006c is retained for historical context — do not edit in place per the project's ADR-edit discipline.
+- **Status:** Superseded by ADR-007a (Phase 04 §2; see ADR-007a below) on 2026-05-28 at Phase 03 §13 hand-off. The decision's coupling direction (`:shared:data` → `:core:core-designsystem`) was reversed during Phase 03 §3 — `ColorToken` and `FluxItIconRef` enums shipped in `:shared:domain` and `:core:core-designsystem` consumes them. Phase 04 §2 codifies the reversal in ADR-007a; the rationale here (icon names + token keys are product domain, not chrome) is preserved by 007a. Original ADR-006c is retained for historical context — do not edit in place per the project's ADR-edit discipline.
 - **Date:** 2026-05-19
 - **Context:** Phase 03 §3 row 4 declares `IconNameAdapter` and §3 row 5 declares `ColorTokenAdapter` — both convert a DB-stored `TEXT` column to a typed Kotlin enum on read. The valid icon name set and the valid color token key set are *generated* artifacts owned by `:core:core-designsystem` (ADR-005 for color tokens, ADR-005a for icons). Two architectural questions follow:
   1. **Should the data layer carry typed enums at all?** The alternative is `String` everywhere — adapters disappear, every consumer parses the string at point-of-use, and the v1 list-icon picker (Phase 09) gets to ship "you can save any string and we won't validate." Cheap up front, lethal in two years when somebody types `"car"` instead of `"cart"` and ships it to production.
@@ -402,12 +402,133 @@
 
 ---
 
+### ADR-007 — In-house `Outcome<T, E>` type vs. `kotlin.Result<T>` vs. Arrow `Either`
+- **Status:** Proposed (flips Accepted on Phase 04 §13 hand-off; preconditions: every `:shared:domain` repository signature and every use case returns `Outcome<T, E>` (no `kotlin.Result<T>` or `Throwable`-bearing return type leaks at domain boundaries), `Outcome.map` + `flatMap` are exercised by at least one use-case test, and the Konsist arch test in `:shared:domain` bans `kotlin.Result` and `arrow.core.*` imports outside test source sets.)
+- **Date:** 2026-05-28
+- **Context:** Phase 03's repository contracts already chose a typed-error result — `:shared:domain`'s `Outcome<T, E>` ships today with `Ok`/`Err` constructors and `map`/`flatMap` combinators, used by all four repository impls. Phase 04 inherits that surface and extends it through every use case. The decision to put a hand-rolled type at this seam (rather than `kotlin.Result`, an Arrow `Either`, or a free-form sealed class per call site) has consequences for: how use cases compose, how state-layer (Phase 05) call sites pattern-match, what gets pulled into the binary, and how readable failure paths are at the iOS interop boundary (SKIE). This ADR ratifies the choice that Phase 03 already implemented so Phase 04+ work has the rationale written down. Three candidates were on the table:
+  1. **`kotlin.Result<T>`.** Standard library. Failure channel is fixed to `Throwable`. Pros: zero dependency, value class so allocation-free in hot paths. Cons: the failure type is `Throwable` — to carry a typed `DataError` we'd either throw-and-catch (losing the value-class win) or wrap it in a custom `Throwable` subclass (re-introducing the type discipline at runtime). Pattern-matching on the failure becomes `result.exceptionOrNull() as? FooError` — stringly-typed in spirit, with no exhaustive `when`. Loses every advantage typed errors are supposed to buy.
+  2. **Arrow `Either<L, R>` / `Raise<E>` DSL.** Mature library, idiomatic for Kotlin functional code. Pros: rich combinator surface, well-trodden patterns, DSL ergonomics. Cons: brings a non-trivial dependency for a single type (Arrow core is ~500KB on Android, more once you pull in `arrow-fx-coroutines` which the DSL effectively requires for `suspend` integration), and commits the codebase to an opinionated style that other contributors must learn. Premature for a 4-table v1.
+  3. **In-house `Outcome<T, E>` sealed interface** with `Ok(value: T)` and `Err(error: E)` and the minimum useful combinators (`map`, `flatMap`, eventually `mapError`, `fold`). Owns its rationale, has zero deps, and the API surface is small enough that a reviewer reads it once and is fluent.
+- **Decision:** **Option 3 — in-house `Outcome<T, E>`** in `:shared:domain/error/Outcome.kt`.
+  - **Name:** `Outcome`, not `Result` (collision with `kotlin.Result`) and not `Either` (Arrow brand). Constructor names: `Ok`/`Err` (not `Success`/`Failure` — shorter at call sites where the variant noun appears more than the value). The Phase 04 plan §6 spelling (`Success`/`Failure`) is reconciled to `Ok`/`Err` to match the shipped Phase 03 surface.
+  - **Variance:** `Outcome<out T, out E>`. Both type parameters are produced, never consumed — call sites get `Outcome<Item, DomainError>` covariantly from a method declared `Outcome<Item, DataError>` through a single mapper.
+  - **Combinator surface (v1):** `map`, `flatMap`, `mapError`, `fold`. Each is an `inline` extension function so closures don't allocate. Additional combinators (`recover`, `getOrElse`, `getOrNull`, `onOk`, `onErr`) added only when a real call site needs them — the API grows with use, not in anticipation.
+  - **No try/catch wrappers in domain.** `Outcome` is *never* constructed from a caught `Throwable` in domain code; the data layer wraps SQLDelight failures into `DataError.Storage(cause)` at the seam and produces `Outcome.Err(DataError.Storage(...))` directly. Domain → state propagation stays exception-free.
+  - **Re-export from `:core:core-utils`.** Non-domain callers (state stores, feature presenters in Phase 05+) get `Outcome` via a `typealias` in core-utils so they don't need a build-time dep on `:shared:domain` to handle results. The actual type lives in domain — single source of truth.
+  - **Forbidden:** `kotlin.Result<T>` and `arrow.core.*` imports in `:shared:domain` (outside test source sets). Enforced by Konsist. Tests may use `kotlin.Result` for interop with platform APIs that return it.
+  - **Status flip:** see preconditions in Status line.
+- **Consequences:**
+  - ➕ Typed exhaustive `when` on the failure variant — `when (val outcome = repo.create(draft)) { is Ok -> ...; is Err -> when (outcome.error) { is DataError.UniqueViolation -> ...; is DataError.Storage -> ... } }`. Compiler catches missed error cases at every map/flatMap chain end.
+  - ➕ Zero new dependencies. `Outcome.kt` is 31 lines today; the v1 surface will land below 100 lines including `mapError`/`fold`. The binary cost is exactly that.
+  - ➕ Reads cleanly at the SKIE interop boundary — `Outcome` is a sealed interface with two data classes, both of which SKIE projects as sealed Swift enums with associated values. No `Result`/`Throwable` munging in Swift.
+  - ➕ Domain stays exception-free at its outward edges. Crashes inside use cases are bugs, not error-channel signals. Easier to reason about, easier to test.
+  - ➕ Re-export via `typealias` in core-utils means feature/state modules don't need a transitive view into `:shared:domain` just to handle results.
+  - ➖ Yet another small library type the team has to learn. Mitigated by the small API surface — `Ok` / `Err` / four combinators is fluent inside a day.
+  - ➖ No `suspend`-friendly DSL like Arrow's `Raise<E>` — error short-circuiting in long chains is manual `flatMap` rather than `bind()`-style. Acceptable for v1's call-site shapes; revisit if use cases start nesting `flatMap` more than three deep.
+  - ➖ Mapping every `DataError` variant to `DomainError` (per Phase 04 §6) is hand-written code, not derived. Two extension functions (`DataError.toDomain()`, `SchedulerError.toDomain()`) are the entire cost — kept exhaustive by `when` over the sealed sums.
+  - 🔁 If a v2 feature pulls in Arrow for unrelated reasons (e.g. validated forms with `EitherNel`), revisit by superseding with an "adopt Arrow" ADR that migrates `Outcome` call sites. Easy mechanical refactor (sealed-interface-to-sealed-class with type-param rename).
+  - 🔁 If `Outcome` grows past ~150 LOC with combinators, extract to a `:core:core-result` module so non-domain callers stop transitively reading domain's package layout.
+- **Alternatives considered:**
+  - **`kotlin.Result<T>`** (option 1) — rejected: see Context. Throwable-as-failure-channel defeats every reason for a typed result.
+  - **Arrow `Either<L, R>` + `Raise<E>` DSL** (option 2) — rejected for v1: dep-size + onboarding cost exceeds the value at this scale. Re-evaluate if Arrow shows up for another reason.
+  - **Per-call-site sealed classes** (`sealed class CreateListResult { object Ok; data class Err(...) }`) — rejected: explodes the type surface, breaks composition (`flatMap` across heterogeneous result types is impossible), and means every use case re-invents the pattern. The whole point of `Outcome<T, E>` is one shape to learn.
+  - **Use exceptions, no result type at all** — rejected: re-introduces the unchecked-exception pattern that every typed-error system exists to escape. The data layer's typed `DataError` would degrade to wrapped `Throwable`s the moment a use case unwrapped a result.
+- **Resolves Open Questions in Phase 04:** §6 row 3 (which result type) and the implicit "what do `Ok`/`Err` call sites look like" question that Phase 03 left undocumented when it shipped the `Ok`/`Err` constructors ahead of this ADR.
+
+---
+
+### ADR-007a — Domain owns `ColorToken` + `FluxItIconRef`; designsystem consumes them (supersedes ADR-006c)
+- **Status:** Accepted (implementation shipped in Phase 03 §3; `:shared:domain` owns both enums, `:core:core-designsystem`'s generator emits commonMain mirror files consuming the domain enums, and SQLDelight `IconNameAdapter` + `ColorTokenAdapter` reference the domain types directly. ADR-007a ratifies the as-built state and codifies the dependency direction.)
+- **Date:** 2026-05-28
+- **Supersedes:** ADR-006c. Preserves its rationale (icon names and token keys are product domain, not chrome) and inverts its coupling direction.
+- **Context:** ADR-006c made `:shared:data` depend on `:core:core-designsystem` to consume generated token + icon enums. Phase 03 §3 shipped the inverse — the enums (`ColorToken`, `FluxItIconRef`) live in `:shared:domain`, and `:core:core-designsystem`'s code generators consume them. The coupling direction got reversed because:
+  1. **Domain entities reference the tokens.** `ListSummary.color: ColorToken`, `ListSummary.icon: FluxItIconRef`. If the enums lived in designsystem, domain would depend on designsystem — a forbidden inward arrow under MASTER_PLAN.md's layering rules ("`domain` has zero dependencies on `data`, `platform`, or any UI module").
+  2. **The "what colors / icons can a list have?" question is a product-shape question, not a chrome question.** That a list is colored "primary-blue" is a fact about the list; that `primary-blue` renders as a specific hex value is chrome. Owning the enum in the layer that owns the entity matches the conceptual model.
+  3. **SQLDelight adapters already match the new shape.** `IconNameAdapter: ColumnAdapter<FluxItIconRef, String>` imports the domain enum; `:shared:data` keeps its one allowed upward edge to `:shared:domain` (where the entity types live) instead of growing a second upward edge to `:core:core-designsystem`.
+
+  ADR-006c's other commitments stand unchanged: typed enums everywhere (no stringly-typed icon names in DB rows), generator-emitted source of truth (still pending Phase 02 carry-forward), `verifyIconsInSync` / `verifyTokensInSync` CI guards (Phase 02 carry-forward, still pending — does not block Phase 04). The only thing changing is *which module owns the file*.
+- **Decision:** **`:shared:domain` owns `ColorToken` and `FluxItIconRef`**; `:core:core-designsystem` consumes them.
+  - **Source of truth:** `:shared:domain/src/commonMain/kotlin/dev/franzueto/fluxit/shared/domain/model/ColorToken.kt` and `FluxItIconRef.kt` are hand-authored enum files (small — 6 colors and 8 icons in v1) rather than codegen outputs. Rationale: the icon SVG set and the `tokens.json` dark-mode palette are stable across the v1 milestone; hand-maintenance with a `verifyIconsInSync` parity check (Phase 02 carry-forward) is cheaper than retrofitting the Phase 02 generator to emit into `:shared:domain` (a Gradle-source-set boundary it can't cross cleanly without restructuring the generator task graph).
+  - **Designsystem dependency:** `:core:core-designsystem`'s build script will declare `implementation(project(":shared:domain"))` in commonMain when the Phase 02 carry-forward lands the generator retrofit. `:core:core-designsystem` is a leaf-for-UI but is allowed to depend on pure-Kotlin domain enums because the inward arrow stops there — designsystem does not pull in `:shared:data` or any platform module.
+  - **Generator wiring (Phase 02 carry-forward):** the Phase 02 icon generator (today emits androidMain `FluxItIcons.kt` and iOS asset-catalog imagesets) will map source SVG filenames to the *domain* `FluxItIconRef` enum entries by `UPPER_SNAKE_CASE` name. The token generator does the analogous mapping against `tokens.json` leaf keys. `verifyIconsInSync` / `verifyTokensInSync` gain a check: the domain enum's entry list must match the generator's input set.
+  - **Konsist rules** (Phase 04 §1 slice):
+    - `:shared:domain` may not depend on `:core:core-designsystem` (forbidden inward arrow).
+    - `:core:core-designsystem` may depend on `:shared:domain` (this ADR's permitted edge).
+    - `:shared:data` may not depend on `:core:core-designsystem` (ADR-006c's permitted edge is *retracted*; adapters import the domain enum directly).
+  - **ADR-006c's data → designsystem edge is dead.** Phase 03 never landed it; ADR-007a ratifies that the edge never gets added.
+- **Consequences:**
+  - ➕ Single ownership of "what's a valid color/icon for a list" — the domain layer answers that question, every other layer asks it.
+  - ➕ MASTER_PLAN.md's layering rules hold without exception (`domain` has zero dependencies on UI modules). No more "domain depends on designsystem" carve-out to remember.
+  - ➕ SQLDelight adapters in `:shared:data` need only one upward edge (`:shared:domain`) — the dep graph stays minimal.
+  - ➕ Future Compose Multiplatform exploration (v2 ADR-001 follow-up) is easier — the enums already live in commonMain pure-Kotlin land, ready to be consumed by a CMP UI module without a designsystem stopover.
+  - ➖ The enum-vs-generator decision means manual sync between the SVG set and the `FluxItIconRef` entries. Mitigated by the `verifyIconsInSync` task (Phase 02 carry-forward) which will diff the SVG set against the enum at CI time once wired. Until then, reviewer discipline.
+  - ➖ Two locations name the icon set (SVG filenames + the enum). At v1 scale (8 icons) this is a non-issue; at v2 scale (say, 40 icons across feature surfaces) revisit by having the generator emit the domain enum file instead of hand-authoring it.
+  - ➖ ADR-006c's "single source via generator" win is partially walked back — for v1 the enum is hand-authored. The "single source" property is re-established by the `verify*InSync` parity check when it lands.
+  - 🔁 If the icon set grows past ~20 entries, supersede with a "generator-emits-domain-enum" ADR that restructures the Phase 02 generator to write into `:shared:domain`'s generated-source directory.
+  - 🔁 If a future module needs the token enums *without* taking on a `:shared:domain` dep (unlikely — domain is the smallest module in the graph), extract to a `:core:core-tokens` module per ADR-006c's option (C).
+- **Alternatives considered:**
+  - **Stick with ADR-006c (data depends on designsystem)** — rejected: forces domain entities (`ListSummary.color`, `.icon`) to type their fields with a String or with a designsystem-imported enum, either re-introducing the stringly-typed surface (bad) or growing a forbidden inward arrow (worse).
+  - **Token enums in a new `:core:core-tokens` module** (ADR-006c option C) — rejected for v1 same reasons as before: factoring overhead exceeds the cost of the direct edge. Domain owning the enums is the conceptually simpler choice and matches the entity model.
+  - **Codegen the enum into `:shared:domain`'s generated-source directory** — rejected for v1: requires restructuring Phase 02's generator task graph to write into a different module's build directory. Phase 02 is closed; the cross-phase touch isn't worth it for 14 enum entries that change ~never. Re-evaluate at scale.
+  - **Hand-author the enum *and* skip the parity check** — rejected: removes the safety net. The parity check is cheap (a Konsist test that lists `core/core-designsystem/icons/*.svg` and the enum's `entries` list and asserts set-equality) and prevents the obvious failure mode (icon added to SVG set, enum forgotten).
+- **Resolves Open Questions in Phase 04:** §2 (ColorToken ownership) and §2 (FluxItIconRef ownership) (both already implemented in Phase 03 §3 — this ADR ratifies the as-built state). Resolves the inversion that ADR-006c left as an "anticipated supersession." Does **not** resolve the `verifyIconsInSync` / `verifyTokensInSync` CI wiring — that's still Phase 02 carry-forward in the master plan.
+
+---
+
+### ADR-007b — Use-case shape: small classes with `operator fun invoke`
+- **Status:** Proposed (flips Accepted on Phase 04 §13 hand-off; preconditions: every use case in `:shared:domain/usecase/` is a class with constructor-injected dependencies and a single `operator fun invoke(...)` (or `suspend operator fun invoke`); at least three use cases across two feature areas land in this shape; per-use-case unit tests under `:shared:domain`'s commonTest use the constructor-injection seam to wire fakes; Konsist arch test enforces "no top-level `suspend fun` in `usecase/` package".)
+- **Date:** 2026-05-28
+- **Context:** Phase 04 §7 enumerates ~25 use cases across Lists, Items, Reminders, Photos, and App-level concerns. The shape question — *how is a use case spelled?* — is uniform across all of them, so picking the shape once is much cheaper than discovering it case-by-case. Three real options surfaced:
+  1. **Top-level `suspend fun` per use case.** `suspend fun createList(repo: ListsRepository, scheduler: ReminderScheduler, draft: ListDraft): Outcome<ListSummary, DomainError>`. Closest to "use case = function" mental model. Pros: minimal LOC, no allocation, trivial to import. Cons: dependencies are positional parameters at every call site; the state layer's call sites would either thread every dependency through or build their own ad-hoc DI lookups. Testing requires module-level function references, which conflict with parallel-test isolation when fakes hold state.
+  2. **Interactor classes with multiple methods.** `class ListsInteractor(private val repo: ListsRepository, ...) { suspend fun create(draft) = ...; suspend fun rename(id, name) = ...; suspend fun delete(id) = ... }`. Pros: fewer class files, related operations grouped. Cons: violates the single-responsibility shape Phase 04 §7 explicitly calls for ("one file per use case"); the constructor accumulates every dependency every method needs, even if only one method uses each; testing requires constructing the whole interactor to test one method.
+  3. **Small classes with `operator fun invoke`** per use case. `class CreateList(private val repo: ListsRepository, ...) { suspend operator fun invoke(draft: ListDraft): Outcome<ListSummary, DomainError> = ... }`. Call sites: `createList(draft)`. Pros: one file per use case (greppable by feature directory), DI-friendly (the class is the binding key in Koin), each test instantiates only the deps that use case actually needs, KDoc lands on the class and is discoverable by IDE, swap impls for tests by injecting a fake subclass (rare but possible).
+- **Decision:** **Option 3 — small classes with `operator fun invoke`** for every use case in `:shared:domain/usecase/`.
+  - **File layout:** one file per use case, named after the use case (`CreateList.kt`, `ObserveLists.kt`, …), grouped into per-feature subdirectories (`usecase/lists/`, `usecase/items/`, `usecase/reminders/`, `usecase/photos/`, `usecase/app/`). Phase 04 §7's grouping rule.
+  - **Class shape:**
+    ```kotlin
+    public class CreateList(
+        private val lists: ListsRepository,
+        private val scheduler: ReminderScheduler,
+        private val clock: Clock,
+        private val ids: IdGenerator,
+        private val analytics: AnalyticsSink,
+    ) {
+        public suspend operator fun invoke(draft: ListDraft): Outcome<ListSummary, DomainError> = ...
+    }
+    ```
+    Constructor-injected dependencies are `private val` and never reassigned. The class is otherwise stateless — no `var`s, no mutable collections.
+  - **`suspend` vs. non-`suspend`:** mirrors the underlying operation. `ObserveLists.invoke()` returns `Flow<List<ListSummary>>` and is *not* suspending (cold Flow construction is synchronous). `CreateList.invoke(draft)` *is* suspending because the repository write is suspending. Per-case decision documented in each use case's KDoc.
+  - **Return type:** `Outcome<T, DomainError>` per ADR-007. Flow-returning use cases use `Flow<T>` directly (errors flow as state-layer concerns, not as `Outcome` wrappers — emission failures terminate the flow with the original exception, which the state layer catches at the `.catch { }` operator boundary).
+  - **Multiple "operations" on one entity:** one class per operation. `CreateList`, `RenameList`, `DeleteList`, `UndoDeleteList` are *four* classes, not four methods on a `ListsInteractor`. The cost is more files, the win is each class has the minimum dependency set it needs (`RenameList` doesn't need `ReminderScheduler`, `CreateList` does).
+  - **DI binding:** Phase 06+ will register each use case as a Koin `factory { CreateList(get(), get(), get(), get(), get()) }`. The class itself is the binding key; consumers `inject<CreateList>()`. No interface extracted unless a real swap-in-test or swap-per-platform need surfaces (it won't for v1 — tests construct the class directly with fakes).
+  - **No interface extraction by default.** Pure data-fake testing constructs the use case with `FakeListsRepository`, `FakeClock`, etc. — no `interface CreateListLike` between class and call site. Extract an interface only when (a) a feature flag needs two real impls, or (b) iOS-only mocks need to bypass the class (won't apply — SKIE projects the class fine).
+  - **Konsist enforcement:** `:shared:domain/usecase/**.kt` files must contain exactly one public class with an `operator fun invoke`. No top-level `suspend fun` allowed in that package.
+  - **Status flip:** see preconditions in Status line.
+- **Consequences:**
+  - ➕ DI clarity — each use case is a binding, swap-by-binding works, the Koin module reads like a use-case inventory.
+  - ➕ Test setup is minimal — each test constructs only the fakes the one use case needs. No "I'm testing rename, why am I instantiating PhotoStorage?" friction.
+  - ➕ One file per use case = grep-by-feature works (`ls usecase/lists/` shows the list-feature surface area at a glance), aligns with Phase 04 §7's organization, and makes feature-phase work (Phase 07+) discoverable.
+  - ➕ KDoc on the class is the single doc surface for the use case — easier to maintain than method-level KDoc on an interactor.
+  - ➕ `operator invoke` lets call sites read naturally: `createList(draft)` not `createList.execute(draft)`. The `class` overhead is invisible at the call site.
+  - ➖ ~25 small files instead of ~5 interactor files. File-count maximalism aside, this is the right granularity — a 25-method `Interactor` god-class is the failure mode.
+  - ➖ Each use case re-declares its dependencies. If three use cases all need `Clock`, that's three constructor parameters across three files. Mitigated by DI handling it — call sites don't see the constructor parameter list.
+  - ➖ Migrating to a different shape later (e.g. functional `Raise<E>` DSL if Arrow ever lands) touches 25 files. Acceptable cost; the shape is unlikely to churn within v1.
+  - 🔁 If a use case grows past ~50 LOC of `invoke` body, factor sub-rules into `:shared:domain/rule/` helpers (Phase 04 §8's pure-business-rules slot) — the class stays a thin orchestrator.
+  - 🔁 If iOS interop needs to mock a use case (won't for v1), extract an interface at that point; the class-name → interface-name refactor is mechanical.
+- **Alternatives considered:**
+  - **Top-level `suspend fun`** (option 1) — rejected: dependency threading at call sites is the failure mode that DI was invented to fix. Re-introducing it at the use-case layer undoes the win.
+  - **Interactor classes with multiple methods** (option 2) — rejected: god-class trajectory, dependency creep, KDoc dispersal. The "fewer files" optimization is the wrong objective.
+  - **Top-level extension functions on the repository** (`fun ListsRepository.create(draft, scheduler, clock) = ...`) — rejected: implicit coupling of operations to the repository, no place to attach use-case-specific dependencies cleanly, breaks the "domain orchestrates repositories" boundary by putting orchestration logic on the repository's namespace.
+  - **Functional `Raise<E>` DSL via Arrow** — rejected at the shape layer (would imply ADR-007's rejection of Arrow being revisited first); the imperative `Outcome.flatMap` chain is verbose but learnable, and the DSL win doesn't outweigh the dep cost. See ADR-007's 🔁.
+- **Resolves Open Questions in Phase 04:** §7 implicit "what does a use case file look like" question. Sets the shape every Phase 04 §7 use case slice fills in.
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
-- **ADR-007a** (Phase 04 §2): Domain owns `ColorToken` + `FluxItIconRef`; `:core:core-designsystem` consumes them. Supersedes ADR-006c; the coupling-direction reversal already shipped in Phase 03 §3, ADR-007a will codify the rationale and pin the new dependency direction.
-- **ADR-007** (Phase 05): MVI store contract — intents/state/effects, error model, optimistic update pattern.
 - **ADR-008** (Phase 06): expect/actual vs. Koin-injected interfaces for platform capabilities (we'll likely standardize on injected interfaces).
 - **ADR-009** (Phase 13): Notification permission UX — when to ask, how to recover from denial.
 - **ADR-010** (Phase 14): Test pyramid shape and minimum coverage gates per layer.
 - **ADR-011** (Phase 15): Branching strategy + CI matrix shape (trunk-based vs. GitFlow).
+- **ADR-014** (Phase 05): MVI store contract — intents/state/effects, error model, optimistic update pattern. Renumbered from earlier "ADR-007" placeholder; Phase 04 reserved 007/007a/007b for domain-layer ADRs.

@@ -190,9 +190,9 @@ Helpers with no IO; testable by themselves.
 
 ## 10. ADRs to write in this phase
 
-- [ ] **ADR-007** — In-house `Outcome<T, E>` type vs. `kotlin.Result<T>` vs. Arrow `Either`. Why we picked our own: typed errors, no Arrow buy-in, no kotlin.Result `Throwable` ceiling.
-- [ ] **ADR-007a** — Domain owns `ColorToken` and `FluxItIconRef`; designsystem consumes them. **Supersedes ADR-006c** (which had data depending on designsystem). Cleaner dependency direction: domain → designsystem is forbidden anyway, but designsystem → domain is fine because designsystem is a leaf for UI but is allowed to depend on pure-Kotlin domain enums for token registration.
-- [ ] **ADR-007b** — Use-case shape: small classes with `operator fun invoke` (vs. top-level suspend functions vs. interactors with multiple methods). Why classes: DI clarity, testability, KDoc placement, ability to swap impls in tests.
+- [ ] **ADR-007** — In-house `Outcome<T, E>` type vs. `kotlin.Result<T>` vs. Arrow `Either`. Why we picked our own: typed errors, no Arrow buy-in, no kotlin.Result `Throwable` ceiling. _Drafted Proposed 2026-05-28 (Slice 1); flips Accepted on §13 hand-off once every use case returns `Outcome<T, E>` and Konsist bans `kotlin.Result` / `arrow.core.*` in `:shared:domain`._
+- [x] **ADR-007a** — Domain owns `ColorToken` and `FluxItIconRef`; designsystem consumes them. **Supersedes ADR-006c** (which had data depending on designsystem). _Accepted 2026-05-28 (Slice 1); implementation shipped in Phase 03 §3, ADR ratifies the as-built state._
+- [ ] **ADR-007b** — Use-case shape: small classes with `operator fun invoke` (vs. top-level suspend functions vs. interactors with multiple methods). Why classes: DI clarity, testability, KDoc placement, ability to swap impls in tests. _Drafted Proposed 2026-05-28 (Slice 1); flips Accepted on §13 hand-off once three use cases across two feature areas land in this shape and the Konsist "no top-level suspend fun in usecase/" rule is in place._
 
 ## 11. Testing
 
@@ -224,3 +224,14 @@ Helpers with no IO; testable by themselves.
 - [ ] Use case branch coverage ≥ 95% (target 100%, tolerate 5% for trivial guards).
 - [ ] `MASTER_PLAN.md`: Phase 04 → 🟢, ▶ Next Step → Phase 05.
 - [ ] `00_DECISIONS.md`: ADR-007 (a/b) accepted; ADR-006c marked superseded by ADR-007a.
+
+---
+
+## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-28** — Slice 1: ADR-007a Accepted (domain owns `ColorToken` +
+  `FluxItIconRef`; supersedes ADR-006c) + ADR-007 and ADR-007b drafted as
+  Proposed (Outcome type, use-case shape). Pending list renumbered: the
+  Phase 05 MVI ADR moves from collision-spot "ADR-007" to ADR-014. ADR-006c
+  Status pointer cleaned up to drop the "anticipated" qualifier. _Commit
+  `<TBD>`._
