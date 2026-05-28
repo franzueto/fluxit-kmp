@@ -289,7 +289,7 @@ the entry corresponds to. Keep brief; the rich detail lives in commit bodies.
   the Pending / Anticipated section. `MASTER_PLAN.md` Phase 03 row →
   🟢 Complete / 100%; ▶ Next Step rewritten to Phase 04 (Domain Layer);
   overall v1 progress 20% → 21%; ADR counter (12 Accepted + 1
-  Superseded). _Commit `<pending>`._
+  Superseded). _Commit `e244750`._
 - **2026-05-28** — §10 migration harness: `MigrationHarnessTest.kt`
   pins the v1 schema baseline with 3 tests (version == 1,
   Schema.create() succeeds, Schema.migrate(1, 1) no-op). Class KDoc
