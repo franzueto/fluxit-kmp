@@ -259,7 +259,7 @@ Helpers with no IO; testable by themselves.
   mapError on Ok/Err; the headline use-case lift pattern;
   fold on Ok/Err). The §6 `Outcome` re-export from `:core:core-utils`
   is still deferred — lands with the first non-domain consumer
-  (Phase 05 state layer). _Commit `<TBD>`._
+  (Phase 05 state layer). _Commit `5fa6107`._
 - **2026-05-28** — Slice 5: §5 platform ports first wave. New files in
   `:shared:domain` commonMain: `port/Clock.kt` (`fun interface Clock`
   with `companion object { val System }` binding to
