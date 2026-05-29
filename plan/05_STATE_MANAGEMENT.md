@@ -243,9 +243,11 @@ protected suspend fun <T> optimistic(
 
 ## 13. ADRs to write in this phase
 
-- [ ] **ADR-008** — Hand-rolled `BaseStore` over MVIKotlin/Orbit/Molecule. Why: tiny surface, no Android-leaning ergonomics, plays well with SKIE without adapter shims, reduces v1 dependency surface.
-- [ ] **ADR-008a** — Effects channel uses `SharedFlow(replay=0)` not `Channel(BUFFERED)`. Why: SKIE renders `SharedFlow` naturally as `AsyncSequence`; `Channel` requires bridging; replay-0 prevents stale toasts on rotation/scene reuse.
-- [ ] **ADR-008b** — Optimistic-then-reconcile is the default; pessimistic ("show spinner, await result") is opt-in for irreversible operations (e.g. `CreateList`'s navigate-on-success). Documented per-store.
+> **Numbering corrected (Phase 05 Slice 1):** the three sub-decisions below were originally drafted as ADR-008/008a/008b, but `00_DECISIONS.md` reserves **ADR-008 for Phase 06** (expect/actual vs. Koin-injected platform capabilities) and **ADR-014 for the MVI store contract**. They are folded into a single **ADR-014** (Proposed) — see `00_DECISIONS.md`. The three bullets are its constituent decisions:
+
+- [x] **ADR-014** (was "ADR-008") — Hand-rolled `Store`/`BaseStore` over MVIKotlin/Orbit/Molecule. Why: tiny surface, no Android-leaning ergonomics, plays well with SKIE without adapter shims, reduces v1 dependency surface. **Drafted Proposed at Slice 1; flips to Accepted at §15 once `BaseStore` + `RootStore` + `ListsDashboardStore` ship green.**
+- [x] **ADR-014** (was "ADR-008a") — Effects channel uses `SharedFlow(replay=0)` not `Channel(BUFFERED)`. Why: SKIE renders `SharedFlow` naturally as `AsyncSequence`; `Channel` requires bridging; replay-0 prevents stale toasts on rotation/scene reuse.
+- [x] **ADR-014** (was "ADR-008b") — Optimistic-then-reconcile is the default; pessimistic ("show spinner, await result") is opt-in for irreversible operations (e.g. `CreateList`'s navigate-on-success). Documented per-store.
 
 ## 14. Open questions for this phase
 
@@ -260,4 +262,27 @@ protected suspend fun <T> optimistic(
 - [ ] iOS smoke test exercises one store end-to-end from Swift.
 - [ ] All store tests use virtual time; no `delay`-based flakes.
 - [ ] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06.
-- [ ] `00_DECISIONS.md`: ADR-008 (a/b) accepted.
+- [ ] `00_DECISIONS.md`: ADR-014 accepted (the single MVI store contract; folds the three §13 sub-decisions).
+
+---
+
+## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-29** — Slice 1: ADR-014 opened **Proposed** + §13 numbering fixed
+  (docs-only). Wrote **ADR-014** in `00_DECISIONS.md` — the single MVI store
+  contract folding the three sub-decisions §13 had drafted as ADR-008/008a/008b
+  (stale: ADR-008 is reserved for Phase 06's expect/actual-vs-Koin question, and
+  ADR-014 was already reserved here for the store contract). ADR-014 fixes: the
+  hand-rolled `Store`/`BaseStore` surface (`state`/`effects`/`dispatch` only),
+  serial-intent `Channel`, `SharedFlow(replay=0)` one-shot effects, injected
+  `CoroutineScope`, `optimistic { apply; revert; op }` reconcile-or-revert as the
+  default with pessimistic opt-in, `DomainError.userMessage` mapping in
+  `:shared:state/error/`, and injected `AppLogger` (the §5 domain port lands this
+  phase as `BaseStore`'s first consumer). Removed the ADR-014 placeholder from the
+  Pending list and left a pointer; renumbered `plan/05` §13 + §15 to ADR-014.
+  Recorded the §14 default resolutions to carry into the store slices: undo window
+  **5s**, composer-on-failure **keep text + inline error**, photo chain **three
+  discrete states**, navigation via **effects** (not observed state). **Module
+  wiring (§1) deferred to Slice 2**, where `BaseStore` first consumes the
+  `:shared:domain` + coroutines/datetime/Kermit dependencies (no dead wiring
+  ahead of a consumer). No code change. _Commit `<pending>`._
