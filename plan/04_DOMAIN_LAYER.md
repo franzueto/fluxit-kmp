@@ -253,7 +253,7 @@ split is confirmed as-built, and recurrence scope rides with the deferred
   → 🟢 Complete / 100%, ▶ Next Step advanced to **Phase 05 (State Management)**
   with the full deferral list (data-layer-blocked §7 items, §5 ports
   `AppLogger`/`AnalyticsSink`/`ConfigProvider`, Phase 02 CI carry-forward, Phase 07
-  UI backfill). No code change. _Commit `<sha>`._
+  UI backfill). No code change. _Commit `71b8800`._
 
 - **2026-05-29** — Slice 14B: §13 coverage gate via Kover (Phase 04 close-out,
   part 2 of 3). Added Kover 0.9.1 to the version catalog (`build-kover-gradle-
