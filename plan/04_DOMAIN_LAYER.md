@@ -121,6 +121,7 @@ Single sealed hierarchy per concern; all use cases return `Result<T, DomainError
 - [x] **`sealed class ValidationError`** — `Empty`, `TooLong(max: Int)`, `OutOfRange(min, max)`, `InvalidFormat`. Used by `TrimmedNonBlank.of` and the `ReminderSpec` validator. _Slice 3 (2026-05-28) seeded `Empty`, `TooLong(max)`, `InvalidFormat`. `OutOfRange(min, max)` lands with the `ReminderSpec` validator slice (likely §7 `ScheduleReminder` or §8 `RecurrenceCalculator`) that first needs it — keeping the sum closed but growing on demand._
 - [x] **`Result<T, E>`** — adopt `kotlin.Result<T>`? **No** — its error is fixed to `Throwable`, which loses type information. Use a tiny in-house `sealed interface Outcome<out T, out E> { Success(value: T); Failure(error: E) }` with `map`, `flatMap`, `mapError`, `fold`. (Name: `Outcome` to avoid collision with `kotlin.Result`.) Lives in `:shared:domain` and is re-exported from `:core:core-utils` for non-domain callers. _Phase 03 §5 shipped `Outcome<out T, out E>` with `Ok`/`Err` constructors (reconciled spelling per ADR-007) and `map` / `flatMap`. Slice 6 (2026-05-28) added `mapError` and `fold` so the `repo.create(draft).mapError { it.toDomain(entity = "List") }` use-case pattern works. Re-export from `:core:core-utils` deferred to the slice that introduces the first non-domain consumer (likely Phase 05's state layer)._
 - [x] Every `DataError` from Phase 03 maps to a `DomainError` via a single extension function `DataError.toDomain(): DomainError`. Tested. _Slice 6 (2026-05-28); shipped as `DataError.toDomain(entity: String = "unknown"): DomainError` so call sites supply the entity-type hint for `NotFound` (e.g. `it.toDomain(entity = "List")`). All five `DataError` variants covered with 6 unit tests including the design call-out that `DataError.Validation` (storage-side constraint violation) maps to `DomainError.Conflict`, **not** `DomainError.Validation` — the latter is reserved for use-case-edge input validators._
+- [x] **`Optional<T>`** — use-case parameter-shape primitive: `sealed interface Optional<out T> { data object Unset; data class Set<out T>(val value: T) }` + an `orElse(current: T): T` fold. Distinguishes "don't touch" from "set (possibly to null)" without `null`-vs-absent ambiguity. _Slice 13B (2026-05-28); introduced by `UpdateItemDetails` (the partial-update use case that first needs it). Lives in `error/` per the §4 reconciliation (Slice 4) — **not** on the data-edge `ItemPatch`, which stays a full-replacement payload for the atomic SQL UPDATE. `Optional<T>` for non-nullable target fields, `Optional<T?>` for nullable ones (`Set(null)` clears). `orElse` is the one-liner that folds an intent over the current value into a complete payload._
 
 ## 7. Use cases
 
@@ -143,7 +144,7 @@ Each use case is a small class with `operator fun invoke(...)` (or `suspend oper
 - [x] **`ObserveListDetail`** — combines `ListsRepository.observe(id)` + `ItemsRepository.observeByList(id)` into one stream of `(detail, sections)`. Uses `kotlinx.coroutines.flow.combine`. _Slice 12 (2026-05-28); `combine` of the two flows into a `ListDetailView(detail: ListDetail?, items: ItemsSection)` data class (defined in the use-case file). `detail` is nullable — a soft-deleted/never-existed list emits `null` alongside an empty `ItemsSection`; the state layer decides how to render "list is gone". Reactive read → returns `Flow`, not `Outcome`._
 - [x] **`AddItem`** — validates title; appends to active section. _Slice 12 (2026-05-28); validates `draft.title` via `TrimmedNonBlank.of` (blank → `DomainError.Validation(field="title")`, directly), persists the trimmed title, lifts repo errors via `toDomain(entity="Item")`. Repo owns id/sort_order/timestamps + the append-to-active-tail placement._
 - [x] **`ToggleItemCompleted`** — `setCompleted(id, !current)`. Single use case (no separate `Complete`/`Uncomplete`). _Slice 12 (2026-05-28); reads current via `items.observe(id).first()` (missing/tombstoned → `DomainError.NotFound(entity="Item")` directly), writes the negation via `setCompleted` + `toDomain` lift. Read-then-write isn't atomic; last-writer-wins through the observed flow is acceptable for the single-user local store (§9 keeps domain dispatcher-agnostic)._
-- [ ] **`UpdateItemDetails`** — backs the Edit Item screen (title, description, photo). _Deferred (Slice 13?): needs the `Optional<T>` "don't-touch vs set-null" primitive (§6/§4), which isn't built yet — this is the use case that introduces it, reading the current item then emitting a complete `ItemPatch`._
+- [x] **`UpdateItemDetails`** — backs the Edit Item screen (title, description, photo). _Slice 13B (2026-05-28); the use case that **introduces `Optional<T>`** (§6). Each editable field is an `Optional` (`title: Optional<String>`, `subtitle`/`description`: `Optional<String?>`, `photoId: Optional<PhotoId?>`, all defaulting to `Unset`). Reads the current item via `observe(id).first()` (missing/tombstoned → `DomainError.NotFound(entity="Item")` directly), validates `title` **only when supplied** via `TrimmedNonBlank.of` (blank → `DomainError.Validation`; title is non-nullable so `Unset` keeps it and it can't be cleared), folds each `Optional` over the current value via `orElse` into a complete full-replacement `ItemPatch`, then lifts the repo write via `toDomain(entity="Item")`. Six-test suite: Unset leaves fields untouched, `Set(null)` clears a nullable field, title trimming, blank-title rejection (asserts the write never reached the repo), NotFound, and an `Outcome.fold` use-site._
 - [ ] **`AttachPhotoToItem`** — orchestrates `PhotoCapture` (or `pickFromLibrary`) → optional re-encode hook → `PhotosRepository.ingest` → `ItemsRepository.update(itemId, photoPatch)`. Returns `Outcome<PhotoId, DomainError>`. _Deferred to the Photos slice: needs the `PhotoCapture` port (§5, not yet landed)._
 - [ ] **`DetachPhotoFromItem`** — clears `photo_id`, schedules `PhotoJanitor` to GC the file later. _Deferred to the Photos slice (needs `PhotoJanitor` + the Photos wiring)._
 - [x] **`ReorderItem`** _Slice 12 (2026-05-28); `(movedId, previous?, next?)` bracket → delegate to `repo.reorder` (which owns the `SortOrderArithmetic` math + rebalance) + `toDomain(entity="Item")` lift._
@@ -231,6 +232,24 @@ Helpers with no IO; testable by themselves.
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-28** — Slice 13B: §7 `UpdateItemDetails` + the `Optional<T>`
+  primitive (§6). New `error/Optional.kt`: `sealed interface Optional<out T>
+  { data object Unset; data class Set<out T>(value) }` + an `orElse(current)`
+  fold. Lives in `error/` per the Slice 4 reconciliation — **not** on the
+  data-edge `ItemPatch`, which stays a full-replacement payload for the
+  atomic SQL UPDATE. New `usecase/items/UpdateItemDetails.kt`: each editable
+  field is an `Optional` (`title: Optional<String>`, `subtitle`/`description`:
+  `Optional<String?>`, `photoId: Optional<PhotoId?>`, all default `Unset`).
+  Reads current via `observe(id).first()` (null → `DomainError.NotFound`
+  directly), validates `title` only when supplied via `TrimmedNonBlank.of`
+  (non-nullable, so `Unset` keeps it / can't clear), folds each intent over
+  the current value via `orElse` into a complete `ItemPatch`, lifts the write
+  via `toDomain(entity="Item")`. `UpdateItemDetailsTest` (6 tests): Unset
+  leaves fields untouched, `Set(null)` clears a nullable field, title
+  trimming, blank-title rejection (asserts the rejected write never reached
+  the repo), NotFound, and an `Outcome.fold` use-site. `:shared:domain:check`
+  + `:build-logic:test` green on JVM + iOS Sim. _Commit <sha>._
 
 - **2026-05-28** — Slice 13A: §7 Lists use cases wave three (kickoff) —
   `ReorderList`. New `usecase/lists/ReorderList.kt`: `(movedId, previous?,
