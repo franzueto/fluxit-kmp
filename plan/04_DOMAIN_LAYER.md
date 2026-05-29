@@ -249,7 +249,7 @@ Helpers with no IO; testable by themselves.
   `build-logic/.../ArchitectureTest.kt`) already scans `:shared:domain` and bans
   both — no new rule needed (satisfies §9 box 4 + MASTER_PLAN rule 5). All four
   §9 boxes ticked. Docs-and-KDoc only; no behaviour change. `:shared:domain:check`
-  + `:build-logic:test` green on JVM + iOS Sim. _Commit `<sha>`._
+  + `:build-logic:test` green on JVM + iOS Sim. _Commit `f9cd276`._
 
 - **2026-05-28** — Slice 13D: §7 Photos use cases + the `PhotoCapture` port +
   `InitializeApp` (closes the §7 use-case build-out). New `port/PhotoCapture.kt`
