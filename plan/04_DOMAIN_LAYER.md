@@ -258,7 +258,7 @@ Helpers with no IO; testable by themselves.
   primitive; `CreateList` analytics needs `AnalyticsSink`; batch `PhotoJanitor`
   needs `selectOrphaned`). Remaining §5 ports `AppLogger`/`AnalyticsSink`/
   `ConfigProvider` unbuilt (no §7 consumer needed them). Next: §9 concurrency
-  review + §13 hand-off. _Commit <sha>._
+  review + §13 hand-off. _Commit `1e5734b`._
 
 - **2026-05-28** — Slice 13C: §7 Reminders use cases + the `ReminderScheduler`
   port + `DeleteList`. New `port/ReminderScheduler.kt` (`PlatformHandle` value
