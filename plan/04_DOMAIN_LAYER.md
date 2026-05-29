@@ -140,17 +140,17 @@ Each use case is a small class with `operator fun invoke(...)` (or `suspend oper
 
 ### Items
 
-- [ ] **`ObserveListDetail`** — combines `ListsRepository.observe(id)` + `ItemsRepository.observeByList(id)` into one stream of `(detail, sections)`. Uses `kotlinx.coroutines.flow.combine`.
-- [ ] **`AddItem`** — validates title; appends to active section.
-- [ ] **`ToggleItemCompleted`** — `setCompleted(id, !current)`. Single use case (no separate `Complete`/`Uncomplete`).
-- [ ] **`UpdateItemDetails`** — backs the Edit Item screen (title, description, photo).
-- [ ] **`AttachPhotoToItem`** — orchestrates `PhotoCapture` (or `pickFromLibrary`) → optional re-encode hook → `PhotosRepository.ingest` → `ItemsRepository.update(itemId, photoPatch)`. Returns `Outcome<PhotoId, DomainError>`.
-- [ ] **`DetachPhotoFromItem`** — clears `photo_id`, schedules `PhotoJanitor` to GC the file later.
-- [ ] **`ReorderItem`**
-- [ ] **`SetItemStarred`**
-- [ ] **`DeleteItem`** + **`UndoDeleteItem`**
-- [ ] **`ClearCompletedItems`** — bulk soft-delete. Returns `Outcome<List<ItemId>, DomainError>` (the deleted ids) so the state layer can back a single bulk-undo snackbar (per Phase 08 resolution). Implementation calls `ItemsRepository.clearCompleted(listId)` which surfaces `RETURNING id` rows from Phase 03.
-- [ ] **`RestoreItems`** — `suspend operator fun invoke(ids: List<ItemId>): Outcome<Unit, DomainError>`. Bulk reverse of `ClearCompletedItems`: sets `deleted_at = NULL` for each id in a single transaction; idempotent (already-active items are no-ops). Also used by the bulk-undo path of any future v2 "select multiple → delete" UX.
+- [x] **`ObserveListDetail`** — combines `ListsRepository.observe(id)` + `ItemsRepository.observeByList(id)` into one stream of `(detail, sections)`. Uses `kotlinx.coroutines.flow.combine`. _Slice 12 (2026-05-28); `combine` of the two flows into a `ListDetailView(detail: ListDetail?, items: ItemsSection)` data class (defined in the use-case file). `detail` is nullable — a soft-deleted/never-existed list emits `null` alongside an empty `ItemsSection`; the state layer decides how to render "list is gone". Reactive read → returns `Flow`, not `Outcome`._
+- [x] **`AddItem`** — validates title; appends to active section. _Slice 12 (2026-05-28); validates `draft.title` via `TrimmedNonBlank.of` (blank → `DomainError.Validation(field="title")`, directly), persists the trimmed title, lifts repo errors via `toDomain(entity="Item")`. Repo owns id/sort_order/timestamps + the append-to-active-tail placement._
+- [x] **`ToggleItemCompleted`** — `setCompleted(id, !current)`. Single use case (no separate `Complete`/`Uncomplete`). _Slice 12 (2026-05-28); reads current via `items.observe(id).first()` (missing/tombstoned → `DomainError.NotFound(entity="Item")` directly), writes the negation via `setCompleted` + `toDomain` lift. Read-then-write isn't atomic; last-writer-wins through the observed flow is acceptable for the single-user local store (§9 keeps domain dispatcher-agnostic)._
+- [ ] **`UpdateItemDetails`** — backs the Edit Item screen (title, description, photo). _Deferred (Slice 13?): needs the `Optional<T>` "don't-touch vs set-null" primitive (§6/§4), which isn't built yet — this is the use case that introduces it, reading the current item then emitting a complete `ItemPatch`._
+- [ ] **`AttachPhotoToItem`** — orchestrates `PhotoCapture` (or `pickFromLibrary`) → optional re-encode hook → `PhotosRepository.ingest` → `ItemsRepository.update(itemId, photoPatch)`. Returns `Outcome<PhotoId, DomainError>`. _Deferred to the Photos slice: needs the `PhotoCapture` port (§5, not yet landed)._
+- [ ] **`DetachPhotoFromItem`** — clears `photo_id`, schedules `PhotoJanitor` to GC the file later. _Deferred to the Photos slice (needs `PhotoJanitor` + the Photos wiring)._
+- [x] **`ReorderItem`** _Slice 12 (2026-05-28); `(movedId, previous?, next?)` bracket → delegate to `repo.reorder` (which owns the `SortOrderArithmetic` math + rebalance) + `toDomain(entity="Item")` lift._
+- [x] **`SetItemStarred`** _Slice 12 (2026-05-28); trivial delegate + `toDomain(entity="Item")` lift. Mirrors `SetListStarred`._
+- [x] **`DeleteItem`** + **`UndoDeleteItem`** _Slice 12 (2026-05-28): **`DeleteItem`** ships as a delegate to `repo.delete` (soft-delete) + `toDomain(entity="Item")` lift. **`UndoDeleteItem` deferred** — the shipped `ItemsRepository` contract has no restore primitive (`deleted_at = NULL` write), so undo can't be built in domain yet; it lands once Phase 03's data layer surfaces a restore method (tracked with `RestoreItems`)._
+- [x] **`ClearCompletedItems`** — bulk soft-delete. Returns `Outcome<List<ItemId>, DomainError>` (the deleted ids) so the state layer can back a single bulk-undo snackbar (per Phase 08 resolution). Implementation calls `ItemsRepository.clearCompleted(listId)` which surfaces `RETURNING id` rows from Phase 03. _Slice 12 (2026-05-28); **spec/reality reconciliation:** the shipped `clearCompleted` contract returns an `Int` **count**, not `List<ItemId>`, and there's no restore primitive — so `ClearCompletedItems` returns `Outcome<Int, DomainError>` for now (delegate + `toDomain(entity="Item")` lift). The id-returning variant + `RestoreItems` land together once Phase 03 surfaces the `RETURNING id` rows + a bulk-restore method._
+- [ ] **`RestoreItems`** — `suspend operator fun invoke(ids: List<ItemId>): Outcome<Unit, DomainError>`. Bulk reverse of `ClearCompletedItems`: sets `deleted_at = NULL` for each id in a single transaction; idempotent (already-active items are no-ops). Also used by the bulk-undo path of any future v2 "select multiple → delete" UX. _Deferred (with `UndoDeleteItem`): blocked on a data-layer restore method that the shipped `ItemsRepository` contract doesn't expose._
 
 ### Reminders
 
@@ -198,7 +198,7 @@ Helpers with no IO; testable by themselves.
 
 ## 11. Testing
 
-- [x] **One test class per use case** — happy path, each validation branch, each `DomainError` it can produce. Uses fakes from `domain-test-fixtures` (a sibling `commonTest`-only fixture package, not a separate module yet). _Partial — landing per §7 wave. **Slice 11A (2026-05-28):** `ObserveListsTest`, `SearchListsTest`, `CreateListTest`, `RenameListTest` under `usecase/lists/`, plus a shared `ListUseCaseFixtures.kt` (seq-id `IdGenerator` lambda + fixed `FakeClock` + `draft()` builder). Each suite covers happy path, the `DomainError.Validation` branch, the `mapError { it.toDomain(entity="List") }` lift, and an `Outcome.fold` use-site. **Slice 11B (2026-05-28):** `SetListStarredTest` + `UpdateListAppearanceTest` (the latter's PaletteCatalog guard is tested via an every-catalog-value pass-through, since the rejection branch is unreachable with the v1 full-enum catalog). Remaining §7 use cases get their test classes as their slices land._
+- [x] **One test class per use case** — happy path, each validation branch, each `DomainError` it can produce. Uses fakes from `domain-test-fixtures` (a sibling `commonTest`-only fixture package, not a separate module yet). _Partial — landing per §7 wave. **Slice 11A (2026-05-28):** `ObserveListsTest`, `SearchListsTest`, `CreateListTest`, `RenameListTest` under `usecase/lists/`, plus a shared `ListUseCaseFixtures.kt` (seq-id `IdGenerator` lambda + fixed `FakeClock` + `draft()` builder). Each suite covers happy path, the `DomainError.Validation` branch, the `mapError { it.toDomain(entity="List") }` lift, and an `Outcome.fold` use-site. **Slice 11B (2026-05-28):** `SetListStarredTest` + `UpdateListAppearanceTest` (the latter's PaletteCatalog guard is tested via an every-catalog-value pass-through, since the rejection branch is unreachable with the v1 full-enum catalog). **Slice 12 (2026-05-28):** seven Items-area suites under `usecase/items/` — `ObserveListDetailTest`, `AddItemTest`, `ToggleItemCompletedTest`, `SetItemStarredTest`, `ReorderItemTest`, `DeleteItemTest`, `ClearCompletedItemsTest` — plus a shared `ItemUseCaseFixtures.kt` (distinct `list-`/`item-` id prefixes so a `ListId` and `ItemId` never collide in an assertion). Remaining §7 use cases get their test classes as their slices land._
 - [x] **Fakes** (in `commonTest`):
   - `FakeListsRepository`, `FakeItemsRepository`, `FakeRemindersRepository`, `FakePhotosRepository` — backed by in-memory `MutableStateFlow`s.
   - `FakeClock(initial)` with `advanceBy`.
@@ -231,6 +231,33 @@ Helpers with no IO; testable by themselves.
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-28** — Slice 12: §7 Items use cases wave one. New
+  `usecase/items/` package with seven use cases (ADR-007b shape):
+  `ObserveListDetail` (combines `lists.observe` + `items.observeByList`
+  via `flow.combine` into a `ListDetailView(detail: ListDetail?, items:
+  ItemsSection)` — returns `Flow`); `AddItem` (validates `draft.title`
+  via `TrimmedNonBlank.of`, persists trimmed, `toDomain(entity="Item")`
+  lift); `ToggleItemCompleted` (reads current via `observe(id).first()`
+  → `null` is `DomainError.NotFound(entity="Item")` directly, else writes
+  `setCompleted(id, !current)`); `SetItemStarred`, `ReorderItem`,
+  `DeleteItem`, `ClearCompletedItems` (delegates + the standard
+  `toDomain(entity="Item")` lift). Each command returns `Outcome<_,
+  DomainError>`; the two reads return `Flow`. Seven per-use-case test
+  suites + shared `ItemUseCaseFixtures.kt` (distinct `list-`/`item-` id
+  prefixes). **Scope + spec/reality reconciliations:** this is the
+  cleanly-mapping wave; four §7 Items use cases are deferred because the
+  shipped contracts don't yet support them — (1) `ClearCompletedItems`
+  returns `Outcome<Int, DomainError>` (the contract's `clearCompleted`
+  yields an `Int` count, not the punch list's `List<ItemId>`); (2)
+  `UndoDeleteItem` + `RestoreItems` need a data-layer restore primitive
+  (`deleted_at = NULL`) that `ItemsRepository` doesn't expose; (3)
+  `UpdateItemDetails` needs the `Optional<T>` partial-intent primitive
+  (§6) that isn't built yet — it's the use case that will introduce it;
+  (4) `AttachPhotoToItem` / `DetachPhotoFromItem` need the deferred
+  `PhotoCapture` port + `PhotoJanitor` (Photos slice). All annotated in
+  KDoc + the §7 checklist. `:shared:domain:check` + `:build-logic:test`
+  green on JVM + iOS Sim. _Commit <sha>._
 
 - **2026-05-28** — Slice 11B: §7 Lists use cases wave two — appearance +
   starred. `usecase/lists/SetListStarred.kt` (trivial delegate to
