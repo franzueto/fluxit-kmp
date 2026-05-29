@@ -134,7 +134,7 @@ Each use case is a small class with `operator fun invoke(...)` (or `suspend oper
 - [x] **`UpdateListAppearance`** — change icon/color, validates color is in palette. _Slice 11B (2026-05-28); validates both `icon` and `color` against `PaletteCatalog` before persisting, then lifts repo failures via `toDomain(entity="List")`. **Forward-looking guard, not a reachable v1 failure:** `FluxItIconRef`/`ColorToken` are enums and the v1 catalog wraps the full `.entries`, so every well-typed argument is already in the catalog — the membership check can't fail today. Written anyway so the moment the catalog narrows to a subset (v2 per-tier picker / A/B, per PaletteCatalog's KDoc) it starts rejecting out-of-catalog values as `ValidationError.InvalidFormat` with no code change here. Tested via an every-catalog-value pass-through (the guard never rejects a v1-reachable input) rather than an unconstructable out-of-catalog rejection._
 - [x] **`RenameList`** _Slice 11A (2026-05-28); validates new name via `TrimmedNonBlank.of` (blank → `DomainError.Validation`), persists trimmed value, lifts repo `DataError` via `mapError { it.toDomain(entity="List") }` — a write against a missing/tombstoned id surfaces as `DomainError.NotFound(entity="List", …)`._
 - [x] **`SetListStarred`** _Slice 11B (2026-05-28); trivial delegate to `repo.setStarred` + the standard `toDomain(entity="List")` lift (missing/tombstoned id → `DomainError.NotFound`). No input to validate (Boolean + typed id)._
-- [ ] **`ReorderList`** — input is `(movedId, beforeId?, afterId?)`; computes new fractional sort_order in pure code, calls `repo.reorder`.
+- [x] **`ReorderList`** — input is `(movedId, beforeId?, afterId?)`; computes new fractional sort_order in pure code, calls `repo.reorder`. _Slice 13A (2026-05-28); `(movedId, previous?, next?)` bracket → delegate to `repo.reorder` + `toDomain(entity="List")` lift. **Spec/reality reconciliation:** the punch list said "computes new fractional sort_order in pure code", but the shipped `ListsRepository.reorder` contract owns the `SortOrderArithmetic` math + rebalance (atomic with the write), so the use case is a pure delegate — same division of labour as the already-shipped `ReorderItem`. Either neighbour may be `null` for the dashboard endpoints; a missing/tombstoned id surfaces as `DomainError.NotFound(entity="List")`._
 - [ ] **`DeleteList`** — soft-deletes list AND cancels all active reminders for it. Returns `Outcome<DeletedListSummary, DomainError>` so UI can offer undo (per Phase 03 open question — supports either UX).
 - [ ] **`UndoDeleteList`** — restores `deleted_at = NULL`; reschedules reminders; only valid within an undo window the *state* layer enforces (domain doesn't know about wall-clock undo windows beyond accepting the call).
 
@@ -231,6 +231,22 @@ Helpers with no IO; testable by themselves.
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-28** — Slice 13A: §7 Lists use cases wave three (kickoff) —
+  `ReorderList`. New `usecase/lists/ReorderList.kt`: `(movedId, previous?,
+  next?)` bracket → delegate to `ListsRepository.reorder` + the standard
+  `toDomain(entity="List")` lift. **Spec/reality reconciliation:** the
+  punch list said "computes new fractional sort_order in pure code", but
+  the shipped `reorder` contract owns the `SortOrderArithmetic` math +
+  rebalance atomically with the write, so the use case is a pure delegate
+  — the mirror image of the already-shipped `ReorderItem`. `ReorderListTest`
+  covers happy path (move between brackets, asserting newest-at-top
+  dashboard order then the reordered order), the `toDomain` NotFound lift
+  on a bogus id, and an `Outcome.fold` use-site. Opens the Slice 13 wave;
+  `DeleteList` (needs the `ReminderScheduler` port → Slice 13C) and
+  `UndoDeleteList` (blocked on a data-layer restore primitive
+  `ListsRepository` doesn't expose) remain. `:shared:domain:check` +
+  `:build-logic:test` green on JVM + iOS Sim. _Commit <sha>._
 
 - **2026-05-28** — Slice 12: §7 Items use cases wave one. New
   `usecase/items/` package with seven use cases (ADR-007b shape):
