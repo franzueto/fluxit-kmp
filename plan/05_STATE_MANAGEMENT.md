@@ -15,10 +15,10 @@
 
 ## 1. Module wiring
 
-- [ ] `:shared:state/build.gradle.kts` applies `fluxit.kmp.library`, applies SKIE plugin (already configured by `fluxit.kmp.library` per Phase 01 §4 — verified here for the iOS-facing module).
-- [ ] Dependencies (commonMain): `:shared:domain`, `kotlinx-coroutines-core`, `kotlinx-datetime`, Kermit. **No** dependency on `:shared:data` (use cases only).
-- [ ] iOS source set: SKIE annotations runtime; no other iosMain code (stores are pure common).
-- [ ] Konsist: `:shared:state` cannot import `app.cash.sqldelight.*`, any repository **implementation**, Android, or iOS APIs.
+- [x] `:shared:state/build.gradle.kts` applies `fluxit.kmp.library`, applies SKIE plugin (already configured by `fluxit.kmp.library` per Phase 01 §4 — verified here for the iOS-facing module). _(Slice 2)_
+- [x] Dependencies (commonMain): `:shared:domain` (as `api` + `export`ed to the framework so domain types reach Swift), `kotlinx-coroutines-core`, `kotlinx-datetime`, Kermit. **No** dependency on `:shared:data` (use cases only). _(Slice 2)_
+- [x] iOS source set: SKIE annotations runtime; no other iosMain code (stores are pure common). _(Slice 2 — only the pre-existing `Platform.ios.kt` stub remains; no store code in iosMain.)_
+- [x] Konsist: `:shared:state` cannot import `app.cash.sqldelight.*`, any repository **implementation**, Android, or iOS APIs. _(Slice 2 — `StateLayerArchTest` rule 1.)_
 
 ## 2. Store contract
 
@@ -55,10 +55,10 @@ abstract class BaseStore<S : Any, I : Any, E : Any>(
 }
 ```
 
-- [ ] Implement `Store` + `BaseStore` in `:shared:state/store/`.
-- [ ] Intents are processed **serially** through a single `Channel` to avoid races inside a store. Cross-store concurrency is fine — they own disjoint state.
-- [ ] No `reducer(state, intent) -> state` purity — `reduce` may launch coroutines and call use cases. We accept impurity for ergonomics; testability is preserved by injecting fake repos/clock.
-- [ ] **Effects are one-shot**: navigation requests, toasts, permission prompts, undo-action snackbars. State must always be sufficient to re-render UI without ever consuming an effect.
+- [x] Implement `Store` + `BaseStore` in `:shared:state/store/`. _(Slice 2)_
+- [x] Intents are processed **serially** through a single `Channel` to avoid races inside a store. Cross-store concurrency is fine — they own disjoint state. _(Slice 2 — `Channel.UNLIMITED` + single consumer in the injected scope.)_
+- [x] No `reducer(state, intent) -> state` purity — `reduce` may launch coroutines and call use cases. We accept impurity for ergonomics; testability is preserved by injecting fake repos/clock. _(Slice 2)_
+- [x] **Effects are one-shot**: navigation requests, toasts, permission prompts, undo-action snackbars. State must always be sufficient to re-render UI without ever consuming an effect. _(Slice 2 — `SharedFlow(replay=0, extraBufferCapacity=16)`.)_
 
 ## 3. SKIE-friendly exposure (iOS)
 
@@ -176,9 +176,9 @@ protected suspend fun <T> optimistic(
 }
 ```
 
-- [ ] Implement `optimistic { … }` in `BaseStore`.
-- [ ] Use `apply`/`revert` pairs that are pure functions of state (so revert is correct even if other intents arrived in between — apply against current state at revert time, not by snapshotting).
-- [ ] Document the pattern in `:shared:state/README.md`.
+- [x] Implement `optimistic { … }` in `BaseStore`. _(Slice 2 — diverged from the §5 sketch: `onError` has no default, since `BaseStore` is generic over `E` and can't reference `Effect.ShowError`; each store passes its own mapping. Also matches `Outcome.Err` (the real variant name), not `Outcome.Failure`.)_
+- [x] Use `apply`/`revert` pairs that are pure functions of state (so revert is correct even if other intents arrived in between — apply against current state at revert time, not by snapshotting). _(Slice 2 — `S.() -> S` applied via `update`.)_
+- [ ] Document the pattern in `:shared:state/README.md`. _(Deferred — README lands with the first feature stores, Slice 3+.)_
 
 ## 6. Undo window enforcement
 
@@ -221,14 +221,14 @@ protected suspend fun <T> optimistic(
 
 ## 11. Konsist rules
 
-- [ ] Public stores expose only `state`, `effects`, `dispatch`. No public mutable fields.
-- [ ] No `MutableStateFlow` / `MutableSharedFlow` in any store's public API.
-- [ ] No `import com.fluxit.data.*`.
+- [ ] Public stores expose only `state`, `effects`, `dispatch`. No public mutable fields. _(Partial — the full "only these three" rule lands with the first feature stores, Slice 3+; the no-public-mutable-flow proxy is enforced now.)_
+- [x] No `MutableStateFlow` / `MutableSharedFlow` in any store's public API. _(Slice 2 — `StateLayerArchTest` rule 2.)_
+- [x] No `import com.fluxit.data.*`. _(Slice 2 — `StateLayerArchTest` rule 1 bans `dev.franzueto.fluxit.shared.data` + `:platform:*` + SQLDelight + Android/iOS framework imports.)_
 - [ ] Every State/Intent/Effect type is `sealed` or `data` and lives in the same file as its store (or a sibling file with a `*Contract.kt` name).
 
 ## 12. Testing
 
-- [ ] **Test harness**: `runStoreTest { store, scope -> … }` builds a store with fake repos, `TestScope`, `FakeClock`, and a `TurbineSubscriber` collecting `state` + `effects`.
+- [x] **Test harness**: `runStoreTest { store, scope -> … }` builds a store with fake repos, `TestScope`, `FakeClock`, and a `TurbineSubscriber` collecting `state` + `effects`. _(Slice 2 — `runStoreTest` supplies `TestScope` (via `backgroundScope` so the consumer loop is auto-cancelled) + `FakeClock`; Turbine `.test {}` is used inline on `state`/`effects`. Wiring the `:shared:domain` repository fakes through it lands in Slice 3 when the first real store needs them — needs the domain fakes exposed as test fixtures.)_
 - [ ] **Per-store tests**:
   - Initial state correctness on first collection.
   - Each intent → expected state delta.
@@ -267,6 +267,32 @@ protected suspend fun <T> optimistic(
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-29** — Slice 2: `Store`/`BaseStore` + `optimistic` helper + `AppLogger`
+  port + `runStoreTest` harness (§1, §2, §5, §11, §12). Landed the `Store<S,I,E>`
+  interface (`state: StateFlow` / `effects: Flow` / `dispatch`) and `BaseStore`
+  (`MutableStateFlow` + `SharedFlow(replay=0, extraBufferCapacity=16)`, a single
+  `Channel.UNLIMITED` consumed serially in the injected scope, `update`/`emit`/
+  `currentState` protected primitives, abstract `reduce`, and the `optimistic`
+  reconcile-or-revert helper). Added the §5 `AppLogger` domain port in
+  `:shared:domain/port/` with a `NoOp` companion (Phase 05 is its first consumer;
+  Kermit-backed actual deferred to Phase 06). Wired `:shared:state/build.gradle.kts`:
+  `api(:shared:domain)` + framework `export` so domain types reach Swift,
+  coroutines/datetime/Kermit, and a `testing-shared` (Turbine + coroutines-test)
+  test dep. Added `StateLayerArchTest` to `:build-logic` (§1 import ban + §11
+  no-public-mutable-flow). Tests: `runStoreTest` harness (`TestScope.backgroundScope`
+  + `FakeClock`) + `BaseStoreTest` (initial state, intent→state, one-shot effect,
+  serial-order processing, optimistic success keeps applied, optimistic failure
+  reverts + emits). Gate green: `:shared:state:check` (JVM + iOS Sim) +
+  `:build-logic:test --rerun-tasks`.
+  **Divergences:** (1) `optimistic`'s `onError` has **no** default — `BaseStore` is
+  generic over `E` and can't reference a concrete `Effect.ShowError`, so each store
+  passes its own mapping (the §5 sketch's default is unrepresentable). (2) Used the
+  real `Outcome.Err` variant, not the sketch's `Outcome.Failure`. (3) Konsist
+  store-harness rule is the no-public-mutable-flow proxy; the full "only state/
+  effects/dispatch" rule lands with the first feature stores (Slice 3+). (4) §1
+  module wiring landed here (Slice 2) rather than Slice 1 — deferred until a
+  consumer existed. _Commit `<pending>`._
 
 - **2026-05-29** — Slice 1: ADR-014 opened **Proposed** + §13 numbering fixed
   (docs-only). Wrote **ADR-014** in `00_DECISIONS.md` — the single MVI store
