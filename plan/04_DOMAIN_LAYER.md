@@ -131,9 +131,9 @@ Each use case is a small class with `operator fun invoke(...)` (or `suspend oper
 - [x] **`ObserveLists`** — `operator fun invoke(): Flow<List<ListSummary>>` — debounce/sort applied here, not in repo. _Slice 11A (2026-05-28); trivial delegate to `ListsRepository.observeAll()`. Returns `Flow` (not `Outcome`) — the typed-error channel is for command use cases; a reactive read has no single fold-able failure. Debounce/sort deferred to the state layer (Phase 05) per §9 (`stateIn`/`shareIn` are state-layer choices)._
 - [x] **`SearchLists`** — `operator fun invoke(query: String): Flow<List<ListSummary>>`. Empty query → all. Trims, lower-cases, applies `query.length >= 1` rule. _Slice 11A (2026-05-28); validator-discipline pattern — a blank query trims to `""`, which the repo contract treats as "match everything", so there's no `query.length >= 1` rejection (an empty query is a legitimate result, not an error). Normalises (trim + lowercase) then delegates to `repo.search`._
 - [x] **`CreateList`** — validates draft → `repo.create` → if `draft.reminder != null` then `ScheduleReminder` → emits `AnalyticsEvent.ListCreated`. _Slice 11A (2026-05-28); validates `draft.name` via `TrimmedNonBlank.of` (blank → `DomainError.Validation(field="name", rule=Empty)`, directly — never via `DataError`), persists the **trimmed** name, lifts repo errors via `mapError { it.toDomain(entity="List") }`. **Spec/reality reconciliation:** the punch list said "mint id via `IdGenerator`", but the shipped `ListsRepository.create` contract mints the id itself (atomic with sort_order + timestamps) and returns it — so `CreateList` delegates id-minting to the repo and carries no `IdGenerator` dep. **Deferred:** `ScheduleReminder` chaining waits for `ListDraft.reminder` (§3 carry-forward, not yet added) + the `ReminderScheduler` port slice; `AnalyticsEvent.ListCreated` waits for §5's `AnalyticsSink` port (noted in KDoc)._
-- [ ] **`UpdateListAppearance`** — change icon/color, validates color is in palette. _Slice 11B (next): the `PaletteCatalog`-validation use case._
+- [x] **`UpdateListAppearance`** — change icon/color, validates color is in palette. _Slice 11B (2026-05-28); validates both `icon` and `color` against `PaletteCatalog` before persisting, then lifts repo failures via `toDomain(entity="List")`. **Forward-looking guard, not a reachable v1 failure:** `FluxItIconRef`/`ColorToken` are enums and the v1 catalog wraps the full `.entries`, so every well-typed argument is already in the catalog — the membership check can't fail today. Written anyway so the moment the catalog narrows to a subset (v2 per-tier picker / A/B, per PaletteCatalog's KDoc) it starts rejecting out-of-catalog values as `ValidationError.InvalidFormat` with no code change here. Tested via an every-catalog-value pass-through (the guard never rejects a v1-reachable input) rather than an unconstructable out-of-catalog rejection._
 - [x] **`RenameList`** _Slice 11A (2026-05-28); validates new name via `TrimmedNonBlank.of` (blank → `DomainError.Validation`), persists trimmed value, lifts repo `DataError` via `mapError { it.toDomain(entity="List") }` — a write against a missing/tombstoned id surfaces as `DomainError.NotFound(entity="List", …)`._
-- [ ] **`SetListStarred`** _Slice 11B (next): trivial delegate._
+- [x] **`SetListStarred`** _Slice 11B (2026-05-28); trivial delegate to `repo.setStarred` + the standard `toDomain(entity="List")` lift (missing/tombstoned id → `DomainError.NotFound`). No input to validate (Boolean + typed id)._
 - [ ] **`ReorderList`** — input is `(movedId, beforeId?, afterId?)`; computes new fractional sort_order in pure code, calls `repo.reorder`.
 - [ ] **`DeleteList`** — soft-deletes list AND cancels all active reminders for it. Returns `Outcome<DeletedListSummary, DomainError>` so UI can offer undo (per Phase 03 open question — supports either UX).
 - [ ] **`UndoDeleteList`** — restores `deleted_at = NULL`; reschedules reminders; only valid within an undo window the *state* layer enforces (domain doesn't know about wall-clock undo windows beyond accepting the call).
@@ -198,7 +198,7 @@ Helpers with no IO; testable by themselves.
 
 ## 11. Testing
 
-- [x] **One test class per use case** — happy path, each validation branch, each `DomainError` it can produce. Uses fakes from `domain-test-fixtures` (a sibling `commonTest`-only fixture package, not a separate module yet). _Partial — landing per §7 wave. **Slice 11A (2026-05-28):** `ObserveListsTest`, `SearchListsTest`, `CreateListTest`, `RenameListTest` under `usecase/lists/`, plus a shared `ListUseCaseFixtures.kt` (seq-id `IdGenerator` lambda + fixed `FakeClock` + `draft()` builder). Each suite covers happy path, the `DomainError.Validation` branch, the `mapError { it.toDomain(entity="List") }` lift, and an `Outcome.fold` use-site. Remaining §7 use cases get their test classes as their slices land._
+- [x] **One test class per use case** — happy path, each validation branch, each `DomainError` it can produce. Uses fakes from `domain-test-fixtures` (a sibling `commonTest`-only fixture package, not a separate module yet). _Partial — landing per §7 wave. **Slice 11A (2026-05-28):** `ObserveListsTest`, `SearchListsTest`, `CreateListTest`, `RenameListTest` under `usecase/lists/`, plus a shared `ListUseCaseFixtures.kt` (seq-id `IdGenerator` lambda + fixed `FakeClock` + `draft()` builder). Each suite covers happy path, the `DomainError.Validation` branch, the `mapError { it.toDomain(entity="List") }` lift, and an `Outcome.fold` use-site. **Slice 11B (2026-05-28):** `SetListStarredTest` + `UpdateListAppearanceTest` (the latter's PaletteCatalog guard is tested via an every-catalog-value pass-through, since the rejection branch is unreachable with the v1 full-enum catalog). Remaining §7 use cases get their test classes as their slices land._
 - [x] **Fakes** (in `commonTest`):
   - `FakeListsRepository`, `FakeItemsRepository`, `FakeRemindersRepository`, `FakePhotosRepository` — backed by in-memory `MutableStateFlow`s.
   - `FakeClock(initial)` with `advanceBy`.
@@ -231,6 +231,29 @@ Helpers with no IO; testable by themselves.
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-28** — Slice 11B: §7 Lists use cases wave two — appearance +
+  starred. `usecase/lists/SetListStarred.kt` (trivial delegate to
+  `repo.setStarred` + the standard `toDomain(entity="List")` lift; no
+  input to validate) and `usecase/lists/UpdateListAppearance.kt`
+  (validates `icon` + `color` against `PaletteCatalog` before persisting,
+  then lifts repo failures). The PaletteCatalog membership check is a
+  **forward-looking guard, not a reachable v1 failure**: `FluxItIconRef` /
+  `ColorToken` are enums and the v1 catalog wraps the full `.entries`, so
+  every well-typed argument is already in-catalog — the check can't fail
+  today. It's written so the moment the catalog narrows to a subset (v2
+  per-tier picker / A/B, per PaletteCatalog's own KDoc) it begins
+  rejecting out-of-catalog values as `ValidationError.InvalidFormat` with
+  no code change here. Because the rejection branch is unconstructable
+  with the full-enum catalog, `UpdateListAppearanceTest` proves the guard
+  via an every-(icon, color) pass-through (the guard never rejects a
+  v1-reachable input) rather than a fake out-of-catalog value.
+  `SetListStarredTest` + `UpdateListAppearanceTest` each cover happy path,
+  the `toDomain` NotFound lift, and an `Outcome.fold` use-site.
+  `:shared:domain:check` + `:build-logic:test` green on JVM + iOS Sim.
+  Closes the §7 Lists feature area (Reorder/Delete/UndoDelete remain,
+  but the basic + appearance CRUD wave the punch list scoped is done).
+  _Commit <sha>._
 
 - **2026-05-28** — Slice 11A: §7 use-case wave one (basic Lists CRUD) +
   ADR-007/007b ratification. New `usecase/lists/` package with four
