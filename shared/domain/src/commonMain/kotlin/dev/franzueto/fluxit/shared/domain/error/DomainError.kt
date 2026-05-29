@@ -1,5 +1,6 @@
 package dev.franzueto.fluxit.shared.domain.error
 
+import dev.franzueto.fluxit.shared.domain.port.CaptureError
 import dev.franzueto.fluxit.shared.domain.port.SchedulerError
 
 /**
@@ -75,6 +76,17 @@ public sealed class DomainError {
      */
     public data class SchedulerFailure(
         val reason: SchedulerError,
+    ) : DomainError()
+
+    /**
+     * A photo capture / library pick failed (Phase 04 §5/§7). [reason] is
+     * the typed [CaptureError] from the
+     * [dev.franzueto.fluxit.shared.domain.port.PhotoCapture] port — UI
+     * pattern-matches it (`PermissionDenied` → prompt; `UserCancelled` →
+     * abort quietly without an error banner).
+     */
+    public data class CaptureFailure(
+        val reason: CaptureError,
     ) : DomainError()
 }
 
