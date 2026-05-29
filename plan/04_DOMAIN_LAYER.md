@@ -259,7 +259,7 @@ Helpers with no IO; testable by themselves.
   decision): the Outcome-everywhere + Konsist-ban preconditions are met for
   ADR-007, and ADR-007b's "class + invoke" shape is proven across the four
   use cases with their fakes wired through the constructor seam. `:shared:
-  domain:check` + `:build-logic:test` green on JVM + iOS Sim. _Commit <sha>._
+  domain:check` + `:build-logic:test` green on JVM + iOS Sim. _Commit `15fe23c`._
 
 - **2026-05-28** — Slice 10: §11 repository fakes wave two — Reminders +
   Photos. New files: `repository/FakeRemindersRepository.kt`
