@@ -285,4 +285,4 @@ protected suspend fun <T> optimistic(
   discrete states**, navigation via **effects** (not observed state). **Module
   wiring (§1) deferred to Slice 2**, where `BaseStore` first consumes the
   `:shared:domain` + coroutines/datetime/Kermit dependencies (no dead wiring
-  ahead of a consumer). No code change. _Commit `<pending>`._
+  ahead of a consumer). No code change. _Commit `3e72868`._
