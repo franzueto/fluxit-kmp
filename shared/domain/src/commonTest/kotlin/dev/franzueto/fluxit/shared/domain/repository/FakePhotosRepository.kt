@@ -51,6 +51,17 @@ public class FakePhotosRepository(
 
     private val state = MutableStateFlow<List<Row>>(emptyList())
 
+    /**
+     * Controllable failure modes (Phase 04 §11 "fakes with controllable
+     * failure modes"). When non-null, the corresponding write short-circuits
+     * with the given [DataError] before touching state — used by use-case
+     * tests to drive the `mapError { it.toDomain(...) }` lift branches that a
+     * happy-path fake can't reach (e.g. `AttachPhotoToItem`'s ingest-failure
+     * path, `PhotoJanitor`'s orphan-sweep-failure path).
+     */
+    public var failIngestWith: DataError? = null
+    public var failDeleteIfOrphanedWith: DataError? = null
+
     // ── reads ────────────────────────────────────────────────────────────
 
     override fun observe(photoId: PhotoId): Flow<Photo?> =
@@ -66,6 +77,7 @@ public class FakePhotosRepository(
         width: Int,
         height: Int,
     ): Outcome<PhotoId, DataError> {
+        failIngestWith?.let { return Outcome.Err(it) }
         val now = clock.now()
         val path = storage.write(bytes, mime)
         val id = PhotoId(ids.newId())
@@ -85,6 +97,7 @@ public class FakePhotosRepository(
     }
 
     override suspend fun deleteIfOrphaned(photoId: PhotoId): Outcome<Unit, DataError> {
+        failDeleteIfOrphanedWith?.let { return Outcome.Err(it) }
         val current = state.value
         if (current.none { it.id == photoId && it.deletedAt == null }) {
             return Outcome.Err(DataError.NotFound(photoId.value))

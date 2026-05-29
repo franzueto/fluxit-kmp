@@ -54,6 +54,14 @@ public class FakeItemsRepository(
 
     private val state = MutableStateFlow<List<Row>>(emptyList())
 
+    /**
+     * Controllable failure mode (Phase 04 §11). When non-null, [update]
+     * short-circuits with this [DataError] before mutating state — lets
+     * use-case tests drive the repository-failure branch of flows that compose
+     * `update` (e.g. `DetachPhotoFromItem` → `UpdateItemDetails` → `update`).
+     */
+    public var failUpdateWith: DataError? = null
+
     // ── reads ────────────────────────────────────────────────────────────
 
     override fun observeByList(listId: ListId): Flow<ItemsSection> =
@@ -117,8 +125,9 @@ public class FakeItemsRepository(
     override suspend fun update(
         itemId: ItemId,
         patch: ItemPatch,
-    ): Outcome<Unit, DataError> =
-        mutate(itemId) {
+    ): Outcome<Unit, DataError> {
+        failUpdateWith?.let { err -> return Outcome.Err(err) }
+        return mutate(itemId) {
             it.copy(
                 title = patch.title,
                 subtitle = patch.subtitle,
@@ -127,6 +136,7 @@ public class FakeItemsRepository(
                 updatedAt = clock.now(),
             )
         }
+    }
 
     override suspend fun setCompleted(
         itemId: ItemId,

@@ -19,6 +19,14 @@ dependencies {
     implementation(libs.build.detekt.gradle.plugin)
     implementation(libs.build.spotless.gradle.plugin)
     implementation(libs.build.ktlint.gradle.plugin)
+    // Kover (Phase 04 §13 coverage gate). Loaded on the build-logic classpath
+    // — the same classloader that carries the Kotlin Multiplatform plugin — so
+    // the Kover plugin and the Kotlin Native toolchain register the
+    // `kotlin.native.bundle.type` Gradle attribute exactly once. Applying Kover
+    // from a module's own `plugins {}` block instead pulls a second Kotlin
+    // Gradle plugin copy into a separate classloader, which fails configuration
+    // with "Cannot have two attributes with the same name but different types".
+    implementation(libs.build.kover.gradle.plugin)
 
     // Used by the token-pipeline parser/emitters in
     // src/main/kotlin/dev/franzueto/fluxit/tokens/ — see ADR-005.

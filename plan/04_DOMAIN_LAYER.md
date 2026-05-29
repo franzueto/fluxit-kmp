@@ -227,13 +227,37 @@ Helpers with no IO; testable by themselves.
 
 - [ ] All checkboxes above ✅.
 - [ ] Konsist tests green; `:shared:domain` has zero forbidden imports.
-- [ ] Use case branch coverage ≥ 95% (target 100%, tolerate 5% for trivial guards).
+- [x] Use case branch coverage ≥ 95% (target 100%, tolerate 5% for trivial guards). _Slice 14B (2026-05-29): wired Kover 0.9.1 (`koverVerify` rule scoped to `dev.franzueto.fluxit.shared.domain.usecase.*`, `minValue = 95`, `CoverageUnit.BRANCH`); also `dependsOn`-ed it from `check` so the gate is permanent. **Measured: 95.12% (78/82 branches).** The 4 residual misses are all trivial guards within the tolerated 5%: `UpdateListAppearance`'s two `!in PaletteCatalog.{icons,colors}` rejection arms (unreachable — the v1 catalog is the full enum, so no valid `FluxItIconRef`/`ColorToken` is outside it), plus one Kotlin-generated null/loop intrinsic each in `DeleteList` (cancel-loop) and `PhotoJanitor` (`observe().first()?.relativePath ?: …`) that the behavioural happy+failure tests exercise but Kover can't isolate. Kover is applied from the `fluxit.kmp.library` convention (build-logic classpath) only for `:shared:domain` — applying it from the module's own `plugins {}` block hit a Kotlin/Native `kotlin.native.bundle.type` attribute clash (two classloaders); loading it beside the Kotlin MPP plugin fixes that. New fail-injection hooks added to `FakeItemsRepository` (`failUpdateWith`), `FakePhotosRepository` (`failIngestWith`/`failDeleteIfOrphanedWith`), `FakeRemindersRepository` (`failScheduleWith`) so the repository-failure lift branches of `AttachPhotoToItem`/`DetachPhotoFromItem`/`PhotoJanitor`/`ScheduleReminder` are reachable from tests._
 - [ ] `MASTER_PLAN.md`: Phase 04 → 🟢, ▶ Next Step → Phase 05.
 - [ ] `00_DECISIONS.md`: ADR-007 (a/b) accepted; ADR-006c marked superseded by ADR-007a.
 
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-29** — Slice 14B: §13 coverage gate via Kover (Phase 04 close-out,
+  part 2 of 3). Added Kover 0.9.1 to the version catalog (`build-kover-gradle-
+  plugin` + `kover` version) and to `build-logic`'s dependencies; the
+  `fluxit.kmp.library` convention applies it **only to `:shared:domain`**
+  (`pluginManager.apply` guarded by `path == ":shared:domain"`). Loading Kover
+  on the build-logic classpath — beside the Kotlin Multiplatform plugin — was
+  required to dodge a `kotlin.native.bundle.type` "two attributes, different
+  types" configuration failure that occurs when the module applies Kover from
+  its own `plugins {}` block (a second Kotlin Gradle plugin copy in a separate
+  classloader). `shared/domain/build.gradle.kts` carries the `kover { }` verify
+  rule (branch coverage ≥ 95%, scoped to `…usecase.*`) and `dependsOn`-s it from
+  `check` so `:shared:domain:check` enforces it permanently. **Measured 95.12%
+  (78/82 branches).** To lift coverage from the initial 89.02% I added
+  controllable fail-injection to three repository fakes (`failUpdateWith`,
+  `failIngestWith`, `failDeleteIfOrphanedWith`, `failScheduleWith`) — matching
+  the §11 "fakes with controllable failure modes" spec — and 5 use-case tests
+  covering the repository-failure lift branches of `ScheduleReminder`,
+  `AttachPhotoToItem`, `DetachPhotoFromItem` (×2), and `PhotoJanitor`. The 4
+  residual misses are all trivial guards inside the tolerated 5%
+  (`UpdateListAppearance`'s two dead enum-catalog rejection arms + a
+  Kotlin-generated null/loop intrinsic in `DeleteList` and `PhotoJanitor`).
+  `:shared:domain:check` + `:build-logic:test` green on JVM + iOS Sim.
+  _Commit `<sha>`._
 
 - **2026-05-29** — Slice 14A: §9 concurrency-contract review (Phase 04
   close-out, part 1 of 3). Added a `**Concurrency (§9):**` KDoc paragraph to all

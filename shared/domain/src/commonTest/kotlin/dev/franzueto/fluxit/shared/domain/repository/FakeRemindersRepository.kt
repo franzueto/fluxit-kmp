@@ -51,6 +51,14 @@ public class FakeRemindersRepository(
 
     private val state = MutableStateFlow<List<Row>>(emptyList())
 
+    /**
+     * Controllable failure mode (Phase 04 §11). When non-null, [schedule]
+     * short-circuits with this [DataError] before persisting — lets
+     * `ScheduleReminder`'s tests drive the repository-persist-failure branch
+     * (the `mapError { it.toDomain("Reminder") }` lift) without a real DB.
+     */
+    public var failScheduleWith: DataError? = null
+
     // ── reads ────────────────────────────────────────────────────────────
 
     override fun observeForOwner(owner: ReminderOwner): Flow<List<Reminder>> =
@@ -85,6 +93,7 @@ public class FakeRemindersRepository(
     // ── writes ───────────────────────────────────────────────────────────
 
     override suspend fun schedule(spec: ReminderSpec): Outcome<ReminderId, DataError> {
+        failScheduleWith?.let { return Outcome.Err(it) }
         val now = clock.now()
         val id = ReminderId(ids.newId())
         val row =

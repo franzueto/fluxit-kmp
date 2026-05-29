@@ -1,5 +1,7 @@
 package dev.franzueto.fluxit.shared.domain.usecase.photos
 
+import dev.franzueto.fluxit.shared.domain.error.DataError
+import dev.franzueto.fluxit.shared.domain.error.DomainError
 import dev.franzueto.fluxit.shared.domain.error.Outcome
 import dev.franzueto.fluxit.shared.domain.model.PhotoId
 import dev.franzueto.fluxit.shared.domain.port.FakePhotoStorage
@@ -7,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -42,5 +45,19 @@ class PhotoJanitorTest {
             val storage = FakePhotoStorage()
             val photos = newPhotosRepo(storage)
             assertEquals(Outcome.Ok(false), PhotoJanitor(photos, storage)(PhotoId("photo-99999999")))
+        }
+
+    @Test
+    fun an_orphan_sweep_failure_surfaces_storage_failure_and_keeps_the_file() =
+        runTest {
+            val storage = FakePhotoStorage()
+            val photos = newPhotosRepo(storage)
+            val id = (photos.ingest(byteArrayOf(1, 2), "image/jpeg", 10, 10) as Outcome.Ok).value
+            photos.failDeleteIfOrphanedWith = DataError.Storage(RuntimeException("disk full"))
+
+            val err = assertIs<Outcome.Err<DomainError>>(PhotoJanitor(photos, storage)(id))
+            assertIs<DomainError.StorageFailure>(err.error)
+            // The sweep aborted before storage.delete — the file is untouched.
+            assertEquals(1, storage.storedPaths.size)
         }
 }

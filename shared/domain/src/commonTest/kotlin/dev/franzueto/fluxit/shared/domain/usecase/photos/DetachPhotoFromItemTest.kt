@@ -1,5 +1,6 @@
 package dev.franzueto.fluxit.shared.domain.usecase.photos
 
+import dev.franzueto.fluxit.shared.domain.error.DataError
 import dev.franzueto.fluxit.shared.domain.error.DomainError
 import dev.franzueto.fluxit.shared.domain.error.Optional
 import dev.franzueto.fluxit.shared.domain.error.Outcome
@@ -70,6 +71,37 @@ class DetachPhotoFromItemTest {
 
             val detach = DetachPhotoFromItem(items, UpdateItemDetails(items), PhotoJanitor(photos, storage))
             assertEquals(Outcome.Ok(Unit), detach(itemId))
+        }
+
+    @Test
+    fun a_failure_clearing_the_item_pointer_surfaces_the_error() =
+        runTest {
+            val storage = FakePhotoStorage()
+            val photos = newPhotosRepo(storage)
+            val items = newItemsRepo()
+            val (itemId, _) = seedItemWithPhoto(items, photos)
+            items.failUpdateWith = DataError.Storage(RuntimeException("disk full"))
+
+            val detach = DetachPhotoFromItem(items, UpdateItemDetails(items), PhotoJanitor(photos, storage))
+            val err = assertIs<Outcome.Err<DomainError>>(detach(itemId))
+            assertIs<DomainError.StorageFailure>(err.error)
+        }
+
+    @Test
+    fun a_janitor_failure_after_clearing_surfaces_the_error() =
+        runTest {
+            val storage = FakePhotoStorage()
+            val photos = newPhotosRepo(storage)
+            val items = newItemsRepo()
+            val (itemId, _) = seedItemWithPhoto(items, photos)
+            // The clear succeeds; the orphan sweep then fails.
+            photos.failDeleteIfOrphanedWith = DataError.Storage(RuntimeException("disk full"))
+
+            val detach = DetachPhotoFromItem(items, UpdateItemDetails(items), PhotoJanitor(photos, storage))
+            val err = assertIs<Outcome.Err<DomainError>>(detach(itemId))
+            assertIs<DomainError.StorageFailure>(err.error)
+            // The item pointer was cleared before the janitor ran.
+            assertNull(items.observe(itemId).first()!!.photoId)
         }
 
     @Test

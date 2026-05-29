@@ -1,5 +1,6 @@
 package dev.franzueto.fluxit.shared.domain.usecase.reminders
 
+import dev.franzueto.fluxit.shared.domain.error.DataError
 import dev.franzueto.fluxit.shared.domain.error.DomainError
 import dev.franzueto.fluxit.shared.domain.error.Outcome
 import dev.franzueto.fluxit.shared.domain.error.ValidationError
@@ -57,6 +58,22 @@ class ScheduleReminderTest {
 
             assertEquals(DomainError.SchedulerFailure(reason = SchedulerError.PermissionDenied), err.error)
             // The phantom row was cancelled — no active reminder remains.
+            assertTrue(repo.observeForOwner(owner).first().isEmpty())
+        }
+
+    @Test
+    fun repository_persist_failure_surfaces_storage_failure_before_arming() =
+        runTest {
+            val repo = newRemindersRepo()
+            repo.failScheduleWith = DataError.Storage(RuntimeException("disk full"))
+            val scheduler = FakeReminderScheduler()
+            val err =
+                assertIs<Outcome.Err<DomainError>>(
+                    ScheduleReminder(repo, scheduler, FakeClock(FIXED_NOW))(listReminderSpec()),
+                )
+            assertIs<DomainError.StorageFailure>(err.error)
+            // Persist failed before the platform was touched.
+            assertTrue(scheduler.scheduled.isEmpty())
             assertTrue(repo.observeForOwner(owner).first().isEmpty())
         }
 

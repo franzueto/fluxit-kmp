@@ -1,5 +1,6 @@
 package dev.franzueto.fluxit.shared.domain.usecase.photos
 
+import dev.franzueto.fluxit.shared.domain.error.DataError
 import dev.franzueto.fluxit.shared.domain.error.DomainError
 import dev.franzueto.fluxit.shared.domain.error.Outcome
 import dev.franzueto.fluxit.shared.domain.model.ItemId
@@ -68,6 +69,24 @@ class AttachPhotoToItemTest {
                 )
             assertEquals(DomainError.CaptureFailure(reason = CaptureError.UserCancelled), err.error)
             assertTrue(storage.storedPaths.isEmpty())
+            assertNull(items.observe(id).first()!!.photoId)
+        }
+
+    @Test
+    fun ingest_failure_surfaces_storage_failure_and_leaves_the_item_untouched() =
+        runTest {
+            val storage = FakePhotoStorage()
+            val photos = newPhotosRepo(storage)
+            photos.failIngestWith = DataError.Storage(RuntimeException("disk full"))
+            val items = newItemsRepo()
+            val capture = FakePhotoCapture()
+            val id = seedItem(items)
+
+            val err =
+                assertIs<Outcome.Err<DomainError>>(
+                    AttachPhotoToItem(photos, capture, UpdateItemDetails(items))(id, PhotoSource.CAMERA),
+                )
+            assertIs<DomainError.StorageFailure>(err.error)
             assertNull(items.observe(id).first()!!.photoId)
         }
 
