@@ -246,7 +246,7 @@ Helpers with no IO; testable by themselves.
   `DeleteList` (needs the `ReminderScheduler` port → Slice 13C) and
   `UndoDeleteList` (blocked on a data-layer restore primitive
   `ListsRepository` doesn't expose) remain. `:shared:domain:check` +
-  `:build-logic:test` green on JVM + iOS Sim. _Commit <sha>._
+  `:build-logic:test` green on JVM + iOS Sim. _Commit `6c8faf0`._
 
 - **2026-05-28** — Slice 12: §7 Items use cases wave one. New
   `usecase/items/` package with seven use cases (ADR-007b shape):
