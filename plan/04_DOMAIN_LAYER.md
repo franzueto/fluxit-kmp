@@ -253,7 +253,7 @@ Helpers with no IO; testable by themselves.
   `:shared:domain:check` + `:build-logic:test` green on JVM + iOS Sim.
   Closes the §7 Lists feature area (Reorder/Delete/UndoDelete remain,
   but the basic + appearance CRUD wave the punch list scoped is done).
-  _Commit <sha>._
+  _Commit `d486110`._
 
 - **2026-05-28** — Slice 11A: §7 use-case wave one (basic Lists CRUD) +
   ADR-007/007b ratification. New `usecase/lists/` package with four
