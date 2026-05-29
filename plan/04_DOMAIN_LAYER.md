@@ -249,7 +249,7 @@ Helpers with no IO; testable by themselves.
   leaves fields untouched, `Set(null)` clears a nullable field, title
   trimming, blank-title rejection (asserts the rejected write never reached
   the repo), NotFound, and an `Outcome.fold` use-site. `:shared:domain:check`
-  + `:build-logic:test` green on JVM + iOS Sim. _Commit <sha>._
+  + `:build-logic:test` green on JVM + iOS Sim. _Commit `0f2ce4c`._
 
 - **2026-05-28** — Slice 13A: §7 Lists use cases wave three (kickoff) —
   `ReorderList`. New `usecase/lists/ReorderList.kt`: `(movedId, previous?,
