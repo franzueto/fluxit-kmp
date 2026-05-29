@@ -257,7 +257,7 @@ Helpers with no IO; testable by themselves.
   (4) `AttachPhotoToItem` / `DetachPhotoFromItem` need the deferred
   `PhotoCapture` port + `PhotoJanitor` (Photos slice). All annotated in
   KDoc + the §7 checklist. `:shared:domain:check` + `:build-logic:test`
-  green on JVM + iOS Sim. _Commit <sha>._
+  green on JVM + iOS Sim. _Commit `47e56d7`._
 
 - **2026-05-28** — Slice 11B: §7 Lists use cases wave two — appearance +
   starred. `usecase/lists/SetListStarred.kt` (trivial delegate to
