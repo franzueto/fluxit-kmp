@@ -292,7 +292,7 @@ protected suspend fun <T> optimistic(
   store-harness rule is the no-public-mutable-flow proxy; the full "only state/
   effects/dispatch" rule lands with the first feature stores (Slice 3+). (4) §1
   module wiring landed here (Slice 2) rather than Slice 1 — deferred until a
-  consumer existed. _Commit `<pending>`._
+  consumer existed. _Commit `923b7a8`._
 
 - **2026-05-29** — Slice 1: ADR-014 opened **Proposed** + §13 numbering fixed
   (docs-only). Wrote **ADR-014** in `00_DECISIONS.md` — the single MVI store
