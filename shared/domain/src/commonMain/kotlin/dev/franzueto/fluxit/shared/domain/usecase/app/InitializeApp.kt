@@ -37,6 +37,11 @@ public sealed interface InitProgress {
  * `selectOrphaned`. A rehydration failure terminates the flow with
  * [InitProgress.Failed] (startup continues — the state layer decides whether
  * to surface it).
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; returns a cold [Flow] of
+ * progress, collected on the collector's dispatcher. No `shareIn`/`stateIn`
+ * here — conflation/sharing is a state-layer choice (Phase 05).
  */
 public class InitializeApp(
     private val rehydrateReminders: RehydrateReminders,

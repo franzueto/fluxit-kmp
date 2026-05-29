@@ -20,6 +20,11 @@ import kotlinx.coroutines.flow.first
  * stale), so this reads `observeUpcoming(Int.MAX_VALUE).first()` for an
  * unbounded one-shot snapshot. A `SchedulerError` surfaces as
  * [DomainError.SchedulerFailure].
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class RehydrateReminders(
     private val reminders: RemindersRepository,

@@ -15,6 +15,11 @@ import kotlinx.coroutines.flow.Flow
  *
  * Returns [Flow] for the same reason as [ObserveLists]: reactive reads have
  * no single fold-able failure.
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; returns a cold [Flow]
+ * collected on the collector's dispatcher. No `shareIn`/`stateIn` here —
+ * conflation/sharing is a state-layer choice (Phase 05).
  */
 public class SearchLists(
     private val lists: ListsRepository,

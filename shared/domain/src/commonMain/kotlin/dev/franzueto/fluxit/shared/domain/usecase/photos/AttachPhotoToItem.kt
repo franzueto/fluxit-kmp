@@ -37,6 +37,11 @@ public enum class PhotoSource {
  * unreferenced; [PhotoJanitor] reclaims it on the next sweep. Accepted over
  * a pre-check race that can't be closed without a transaction spanning two
  * repositories.
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class AttachPhotoToItem(
     private val photos: PhotosRepository,

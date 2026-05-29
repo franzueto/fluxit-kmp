@@ -188,10 +188,10 @@ Helpers with no IO; testable by themselves.
 
 ## 9. Concurrency contract
 
-- [ ] All `suspend` boundaries declare *what dispatcher they require*: `// Caller dispatcher: any. This use case does not block.` Annotated via KDoc, not enforced (annotation framework would be overkill).
-- [ ] Use cases never call `withContext(Dispatchers.IO)` — that's the data layer's responsibility (SQLDelight driver decides). Domain stays dispatcher-agnostic.
-- [ ] No `Flow.shareIn` / `stateIn` in domain — those are state-layer choices.
-- [ ] Cancellation: every use case is structured-concurrency-clean. Verified by a Konsist rule banning `GlobalScope` in this module.
+- [x] All `suspend` boundaries declare *what dispatcher they require*: `// Caller dispatcher: any. This use case does not block.` Annotated via KDoc, not enforced (annotation framework would be overkill). _Slice 14A (2026-05-29): every one of the 25 `usecase/` classes now carries a `**Concurrency (§9):**` KDoc paragraph — the 19 command use cases state "caller dispatcher — any; does not block; suspends only on the injected repository/port, which owns its dispatcher; domain stays dispatcher-agnostic"; the 6 reactive reads (`ObserveLists`/`SearchLists`/`ObserveListDetail`/`ObserveRemindersForList`/`ObserveRemindersForItem`/`InitializeApp`) state "cold [Flow], collected on the collector's dispatcher; no shareIn/stateIn"._
+- [x] Use cases never call `withContext(Dispatchers.IO)` — that's the data layer's responsibility (SQLDelight driver decides). Domain stays dispatcher-agnostic. _Slice 14A (2026-05-29): audited — `grep -rn 'Dispatchers\.|withContext' shared/domain/src/commonMain` returns zero hits._
+- [x] No `Flow.shareIn` / `stateIn` in domain — those are state-layer choices. _Slice 14A (2026-05-29): audited — `grep -rn 'shareIn|stateIn' shared/domain/src/commonMain` returns zero hits._
+- [x] Cancellation: every use case is structured-concurrency-clean. Verified by a Konsist rule banning `GlobalScope` in this module. _Already enforced — `build-logic/.../ArchitectureTest.kt` test "GlobalScope and runBlocking are forbidden outside test source sets" scans the whole repo (incl. `:shared:domain`), banning both `GlobalScope` and `runBlocking` in non-test sources. No new rule needed (Slice 14A confirmed coverage)._
 
 ## 10. ADRs to write in this phase
 
@@ -234,6 +234,22 @@ Helpers with no IO; testable by themselves.
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-29** — Slice 14A: §9 concurrency-contract review (Phase 04
+  close-out, part 1 of 3). Added a `**Concurrency (§9):**` KDoc paragraph to all
+  25 `usecase/` classes — the 19 command use cases declare "caller dispatcher —
+  any; does not block; suspends only on the injected repository/port, which owns
+  its dispatcher; domain stays dispatcher-agnostic"; the 6 reactive reads
+  (`ObserveLists`/`SearchLists`/`ObserveListDetail`/`ObserveRemindersForList`/
+  `ObserveRemindersForItem`/`InitializeApp`) declare "cold `Flow`, collected on
+  the collector's dispatcher; no `shareIn`/`stateIn`". Audited the source: zero
+  `Dispatchers.*`/`withContext` and zero `shareIn`/`stateIn` in
+  `shared/domain/src/commonMain`. Confirmed the existing Konsist rule
+  ("GlobalScope and runBlocking are forbidden outside test source sets" in
+  `build-logic/.../ArchitectureTest.kt`) already scans `:shared:domain` and bans
+  both — no new rule needed (satisfies §9 box 4 + MASTER_PLAN rule 5). All four
+  §9 boxes ticked. Docs-and-KDoc only; no behaviour change. `:shared:domain:check`
+  + `:build-logic:test` green on JVM + iOS Sim. _Commit `<sha>`._
 
 - **2026-05-28** — Slice 13D: §7 Photos use cases + the `PhotoCapture` port +
   `InitializeApp` (closes the §7 use-case build-out). New `port/PhotoCapture.kt`

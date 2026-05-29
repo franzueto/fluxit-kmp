@@ -18,6 +18,10 @@ import kotlinx.coroutines.flow.Flow
  *
  * Shape per ADR-007b: a class with constructor-injected dependencies and a
  * single `operator fun invoke`.
+ *
+ * **Concurrency (§9):** caller dispatcher — any; returns a cold [Flow]
+ * collected on the collector's dispatcher. No `shareIn`/`stateIn` here —
+ * conflation/sharing is a state-layer choice (Phase 05).
  */
 public class ObserveLists(
     private val lists: ListsRepository,

@@ -22,6 +22,11 @@ import kotlinx.coroutines.flow.first
  * Note the read-then-write is not atomic; for a single-user local store the
  * last-writer-wins reconciliation through the observed flow is acceptable
  * (the §9 concurrency contract keeps domain dispatcher-agnostic).
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class ToggleItemCompleted(
     private val items: ItemsRepository,

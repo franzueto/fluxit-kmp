@@ -29,6 +29,11 @@ import kotlinx.coroutines.flow.first
  * `DetachPhotoFromItem` needs and the form a future batch sweep would call in
  * a loop. The 24h-grace batch scan is deferred until the data layer surfaces
  * a `selectOrphaned` query.
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class PhotoJanitor(
     private val photos: PhotosRepository,

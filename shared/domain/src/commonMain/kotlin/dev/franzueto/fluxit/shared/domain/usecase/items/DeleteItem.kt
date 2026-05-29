@@ -16,6 +16,11 @@ import dev.franzueto.fluxit.shared.domain.repository.ItemsRepository
  * built in the domain layer yet — it lands once Phase 03's data layer
  * surfaces a restore/bulk-restore method (tracked alongside the
  * `ClearCompletedItems → List<ItemId>` + `RestoreItems` bulk-undo wave).
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class DeleteItem(
     private val items: ItemsRepository,

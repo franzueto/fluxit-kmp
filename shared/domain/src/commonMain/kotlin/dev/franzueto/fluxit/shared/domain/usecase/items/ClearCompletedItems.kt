@@ -20,6 +20,11 @@ import dev.franzueto.fluxit.shared.domain.repository.ItemsRepository
  * returns `Outcome<Int, DomainError>` for now. The id-returning variant +
  * `RestoreItems` land together once Phase 03's data layer surfaces the
  * `RETURNING id` rows + a bulk-restore method.
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class ClearCompletedItems(
     private val items: ItemsRepository,

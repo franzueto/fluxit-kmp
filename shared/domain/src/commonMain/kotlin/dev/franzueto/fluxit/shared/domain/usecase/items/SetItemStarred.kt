@@ -13,6 +13,11 @@ import dev.franzueto.fluxit.shared.domain.repository.ItemsRepository
  * lift (missing/tombstoned id → [DomainError.NotFound]). No input to
  * validate. Mirrors
  * [dev.franzueto.fluxit.shared.domain.usecase.lists.SetListStarred].
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class SetItemStarred(
     private val items: ItemsRepository,

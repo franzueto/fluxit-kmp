@@ -14,6 +14,11 @@ import dev.franzueto.fluxit.shared.domain.repository.ListsRepository
  * gap collapses — same division of labour as [ReorderItem], so this use case
  * is a delegate + the standard `toDomain(entity = "List")` lift. Either
  * neighbour may be `null` for the dashboard endpoints.
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class ReorderList(
     private val lists: ListsRepository,

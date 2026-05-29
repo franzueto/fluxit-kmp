@@ -21,6 +21,11 @@ import dev.franzueto.fluxit.shared.domain.repository.ItemsRepository
  * [dev.franzueto.fluxit.shared.domain.usecase.lists.CreateList].
  *
  * `subtitle` / `description` are free-form and not validated here.
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class AddItem(
     private val items: ItemsRepository,

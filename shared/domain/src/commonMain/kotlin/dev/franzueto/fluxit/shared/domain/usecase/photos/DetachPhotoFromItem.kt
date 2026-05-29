@@ -23,6 +23,11 @@ import kotlinx.coroutines.flow.first
  * The §7 row said detach "schedules `PhotoJanitor` to GC the file later"; we
  * run the janitor inline (single-user local store, cheap) rather than queuing
  * — the janitor is itself a no-op when the photo is still referenced.
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class DetachPhotoFromItem(
     private val items: ItemsRepository,

@@ -37,6 +37,11 @@ import kotlinx.coroutines.flow.first
  * Read-then-write isn't atomic; last-writer-wins through the observed flow
  * is acceptable for the single-user local store (§9). `subtitle` /
  * `description` are free-form and not validated.
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class UpdateItemDetails(
     private val items: ItemsRepository,

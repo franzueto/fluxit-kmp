@@ -27,6 +27,11 @@ public data class ListDetailView(
     val items: ItemsSection,
 )
 
+/**
+ * **Concurrency (§9):** caller dispatcher — any; returns a cold [Flow]
+ * collected on the collector's dispatcher. No `shareIn`/`stateIn` here —
+ * conflation/sharing is a state-layer choice (Phase 05).
+ */
 public class ObserveListDetail(
     private val lists: ListsRepository,
     private val items: ItemsRepository,

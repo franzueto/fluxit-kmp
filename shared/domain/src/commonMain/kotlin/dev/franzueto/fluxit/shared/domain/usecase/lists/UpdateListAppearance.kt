@@ -27,6 +27,11 @@ import dev.franzueto.fluxit.shared.domain.rule.PaletteCatalog
  * values as [ValidationError.InvalidFormat] without a code change here.
  * Treat the `color`/`icon` Validation branches as defensive seams, not
  * paths v1 UI can exercise.
+ *
+ *
+ * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
+ * It suspends only on the injected repository/port, which owns its dispatcher;
+ * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class UpdateListAppearance(
     private val lists: ListsRepository,
