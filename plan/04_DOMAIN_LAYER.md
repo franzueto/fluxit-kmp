@@ -261,7 +261,7 @@ Helpers with no IO; testable by themselves.
   stays blocked on a data-layer restore primitive (captures cancelled
   reminder ids now so it lands as a delegate later). 18 new tests;
   `:shared:domain:check` + `:build-logic:test` green on JVM + iOS Sim.
-  _Commit <sha>._
+  _Commit `c7098e9`._
 
 - **2026-05-28** — Slice 13B: §7 `UpdateItemDetails` + the `Optional<T>`
   primitive (§6). New `error/Optional.kt`: `sealed interface Optional<out T>
