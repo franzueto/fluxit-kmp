@@ -22,4 +22,14 @@ public sealed class ValidationError {
 
     /** Input didn't match the expected format (regex, structural shape). */
     public data object InvalidFormat : ValidationError()
+
+    /**
+     * A temporal input that had to be strictly in the future wasn't — e.g.
+     * `ScheduleReminder`'s `firesAt > Clock.now()` guard (Phase 04 §7). The
+     * speculative `OutOfRange(min, max)` from the §6 punch list models a
+     * two-sided numeric range; a single-sided "must be after now" bound on
+     * an `Instant` doesn't fit it, so this precise variant ships instead and
+     * `OutOfRange` stays unbuilt until a real numeric-range validator needs it.
+     */
+    public data object NotInFuture : ValidationError()
 }

@@ -66,3 +66,18 @@ public data class ListDetail(
     val createdAt: Instant,
     val updatedAt: Instant,
 )
+
+/**
+ * Returned by `DeleteList` (Phase 04 §7) so the state layer can stage an
+ * undo snackbar without re-querying the now-tombstoned list. Carries the
+ * deleted list's identity + name for the toast copy ("Deleted '$name'") and
+ * the ids of the reminders cancelled as part of the delete (so a future
+ * `UndoDeleteList` — blocked today on a data-layer restore primitive — could
+ * reschedule them). It is **not** a persistence shape; it never round-trips
+ * through a repository.
+ */
+public data class DeletedListSummary(
+    val id: ListId,
+    val name: String,
+    val cancelledReminderIds: List<ReminderId>,
+)

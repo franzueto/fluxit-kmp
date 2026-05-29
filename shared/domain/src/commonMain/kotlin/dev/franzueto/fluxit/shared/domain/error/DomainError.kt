@@ -1,5 +1,7 @@
 package dev.franzueto.fluxit.shared.domain.error
 
+import dev.franzueto.fluxit.shared.domain.port.SchedulerError
+
 /**
  * The unified failure sum every use case returns through
  * `Outcome<T, DomainError>` (Phase 04 §6). Distinct from [DataError]:
@@ -61,6 +63,18 @@ public sealed class DomainError {
      */
     public data class StorageFailure(
         val cause: Throwable?,
+    ) : DomainError()
+
+    /**
+     * An OS-level reminder-scheduling operation failed (Phase 04 §5/§7).
+     * [reason] is the typed [SchedulerError] from the
+     * [dev.franzueto.fluxit.shared.domain.port.ReminderScheduler] port — UI
+     * pattern-matches it (e.g. `PermissionDenied` → prompt for permission
+     * and retry). Distinct from [StorageFailure]: the row may have persisted
+     * fine; it's the platform schedule that didn't arm.
+     */
+    public data class SchedulerFailure(
+        val reason: SchedulerError,
     ) : DomainError()
 }
 
