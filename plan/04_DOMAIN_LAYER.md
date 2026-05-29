@@ -257,7 +257,7 @@ Helpers with no IO; testable by themselves.
   (`UpdateListAppearance`'s two dead enum-catalog rejection arms + a
   Kotlin-generated null/loop intrinsic in `DeleteList` and `PhotoJanitor`).
   `:shared:domain:check` + `:build-logic:test` green on JVM + iOS Sim.
-  _Commit `<sha>`._
+  _Commit `10cccf7`._
 
 - **2026-05-29** — Slice 14A: §9 concurrency-contract review (Phase 04
   close-out, part 1 of 3). Added a `**Concurrency (§9):**` KDoc paragraph to all
