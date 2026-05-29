@@ -28,3 +28,28 @@ public inline fun <T, E, R> Outcome<T, E>.flatMap(transform: (T) -> Outcome<R, E
         is Outcome.Ok -> transform(value)
         is Outcome.Err -> this
     }
+
+/**
+ * Transform the error channel without touching the success channel.
+ * Use-case sites call `repo.create(draft).mapError { it.toDomain(entity = "List") }`
+ * to lift a [DataError]-bearing repository result into a [DomainError]-bearing
+ * use-case result (Phase 04 §6).
+ */
+public inline fun <T, E, F> Outcome<T, E>.mapError(transform: (E) -> F): Outcome<T, F> =
+    when (this) {
+        is Outcome.Ok -> this
+        is Outcome.Err -> Outcome.Err(transform(error))
+    }
+
+/**
+ * Collapse both channels into a single value. The standard "I have a result,
+ * I want to pattern-match it inline and produce a single output" pattern.
+ */
+public inline fun <T, E, R> Outcome<T, E>.fold(
+    onOk: (T) -> R,
+    onErr: (E) -> R,
+): R =
+    when (this) {
+        is Outcome.Ok -> onOk(value)
+        is Outcome.Err -> onErr(error)
+    }

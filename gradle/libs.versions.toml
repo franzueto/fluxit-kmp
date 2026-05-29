@@ -11,6 +11,7 @@
 [versions]
 # --- Language & build ---
 kotlin = "2.1.0"
+kover = "0.9.1"
 agp = "8.7.3"
 ksp = "2.1.0-1.0.29"            # KSP version tracks Kotlin version
 java-toolchain = "21"
@@ -104,6 +105,7 @@ build-ksp-gradle-plugin = { group = "com.google.devtools.ksp", name = "com.googl
 build-detekt-gradle-plugin = { group = "io.gitlab.arturbosch.detekt", name = "detekt-gradle-plugin", version.ref = "detekt" }
 build-spotless-gradle-plugin = { group = "com.diffplug.spotless", name = "spotless-plugin-gradle", version.ref = "spotless" }
 build-ktlint-gradle-plugin = { group = "org.jlleitschuh.gradle", name = "ktlint-gradle", version.ref = "ktlint-gradle" }
+build-kover-gradle-plugin = { group = "org.jetbrains.kotlinx", name = "kover-gradle-plugin", version.ref = "kover" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

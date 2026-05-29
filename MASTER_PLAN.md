@@ -2,15 +2,25 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-28 (Phase 03 complete; Phase 04 (Domain Layer) is the next pickup)
+**Last updated:** 2026-05-29 (**Phase 04 Domain Layer → 🟢 Complete** on `phase/04-domain-layer`. Close-out Slices 14A→14C: §9 concurrency contract audited + KDoc'd across all 25 use cases (dispatcher-agnostic, cold Flows, `GlobalScope`/`runBlocking` banned by Konsist); §13 coverage gate wired via **Kover** (`koverVerify` ≥95% branch on `usecase/`, `dependsOn` `check`) — **measured 95.12%**, the 4 residual misses are trivial guards; §13 hand-off checklist closed. ADR-007/007a/007b Accepted, 006c Superseded (audited, unchanged). Deferrals carried forward (non-blocking): data-layer-blocked undo/restore + analytics + batch janitor, §5 `AppLogger`/`AnalyticsSink`/`ConfigProvider`, §11 property tests + Konsist KDoc rules, §12 length caps. **Next: Phase 05 — State Management (MVI stores), ADR-014 first.**)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
-**Repo phase:** Phase 03 (Data Layer) **complete** on branch `phase/03-data-layer`. All §1–§13 closed: schema + adapters + driver factories + four repositories (Lists/Items/Reminders/Photos behind `:shared:domain` interfaces) + `PhotoStorage` port + fractional sort with §8 rebalance + the full §10 test pyramid (74 tests on both JVM and iOS Sim, including the close→reopen integration test, 50-way concurrent setCompleted, mapper round-trips, per-query gap coverage, repo error paths with FK enforcement, and the migration harness with v2-recipe KDoc). ADRs 006/006a/006b flipped Proposed → Accepted; ADR-006c marked Superseded by ADR-007a (anticipated Phase 04 §2). Ready to merge to `main` once the user opens the Phase 03 PR; Phase 04 starts on a new branch.
+**Repo phase:** Phase 04 (Domain Layer) **🟢 complete** on branch `phase/04-domain-layer` (ready to merge to `main`); **next up Phase 05 (State Management)**. Slices 1–9 closed §1–§3 + §5 first wave + §6 + §8 + §11 wave one. Slice 10: §11 repository fakes wave two — `FakeRemindersRepository` (MutableStateFlow-backed; `cancel` tombstones + flips `isActive`; `observeUpcoming(limit)` snapshots `clock.now()` once at subscription via `flow { … emitAll(state.map {…}) }` matching the §5 spec) + `FakePhotosRepository` (file-first-then-row contract via injected `FakePhotoStorage`; `deleteIfOrphaned` honors an injected `isReferenced: (PhotoId) -> Boolean` callback — defaults to `{ false }`, use-case wiring passes a real check against `FakeItemsRepository.state` when `PhotoJanitor` lands). `FakePhotoStorage` test helper under `port/`. 15 new tests green on JVM + iOS Sim. All four §11 repository fakes now in place. Pending list renumbered: the Phase 05 MVI ADR moved from collision-spot "ADR-007" to ADR-014.
 
 ---
 
 ## ▶ Next Step
 
-**Phase 04 — Domain Layer.** Phase 03 closed; the data layer ships `:shared:domain` interfaces (ListsRepository / ItemsRepository / RemindersRepository / PhotosRepository) + entity DTOs + the `Outcome<T, DataError>` typed-error result + the `PhotoStorage` port. Phase 04 fills out the domain proper: entities (incrementally — most of the value types and sealed sums already shipped pulled-forward in Phase 03 to satisfy adapter / repo signatures), use cases (PhotoJanitor, CascadeListDelete per ADR-006b, reminder rescheduler hooks, etc.), validators (the "name too long vs. name empty" split that the `DataError.Validation` taxonomy explicitly defers to this layer), and ADR-007a codifying the `:shared:domain`-owns-the-tokens decision that Phase 03 §3 already implemented. Start with `plan/04_DOMAIN_LAYER.md` §1 and consult the Phase 03 §11 ADR drafts (`plan/00_DECISIONS.md`) for context on what's already nailed down. Phase 03 ships to `main` first — branch `phase/03-data-layer` has the full sequence, ready for PR. Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml`; Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
+**Phase 05 — State Management (MVI stores).** **Phase 04 (Domain Layer) is 🟢 complete** as of 2026-05-29: the full §7 use-case layer (Lists/Items/Reminders/Photos + `InitializeApp`), the four ports (`Clock`/`IdGenerator`/`ReminderScheduler`/`PhotoCapture`), the six-variant `DomainError` + `Outcome` + `Optional<T>`, and the §8 pure rules all ship with per-use-case tests — green on JVM + iOS Sim, **use-case branch coverage 95.12%** enforced by a Kover `koverVerify` rule wired into `:shared:domain:check`. §9 concurrency contract audited + KDoc'd; §13 hand-off checklist closed. **Next** starts Phase 05: shared Flow-based MVI stores per feature, exposed to iOS via SKIE — see [`plan/05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md). The Phase 05 MVI store contract is **ADR-014** (intents/state/effects, error model, optimistic-update pattern) — write it as the first Phase 05 slice.
+
+**Carried forward into Phase 05+ (documented, non-blocking — none gated the Phase 04 flip):**
+- **Data-layer-blocked §7 use cases:** `UndoDeleteList`/`UndoDeleteItem`/`RestoreItems` + the `ClearCompletedItems → List<ItemId>` variant — need a data-layer **restore** (`deleted_at = NULL`) / `RETURNING id` method. `DeleteList` already returns `DeletedListSummary` (incl. `cancelledReminderIds`) so `UndoDeleteList` lands as a pure delegate once that primitive exists.
+- **`CreateList` analytics** — `AnalyticsEvent.ListCreated` emission needs the §5 `AnalyticsSink` port.
+- **Batch `PhotoJanitor selectOrphaned(olderThan = 24h)`** startup sweep + the janitor step inside `InitializeApp` — need a `PhotosRepository` enumeration primitive. Only the per-photo `PhotoJanitor` ships.
+- **§5 ports `AppLogger` / `AnalyticsSink` / `ConfigProvider`** — unbuilt; land with their first consumer (likely Phase 05/06).
+- **§11 property tests** (`SortOrderArithmetic`/`RecurrenceCalculator`, Kotest property runtime) + the §11 Konsist KDoc / `DomainError`-is-`data` enforcing rules — deferred to Phase 14; conditions already hold, only the enforcement is deferred.
+- **§12 product caps** — list-name + item-description length caps deferred to the feature phase that owns the editor (Phase 09/10), landing as `ValidationError.TooLong` branches.
+- **Phase 02 carry-forward:** wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml` (ADR-007a's parity check rides on this).
+- **Phase 07 backfill:** `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
 
 ---
 
@@ -18,11 +28,11 @@
 
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
-| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (12 Accepted + 1 Superseded after Phase 03 hand-off) | n/a |
+| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (15 Accepted + 1 Superseded after Phase 04 Slice 11A flipped ADR-007 + ADR-007b) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟢 Complete | 100% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟢 Complete | 100% |
-| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟡 Planned | 0% |
+| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🟢 Complete | 100% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
 | 06 | Platform Modules | [`06_PLATFORM_MODULES.md`](plan/06_PLATFORM_MODULES.md) | 🟡 Planned | 0% |
 | 07 | Feature: Lists Dashboard | [`07_FEATURE_LISTS_DASHBOARD.md`](plan/07_FEATURE_LISTS_DASHBOARD.md) | 🟡 Planned | 0% |
@@ -37,7 +47,7 @@
 | 16 | Observability | [`16_OBSERVABILITY.md`](plan/16_OBSERVABILITY.md) | 🟡 Planned | 0% |
 | 17 | Release Hardening | [`17_RELEASE_HARDENING.md`](plan/17_RELEASE_HARDENING.md) | 🟡 Planned | 0% |
 
-**Overall v1 progress: 21% (3 of 14 active phases complete)**
+**Overall v1 progress: 29% (4 of 14 active phases complete)**
 _Phases 11 & 12 are explicitly out of v1 scope (see ADR-003, ADR-004)._
 
 ---
