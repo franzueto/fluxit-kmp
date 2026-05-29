@@ -2,7 +2,7 @@
 
 > **Source of truth.** Every other plan file is a child of this one. When a decision changes, update this file *first*.
 
-**Last updated:** 2026-05-28 (Phase 04 §11 Reminders + Photos fakes landed on Slice 10 of `phase/04-domain-layer`; all four repo fakes now in place)
+**Last updated:** 2026-05-28 (Phase 04 §7 use-case wave one — basic Lists CRUD — landed on Slice 11A of `phase/04-domain-layer`; `ObserveLists` / `SearchLists` / `CreateList` / `RenameList` + the Konsist "no top-level suspend fun in usecase/" rule; ADR-007 + ADR-007b flipped Proposed → Accepted)
 **Architect:** _you_ + Claude (Senior Mobile Architect role)
 **Repo phase:** Phase 04 (Domain Layer) **in progress** on branch `phase/04-domain-layer`. Slices 1–9 closed §1–§3 + §5 first wave + §6 + §8 + §11 wave one. Slice 10: §11 repository fakes wave two — `FakeRemindersRepository` (MutableStateFlow-backed; `cancel` tombstones + flips `isActive`; `observeUpcoming(limit)` snapshots `clock.now()` once at subscription via `flow { … emitAll(state.map {…}) }` matching the §5 spec) + `FakePhotosRepository` (file-first-then-row contract via injected `FakePhotoStorage`; `deleteIfOrphaned` honors an injected `isReferenced: (PhotoId) -> Boolean` callback — defaults to `{ false }`, use-case wiring passes a real check against `FakeItemsRepository.state` when `PhotoJanitor` lands). `FakePhotoStorage` test helper under `port/`. 15 new tests green on JVM + iOS Sim. All four §11 repository fakes now in place. Pending list renumbered: the Phase 05 MVI ADR moved from collision-spot "ADR-007" to ADR-014.
 
@@ -10,7 +10,7 @@
 
 ## ▶ Next Step
 
-**Phase 04 Slice 11 — §7 use-case wave one (Lists CRUD).** With all the prerequisites in place (Slice 5's `Clock`/`IdGenerator` ports, Slice 6's `DomainError` sum + `toDomain` mapper, Slice 7's `SortOrderArithmetic` + `PaletteCatalog`, Slice 8's `RecurrenceCalculator`, Slices 9–10's full fake inventory), the next slice lands the first wave of §7 use cases — Lists CRUD: `ObserveLists` (Flow<List<ListSummary>>); `SearchLists(query)` (trim + lowercase + delegate, the validator-discipline pattern); `CreateList(draft)` (validates `draft.name` via `TrimmedNonBlank.of` → mint id via `IdGenerator` → `repo.create`; analytics emission deferred until §5's `AnalyticsSink` port lands); `RenameList(id, name)`; `SetListStarred(id, starred)`; `UpdateListAppearance(id, icon, color)` (validates color/icon via `PaletteCatalog`). Each as a class with `operator fun invoke` per ADR-007b. Per-use-case test suite using the fake inventory: happy path, each `DomainError.Validation` branch, the `mapError { it.toDomain(entity = "List") }` lift, and one `Outcome.fold` use-site as evidence the §6 surface ships its intent. This is the slice that flips ADR-007 + ADR-007b from Proposed → Accepted (per their §13 hand-off preconditions). Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml` (ADR-007a's parity check rides on this); Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
+**Phase 04 Slice 11B — §7 Lists appearance + starred (PaletteCatalog seam).** Slice 11A landed the basic Lists CRUD wave (`ObserveLists`, `SearchLists`, `CreateList`, `RenameList`) as classes with `operator fun invoke` per ADR-007b, added the Konsist "no top-level suspend fun in usecase/" rule, and flipped ADR-007 + ADR-007b Proposed → Accepted. **Next:** the two remaining Lists use cases — `SetListStarred(id, starred)` (trivial delegate → `repo.setStarred` → `mapError { it.toDomain(entity="List") }`) and `UpdateListAppearance(id, icon, color)` (validates `icon`/`color` against `PaletteCatalog`). **Heads-up for 11B:** `FluxItIconRef`/`ColorToken` are enums and `PaletteCatalog` currently wraps the full `.entries`, so the catalog-membership check is a *forward-looking guard* (unreachable as a `DomainError.Validation` failure with the v1 full-enum catalog) — write it + test it as a guard and KDoc that intent honestly. After 11B: the rest of §7 (Items / Reminders / Photos / app-level use cases), §9 concurrency-contract review, and the §13 hand-off. Phase 02 carry-forward still pending for a future cycle: wire `verifyTokensInSync` + `verifyIconsInSync` into `.github/workflows/ci.yml` (ADR-007a's parity check rides on this); Phase 07 backfills `FluxItSwipeRow` + long-press wiring to ThemeGallery + optional `Font.fluxIt.*` SwiftUI accessor.
 
 ---
 
@@ -18,11 +18,11 @@
 
 | # | Phase | File | Status | % |
 |---|---|---|---|---|
-| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (13 Accepted + 1 Superseded + 2 Proposed after Phase 04 Slice 1) | n/a |
+| 00 | Decisions log (ADRs) | [`00_DECISIONS.md`](plan/00_DECISIONS.md) | 🟢 Live (15 Accepted + 1 Superseded after Phase 04 Slice 11A flipped ADR-007 + ADR-007b) | n/a |
 | 01 | Initial Setup | [`01_INITIAL_SETUP.md`](plan/01_INITIAL_SETUP.md) | 🟢 Complete | 100% |
 | 02 | Design System | [`02_DESIGN_SYSTEM.md`](plan/02_DESIGN_SYSTEM.md) | 🟢 Complete | 100% |
 | 03 | Data Layer | [`03_DATA_LAYER.md`](plan/03_DATA_LAYER.md) | 🟢 Complete | 100% |
-| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🔵 In progress | 58% |
+| 04 | Domain Layer | [`04_DOMAIN_LAYER.md`](plan/04_DOMAIN_LAYER.md) | 🔵 In progress | 62% |
 | 05 | State Management | [`05_STATE_MANAGEMENT.md`](plan/05_STATE_MANAGEMENT.md) | 🟡 Planned | 0% |
 | 06 | Platform Modules | [`06_PLATFORM_MODULES.md`](plan/06_PLATFORM_MODULES.md) | 🟡 Planned | 0% |
 | 07 | Feature: Lists Dashboard | [`07_FEATURE_LISTS_DASHBOARD.md`](plan/07_FEATURE_LISTS_DASHBOARD.md) | 🟡 Planned | 0% |

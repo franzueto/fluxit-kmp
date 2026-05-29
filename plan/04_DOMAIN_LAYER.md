@@ -128,12 +128,12 @@ Each use case is a small class with `operator fun invoke(...)` (or `suspend oper
 
 ### Lists
 
-- [ ] **`ObserveLists`** — `operator fun invoke(): Flow<List<ListSummary>>` — debounce/sort applied here, not in repo.
-- [ ] **`SearchLists`** — `operator fun invoke(query: String): Flow<List<ListSummary>>`. Empty query → all. Trims, lower-cases, applies `query.length >= 1` rule.
-- [ ] **`CreateList`** — validates draft → `repo.create` → if `draft.reminder != null` then `ScheduleReminder` → emits `AnalyticsEvent.ListCreated`.
-- [ ] **`UpdateListAppearance`** — change icon/color, validates color is in palette.
-- [ ] **`RenameList`**
-- [ ] **`SetListStarred`**
+- [x] **`ObserveLists`** — `operator fun invoke(): Flow<List<ListSummary>>` — debounce/sort applied here, not in repo. _Slice 11A (2026-05-28); trivial delegate to `ListsRepository.observeAll()`. Returns `Flow` (not `Outcome`) — the typed-error channel is for command use cases; a reactive read has no single fold-able failure. Debounce/sort deferred to the state layer (Phase 05) per §9 (`stateIn`/`shareIn` are state-layer choices)._
+- [x] **`SearchLists`** — `operator fun invoke(query: String): Flow<List<ListSummary>>`. Empty query → all. Trims, lower-cases, applies `query.length >= 1` rule. _Slice 11A (2026-05-28); validator-discipline pattern — a blank query trims to `""`, which the repo contract treats as "match everything", so there's no `query.length >= 1` rejection (an empty query is a legitimate result, not an error). Normalises (trim + lowercase) then delegates to `repo.search`._
+- [x] **`CreateList`** — validates draft → `repo.create` → if `draft.reminder != null` then `ScheduleReminder` → emits `AnalyticsEvent.ListCreated`. _Slice 11A (2026-05-28); validates `draft.name` via `TrimmedNonBlank.of` (blank → `DomainError.Validation(field="name", rule=Empty)`, directly — never via `DataError`), persists the **trimmed** name, lifts repo errors via `mapError { it.toDomain(entity="List") }`. **Spec/reality reconciliation:** the punch list said "mint id via `IdGenerator`", but the shipped `ListsRepository.create` contract mints the id itself (atomic with sort_order + timestamps) and returns it — so `CreateList` delegates id-minting to the repo and carries no `IdGenerator` dep. **Deferred:** `ScheduleReminder` chaining waits for `ListDraft.reminder` (§3 carry-forward, not yet added) + the `ReminderScheduler` port slice; `AnalyticsEvent.ListCreated` waits for §5's `AnalyticsSink` port (noted in KDoc)._
+- [ ] **`UpdateListAppearance`** — change icon/color, validates color is in palette. _Slice 11B (next): the `PaletteCatalog`-validation use case._
+- [x] **`RenameList`** _Slice 11A (2026-05-28); validates new name via `TrimmedNonBlank.of` (blank → `DomainError.Validation`), persists trimmed value, lifts repo `DataError` via `mapError { it.toDomain(entity="List") }` — a write against a missing/tombstoned id surfaces as `DomainError.NotFound(entity="List", …)`._
+- [ ] **`SetListStarred`** _Slice 11B (next): trivial delegate._
 - [ ] **`ReorderList`** — input is `(movedId, beforeId?, afterId?)`; computes new fractional sort_order in pure code, calls `repo.reorder`.
 - [ ] **`DeleteList`** — soft-deletes list AND cancels all active reminders for it. Returns `Outcome<DeletedListSummary, DomainError>` so UI can offer undo (per Phase 03 open question — supports either UX).
 - [ ] **`UndoDeleteList`** — restores `deleted_at = NULL`; reschedules reminders; only valid within an undo window the *state* layer enforces (domain doesn't know about wall-clock undo windows beyond accepting the call).
@@ -192,13 +192,13 @@ Helpers with no IO; testable by themselves.
 
 ## 10. ADRs to write in this phase
 
-- [ ] **ADR-007** — In-house `Outcome<T, E>` type vs. `kotlin.Result<T>` vs. Arrow `Either`. Why we picked our own: typed errors, no Arrow buy-in, no kotlin.Result `Throwable` ceiling. _Drafted Proposed 2026-05-28 (Slice 1); flips Accepted on §13 hand-off once every use case returns `Outcome<T, E>` and Konsist bans `kotlin.Result` / `arrow.core.*` in `:shared:domain`._
+- [x] **ADR-007** — In-house `Outcome<T, E>` type vs. `kotlin.Result<T>` vs. Arrow `Either`. Why we picked our own: typed errors, no Arrow buy-in, no kotlin.Result `Throwable` ceiling. _Drafted Proposed 2026-05-28 (Slice 1); **flipped Accepted on Slice 11A (2026-05-28)** — early flip (ahead of §13) by explicit decision: the first wave of command use cases all return `Outcome<T, DomainError>`, the Konsist `kotlin.Result` / `arrow.*` bans shipped Slice 2, and `Outcome.mapError` + `fold` are now exercised by the §7 use-case tests. Remaining §7 use cases inherit the locked decision._
 - [x] **ADR-007a** — Domain owns `ColorToken` and `FluxItIconRef`; designsystem consumes them. **Supersedes ADR-006c** (which had data depending on designsystem). _Accepted 2026-05-28 (Slice 1); implementation shipped in Phase 03 §3, ADR ratifies the as-built state._
-- [ ] **ADR-007b** — Use-case shape: small classes with `operator fun invoke` (vs. top-level suspend functions vs. interactors with multiple methods). Why classes: DI clarity, testability, KDoc placement, ability to swap impls in tests. _Drafted Proposed 2026-05-28 (Slice 1); flips Accepted on §13 hand-off once three use cases across two feature areas land in this shape and the Konsist "no top-level suspend fun in usecase/" rule is in place._
+- [x] **ADR-007b** — Use-case shape: small classes with `operator fun invoke` (vs. top-level suspend functions vs. interactors with multiple methods). Why classes: DI clarity, testability, KDoc placement, ability to swap impls in tests. _Drafted Proposed 2026-05-28 (Slice 1); **flipped Accepted on Slice 11A (2026-05-28)** — early flip (ahead of §13) by explicit decision: four Lists use cases landed as classes with constructor-injected deps + a single `operator fun invoke`, their tests wire the §11 fakes through the constructor seam (the fakes counting as the second area exercising the injection contract), and the Konsist "no top-level suspend fun in usecase/" rule shipped in this slice._
 
 ## 11. Testing
 
-- [ ] **One test class per use case** — happy path, each validation branch, each `DomainError` it can produce. Uses fakes from `domain-test-fixtures` (a sibling `commonTest`-only fixture package, not a separate module yet).
+- [x] **One test class per use case** — happy path, each validation branch, each `DomainError` it can produce. Uses fakes from `domain-test-fixtures` (a sibling `commonTest`-only fixture package, not a separate module yet). _Partial — landing per §7 wave. **Slice 11A (2026-05-28):** `ObserveListsTest`, `SearchListsTest`, `CreateListTest`, `RenameListTest` under `usecase/lists/`, plus a shared `ListUseCaseFixtures.kt` (seq-id `IdGenerator` lambda + fixed `FakeClock` + `draft()` builder). Each suite covers happy path, the `DomainError.Validation` branch, the `mapError { it.toDomain(entity="List") }` lift, and an `Outcome.fold` use-site. Remaining §7 use cases get their test classes as their slices land._
 - [x] **Fakes** (in `commonTest`):
   - `FakeListsRepository`, `FakeItemsRepository`, `FakeRemindersRepository`, `FakePhotosRepository` — backed by in-memory `MutableStateFlow`s.
   - `FakeClock(initial)` with `advanceBy`.
@@ -231,6 +231,35 @@ Helpers with no IO; testable by themselves.
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-28** — Slice 11A: §7 use-case wave one (basic Lists CRUD) +
+  ADR-007/007b ratification. New `usecase/lists/` package with four
+  classes (ADR-007b shape — ctor-injected deps + single `operator fun
+  invoke`): `ObserveLists` + `SearchLists` return `Flow` (reactive reads,
+  no fold-able failure); `CreateList` + `RenameList` are `suspend` and
+  return `Outcome<_, DomainError>`. Both write use cases validate at the
+  edge via `TrimmedNonBlank.of` (blank → `DomainError.Validation(field=
+  "name", rule=Empty)`, produced directly, never via `DataError`) and lift
+  repo failures via `mapError { it.toDomain(entity="List") }`. `SearchLists`
+  follows validator discipline — blank query → all results, not an error.
+  **Spec/reality reconciliation:** the punch list said `CreateList` mints
+  the id via `IdGenerator`, but the shipped `ListsRepository.create`
+  contract mints it internally (atomic with sort_order + timestamps), so
+  `CreateList` delegates id-minting to the repo and carries no
+  `IdGenerator` dep. Deferred: `CreateList`'s `ScheduleReminder` chain
+  (needs `ListDraft.reminder` + the scheduler port) and `AnalyticsEvent`
+  emission (needs §5's `AnalyticsSink`) — both noted in KDoc.
+  Tests: four per-use-case suites under `usecase/lists/` + shared
+  `ListUseCaseFixtures.kt`, each covering happy path / the Validation
+  branch / the `toDomain` lift / an `Outcome.fold` use-site. Added the
+  Konsist "no top-level suspend fun in `:shared:domain/usecase/`" rule to
+  `:build-logic`'s `ArchitectureTest` (filters `file.functions()` to
+  `isTopLevel` so member `invoke` operators are exempt). **ADR-007 +
+  ADR-007b flipped Proposed → Accepted** (early, ahead of §13, by explicit
+  decision): the Outcome-everywhere + Konsist-ban preconditions are met for
+  ADR-007, and ADR-007b's "class + invoke" shape is proven across the four
+  use cases with their fakes wired through the constructor seam. `:shared:
+  domain:check` + `:build-logic:test` green on JVM + iOS Sim. _Commit <sha>._
 
 - **2026-05-28** — Slice 10: §11 repository fakes wave two — Reminders +
   Photos. New files: `repository/FakeRemindersRepository.kt`

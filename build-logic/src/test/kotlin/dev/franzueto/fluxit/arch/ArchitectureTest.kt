@@ -72,6 +72,25 @@ class ArchitectureTest : FunSpec({
             }
     }
 
+    test("no top-level suspend fun in :shared:domain usecase/ (ADR-007b)") {
+        // ADR-007b ratification: every use case in :shared:domain/usecase/
+        // is a class with constructor-injected dependencies and a single
+        // `operator fun invoke(...)`. A top-level `suspend fun foo(...)`
+        // would be the free-function shape the ADR rejects — ban it so the
+        // class-with-invoke convention can't silently erode. Member invoke
+        // operators (suspend or not) live on a class, not at file scope, so
+        // `file.functions()` (top-level only) never sees them.
+        scope()
+            .files
+            .filter { "/shared/domain/" in it.path && "/usecase/" in it.path && "/build/" !in it.path }
+            .flatMap { it.functions() }
+            .filter { it.isTopLevel }
+            .assertFalse(
+                additionalMessage = "Use cases must be classes with `operator fun invoke` (ADR-007b) — " +
+                    "no top-level suspend fun in usecase/.",
+            ) { it.hasSuspendModifier }
+    }
+
     test("feature-* modules do not depend on each other") {
         scope()
             .files
