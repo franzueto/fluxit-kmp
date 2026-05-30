@@ -3,9 +3,13 @@ import Shared
 import SwiftUI
 import XCTest
 
-// Phase 05 §12 / §15 — iOS SKIE bridging smoke (compile-level).
+// Phase 05 §12 / §15 — iOS SKIE bridging smoke (compile-level + runtime).
 //
-// Proves the shared MVI surface projects into idiomatic Swift via SKIE:
+// `testRootStoreReachesReadyAtRuntime` is the §12 RUNTIME smoke (Slice C): it
+// starts the real Koin graph (ADR-015) over a native SQLite driver, resolves
+// `RootStore`, dispatches `AppStarted`, and observes `state` until startup
+// completes — a true dispatch → use case → state round-trip across the SKIE
+// boundary. The remaining tests assert the bridging SHAPE:
 //   - Kotlin `sealed interface` State/Intent/Effect hierarchies become Swift
 //     enums with EXHAUSTIVE `switch` (no `@unknown default`) through SKIE's
 //     `onEnum(of:)`. The switches below compile only because every case is
@@ -13,11 +17,30 @@ import XCTest
 //   - Kotlin `enum class Tab` becomes a native Swift enum (CaseIterable).
 //   - `state: StateFlow` / `effects: Flow` project as `AsyncSequence` and
 //     `dispatch(intent:)` is callable — verified by the `compileCheck` helper
-//     that type-checks `observe(_:into:)` + `dispatch` against a real store
-//     type. A fully-wired store isn't constructible from Swift until Phase 06
-//     DI lands (no in-memory repository is exported), so this asserts the
-//     bridging SHAPE; the runtime end-to-end dispatch→effect lands then.
+//     that type-checks `observe(_:into:)` + `dispatch` against a real store type.
 final class StoreBridgingSmokeTests: XCTestCase {
+    // §12 runtime smoke (Slice C): real graph, real driver, real round-trip.
+    // Empty DB → InitializeApp rehydrates zero reminders (interim no-op
+    // scheduler returns Ok) → init transitions Initializing → Ready.
+    func testRootStoreReachesReadyAtRuntime() async throws {
+        // Kotlin/Native prefixes `init*` functions with `do` to avoid the
+        // Obj-C initializer clash, so `initKoinIos()` surfaces as `doInitKoinIos()`.
+        InitKoinIosKt.doInitKoinIos()
+        defer { InitKoinKt.stopKoinApp() }
+
+        let store = InitKoinKt.resolveRootStore()
+        store.dispatch(intent: RootIntentAppStarted())
+
+        var reachedReady = false
+        for await state in store.state {
+            if case .ready = onEnum(of: state.`init`) {
+                reachedReady = true
+                break
+            }
+        }
+        XCTAssertTrue(reachedReady, "RootStore should reach InitState.Ready after AppStarted")
+    }
+
     func testEffectSealedTypeIsExhaustiveSwiftEnum() {
         let effect = ListsEffectShowError(message: "boom")
         switch onEnum(of: effect) {

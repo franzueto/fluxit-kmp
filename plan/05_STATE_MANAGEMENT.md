@@ -245,7 +245,7 @@ protected suspend fun <T> optimistic(
   - Optimistic failure path: state reverts; error effect emitted. _(`delete_failure_reverts_the_row_and_emits_show_error`.)_
   - Undo window: timer expiration clears `pendingDelete`; explicit undo restores; rapid second delete handled. _(Expiry + rapid-second-delete covered; explicit-undo asserts the snackbar is dismissed — restore itself is data-layer-blocked, see §6.)_
   - Search debounce: typing 5 chars in 50ms triggers exactly one `SearchLists` call. _(`a_burst_of_keystrokes_debounces_to_a_single_search`.)_
-- [x] **iOS smoke**: a minimal `ios-app` test that calls `dispatch(.openList(...))` from Swift and observes `effects` as `AsyncSequence`. Proves SKIE bridging. _(Slice 5 — `ios-app/Tests/StoreBridgingSmokeTests.swift` (target `FluxItTests`, run via `scripts/test-ios.sh` + CI), 4 tests green on the iOS Sim. **Compile-level** per the agreed scope: it proves the bridging SHAPE — exhaustive `switch onEnum(of:)` over `ListsEffect`/`LoadState`, native `Tab` enum, `dispatch(intent:)` callable, and `Flow→AsyncSequence` via `observe(_:into:)` type-checked against a real `ListsDashboardStore`. A fully-wired runtime store isn't Swift-constructible until Phase 06 DI (no in-memory repository is exported), so the live dispatch→effect round-trip lands then.)_
+- [x] **iOS smoke**: a minimal `ios-app` test that drives a store from Swift and observes the projected `Flow`. Proves SKIE bridging. _(Slice 5 shipped the compile-level shape; **Slice C (close-out) upgraded it to a live runtime round-trip**: `testRootStoreReachesReadyAtRuntime` calls `doInitKoinIos()` (ADR-015 graph over a native `DriverFactory` SQLite driver), resolves `RootStore` via `resolveRootStore()`, dispatches `RootIntent.AppStarted`, and observes `state` (SKIE `AsyncSequence`) until `init` transitions `Initializing → Ready` (empty DB → `InitializeApp` → interim no-op scheduler `rescheduleAll(emptyList())` = Ok). 5 tests green on the iOS Sim via `scripts/test-ios.sh`. The remaining 4 tests still assert the bridging SHAPE — exhaustive `switch onEnum(of:)` over `ListsEffect`/`LoadState`, native `Tab` enum, `dispatch(intent:)` callable, `Flow→AsyncSequence` via `observe(_:into:)`.)_
 - [x] **No flakes**: no `Thread.sleep`. All time advanced via `TestScope.advanceTimeBy`. `FakeClock` advances in lockstep. _(Slice 4 — undo timers / debounce exercised via `advanceTimeBy` + `runCurrent` on virtual time.)_
 - [~] Coverage target ≥ 90% on `:shared:state`. _(Slice A wired the gate — inline `kover { }` block in `shared/state/build.gradle.kts` mirroring the `:shared:domain` ≥95% gate: branch rule scoped to `…state.store.*` (the di/ composition root is wiring, exercised by `KoinGraphTest`, not branch-meaningful), `check` dependsOn `koverVerify`. **Correction (Slice B):** Slice A's commit did not apply the Kover plugin to `:shared:state` (the convention plugin applied it to `:shared:domain` only), so `koverVerify` never ran and the ≥90% claim was unverified. Slice B applied the plugin (`fluxit.kmp.library` now covers `:shared:state`) and the real number is ≈70% branch. Per user decision (2026-05-30) the gate is enforced at an **interim floor (`minValue = 65`)** to prevent regressions while the climb to the §12 ≥90% target — covering the feature stores' error/edge branches (`ItemDetailStore`/`ListDetailStore`/`ListsDashboardStore`/`CreateListStore`) — is tracked as a **Phase 05 follow-up**.)_
 
@@ -270,13 +270,14 @@ protected suspend fun <T> optimistic(
 `ListsDashboardStore` (Slice 4), `ListDetailStore`, `CreateListStore`, `AccountStore`,
 and `ItemDetailStore` (Slice 6, the last on top of a Phase-04 domain backfill —
 `ObserveItem` + `ResolvePhotoUri`, commit `c4e3707`). The remaining unchecked items
-below are the cross-cutting wiring/gate work intentionally carried to Phase 06 / a
-final pass (Koin `stateModule` §8, live runtime iOS smoke §12, `:shared:state` ≥90%
-Kover rule §12), not missing stores.
+below were the cross-cutting wiring/gate work closed in the Phase 05 close-out pass
+(Slices A–C): Koin `stateModule` §8, live runtime iOS smoke §12, and the
+`:shared:state` Kover gate §12 (enforced at an interim floor, with the ≥90% climb as
+the single tracked follow-up).
 
 - [x] All §4 per-feature stores implemented. _(Slice 6 — `ListDetailStore` `d4f1c0f`, `CreateListStore`/`AccountStore` `e49aa37`, `ItemDetailStore` `da4fa9a` after the `c4e3707` domain backfill.)_
-- [ ] All other checkboxes above ✅. _(Slice A wired the §12 Kover gate + ADR-015; Slice B closed §8 (Koin DI graph + `stateModule`, `KoinGraphTest` green) and corrected the Kover gate to actually run (interim floor 65, ≥90% tracked as follow-up). Outstanding: §12 live runtime iOS smoke (Slice C).)_
-- [~] iOS smoke test exercises one store end-to-end from Swift. _(Slice 5 — compile-level smoke green (`FluxItTests`, §3/§12); the live runtime dispatch→effect round-trip is deferred to Phase 06 when a Swift-constructible (DI-wired) store exists. See §12.)_
+- [x] All other checkboxes above ✅. _(Slice A wired the §12 Kover gate + ADR-015; Slice B closed §8 (Koin DI graph + `stateModule`, `KoinGraphTest` green) and corrected the Kover gate to actually run (interim floor 65, ≥90% tracked as a follow-up); Slice C upgraded the iOS smoke to a live runtime dispatch→state round-trip. The ≥90% Kover climb is the one tracked follow-up.)_
+- [x] iOS smoke test exercises one store end-to-end from Swift. _(Slice C — live runtime round-trip green: `doInitKoinIos()` → `resolveRootStore()` → `dispatch(AppStarted)` → observe `state` until `Ready`. 5 tests in `FluxItTests` on the iOS Sim. See §12.)_
 - [x] All store tests use virtual time; no `delay`-based flakes. _(Slices 2–6 — `runStoreTest` + `advanceTimeBy`/`runCurrent`; no `Thread.sleep`. Covers the Slice-6 `ListDetailStore`/`CreateListStore`/`AccountStore`/`ItemDetailStore` suites.)_
 - [ ] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06. _(Per the established cadence, flipped only when the phase fully completes — still gated on §8/§12 above.)_
 - [x] `00_DECISIONS.md`: ADR-014 accepted (the single MVI store contract; folds the three §13 sub-decisions). _(Slice 4 — flipped to Accepted; the rest of §15 remains gated on the iOS smoke + Phase 06 hand-off.)_
@@ -284,6 +285,23 @@ Kover rule §12), not missing stores.
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-30** — Phase 05 close-out Slice C: live runtime iOS smoke (§12). Upgraded
+  `ios-app/Tests/StoreBridgingSmokeTests.swift` from compile-level to a real
+  dispatch → use case → state round-trip across the SKIE boundary. Added an iosMain
+  entry point `initKoinIos()` in `:shared:state` (`di/InitKoinIos.kt`) that supplies the
+  one platform-specific binding the common graph lacks — the native `SqlDriver` from
+  `:shared:data`'s `DriverFactory` — with the driver type inferred (not named) so the file
+  imports no `app.cash.sqldelight` symbol (SQLDelight stays encapsulated; iosMain is outside
+  the commonMain surface `StateLayerArchTest` guards). Added `stopKoinApp()` to commonMain
+  `InitKoin.kt` for per-run teardown. The new test calls `InitKoinIosKt.doInitKoinIos()`
+  (Kotlin/Native `do`-prefixes `init*` functions to dodge the Obj-C initializer clash),
+  resolves `RootStore` via `resolveRootStore()`, dispatches `RootIntent.AppStarted`, and
+  observes `state` until `init` is `Ready`. iOS-project wiring: added `OTHER_LDFLAGS=-lsqlite3`
+  to `ios-app/project.yml` (the `Shared` framework now embeds SQLDelight's native sqliter
+  driver via `:shared:state → :shared:data`, which calls libsqlite3 through cinterop).
+  `scripts/test-ios.sh`: 5 tests green on the iOS Sim (TEST SUCCEEDED). Closes the last of
+  the three close-out slices — Phase 05 is ready to flip 🟢. _Commit `<pending>`._
 
 - **2026-05-30** — Phase 05 close-out Slice A: ADR-015 + `:shared:state` Kover ≥90%
   gate (§12). Opened **ADR-015** in `00_DECISIONS.md` (composition root & Koin module

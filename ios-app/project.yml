@@ -12,6 +12,11 @@ settings:
     SWIFT_VERSION: "5.10"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+    # The Shared framework now embeds SQLDelight's native driver (sqliter) via
+    # :shared:state → :shared:data (ADR-015 composition root). sqliter calls
+    # libsqlite3 through cinterop, so the app + test bundle must link the
+    # system SQLite. (Phase 06's real composition root keeps this dependency.)
+    OTHER_LDFLAGS: "-lsqlite3"
 
 targets:
   FluxIt:

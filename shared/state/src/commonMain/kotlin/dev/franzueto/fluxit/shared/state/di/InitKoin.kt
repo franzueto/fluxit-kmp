@@ -3,6 +3,7 @@ package dev.franzueto.fluxit.shared.state.di
 import dev.franzueto.fluxit.shared.state.store.RootStore
 import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
 import org.koin.core.module.Module
 import org.koin.mp.KoinPlatform
 
@@ -27,3 +28,10 @@ public fun initKoin(extra: List<Module> = emptyList()): KoinApplication = startK
  * [initKoin] without referencing Koin's Swift API directly.
  */
 public fun resolveRootStore(): RootStore = KoinPlatform.getKoin().get()
+
+/**
+ * Tear down the Koin graph. Surfaced for the iOS runtime smoke (Slice C) so a
+ * test can start a fresh graph per run; Phase 06's real composition roots own
+ * Koin for the whole process and won't call this.
+ */
+public fun stopKoinApp(): Unit = stopKoin()
