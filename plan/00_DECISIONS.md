@@ -558,6 +558,33 @@
 
 ---
 
+### ADR-015 — Composition root & Koin module topology: `:shared:state` hosts `initKoin`, per-layer modules, interim platform ports
+
+- **Status:** Accepted (Phase 05 close-out / Phase 06 Slice A, 2026-05-30). Closes the `plan/05` §8 deferral ("Koin `stateModule` — no DI graph assembled yet; stores use constructor injection for now") by assembling the graph; the real platform-port bindings land incrementally in Phase 06.
+- **Date:** 2026-05-30
+- **Context:** Phase 05 shipped six MVI stores using constructor injection (ADR-014) with no DI graph. Three §15 hand-off items are blocked on that graph: the `stateModule` (§8), the live runtime iOS smoke (§12, needs a Swift-constructible store), and — transitively — confidence that the store surface assembles. Phases 03/04 are complete: `:shared:domain` ships ~25 use cases (classes with `operator invoke`, ADR-007b) and the ports `Clock`/`IdGenerator`/`ReminderScheduler`/`PhotoCapture`/`PhotoStorage`/`AppLogger`; `:shared:data` ships real `Sql*Repository` + `fluxItDatabase(SqlDriver)` + `DriverFactory` (expect/actual). But the *real* platform implementations of `ReminderScheduler`/`PhotoCapture`/`PhotoStorage` are Phase 06 (`:platform:*` are stubs). So a full production graph can't exist until Phase 06 — yet the three Phase 05 items must close now, on the Phase 05 branch, for a self-contained PR.
+- **Decision:**
+  - **The composition root lives in `:shared:state`** (package `…shared.state.di`), not a new `:shared` umbrella module. `:shared:state` is already the iOS XCFramework root (`Shared.xcframework`, `export(:shared:domain)`, SKIE applied); hosting `initKoin` here avoids reshuffling the framework and a second iOS-facing module. A dedicated `:shared` umbrella is revisited only if `:android-app` ever needs aggregation `:shared:state` can't provide.
+  - **One Koin module per layer**, aggregated by `fun initKoin(extra: List<Module> = emptyList()): KoinApplication`:
+    - `domainModule` — `factory { CreateList(get(), …) }` per use case (reads as a use-case inventory; the Koin shape ADR-007b anticipated).
+    - `dataModule` — `single { fluxItDatabase(get()) }` + `single<ListsRepository> { SqlListsRepository(get()) }` … bound to the domain repository interfaces. The platform `SqlDriver` (from `DriverFactory`) is supplied via the `extra` modules at each start site, so `dataModule` itself stays in `commonMain`.
+    - `platformModule` — the domain ports. **Real where cheap:** `Clock` and `IdGenerator` (the latter via the existing `:core:core-utils` `IdGenerator.System`). **Interim no-op where expensive:** `ReminderScheduler`/`PhotoCapture`/`PhotoStorage`, clearly labelled `// INTERIM — replaced by :platform:* in Phase 06`. `AppLogger` → the existing `NoOp` until `:platform:platform-logging`'s Kermit actual lands.
+    - `stateModule` — `factory { … }` per per-screen store + `single { RootStore(...) }` (per-screen stores are factory-scoped so each navigation entry gets a fresh store + `CoroutineScope`; `RootStore` is process-lifetime). `AccountStore`'s `version`/`flags` bind to a literal version + `emptyMap()` until `ConfigProvider` lands.
+  - **`:shared:state` gains a `:shared:data` dependency, confined to the `di/` composition root.** Stores themselves still depend on use cases only (§1). The `StateLayerArchTest` "no `:shared:data` / SQLDelight import" rule is scoped to exempt `…shared.state.di`.
+  - **iOS entry:** `initKoin()` plus a `KoinHelper` resolver (e.g. `rootStore()`) are exposed through the framework so Swift starts the graph and resolves a store — enabling the §12 live runtime smoke.
+- **Consequences:**
+  - ➕ Closes all three Phase 05 §15 items on the Phase 05 branch without pulling the heavy `:platform:*` work forward — keeps the Phase 05 PR self-contained.
+  - ➕ Koin `verify()` over the assembled graph gives a real "the store surface wires up" test (§8 confidence), backed by real repos + real DB.
+  - ➖ Interim no-op ports mean reminder scheduling / photo capture are inert until Phase 06; acceptable — no UI consumes them yet.
+  - 🔁 Phase 06 deletes the interim bindings and swaps `platformModule` for the real `:platform:*` Koin modules; the `initKoin` aggregation seam stays.
+- **Alternatives considered:**
+  - **New `:shared` umbrella module for `initKoin`** — rejected for now: forces re-pointing the XCFramework + a second iOS module for no current benefit.
+  - **Wire `:shared:domain-testing` fakes instead of interim no-ops** — rejected: real repos + DB exist (Phase 03 🟢), so use them; only the genuinely-missing platform ports get interim no-ops.
+  - **Defer all three items to Phase 06** — rejected by the branch decision: the items are Phase 05 §8/§12 and should ship in the Phase 05 PR.
+- **Resolves Open Questions:** `plan/05` §8 (DI wiring), §12 (live iOS smoke + `:shared:state` coverage gate).
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
@@ -567,3 +594,5 @@ These are *expected* to be opened during the relevant phase. Listed here so we d
 - **ADR-011** (Phase 15): Branching strategy + CI matrix shape (trunk-based vs. GitFlow).
 
 > **ADR-014** (MVI store contract) **Accepted** at Phase 05 Slice 4 (opened Proposed at Slice 1) — see the ADR-014 section above. It folds the three sub-decisions `plan/05` §13 originally mislabeled ADR-008/008a/008b.
+
+> **ADR-015** (composition root & Koin module topology) **Accepted** at Phase 05 close-out / Phase 06 Slice A — see the ADR-015 section above. `:shared:state` hosts `initKoin` + per-layer Koin modules; real repos/DB + interim no-op platform ports until Phase 06. Note: ADR-008 (Phase 06 expect/actual-vs-Koin) is effectively answered here — capabilities are Koin-injected interfaces.

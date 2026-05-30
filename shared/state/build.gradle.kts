@@ -1,3 +1,5 @@
+import kotlinx.kover.gradle.plugin.dsl.AggregationType
+import kotlinx.kover.gradle.plugin.dsl.CoverageUnit
 import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
@@ -7,6 +9,42 @@ plugins {
 
 android {
     namespace = "dev.franzueto.fluxit.shared.state"
+}
+
+// Phase 05 §12 coverage gate: store branch coverage ≥ 90%. Mirrors the
+// :shared:domain ≥95% use-case gate (its build.gradle.kts) — Kover instruments
+// the JVM/Android unit-test run (which JVM-executes commonTest); the iOS Sim
+// target validates the same commonMain sources on Kotlin/Native but isn't
+// measured (Kover is JVM-only).
+//
+// Run the report: `./gradlew :shared:state:koverHtmlReport`
+// Enforce the gate: `./gradlew :shared:state:koverVerify`
+kover {
+    reports {
+        // Scope to the store package — §12 is about store logic. The di/
+        // composition root is wiring (exercised by KoinGraphTest's checkModules,
+        // not branch-meaningful) and the contract data classes are generated.
+        filters {
+            includes {
+                classes("dev.franzueto.fluxit.shared.state.store.*")
+            }
+        }
+        verify {
+            rule("Store branch coverage (Phase 05 §12)") {
+                bound {
+                    minValue = 90
+                    coverageUnits = CoverageUnit.BRANCH
+                    aggregationForGroup = AggregationType.COVERED_PERCENTAGE
+                }
+            }
+        }
+    }
+}
+
+// Make the §12 gate part of `check` so the pre-commit gate
+// (`:shared:state:check`) enforces store branch coverage going forward.
+tasks.named("check") {
+    dependsOn("koverVerify")
 }
 
 // :shared:state is the iOS-facing entry point — ios-app embeds Shared.xcframework
