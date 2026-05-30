@@ -110,7 +110,9 @@ One store per screen-family, scoped to the screen's lifecycle by the platform ho
   - `ItemCompletionToggled` is **optimistic-then-reconcile**: flip the flag in state immediately; call `ToggleItemCompleted`; on failure, revert + emit `ShowError`. (See §5.)
   - `ComposerSubmit` validates non-blank → `AddItem` → clear `composerText`. Empty submits no-op.
 
-### `CreateListStore` (backs Phase 09)
+### `CreateListStore` (backs Phase 09) — ✅ Slice 6
+
+- [x] Built in `store/CreateListStore.kt` + contract types alongside (§11). Tests in `CreateListStoreTest`. _(Slice 6 — divergences: a presentation-only `NAME_MAX_LEN = 100` cap drives `NameValidation.TooLong` (`CreateList` itself validates non-blank only); the §4 `reminder: ReminderSpec?` is held as a lighter state-layer `PendingReminder(firesAt, recurrence)` because the `ReminderOwner` needs the not-yet-minted list id — it's bound to `ReminderOwner.OfList(newId)` and scheduled best-effort via `ScheduleReminder` after a successful create. Re-entry is blocked via the `Submission.Submitting`/`Success` guard (belt-and-suspenders atop the serial intent channel).)_
 
 - **State**
   - `name: String`
@@ -127,7 +129,9 @@ One store per screen-family, scoped to the screen's lifecycle by the platform ho
 - **Wiring**
   - `CreateClicked` → block re-entry → `CreateList.invoke` → emit navigation effect.
 
-### `ItemDetailStore` (backs Phase 10)
+### `ItemDetailStore` (backs Phase 10) — ⛔ Slice 6 BLOCKED (domain gap)
+
+- [ ] **Deferred — needs a Phase-04 domain backfill before it can be built without violating §1.** `Init(itemId)` must observe a **single** item, but there is no `ObserveItem` use case — only the repository method `ItemsRepository.observe(itemId)`, and the state layer depends on use cases only (§1, enforced by `StateLayerArchTest`; reaching into a repository here would break it). Likewise `PhotoStatus.Loaded(uri)` needs a `photoId → displayable uri` resolution (a `Photo` read + `PhotoStorage.resolveAbsolute`), with no use case exposing it. The write side is ready (`UpdateItemDetails`, `DeleteItem`, `AttachPhotoToItem` for the three-state `Capturing|Uploading|Loaded` chain, `DetachPhotoFromItem`), but the read seams are missing. **Recommendation:** add `ObserveItem` (+ a photo-uri resolution use case) to `:shared:domain` first (small Phase-04 backfill, with its own Kover gate), then build this store. Do NOT import a repository into `:shared:state`.
 
 - **State**
   - `item: LoadState<Item>`
@@ -143,7 +147,9 @@ One store per screen-family, scoped to the screen's lifecycle by the platform ho
   - `UpdatePhotoClicked` opens a small action sheet (in-state, not effect) → `PhotoSourceSelected` calls `AttachPhotoToItem` use case which orchestrates capture + ingest + update.
   - `BackClicked` with `dirty = true` → emit `Effect.ConfirmDiscardChanges`; UI surfaces a confirm dialog.
 
-### `AccountStore` (backs Phase 07's Account tab — minimal v1)
+### `AccountStore` (backs Phase 07's Account tab — minimal v1) — ✅ Slice 6
+
+- [x] Built in `store/AccountStore.kt` (placeholder; `version`/`flags` supplied by the host, two menu taps → `NavigateToSettings`/`NavigateToAbout` effects). Tests in `AccountStoreTest`. _(Slice 6.)_
 
 - **State**: `version: String`, `flags: Map<String, Boolean>` (debug only).
 - **Intents**: `OpenSettings`, `OpenAbout`.
@@ -304,6 +310,32 @@ protected suspend fun <T> optimistic(
   count (not `List<ItemId>`) and there is no `RestoreItems` primitive (the same
   carry-forward deferral); the store relies on the feed to reconcile the cleared
   rows and surfaces only failures via `ShowError`. _Commit `d4f1c0f`._
+
+- **2026-05-29** — Slice 6 (cont.): `CreateListStore` + `AccountStore`;
+  `ItemDetailStore` surfaced as domain-blocked. **`CreateListStore`** (§4, Phase 09):
+  pessimistic create — `CreateClicked` validates the name, flips
+  `submission = Submitting` (which also blocks re-entry), calls `CreateList`, and on
+  success emits `NavigateToListDetail(newId)`. Divergences: (1) a presentation-only
+  `NAME_MAX_LEN = 100` cap drives `NameValidation.TooLong` — `CreateList` validates
+  non-blank only, so the cap is a state-layer UX bound, not a domain rule; (2) the
+  §4 `reminder: ReminderSpec?` is held as a lighter `PendingReminder(firesAt,
+  recurrence)` because `ReminderOwner` needs the not-yet-minted list id — it's bound
+  to `ReminderOwner.OfList(newId)` and scheduled **best-effort** via `ScheduleReminder`
+  after a successful create (a scheduler failure warns + `ShowError` but does not block
+  navigation, since the list already exists). **`AccountStore`** (§4): minimal
+  placeholder — `version`/`flags` from the host, two taps → `NavigateToSettings`/
+  `NavigateToAbout`. **`ItemDetailStore` (§4, Phase 10) — DEFERRED, domain gap:**
+  `Init(itemId)` needs to observe a *single* item but there is no `ObserveItem` use
+  case (only the repo method `ItemsRepository.observe`), and the state layer depends on
+  use cases only (§1, enforced by `StateLayerArchTest` — importing a repository would
+  break it). `PhotoStatus.Loaded(uri)` likewise needs a `photoId → uri` resolution use
+  case that doesn't exist. The write side (`UpdateItemDetails`/`DeleteItem`/
+  `AttachPhotoToItem`/`DetachPhotoFromItem`) is ready; the read seams are not.
+  Recommendation recorded in §4: add `ObserveItem` (+ a photo-uri use case) to
+  `:shared:domain` as a small Phase-04 backfill first, then build the store — rather
+  than reach into a repository from `:shared:state`. Gate green
+  (`:shared:state:check :build-logic:test --rerun-tasks` + `scripts/test-ios.sh`,
+  iOS smoke still 4/4). _Commit `<pending>`._
 
 - **2026-05-29** — Slice 5: SKIE bridging (§3) + iOS smoke (§12/§15). Added the
   `ios-app/Sources/Shared/StoreObserving.swift` SwiftUI helper —
