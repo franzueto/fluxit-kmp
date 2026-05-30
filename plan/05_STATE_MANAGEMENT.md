@@ -266,10 +266,19 @@ protected suspend fun <T> optimistic(
 
 ## 15. Hand-off checklist (gate to Phase 06)
 
-- [ ] All checkboxes above ✅.
+**Slice 6 status:** all §4 per-feature stores are now built — `RootStore` (Slice 3),
+`ListsDashboardStore` (Slice 4), `ListDetailStore`, `CreateListStore`, `AccountStore`,
+and `ItemDetailStore` (Slice 6, the last on top of a Phase-04 domain backfill —
+`ObserveItem` + `ResolvePhotoUri`, commit `c4e3707`). The remaining unchecked items
+below are the cross-cutting wiring/gate work intentionally carried to Phase 06 / a
+final pass (Koin `stateModule` §8, live runtime iOS smoke §12, `:shared:state` ≥90%
+Kover rule §12), not missing stores.
+
+- [x] All §4 per-feature stores implemented. _(Slice 6 — `ListDetailStore` `d4f1c0f`, `CreateListStore`/`AccountStore` `e49aa37`, `ItemDetailStore` `da4fa9a` after the `c4e3707` domain backfill.)_
+- [ ] All other checkboxes above ✅. _(Outstanding: §8 Koin `stateModule`, §12 `:shared:state` Kover ≥90% rule — both Phase 06 / final-pass.)_
 - [~] iOS smoke test exercises one store end-to-end from Swift. _(Slice 5 — compile-level smoke green (`FluxItTests`, §3/§12); the live runtime dispatch→effect round-trip is deferred to Phase 06 when a Swift-constructible (DI-wired) store exists. See §12.)_
-- [x] All store tests use virtual time; no `delay`-based flakes. _(Slices 2–4 — `runStoreTest` + `advanceTimeBy`; no `Thread.sleep`.)_
-- [ ] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06.
+- [x] All store tests use virtual time; no `delay`-based flakes. _(Slices 2–6 — `runStoreTest` + `advanceTimeBy`/`runCurrent`; no `Thread.sleep`. Covers the Slice-6 `ListDetailStore`/`CreateListStore`/`AccountStore`/`ItemDetailStore` suites.)_
+- [ ] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06. _(Per the established cadence, flipped only when the phase fully completes — still gated on §8/§12 above.)_
 - [x] `00_DECISIONS.md`: ADR-014 accepted (the single MVI store contract; folds the three §13 sub-decisions). _(Slice 4 — flipped to Accepted; the rest of §15 remains gated on the iOS smoke + Phase 06 hand-off.)_
 
 ---
