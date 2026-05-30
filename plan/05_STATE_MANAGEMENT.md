@@ -324,7 +324,7 @@ Kover rule §12), not missing stores.
   `:shared:state` (Slice A had left it unapplied → `koverVerify` never ran); the gate now
   actually runs and is set to an interim floor (`minValue = 65`, ≈ current ≈70% branch),
   with the climb to the §12 ≥90% target tracked as a follow-up (user decision 2026-05-30).
-  Gate green: `:shared:state:check` + `:build-logic:test` BUILD SUCCESSFUL. _Commit `<pending>`._
+  Gate green: `:shared:state:check` + `:build-logic:test` BUILD SUCCESSFUL. _Commit `3bc14d4`._
 
 - **2026-05-30** — Slice 6 (cont.): Phase-04 domain backfill + `ItemDetailStore`
   (§4, Phase 10) — closes the deferral logged the previous day. **Domain backfill**
