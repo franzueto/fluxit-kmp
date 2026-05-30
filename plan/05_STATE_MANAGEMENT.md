@@ -335,7 +335,7 @@ protected suspend fun <T> optimistic(
   `:shared:domain` as a small Phase-04 backfill first, then build the store — rather
   than reach into a repository from `:shared:state`. Gate green
   (`:shared:state:check :build-logic:test --rerun-tasks` + `scripts/test-ios.sh`,
-  iOS smoke still 4/4). _Commit `<pending>`._
+  iOS smoke still 4/4). _Commit `e49aa37`._
 
 - **2026-05-29** — Slice 5: SKIE bridging (§3) + iOS smoke (§12/§15). Added the
   `ios-app/Sources/Shared/StoreObserving.swift` SwiftUI helper —
