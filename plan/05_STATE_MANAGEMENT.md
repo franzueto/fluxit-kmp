@@ -303,7 +303,7 @@ protected suspend fun <T> optimistic(
   (4) **`ClearCompletedClicked` has no bulk-undo** — `ClearCompletedItems` returns a
   count (not `List<ItemId>`) and there is no `RestoreItems` primitive (the same
   carry-forward deferral); the store relies on the feed to reconcile the cleared
-  rows and surfaces only failures via `ShowError`. _Commit `<pending>`._
+  rows and surfaces only failures via `ShowError`. _Commit `d4f1c0f`._
 
 - **2026-05-29** — Slice 5: SKIE bridging (§3) + iOS smoke (§12/§15). Added the
   `ios-app/Sources/Shared/StoreObserving.swift` SwiftUI helper —
