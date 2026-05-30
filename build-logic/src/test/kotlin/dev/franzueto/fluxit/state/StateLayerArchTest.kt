@@ -29,6 +29,10 @@ class StateLayerArchTest : FunSpec({
         scope()
             .files
             .filter { "/shared/state/src/commonMain/" in it.path }
+            // The di/ composition root (ADR-015) legitimately wires :shared:data
+            // Sql repositories — that is its job. The ban stays in force on the
+            // stores themselves, which compose use cases only.
+            .filterNot { "/state/di/" in it.path }
             .assertFalse(
                 additionalMessage = "State commonMain must stay UI/platform-agnostic and depend on " +
                     "use cases only — no android.*/androidx.*, no platform.UIKit/Foundation, no " +

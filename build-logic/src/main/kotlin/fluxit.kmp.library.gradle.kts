@@ -23,13 +23,14 @@ plugins {
     id("fluxit.quality")
 }
 
-// Kover coverage (Phase 04 §13). Applied only to :shared:domain for now — the
-// use-case branch-coverage gate lives there. Applied from the convention plugin
-// (build-logic classpath) rather than the module's `plugins {}` block so Kover
-// shares the Kotlin Multiplatform plugin's classloader and the
-// `kotlin.native.bundle.type` attribute is registered once. The per-module
-// `kover { }` verify rule lives in shared/domain/build.gradle.kts.
-if (path == ":shared:domain") {
+// Kover coverage. Applied to the layers that carry a branch-coverage gate:
+// :shared:domain (use cases, ≥95% — Phase 04 §13) and :shared:state (stores,
+// ≥90% — Phase 05 §12). Applied from the convention plugin (build-logic
+// classpath) rather than the module's `plugins {}` block so Kover shares the
+// Kotlin Multiplatform plugin's classloader and the `kotlin.native.bundle.type`
+// attribute is registered once. The per-module `kover { }` verify rule lives in
+// each module's build.gradle.kts.
+if (path == ":shared:domain" || path == ":shared:state") {
     pluginManager.apply("org.jetbrains.kotlinx.kover")
 }
 

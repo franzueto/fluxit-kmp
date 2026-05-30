@@ -205,10 +205,10 @@ protected suspend fun <T> optimistic(
 
 ## 8. Scope, lifecycle, and DI
 
-- [ ] **Scope ownership**: each store is constructed by Koin with a `@Factory` recipe taking a `CoroutineScope` parameter. Android: ViewModel passes `viewModelScope`. iOS: a thin `StoreOwner` Swift class supplies a scope tied to view lifetime via SKIE bridging.
-- [ ] Stores never create their own `CoroutineScope`. Cancelling the scope cancels all in-flight reductions.
-- [ ] Koin module `stateModule` declares one factory per store. Feature-specific stores pull in their use case dependencies through Koin.
-- [ ] `RootStore` is `@Single` (lives the whole process); per-screen stores are `@Factory`.
+- [x] **Scope ownership**: each store is constructed by Koin with a `factory` recipe taking a `CoroutineScope` parameter. _(Slice B — `platformModule` binds `factory<CoroutineScope> { CoroutineScope(SupervisorJob() + Dispatchers.Default) }` so each store gets a fresh scope; the real `viewModelScope` (Android) / SKIE `StoreOwner` scope (iOS) wiring lands with the Phase 06 composition-root UI.)_
+- [x] Stores never create their own `CoroutineScope`. Cancelling the scope cancels all in-flight reductions. _(Enforced by `BaseStore` since Slice 1; the Koin scope provider is the injection seam.)_
+- [x] Koin module `stateModule` declares one factory per store. Feature-specific stores pull in their use case dependencies through Koin. _(Slice B — `di/StateModule.kt`; deps resolve via `domainModule` → `dataModule`/`platformModule`. `KoinGraphTest` resolves all six stores over an in-memory JVM driver.)_
+- [x] `RootStore` is a `single` (lives the whole process); per-screen stores are `factory`. _(Slice B — verified by `KoinGraphTest`: `RootStore` identity stable, `ListsDashboardStore` fresh per resolve.)_
 
 ## 9. Error → user message mapping
 
@@ -247,7 +247,7 @@ protected suspend fun <T> optimistic(
   - Search debounce: typing 5 chars in 50ms triggers exactly one `SearchLists` call. _(`a_burst_of_keystrokes_debounces_to_a_single_search`.)_
 - [x] **iOS smoke**: a minimal `ios-app` test that calls `dispatch(.openList(...))` from Swift and observes `effects` as `AsyncSequence`. Proves SKIE bridging. _(Slice 5 — `ios-app/Tests/StoreBridgingSmokeTests.swift` (target `FluxItTests`, run via `scripts/test-ios.sh` + CI), 4 tests green on the iOS Sim. **Compile-level** per the agreed scope: it proves the bridging SHAPE — exhaustive `switch onEnum(of:)` over `ListsEffect`/`LoadState`, native `Tab` enum, `dispatch(intent:)` callable, and `Flow→AsyncSequence` via `observe(_:into:)` type-checked against a real `ListsDashboardStore`. A fully-wired runtime store isn't Swift-constructible until Phase 06 DI (no in-memory repository is exported), so the live dispatch→effect round-trip lands then.)_
 - [x] **No flakes**: no `Thread.sleep`. All time advanced via `TestScope.advanceTimeBy`. `FakeClock` advances in lockstep. _(Slice 4 — undo timers / debounce exercised via `advanceTimeBy` + `runCurrent` on virtual time.)_
-- [x] Coverage target ≥ 90% on `:shared:state`. _(Slice A / Phase 06 close-out — inline `kover { }` block in `shared/state/build.gradle.kts` mirrors the `:shared:domain` ≥95% gate: branch-coverage rule scoped to `…state.store.*` (the di/ composition root is wiring, exercised by `KoinGraphTest`, not branch-meaningful), `tasks.named("check") { dependsOn("koverVerify") }`. `:shared:state:koverVerify` green at ≥90%.)_
+- [~] Coverage target ≥ 90% on `:shared:state`. _(Slice A wired the gate — inline `kover { }` block in `shared/state/build.gradle.kts` mirroring the `:shared:domain` ≥95% gate: branch rule scoped to `…state.store.*` (the di/ composition root is wiring, exercised by `KoinGraphTest`, not branch-meaningful), `check` dependsOn `koverVerify`. **Correction (Slice B):** Slice A's commit did not apply the Kover plugin to `:shared:state` (the convention plugin applied it to `:shared:domain` only), so `koverVerify` never ran and the ≥90% claim was unverified. Slice B applied the plugin (`fluxit.kmp.library` now covers `:shared:state`) and the real number is ≈70% branch. Per user decision (2026-05-30) the gate is enforced at an **interim floor (`minValue = 65`)** to prevent regressions while the climb to the §12 ≥90% target — covering the feature stores' error/edge branches (`ItemDetailStore`/`ListDetailStore`/`ListsDashboardStore`/`CreateListStore`) — is tracked as a **Phase 05 follow-up**.)_
 
 ## 13. ADRs to write in this phase
 
@@ -275,7 +275,7 @@ final pass (Koin `stateModule` §8, live runtime iOS smoke §12, `:shared:state`
 Kover rule §12), not missing stores.
 
 - [x] All §4 per-feature stores implemented. _(Slice 6 — `ListDetailStore` `d4f1c0f`, `CreateListStore`/`AccountStore` `e49aa37`, `ItemDetailStore` `da4fa9a` after the `c4e3707` domain backfill.)_
-- [ ] All other checkboxes above ✅. _(Slice A closed the §12 `:shared:state` Kover ≥90% rule. Outstanding: §8 Koin `stateModule` (Slice B) — closing on this branch via ADR-015.)_
+- [ ] All other checkboxes above ✅. _(Slice A wired the §12 Kover gate + ADR-015; Slice B closed §8 (Koin DI graph + `stateModule`, `KoinGraphTest` green) and corrected the Kover gate to actually run (interim floor 65, ≥90% tracked as follow-up). Outstanding: §12 live runtime iOS smoke (Slice C).)_
 - [~] iOS smoke test exercises one store end-to-end from Swift. _(Slice 5 — compile-level smoke green (`FluxItTests`, §3/§12); the live runtime dispatch→effect round-trip is deferred to Phase 06 when a Swift-constructible (DI-wired) store exists. See §12.)_
 - [x] All store tests use virtual time; no `delay`-based flakes. _(Slices 2–6 — `runStoreTest` + `advanceTimeBy`/`runCurrent`; no `Thread.sleep`. Covers the Slice-6 `ListDetailStore`/`CreateListStore`/`AccountStore`/`ItemDetailStore` suites.)_
 - [ ] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06. _(Per the established cadence, flipped only when the phase fully completes — still gated on §8/§12 above.)_
@@ -294,12 +294,37 @@ Kover rule §12), not missing stores.
   coverage gate: an inline `kover { }` block in `shared/state/build.gradle.kts` mirroring
   the `:shared:domain` ≥95% gate — a branch-coverage rule scoped to `…state.store.*`
   (the di/ composition root added in Slice B is wiring, verified by `KoinGraphTest`'s
-  `checkModules`, not branch-meaningful) + `check` dependsOn `koverVerify`. Gate green:
-  `:shared:state:koverVerify` passes at ≥90% (124 tasks BUILD SUCCESSFUL). This is the
-  first of three close-out slices (A: Kover+ADR-015; B: Koin `stateModule` §8; C: live
-  runtime iOS smoke §12) landing on `phase/05-state-management` so Phase 05 closes as a
-  self-contained PR before Phase 06 proper (platform modules + composition-root UI).
-  _Commit `<pending>`._
+  resolution checks, not branch-meaningful) + `check` dependsOn `koverVerify`. ⚠️
+  **Correction logged in Slice B:** this commit did NOT actually apply the Kover plugin
+  to `:shared:state` (the convention plugin gated it to `:shared:domain` only), so
+  `koverVerify` never ran here and the "gate green at ≥90%" originally recorded was
+  unverified — the real number is ≈70% branch. See the Slice B entry for the fix
+  (plugin applied + interim floor). This is the first of three close-out slices
+  (A: Kover+ADR-015; B: Koin `stateModule` §8; C: live runtime iOS smoke §12) landing on
+  `phase/05-state-management` so Phase 05 closes as a self-contained PR before Phase 06
+  proper (platform modules + composition-root UI). _Commit `12089f9`._
+
+- **2026-05-30** — Phase 05 close-out Slice B: Koin DI graph + `stateModule` (§8). Added
+  the `di/` composition root in `:shared:state` commonMain (ADR-015): `domainModule`
+  (a `factory` per use case), `dataModule` (real `Sql*Repository` `single`s over
+  `fluxItDatabase(get())`; the `SqlDriver` comes from the platform start site via an
+  `extra` module, never from `:shared:state`), `platformModule` (real `Clock`/`AppLogger.NoOp`
+  + **interim no-op** `ReminderScheduler`/`PhotoCapture`/`PhotoStorage` + a `factory<CoroutineScope>`),
+  `stateModule` (`single { RootStore }` + a `factory` per screen store; `AccountStore`
+  version/flags are interim literals), and `InitKoin.kt` (`appModules()`/`initKoin(extra)`
+  + a SKIE-surfaced `resolveRootStore()` for Slice C). Build wiring: `koin-core` +
+  `:shared:data` + `:core:core-utils` (the last so the repos' `ids = IdGenerator.System`
+  default-arg type resolves) on commonMain; `sqldelight-jvm-driver` on a new androidUnitTest
+  source set. `di/KoinGraphTest` (JVM, in-memory `JdbcSqliteDriver`) starts the full graph
+  and resolves all six stores, asserting `RootStore` singleton + screen-store factory
+  semantics. Arch-test seams (ADR-015): exempted `/state/di/` from `StateLayerArchTest`
+  rule 1 (it legitimately imports `:shared:data`) and `/shared/state/src/androidUnitTest/`
+  from `DataLayerArchTest`'s SQLDelight-encapsulation rule (the graph test builds a JVM
+  driver). **Kover fix:** extended `fluxit.kmp.library` to apply the Kover plugin to
+  `:shared:state` (Slice A had left it unapplied → `koverVerify` never ran); the gate now
+  actually runs and is set to an interim floor (`minValue = 65`, ≈ current ≈70% branch),
+  with the climb to the §12 ≥90% target tracked as a follow-up (user decision 2026-05-30).
+  Gate green: `:shared:state:check` + `:build-logic:test` BUILD SUCCESSFUL. _Commit `<pending>`._
 
 - **2026-05-30** — Slice 6 (cont.): Phase-04 domain backfill + `ItemDetailStore`
   (§4, Phase 10) — closes the deferral logged the previous day. **Domain backfill**
