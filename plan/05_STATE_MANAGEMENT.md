@@ -296,7 +296,7 @@ protected suspend fun <T> optimistic(
   module-qualified `FluxIt.observe(...)` since `XCTestCase` (NSObject) has its own
   KVO `observe`. Gate green: `:shared:state:check` + `:shared:domain:check` +
   `:build-logic:test --rerun-tasks` (JVM + iOS Sim + Konsist) and
-  `scripts/test-ios.sh` (FluxItTests on the Simulator). _Commit `<pending>`._
+  `scripts/test-ios.sh` (FluxItTests on the Simulator). _Commit `493a4a0`._
 
 - **2026-05-29** — Slice 4: `:shared:domain-testing` fixtures module +
   `ListsDashboardStore` (§4 ListsDashboard, §5 README, §6 undo, §7 search, §11
