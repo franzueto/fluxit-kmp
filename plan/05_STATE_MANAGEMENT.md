@@ -279,7 +279,7 @@ the single tracked follow-up).
 - [x] All other checkboxes above ✅. _(Slice A wired the §12 Kover gate + ADR-015; Slice B closed §8 (Koin DI graph + `stateModule`, `KoinGraphTest` green) and corrected the Kover gate to actually run (interim floor 65, ≥90% tracked as a follow-up); Slice C upgraded the iOS smoke to a live runtime dispatch→state round-trip. The ≥90% Kover climb is the one tracked follow-up.)_
 - [x] iOS smoke test exercises one store end-to-end from Swift. _(Slice C — live runtime round-trip green: `doInitKoinIos()` → `resolveRootStore()` → `dispatch(AppStarted)` → observe `state` until `Ready`. 5 tests in `FluxItTests` on the iOS Sim. See §12.)_
 - [x] All store tests use virtual time; no `delay`-based flakes. _(Slices 2–6 — `runStoreTest` + `advanceTimeBy`/`runCurrent`; no `Thread.sleep`. Covers the Slice-6 `ListDetailStore`/`CreateListStore`/`AccountStore`/`ItemDetailStore` suites.)_
-- [ ] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06. _(Per the established cadence, flipped only when the phase fully completes — still gated on §8/§12 above.)_
+- [x] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06. _(Close-out milestone — flipped after Slices A–C closed §8/§12; decisions log bumped for ADR-015.)_
 - [x] `00_DECISIONS.md`: ADR-014 accepted (the single MVI store contract; folds the three §13 sub-decisions). _(Slice 4 — flipped to Accepted; the rest of §15 remains gated on the iOS smoke + Phase 06 hand-off.)_
 
 ---
@@ -301,7 +301,7 @@ the single tracked follow-up).
   to `ios-app/project.yml` (the `Shared` framework now embeds SQLDelight's native sqliter
   driver via `:shared:state → :shared:data`, which calls libsqlite3 through cinterop).
   `scripts/test-ios.sh`: 5 tests green on the iOS Sim (TEST SUCCEEDED). Closes the last of
-  the three close-out slices — Phase 05 is ready to flip 🟢. _Commit `<pending>`._
+  the three close-out slices — Phase 05 is ready to flip 🟢. _Commit `3ca5208`._
 
 - **2026-05-30** — Phase 05 close-out Slice A: ADR-015 + `:shared:state` Kover ≥90%
   gate (§12). Opened **ADR-015** in `00_DECISIONS.md` (composition root & Koin module
