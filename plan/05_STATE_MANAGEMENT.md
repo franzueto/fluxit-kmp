@@ -301,7 +301,7 @@ protected suspend fun <T> optimistic(
   discrete capture + ingest use cases (noted in the store KDoc). (2) `SaveClicked`
   commits-and-closes (`UpdateItemDetails` → `NavigateBack`). (3) `UpdatePhotoClicked`
   opens the source sheet in-state (`showPhotoSourceSheet`), not via an effect (per §4).
-  (4) `BackClicked` with unsaved edits emits `ConfirmDiscardChanges`. _Commit `<pending>`._
+  (4) `BackClicked` with unsaved edits emits `ConfirmDiscardChanges`. _Commit `da4fa9a`._
 
 - **2026-05-29** — Slice 6: `ListDetailStore` (§4/§5/§6, backs Phase 08). Added
   `store/ListDetailStore.kt` + its contract types alongside (`ListDetailState`,
