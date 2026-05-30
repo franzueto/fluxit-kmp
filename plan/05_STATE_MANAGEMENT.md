@@ -91,7 +91,9 @@ One store per screen-family, scoped to the screen's lifecycle by the platform ho
   - `DeleteListClicked` → optimistic remove from `lists` → `DeleteList.invoke` → start 5s undo timer (see §6).
   - `UndoDeleteClicked` within window → `UndoDeleteList.invoke` → restore in state.
 
-### `ListDetailStore` (backs Phase 08)
+### `ListDetailStore` (backs Phase 08) — ✅ Slice 6
+
+- [x] Built in `store/ListDetailStore.kt` + contract types alongside (§11). Tests in `ListDetailStoreTest` (real items/lists use cases over the `:shared:domain-testing` fakes + a delegating `RecordingItemsRepository` for failure injection). _(Slice 6 — see Implementation log for divergences: `composerError` state field for the §14 keep-text-inline-error default, and `null`-detail → `LoadState.Error` rather than `Empty`.)_
 
 - **State**
   - `header: LoadState<ListDetail>`
@@ -267,6 +269,41 @@ protected suspend fun <T> optimistic(
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-29** — Slice 6: `ListDetailStore` (§4/§5/§6, backs Phase 08). Added
+  `store/ListDetailStore.kt` + its contract types alongside (`ListDetailState`,
+  `ListDetailIntent`, `ListDetailEffect`, `PendingItemDelete`). `Init(listId)`
+  launches `ObserveListDetail(id).collect`, splitting the single combined
+  `ListDetailView` emission into `header: LoadState<ListDetail>` + `sections:
+  LoadState<ItemsSection>` (a `.catch` maps a thrown read to `LoadState.Error` —
+  the reactive read has no `Outcome` channel). `ItemCompletionToggled` is
+  optimistic-then-reconcile via the §5 `optimistic{}` helper (pure `ItemsSection`
+  partition-move helpers `toggling`/`removing` recompute the active/completed
+  split + `completedCount`); the live feed re-emits the authoritative partition
+  and supersedes the bridge. Per-item delete reuses the Slice-4 undo mechanics
+  (optimistic remove, 5s timer self-dispatching `UndoWindowExpired(id)`,
+  rapid-redelete finalizes the prior window). Tests in `ListDetailStoreTest`
+  use the real items use cases over the `:shared:domain-testing` fakes plus a
+  delegating `RecordingItemsRepository` (injects `setCompleted`/`add`/`delete`
+  failures). Gate green: `:shared:state:check :build-logic:test --rerun-tasks`
+  (incl. the iOS Sim test target) + `scripts/test-ios.sh` (4 iOS smoke tests
+  still green — the new exported sealed types compile through SKIE).
+  **Divergences / deferrals:** (1) **`composerError: String?` added to
+  `ListDetailState`** — §4's state sketch omits it, but the §14 default for a
+  failed `ComposerSubmit` is "keep text + **inline** error"; an `Effect.ShowError`
+  snackbar is transient, so the faithful read is a state field the composer
+  renders inline (text is preserved, error cleared on the next keystroke). (2)
+  **`null` header → `LoadState.Error("This list is no longer available.")`** rather
+  than `Empty` — a vanished/soft-deleted list is not "no items" (which `Empty`
+  signals for the items section). (3) **Per-item undo restore is data-layer-blocked**
+  — confirmed no `UndoDeleteItem` use case (the `ItemsRepository`/`DeleteItem` KDoc
+  has no `deleted_at = NULL` primitive); `UndoItemDeleteClicked` only dismisses the
+  snackbar (cancel timer + clear `pendingDelete`), the soft-delete stands, restore
+  left as a `TODO(data-layer)` — exactly mirroring `ListsDashboardStore.undoDelete`.
+  (4) **`ClearCompletedClicked` has no bulk-undo** — `ClearCompletedItems` returns a
+  count (not `List<ItemId>`) and there is no `RestoreItems` primitive (the same
+  carry-forward deferral); the store relies on the feed to reconcile the cleared
+  rows and surfaces only failures via `ShowError`. _Commit `<pending>`._
 
 - **2026-05-29** — Slice 5: SKIE bridging (§3) + iOS smoke (§12/§15). Added the
   `ios-app/Sources/Shared/StoreObserving.swift` SwiftUI helper —
