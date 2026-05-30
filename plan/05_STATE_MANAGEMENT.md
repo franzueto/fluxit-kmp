@@ -204,7 +204,7 @@ protected suspend fun <T> optimistic(
 
 ## 9. Error → user message mapping
 
-- [ ] `DomainError.userMessage: String` extension lives in `:shared:state/error/` (intentionally **not** in domain, to keep domain locale-neutral). Initially returns English strings; Phase 02-style i18n token names can replace these in v2.
+- [x] `DomainError.userMessage: String` extension lives in `:shared:state/error/` (intentionally **not** in domain, to keep domain locale-neutral). Initially returns English strings; Phase 02-style i18n token names can replace these in v2. _(Slice 3 — `DomainErrorMessages.kt`, full mapping table + exhaustive `ValidationError`/`SchedulerError`/`CaptureError` branches, covered by `DomainErrorMessagesTest`.)_
 - [ ] Mapping table:
   - `Validation(field, Empty)` → "{field} can't be empty"
   - `Validation(field, TooLong(max))` → "{field} is too long (max {max})"
@@ -267,6 +267,34 @@ protected suspend fun <T> optimistic(
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-29** — Slice 3: `RootStore` (first real store) + §9 error mapping
+  (§4 RootStore, §9). Landed `RootStore` against the ADR-014 `BaseStore`: state
+  (`init: InitState = Initializing | Ready | Failed(message)`, `currentTab: Tab`),
+  intents (`AppStarted`, `TabSelected`), effects (`NavigateToOnboarding` v2
+  placeholder, `ShowFatalError`). `AppStarted` runs the `InitializeApp` composite
+  use case and folds its `InitProgress` stream into state; a startup failure both
+  lands in `InitState.Failed` and fires `ShowFatalError`. Added the shared `Tab`
+  enum (`navigation/Tab.kt`, ADR-004 four-tab set) and the §9
+  `DomainError.userMessage` extension (`error/DomainErrorMessages.kt`) — exhaustive
+  over every `DomainError` / `ValidationError` / `SchedulerError` / `CaptureError`
+  variant. Tests: `RootStoreTest` (initial state, success→Ready, scheduler
+  failure→Failed+effect, tab switch) + `DomainErrorMessagesTest` (every branch).
+  Gate green: `:shared:state:check` (JVM + iOS Sim) + `:build-logic:test
+  --rerun-tasks`.
+  **Divergences / deferrals:** (1) **Koin `stateModule` (§8) deferred to Phase 06**
+  — no DI graph is assembled yet (use cases aren't Koin-registered; that's Phase 06
+  per ADR-007b), so `RootStore` takes its `InitializeApp` dependency by constructor,
+  exactly like the domain use cases. (2) **Reverted the Slice-2 plan to expose the
+  `:shared:domain` repository fakes as a shared test fixture here** — on inspection,
+  cross-module fixture sharing in KMP needs a dedicated testing module + migrating
+  domain's in-module fakes (touching the green domain suite). For RootStore's single
+  reminders dependency, two tiny local stubs (`ReminderFakes.kt`) are lower-risk and
+  keep the slice focused; the shared testing module is deferred to **Slice 4**, where
+  `ListsDashboardStore`'s richer Lists/Items fakes make the investment clearly worth
+  it. (3) SKIE `@SealedClass`/`@SealedInterface` annotations (§3) not yet applied —
+  plain sealed types already project under SKIE; the annotations (for exhaustive
+  Swift `switch`) land with the **Slice 5** iOS smoke. _Commit `<pending>`._
 
 - **2026-05-29** — Slice 2: `Store`/`BaseStore` + `optimistic` helper + `AppLogger`
   port + `runStoreTest` harness (§1, §2, §5, §11, §12). Landed the `Store<S,I,E>`
