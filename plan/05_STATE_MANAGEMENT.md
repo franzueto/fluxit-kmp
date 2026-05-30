@@ -294,7 +294,7 @@ protected suspend fun <T> optimistic(
   `ListsDashboardStore`'s richer Lists/Items fakes make the investment clearly worth
   it. (3) SKIE `@SealedClass`/`@SealedInterface` annotations (§3) not yet applied —
   plain sealed types already project under SKIE; the annotations (for exhaustive
-  Swift `switch`) land with the **Slice 5** iOS smoke. _Commit `<pending>`._
+  Swift `switch`) land with the **Slice 5** iOS smoke. _Commit `0e29c73`._
 
 - **2026-05-29** — Slice 2: `Store`/`BaseStore` + `optimistic` helper + `AppLogger`
   port + `runStoreTest` harness (§1, §2, §5, §11, §12). Landed the `Store<S,I,E>`
