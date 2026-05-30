@@ -247,7 +247,7 @@ protected suspend fun <T> optimistic(
   - Search debounce: typing 5 chars in 50ms triggers exactly one `SearchLists` call. _(`a_burst_of_keystrokes_debounces_to_a_single_search`.)_
 - [x] **iOS smoke**: a minimal `ios-app` test that drives a store from Swift and observes the projected `Flow`. Proves SKIE bridging. _(Slice 5 shipped the compile-level shape; **Slice C (close-out) upgraded it to a live runtime round-trip**: `testRootStoreReachesReadyAtRuntime` calls `doInitKoinIos()` (ADR-015 graph over a native `DriverFactory` SQLite driver), resolves `RootStore` via `resolveRootStore()`, dispatches `RootIntent.AppStarted`, and observes `state` (SKIE `AsyncSequence`) until `init` transitions `Initializing → Ready` (empty DB → `InitializeApp` → interim no-op scheduler `rescheduleAll(emptyList())` = Ok). 5 tests green on the iOS Sim via `scripts/test-ios.sh`. The remaining 4 tests still assert the bridging SHAPE — exhaustive `switch onEnum(of:)` over `ListsEffect`/`LoadState`, native `Tab` enum, `dispatch(intent:)` callable, `Flow→AsyncSequence` via `observe(_:into:)`.)_
 - [x] **No flakes**: no `Thread.sleep`. All time advanced via `TestScope.advanceTimeBy`. `FakeClock` advances in lockstep. _(Slice 4 — undo timers / debounce exercised via `advanceTimeBy` + `runCurrent` on virtual time.)_
-- [~] Coverage target ≥ 90% on `:shared:state`. _(Slice A wired the gate — inline `kover { }` block in `shared/state/build.gradle.kts` mirroring the `:shared:domain` ≥95% gate: branch rule scoped to `…state.store.*` (the di/ composition root is wiring, exercised by `KoinGraphTest`, not branch-meaningful), `check` dependsOn `koverVerify`. **Correction (Slice B):** Slice A's commit did not apply the Kover plugin to `:shared:state` (the convention plugin applied it to `:shared:domain` only), so `koverVerify` never ran and the ≥90% claim was unverified. Slice B applied the plugin (`fluxit.kmp.library` now covers `:shared:state`) and the real number is ≈70% branch. Per user decision (2026-05-30) the gate is enforced at an **interim floor (`minValue = 65`)** to prevent regressions while the climb to the §12 ≥90% target — covering the feature stores' error/edge branches (`ItemDetailStore`/`ListDetailStore`/`ListsDashboardStore`/`CreateListStore`) — is tracked as a **Phase 05 follow-up**.)_
+- [x] Coverage target ≥ 90% on `:shared:state`. _(Slice A wired the gate — inline `kover { }` block in `shared/state/build.gradle.kts` mirroring the `:shared:domain` ≥95% gate: branch rule scoped to `…state.store.*` (the di/ composition root is wiring, exercised by `KoinGraphTest`, not branch-meaningful), `check` dependsOn `koverVerify`. **History:** Slice A's commit did not apply the Kover plugin to `:shared:state` (the convention plugin applied it to `:shared:domain` only), so `koverVerify` never ran and the original ≥90% claim was unverified (real number ≈70%); Slice B applied the plugin + an interim floor. The close-out follow-up then added the feature-store error/edge-branch tests (`CreateListStore`/`ListsDashboardStore`/`ListDetailStore`/`ItemDetailStore` — intent-branch, early-return, optimistic-revert, and failure paths), bringing store branch coverage to **≈92%**; `minValue` is now back at the §12 **90** and `:shared:state:koverVerify` is green.)_
 
 ## 13. ADRs to write in this phase
 
@@ -271,12 +271,12 @@ protected suspend fun <T> optimistic(
 and `ItemDetailStore` (Slice 6, the last on top of a Phase-04 domain backfill —
 `ObserveItem` + `ResolvePhotoUri`, commit `c4e3707`). The remaining unchecked items
 below were the cross-cutting wiring/gate work closed in the Phase 05 close-out pass
-(Slices A–C): Koin `stateModule` §8, live runtime iOS smoke §12, and the
-`:shared:state` Kover gate §12 (enforced at an interim floor, with the ≥90% climb as
-the single tracked follow-up).
+(Slices A–C + follow-up): Koin `stateModule` §8, live runtime iOS smoke §12, and the
+`:shared:state` Kover gate §12 (now enforced at the ≥90% target, store branch
+coverage ≈92%).
 
 - [x] All §4 per-feature stores implemented. _(Slice 6 — `ListDetailStore` `d4f1c0f`, `CreateListStore`/`AccountStore` `e49aa37`, `ItemDetailStore` `da4fa9a` after the `c4e3707` domain backfill.)_
-- [x] All other checkboxes above ✅. _(Slice A wired the §12 Kover gate + ADR-015; Slice B closed §8 (Koin DI graph + `stateModule`, `KoinGraphTest` green) and corrected the Kover gate to actually run (interim floor 65, ≥90% tracked as a follow-up); Slice C upgraded the iOS smoke to a live runtime dispatch→state round-trip. The ≥90% Kover climb is the one tracked follow-up.)_
+- [x] All other checkboxes above ✅. _(Slice A wired the §12 Kover gate + ADR-015; Slice B closed §8 (Koin DI graph + `stateModule`, `KoinGraphTest` green) and corrected the Kover gate to actually run; Slice C upgraded the iOS smoke to a live runtime dispatch→state round-trip; the close-out follow-up added the feature-store branch tests that bring store coverage to ≈92% and restore the §12 ≥90% `minValue`. No outstanding Phase 05 items.)_
 - [x] iOS smoke test exercises one store end-to-end from Swift. _(Slice C — live runtime round-trip green: `doInitKoinIos()` → `resolveRootStore()` → `dispatch(AppStarted)` → observe `state` until `Ready`. 5 tests in `FluxItTests` on the iOS Sim. See §12.)_
 - [x] All store tests use virtual time; no `delay`-based flakes. _(Slices 2–6 — `runStoreTest` + `advanceTimeBy`/`runCurrent`; no `Thread.sleep`. Covers the Slice-6 `ListDetailStore`/`CreateListStore`/`AccountStore`/`ItemDetailStore` suites.)_
 - [x] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06. _(Close-out milestone — flipped after Slices A–C closed §8/§12; decisions log bumped for ADR-015.)_
@@ -285,6 +285,21 @@ the single tracked follow-up).
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-30** — Phase 05 close-out follow-up: store branch coverage to ≥90% (§12).
+  Added the feature-store branch tests the Slice-A/B Kover gate had been waiting on:
+  `CreateListStore` (icon/color/reminder-settings/cancel intents, post-success re-entry
+  guard, unschedulable-reminder best-effort path), `ListsDashboardStore` (Refresh,
+  undo/expire no-ops, delete-before-feed-loads revert), `ListDetailStore` (back/more/tap/
+  toggle-show-completed intents, undo-item-delete + no-pending no-op, toggle-before-load,
+  composer/clear-completed before Init, clear-completed failure, item-delete failure +
+  before-load revert, completed→active re-toggle, second-Init guard, stale/empty expiry),
+  and `ItemDetailStore` (description-change/cancel-delete intents, remove-photo success +
+  before-init no-op, save-before-init no-op, second-Init guard, camera permission-denied,
+  unknown-capture-error, and — via a failable `update`/`delete` repo wrapper —
+  save-failure, confirm-delete failure, and ingest-failure attach paths). Store branch
+  coverage now ≈92%; `minValue` restored to the §12 **90** and `:shared:state:koverVerify`
+  green. Closes the one tracked Phase 05 follow-up. _Commit `<pending>`._
 
 - **2026-05-30** — Phase 05 close-out Slice C: live runtime iOS smoke (§12). Upgraded
   `ios-app/Tests/StoreBridgingSmokeTests.swift` from compile-level to a real

@@ -52,7 +52,11 @@ private class RecordingItemsRepository(
     var failSetCompletedWith: DataError? = null,
     var failAddWith: DataError? = null,
     var failDeleteWith: DataError? = null,
+    var failClearCompletedWith: DataError? = null,
 ) : ItemsRepository by delegate {
+    override suspend fun clearCompleted(listId: ListId): Outcome<Int, DataError> =
+        failClearCompletedWith?.let { Outcome.Err(it) } ?: delegate.clearCompleted(listId)
+
     override suspend fun setCompleted(
         itemId: ItemId,
         completed: Boolean,
@@ -296,5 +300,198 @@ class ListDetailStoreTest {
             val sections = f.store.state.value.sections
             // Everything cleared → Empty.
             assertEquals(LoadState.Empty, sections)
+        }
+
+    @Test
+    fun navigation_and_toggle_show_completed_intents() =
+        runStoreTest {
+            val f = detailFixture()
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            val before = f.store.state.value.showCompleted
+            f.store.dispatch(ListDetailIntent.ToggleShowCompleted)
+            testScope.runCurrent()
+            assertEquals(!before, f.store.state.value.showCompleted)
+            f.store.effects.test {
+                f.store.dispatch(ListDetailIntent.BackClicked)
+                assertIs<ListDetailEffect.NavigateBack>(awaitItem())
+                f.store.dispatch(ListDetailIntent.MoreClicked)
+                assertIs<ListDetailEffect.OpenListMenu>(awaitItem())
+                f.store.dispatch(ListDetailIntent.ItemTapped(ItemId("some-item")))
+                assertIs<ListDetailEffect.NavigateToEditItem>(awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun undo_item_delete_dismisses_the_snackbar() =
+        runStoreTest {
+            val f = detailFixture()
+            val (milk) = f.seedItems("Milk")
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            f.store.dispatch(ListDetailIntent.ItemDeleteClicked(milk))
+            testScope.runCurrent()
+            assertEquals(
+                milk,
+                f.store.state.value.pendingDelete
+                    ?.id,
+            )
+            f.store.dispatch(ListDetailIntent.UndoItemDeleteClicked)
+            testScope.runCurrent()
+            assertNull(f.store.state.value.pendingDelete)
+        }
+
+    @Test
+    fun undo_with_no_pending_delete_is_a_noop() =
+        runStoreTest {
+            val f = detailFixture()
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            f.store.dispatch(ListDetailIntent.UndoItemDeleteClicked)
+            testScope.runCurrent()
+            assertNull(f.store.state.value.pendingDelete)
+        }
+
+    @Test
+    fun toggle_before_sections_loaded_is_a_noop() =
+        runStoreTest {
+            val f = detailFixture()
+            // No Init → sections stays Loading, so the toggle early-returns.
+            f.store.dispatch(ListDetailIntent.ItemCompletionToggled(ItemId("nope")))
+            testScope.runCurrent()
+            assertEquals(LoadState.Loading, f.store.state.value.sections)
+        }
+
+    @Test
+    fun composer_submit_before_init_is_a_noop() =
+        runStoreTest {
+            val f = detailFixture()
+            // listId is unset until Init → submit early-returns even with text.
+            f.store.dispatch(ListDetailIntent.ComposerTextChanged("Eggs"))
+            f.store.dispatch(ListDetailIntent.ComposerSubmit)
+            testScope.runCurrent()
+            assertEquals("Eggs", f.store.state.value.composerText)
+        }
+
+    @Test
+    fun clear_completed_before_init_is_a_noop() =
+        runStoreTest {
+            val f = detailFixture()
+            f.store.dispatch(ListDetailIntent.ClearCompletedClicked)
+            testScope.runCurrent()
+            // No crash, nothing cleared (listId unset → early return).
+            assertEquals(LoadState.Loading, f.store.state.value.sections)
+        }
+
+    @Test
+    fun clear_completed_failure_emits_show_error() =
+        runStoreTest {
+            val f = detailFixture()
+            f.seedItems("Milk")
+            f.items.failClearCompletedWith = DataError.Storage(RuntimeException("nope"))
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            f.store.effects.test {
+                f.store.dispatch(ListDetailIntent.ClearCompletedClicked)
+                assertIs<ListDetailEffect.ShowError>(awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun item_delete_failure_reverts_and_shows_error_without_a_window() =
+        runStoreTest {
+            val f = detailFixture()
+            val (milk) = f.seedItems("Milk")
+            f.items.failDeleteWith = DataError.Storage(RuntimeException("disk full"))
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            f.store.effects.test {
+                f.store.dispatch(ListDetailIntent.ItemDeleteClicked(milk))
+                assertIs<ListDetailEffect.ShowError>(awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            // Delete failed → no undo window opens.
+            assertNull(f.store.state.value.pendingDelete)
+        }
+
+    @Test
+    fun toggling_a_completed_item_moves_it_back_to_active() =
+        runStoreTest {
+            val f = detailFixture()
+            val (milk) = f.seedItems("Milk")
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            // Complete it…
+            f.store.dispatch(ListDetailIntent.ItemCompletionToggled(milk))
+            testScope.runCurrent()
+            var section = assertIs<LoadState.Loaded<ItemsSection>>(f.store.state.value.sections).value
+            assertTrue(section.completed.any { it.id == milk })
+            // …then toggle the completed item back to active.
+            f.store.dispatch(ListDetailIntent.ItemCompletionToggled(milk))
+            testScope.runCurrent()
+            section = assertIs<LoadState.Loaded<ItemsSection>>(f.store.state.value.sections).value
+            assertTrue(section.active.any { it.id == milk })
+            assertEquals(0, section.completedCount)
+        }
+
+    @Test
+    fun a_second_init_is_ignored() =
+        runStoreTest {
+            val f = detailFixture()
+            f.seedItems("Milk")
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            // Second Init must not re-subscribe (feedJob guard) — feed stays valid.
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            assertIs<LoadState.Loaded<ItemsSection>>(f.store.state.value.sections)
+        }
+
+    @Test
+    fun expire_with_unknown_id_leaves_the_window_open() =
+        runStoreTest {
+            val f = detailFixture()
+            val (milk) = f.seedItems("Milk")
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            f.store.dispatch(ListDetailIntent.ItemDeleteClicked(milk))
+            testScope.runCurrent()
+            // A stale expiry for a different id must not retire the live window.
+            f.store.dispatch(ListDetailIntent.UndoWindowExpired(ItemId("00000000-0000-4000-8000-000000009999")))
+            testScope.runCurrent()
+            assertEquals(
+                milk,
+                f.store.state.value.pendingDelete
+                    ?.id,
+            )
+        }
+
+    @Test
+    fun expire_with_no_pending_delete_is_a_noop() =
+        runStoreTest {
+            val f = detailFixture()
+            f.store.dispatch(ListDetailIntent.Init(f.listId))
+            testScope.runCurrent()
+            f.store.dispatch(ListDetailIntent.UndoWindowExpired(ItemId("nope")))
+            testScope.runCurrent()
+            assertNull(f.store.state.value.pendingDelete)
+        }
+
+    @Test
+    fun item_delete_before_load_reverts_without_a_snapshot() =
+        runStoreTest {
+            val f = detailFixture()
+            val (milk) = f.seedItems("Milk")
+            f.items.failDeleteWith = DataError.Storage(RuntimeException("disk full"))
+            // Delete dispatched before Init: sections is still Loading, so the
+            // optimistic apply/revert run with no Loaded snapshot and a null title.
+            f.store.effects.test {
+                f.store.dispatch(ListDetailIntent.ItemDeleteClicked(milk))
+                assertIs<ListDetailEffect.ShowError>(awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertNull(f.store.state.value.pendingDelete)
         }
 }

@@ -3,6 +3,8 @@ package dev.franzueto.fluxit.shared.state.store
 import app.cash.turbine.test
 import dev.franzueto.fluxit.shared.domain.error.DataError
 import dev.franzueto.fluxit.shared.domain.error.Outcome
+import dev.franzueto.fluxit.shared.domain.model.ColorToken
+import dev.franzueto.fluxit.shared.domain.model.FluxItIconRef
 import dev.franzueto.fluxit.shared.domain.model.ListDraft
 import dev.franzueto.fluxit.shared.domain.model.ListId
 import dev.franzueto.fluxit.shared.domain.model.ReminderOwner
@@ -135,5 +137,65 @@ class CreateListStoreTest {
                 }
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+
+    @Test
+    fun icon_and_color_selection_update_state() =
+        runStoreTest {
+            val f = createFixture()
+            f.store.dispatch(CreateListIntent.IconSelected(FluxItIconRef.STAR))
+            f.store.dispatch(CreateListIntent.ColorSelected(ColorToken.ACCENT_ORANGE))
+            testScope.runCurrent()
+            assertEquals(FluxItIconRef.STAR, f.store.state.value.selectedIcon)
+            assertEquals(ColorToken.ACCENT_ORANGE, f.store.state.value.selectedColor)
+        }
+
+    @Test
+    fun reminder_settings_and_cancel_emit_navigation_effects() =
+        runStoreTest {
+            val f = createFixture()
+            f.store.effects.test {
+                f.store.dispatch(CreateListIntent.ReminderSettingsClicked)
+                assertEquals(CreateListEffect.NavigateToReminderSettings, awaitItem())
+                f.store.dispatch(CreateListIntent.CancelClicked)
+                assertEquals(CreateListEffect.Dismiss, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun second_create_after_success_is_blocked() =
+        runStoreTest {
+            val f = createFixture()
+            f.store.dispatch(CreateListIntent.NameChanged("Groceries"))
+            testScope.runCurrent()
+            f.store.dispatch(CreateListIntent.CreateClicked)
+            testScope.runCurrent()
+            assertEquals(Submission.Success, f.store.state.value.submission)
+            // A second submit is terminal — the guard returns before re-running create.
+            f.store.effects.test {
+                f.store.dispatch(CreateListIntent.CreateClicked)
+                testScope.runCurrent()
+                expectNoEvents()
+            }
+            assertEquals(Submission.Success, f.store.state.value.submission)
+        }
+
+    @Test
+    fun created_list_with_unschedulable_reminder_navigates_but_warns() =
+        runStoreTest {
+            val f = createFixture()
+            f.store.dispatch(CreateListIntent.NameChanged("Groceries"))
+            // A fire time in the PAST → ScheduleReminder rejects it; the list is
+            // still created, so navigation proceeds after a best-effort ShowError.
+            f.store.dispatch(CreateListIntent.ReminderConfigured(Instant.fromEpochSeconds(1_600_000_000)))
+            testScope.runCurrent()
+            f.store.effects.test {
+                f.store.dispatch(CreateListIntent.CreateClicked)
+                assertIs<CreateListEffect.ShowError>(awaitItem())
+                assertIs<CreateListEffect.NavigateToListDetail>(awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(Submission.Success, f.store.state.value.submission)
         }
 }

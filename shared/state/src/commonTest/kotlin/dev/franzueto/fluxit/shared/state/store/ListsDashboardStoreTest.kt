@@ -299,4 +299,54 @@ class ListsDashboardStoreTest {
             testScope.runCurrent()
             assertNull(f.store.state.value.pendingDelete)
         }
+
+    @Test
+    fun refresh_reloads_the_feed() =
+        runStoreTest {
+            val f = fixture()
+            f.seed("Groceries")
+            f.store.state.test {
+                awaitItem() // Loading
+                assertIs<LoadState.Loaded<List<ListSummary>>>(awaitItem().lists)
+                f.store.dispatch(ListsIntent.Refresh)
+                // Refresh flips back to Loading, then re-resolves the feed.
+                assertEquals(LoadState.Loading, awaitItem().lists)
+                assertIs<LoadState.Loaded<List<ListSummary>>>(awaitItem().lists)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun undo_with_no_pending_delete_is_a_noop() =
+        runStoreTest {
+            val f = fixture()
+            f.store.dispatch(ListsIntent.UndoDeleteClicked)
+            testScope.runCurrent()
+            assertNull(f.store.state.value.pendingDelete)
+        }
+
+    @Test
+    fun expire_with_no_pending_delete_is_a_noop() =
+        runStoreTest {
+            val f = fixture()
+            f.store.dispatch(ListsIntent.UndoWindowExpired(ListId("never-deleted")))
+            testScope.runCurrent()
+            assertNull(f.store.state.value.pendingDelete)
+        }
+
+    @Test
+    fun delete_before_feed_loads_reverts_without_a_snapshot() =
+        runStoreTest {
+            val f = fixture()
+            val (groceries) = f.seed("Groceries")
+            f.lists.failDeleteWith = DataError.Storage(RuntimeException("disk full"))
+            // Delete is dispatched before the feed's first emission: lists is still
+            // Loading, so the optimistic apply/revert run with no Loaded snapshot.
+            f.store.effects.test {
+                f.store.dispatch(ListsIntent.DeleteListClicked(groceries))
+                assertIs<ListsEffect.ShowError>(awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertNull(f.store.state.value.pendingDelete)
+        }
 }

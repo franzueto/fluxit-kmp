@@ -11,18 +11,18 @@ android {
     namespace = "dev.franzueto.fluxit.shared.state"
 }
 
-// Phase 05 §12 coverage gate: store branch coverage. Mirrors the :shared:domain
-// ≥95% use-case gate (its build.gradle.kts) — Kover instruments the JVM/Android
-// unit-test run (which JVM-executes commonTest); the iOS Sim target validates the
-// same commonMain sources on Kotlin/Native but isn't measured (Kover is JVM-only).
+// Phase 05 §12 coverage gate: store branch coverage ≥ 90%. Mirrors the
+// :shared:domain ≥95% use-case gate (its build.gradle.kts) — Kover instruments
+// the JVM/Android unit-test run (which JVM-executes commonTest); the iOS Sim
+// target validates the same commonMain sources on Kotlin/Native but isn't
+// measured (Kover is JVM-only).
 //
-// NOTE: The §12 target is ≥90%. When this gate was first wired (Slice A) the Kover
-// plugin was not actually applied to :shared:state, so koverVerify never ran and
-// the real number (≈70% branch) went unmeasured. The floor below is set to the
-// current level to keep the gate enforced (no regressions) while the climb to 90%
-// — covering the feature stores' error/edge branches (ItemDetailStore,
-// ListDetailStore, ListsDashboardStore, CreateListStore) — is tracked as a Phase 05
-// follow-up. Raise `minValue` toward 90 as those tests land.
+// Measured ≈92% branch across the store package. (History: when this gate was
+// first wired in Slice A the Kover plugin wasn't actually applied to
+// :shared:state, so koverVerify never ran and the real number went unmeasured at
+// ≈70%; Slice B applied the plugin + an interim floor, and the close-out
+// follow-up added the feature-store error/edge-branch tests that brought it to
+// the §12 ≥90% target.)
 //
 // Run the report: `./gradlew :shared:state:koverHtmlReport`
 // Enforce the gate: `./gradlew :shared:state:koverVerify`
@@ -37,11 +37,9 @@ kover {
             }
         }
         verify {
-            rule("Store branch coverage (Phase 05 §12 — interim floor, target ≥90%)") {
+            rule("Store branch coverage (Phase 05 §12)") {
                 bound {
-                    // Interim floor at the current measured level (see note above);
-                    // §12 target is 90. Raise as feature-store branch tests land.
-                    minValue = 65
+                    minValue = 90
                     coverageUnits = CoverageUnit.BRANCH
                     aggregationForGroup = AggregationType.COVERED_PERCENTAGE
                 }
