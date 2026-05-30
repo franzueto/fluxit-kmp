@@ -304,7 +304,7 @@ protected suspend fun <T> optimistic(
   it and it's lower-risk than re-pointing that green test at the shared
   `FakeRemindersRepository`/`FakeReminderScheduler` in this slice; `ListsDashboardStore`
   tests use the shared fakes. (5) FakeClock left as two separate fixtures (domain port
-  vs. state harness) — unifying them is out of scope. _Commit `<pending>`._
+  vs. state harness) — unifying them is out of scope. _Commit `42ccad7`._
 
 - **2026-05-29** — Slice 3: `RootStore` (first real store) + §9 error mapping
   (§4 RootStore, §9). Landed `RootStore` against the ADR-014 `BaseStore`: state
