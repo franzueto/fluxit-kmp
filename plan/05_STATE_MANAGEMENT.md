@@ -178,22 +178,22 @@ protected suspend fun <T> optimistic(
 
 - [x] Implement `optimistic { … }` in `BaseStore`. _(Slice 2 — diverged from the §5 sketch: `onError` has no default, since `BaseStore` is generic over `E` and can't reference `Effect.ShowError`; each store passes its own mapping. Also matches `Outcome.Err` (the real variant name), not `Outcome.Failure`.)_
 - [x] Use `apply`/`revert` pairs that are pure functions of state (so revert is correct even if other intents arrived in between — apply against current state at revert time, not by snapshotting). _(Slice 2 — `S.() -> S` applied via `update`.)_
-- [ ] Document the pattern in `:shared:state/README.md`. _(Deferred — README lands with the first feature stores, Slice 3+.)_
+- [x] Document the pattern in `:shared:state/README.md`. _(Slice 4 — `README.md` covers the contract, optimistic-then-reconcile, undo window, and search debounce.)_
 
 ## 6. Undo window enforcement
 
-- [ ] State carries `pendingDelete: PendingDelete?(id, expiresAt: Instant)`.
-- [ ] On `Delete*Clicked`: optimistically remove from collection; set `pendingDelete`; emit `ShowUndoSnackbar(secondsRemaining = 5)`.
-- [ ] Launch a coroutine in the store scope: `delay(5000) → if (pendingDelete still matches) dispatch UndoWindowExpired`.
-- [ ] On `UndoWindowExpired`: clear `pendingDelete`. **Do not** call any use case — the soft-delete already happened. (We *could* hard-delete here in v2 once sync ships.)
-- [ ] On `UndoDeleteClicked`: cancel the timer, call `UndoDelete*` use case, remove `pendingDelete`.
-- [ ] Test: rapid second delete during open undo window finalizes the first immediately and starts a new one.
+- [x] State carries `pendingDelete: PendingDelete?(id, expiresAt: Instant)`. _(Slice 4.)_
+- [x] On `Delete*Clicked`: optimistically remove from collection; set `pendingDelete`; emit `ShowUndoSnackbar(secondsRemaining = 5)`. _(Slice 4.)_
+- [x] Launch a coroutine in the store scope: `delay(5000) → if (pendingDelete still matches) dispatch UndoWindowExpired`. _(Slice 4 — the timer self-dispatches `UndoWindowExpired(id)`; the `id` makes the "still matches" check precise.)_
+- [x] On `UndoWindowExpired`: clear `pendingDelete`. **Do not** call any use case — the soft-delete already happened. (We *could* hard-delete here in v2 once sync ships.) _(Slice 4.)_
+- [~] On `UndoDeleteClicked`: cancel the timer, call `UndoDelete*` use case, remove `pendingDelete`. _(Slice 4 — **restore is data-layer-blocked**: no `UndoDeleteList` use case exists (the `ListsRepository` has no `deleted_at = NULL` primitive — see `DeleteList` KDoc). Timer cancel + snackbar dismissal ship; the actual restore is a documented TODO in `ListsDashboardStore` tied to that deferral. Do not invent a data-layer restore.)_
+- [x] Test: rapid second delete during open undo window finalizes the first immediately and starts a new one. _(Slice 4 — `rapid_second_delete_finalizes_the_first_window_and_opens_a_new_one`.)_
 
 ## 7. Search debouncing
 
-- [ ] In `ListsDashboardStore`, transform an internal `MutableStateFlow<String>` of search query through `.debounce(200.milliseconds).distinctUntilChanged().flatMapLatest { SearchLists(it) }` and write into `state.lists`.
-- [ ] `SearchQueryChanged` intent updates the internal flow synchronously so the text field stays responsive.
-- [ ] Empty query short-circuits to `ObserveLists()`.
+- [x] In `ListsDashboardStore`, transform an internal `MutableStateFlow<String>` of search query through `.debounce(200.milliseconds).distinctUntilChanged().flatMapLatest { SearchLists(it) }` and write into `state.lists`. _(Slice 4 — the debounce uses a per-value selector returning `Duration.ZERO` for a blank query so the first load / "clear search" is immediate; combined with a `refreshTick` so `Refresh` can force a re-subscribe.)_
+- [x] `SearchQueryChanged` intent updates the internal flow synchronously so the text field stays responsive. _(Slice 4 — `queryFlow.value` + `state.searchQuery` both set in `reduce`.)_
+- [x] Empty query short-circuits to `ObserveLists()`. _(Slice 4.)_
 
 ## 8. Scope, lifecycle, and DI
 
@@ -221,31 +221,31 @@ protected suspend fun <T> optimistic(
 
 ## 11. Konsist rules
 
-- [ ] Public stores expose only `state`, `effects`, `dispatch`. No public mutable fields. _(Partial — the full "only these three" rule lands with the first feature stores, Slice 3+; the no-public-mutable-flow proxy is enforced now.)_
+- [x] Public stores expose only `state`, `effects`, `dispatch`. No public mutable fields. _(Slice 4 — `StateLayerArchTest` rule 3 now asserts a `BaseStore` subclass declares **no** public functions or properties of its own, so the only public surface is the inherited contract.)_
 - [x] No `MutableStateFlow` / `MutableSharedFlow` in any store's public API. _(Slice 2 — `StateLayerArchTest` rule 2.)_
 - [x] No `import com.fluxit.data.*`. _(Slice 2 — `StateLayerArchTest` rule 1 bans `dev.franzueto.fluxit.shared.data` + `:platform:*` + SQLDelight + Android/iOS framework imports.)_
-- [ ] Every State/Intent/Effect type is `sealed` or `data` and lives in the same file as its store (or a sibling file with a `*Contract.kt` name).
+- [x] Every State/Intent/Effect type is `sealed` or `data` and lives in the same file as its store (or a sibling file with a `*Contract.kt` name). _(Slice 4 — `ListsState`/`ListsIntent`/`ListsEffect` are `data`/`sealed` alongside `ListsDashboardStore`, matching `RootStore`. `LoadState` is a shared `sealed interface` in `store/LoadState.kt`.)_
 
 ## 12. Testing
 
-- [x] **Test harness**: `runStoreTest { store, scope -> … }` builds a store with fake repos, `TestScope`, `FakeClock`, and a `TurbineSubscriber` collecting `state` + `effects`. _(Slice 2 — `runStoreTest` supplies `TestScope` (via `backgroundScope` so the consumer loop is auto-cancelled) + `FakeClock`; Turbine `.test {}` is used inline on `state`/`effects`. Wiring the `:shared:domain` repository fakes through it lands in Slice 3 when the first real store needs them — needs the domain fakes exposed as test fixtures.)_
-- [ ] **Per-store tests**:
-  - Initial state correctness on first collection.
+- [x] **Test harness**: `runStoreTest { store, scope -> … }` builds a store with fake repos, `TestScope`, `FakeClock`, and a `TurbineSubscriber` collecting `state` + `effects`. _(Slice 2 — `runStoreTest` supplies `TestScope` (via `backgroundScope` so the consumer loop is auto-cancelled) + `FakeClock`; Turbine `.test {}` is used inline on `state`/`effects`. Slice 4 — the `:shared:domain` repository fakes are now reusable here via the new `:shared:domain-testing` fixtures module, so store tests drive **real** use cases over in-memory repositories.)_
+- [x] **Per-store tests** _(Slice 4 — `ListsDashboardStoreTest` on the shared fakes; `RootStoreTest` from Slice 3 covers the app store)_:
+  - Initial state correctness on first collection. _(Loading → Loaded / Empty.)_
   - Each intent → expected state delta.
   - Each error path → expected effect.
   - Optimistic happy path: state flips before use case completes; reconciles on success.
-  - Optimistic failure path: state reverts; error effect emitted.
-  - Undo window: timer expiration clears `pendingDelete`; explicit undo restores; rapid second delete handled.
-  - Search debounce: typing 5 chars in 50ms triggers exactly one `SearchLists` call.
-- [ ] **iOS smoke**: a minimal `ios-app` test that calls `dispatch(.openList(...))` from Swift and observes `effects` as `AsyncSequence`. Proves SKIE bridging.
-- [ ] **No flakes**: no `Thread.sleep`. All time advanced via `TestScope.advanceTimeBy`. `FakeClock` advances in lockstep.
-- [ ] Coverage target ≥ 90% on `:shared:state`.
+  - Optimistic failure path: state reverts; error effect emitted. _(`delete_failure_reverts_the_row_and_emits_show_error`.)_
+  - Undo window: timer expiration clears `pendingDelete`; explicit undo restores; rapid second delete handled. _(Expiry + rapid-second-delete covered; explicit-undo asserts the snackbar is dismissed — restore itself is data-layer-blocked, see §6.)_
+  - Search debounce: typing 5 chars in 50ms triggers exactly one `SearchLists` call. _(`a_burst_of_keystrokes_debounces_to_a_single_search`.)_
+- [ ] **iOS smoke**: a minimal `ios-app` test that calls `dispatch(.openList(...))` from Swift and observes `effects` as `AsyncSequence`. Proves SKIE bridging. _(Deferred → Slice 5 with the SKIE annotations.)_
+- [x] **No flakes**: no `Thread.sleep`. All time advanced via `TestScope.advanceTimeBy`. `FakeClock` advances in lockstep. _(Slice 4 — undo timers / debounce exercised via `advanceTimeBy` + `runCurrent` on virtual time.)_
+- [ ] Coverage target ≥ 90% on `:shared:state`. _(Tracked to the §15 hand-off; no Kover gate wired on `:shared:state` yet.)_
 
 ## 13. ADRs to write in this phase
 
 > **Numbering corrected (Phase 05 Slice 1):** the three sub-decisions below were originally drafted as ADR-008/008a/008b, but `00_DECISIONS.md` reserves **ADR-008 for Phase 06** (expect/actual vs. Koin-injected platform capabilities) and **ADR-014 for the MVI store contract**. They are folded into a single **ADR-014** (Proposed) — see `00_DECISIONS.md`. The three bullets are its constituent decisions:
 
-- [x] **ADR-014** (was "ADR-008") — Hand-rolled `Store`/`BaseStore` over MVIKotlin/Orbit/Molecule. Why: tiny surface, no Android-leaning ergonomics, plays well with SKIE without adapter shims, reduces v1 dependency surface. **Drafted Proposed at Slice 1; flips to Accepted at §15 once `BaseStore` + `RootStore` + `ListsDashboardStore` ship green.**
+- [x] **ADR-014** (was "ADR-008") — Hand-rolled `Store`/`BaseStore` over MVIKotlin/Orbit/Molecule. Why: tiny surface, no Android-leaning ergonomics, plays well with SKIE without adapter shims, reduces v1 dependency surface. **Drafted Proposed at Slice 1; flipped to Accepted at Slice 4 now that `BaseStore` + `RootStore` + `ListsDashboardStore` all ship green on JVM + iOS Sim.**
 - [x] **ADR-014** (was "ADR-008a") — Effects channel uses `SharedFlow(replay=0)` not `Channel(BUFFERED)`. Why: SKIE renders `SharedFlow` naturally as `AsyncSequence`; `Channel` requires bridging; replay-0 prevents stale toasts on rotation/scene reuse.
 - [x] **ADR-014** (was "ADR-008b") — Optimistic-then-reconcile is the default; pessimistic ("show spinner, await result") is opt-in for irreversible operations (e.g. `CreateList`'s navigate-on-success). Documented per-store.
 
@@ -262,11 +262,49 @@ protected suspend fun <T> optimistic(
 - [ ] iOS smoke test exercises one store end-to-end from Swift.
 - [ ] All store tests use virtual time; no `delay`-based flakes.
 - [ ] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06.
-- [ ] `00_DECISIONS.md`: ADR-014 accepted (the single MVI store contract; folds the three §13 sub-decisions).
+- [x] `00_DECISIONS.md`: ADR-014 accepted (the single MVI store contract; folds the three §13 sub-decisions). _(Slice 4 — flipped to Accepted; the rest of §15 remains gated on the iOS smoke + Phase 06 hand-off.)_
 
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-29** — Slice 4: `:shared:domain-testing` fixtures module +
+  `ListsDashboardStore` (§4 ListsDashboard, §5 README, §6 undo, §7 search, §11
+  Konsist, §12 tests). **First**, stood up `:shared:domain-testing` (commonMain) and
+  `git mv`'d the eight repository/port fakes out of `:shared:domain` commonTest into
+  it — package paths unchanged, so domain's own `Fake*Test.kt` specs (which stayed)
+  needed no edits; both `:shared:domain` and `:shared:state` commonTest now depend on
+  it (closes the Slice 2→3→4 carry-over). `core-utils` is `api` there because the
+  fake constructors take `IdGenerator` (a core-utils type the domain port aliases).
+  Then landed `ListsDashboardStore`: state (`searchQuery`,
+  `lists: LoadState<List<ListSummary>>` with `Loading|Empty|Loaded|Error`,
+  `pendingDelete`), the full intent/effect set, search via an internal query flow
+  (`debounce`+`distinctUntilChanged`+`flatMapLatest` over `SearchLists`/`ObserveLists`,
+  blank query = zero debounce + full feed; a `refreshTick` lets `Refresh`
+  re-subscribe), and optimistic delete + 5s undo timer. Added shared `LoadState`
+  (`store/LoadState.kt`). Tightened `StateLayerArchTest` with rule 3 (a `BaseStore`
+  subclass declares no public members of its own). Wrote `:shared:state/README.md`
+  (contract, optimistic pattern, undo, debounce). Tests: `ListsDashboardStoreTest`
+  (initial load, empty feed, synchronous query + filter, debounce-coalesces-burst,
+  nav effects, tab nav, optimistic delete happy path + snackbar, delete-failure
+  revert + `ShowError`, undo-window expiry, explicit-undo dismissal, rapid second
+  delete) — all on the shared fakes + real use cases, virtual time only.
+  **Divergences / deferrals:** (1) **Undo restore is data-layer-blocked** — there is
+  no `UndoDeleteList` use case (the `ListsRepository` exposes no `deleted_at = NULL`
+  restore primitive; `DeleteList`'s own KDoc says so). `UndoDeleteClicked` cancels the
+  timer + dismisses the snackbar; the actual restore is a documented `TODO(data-layer)`
+  in the store tied to that deferral. A live `observeAll()` feed would also clobber any
+  optimistic local re-insert, so no fake restore is attempted. The test asserts
+  dismissal, not restoration. (2) `UndoWindowExpired` carries the deleted `id`
+  (diverges from §4's no-arg sketch) so a stale first-delete timer can't retire a
+  window a rapid second delete reopened. (3) Search `debounce` uses a per-value
+  selector (`ZERO` for blank, 200ms otherwise) rather than a flat 200ms, keeping the
+  first load / clear-search immediate while still debouncing real queries. (4)
+  `ReminderFakes.kt` (the Slice-3 local stubs) is **kept** — `RootStoreTest` still uses
+  it and it's lower-risk than re-pointing that green test at the shared
+  `FakeRemindersRepository`/`FakeReminderScheduler` in this slice; `ListsDashboardStore`
+  tests use the shared fakes. (5) FakeClock left as two separate fixtures (domain port
+  vs. state harness) — unifying them is out of scope. _Commit `<pending>`._
 
 - **2026-05-29** — Slice 3: `RootStore` (first real store) + §9 error mapping
   (§4 RootStore, §9). Landed `RootStore` against the ADR-014 `BaseStore`: state

@@ -45,8 +45,10 @@ project(":platform:platform-reminders").projectDir = file("platform/platform-rem
 
 // shared
 include(":shared:domain")
+include(":shared:domain-testing")
 include(":shared:data")
 include(":shared:state")
 project(":shared:domain").projectDir = file("shared/domain")
+project(":shared:domain-testing").projectDir = file("shared/domain-testing")
 project(":shared:data").projectDir = file("shared/data")
 project(":shared:state").projectDir = file("shared/state")

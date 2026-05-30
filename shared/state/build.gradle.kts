@@ -45,6 +45,10 @@ kotlin {
             implementation(kotlin("test"))
             // runStoreTest harness: TestScope/virtual time + Turbine on state/effects.
             implementation(libs.bundles.testing.shared)
+            // Shared domain fakes (FakeListsRepository / FakeRemindersRepository /
+            // FakeClock / …) so ListsDashboardStore tests drive real use cases over
+            // in-memory repositories instead of bespoke stubs (Phase 05 Slice 4).
+            implementation(project(":shared:domain-testing"))
         }
     }
 }

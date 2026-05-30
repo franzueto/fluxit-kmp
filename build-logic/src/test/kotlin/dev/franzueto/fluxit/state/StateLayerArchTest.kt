@@ -14,10 +14,11 @@ import io.kotest.core.spec.style.FunSpec
 //      exposes a MutableStateFlow / MutableSharedFlow publicly. The Store contract
 //      is read-only `state` + `effects` + `dispatch`; the mutable backing flows
 //      stay private inside BaseStore.
-//
-// The full "stores expose ONLY state/effects/dispatch" rule lands once the first
-// feature stores exist (Phase 05 Slice 3+); rule 2 is the cheap structural proxy
-// that already prevents the most common leak.
+//   3. Store surface (§11): a concrete store (a `BaseStore` subclass) declares no
+//      public members of its own — the only public API is the `state`/`effects`/
+//      `dispatch` it inherits from the Store contract. Everything a store adds
+//      (use-case deps, reduce, helpers) is private/protected. Now enforceable
+//      because the first feature stores (RootStore, ListsDashboardStore) exist.
 //
 // Runs as a regular JUnit 5 test in :build-logic; scans the OUTER repo.
 class StateLayerArchTest : FunSpec({
@@ -66,5 +67,27 @@ class StateLayerArchTest : FunSpec({
                 val typeName = property.type?.name ?: return@assertFalse false
                 typeName.startsWith("MutableStateFlow") || typeName.startsWith("MutableSharedFlow")
             }
+    }
+
+    test("concrete stores (BaseStore subclasses) expose only the inherited state/effects/dispatch") {
+        val stores =
+            scope()
+                .classes()
+                .filter { "/shared/state/src/commonMain/" in it.containingFile.path }
+                .filter { klass -> klass.parents().any { it.name == "BaseStore" } }
+
+        stores
+            .flatMap { it.functions() }
+            .assertFalse(
+                additionalMessage = "A store must not declare public functions — its only public surface is the " +
+                    "inherited state/effects/dispatch. Make store-specific functions private/protected (§11).",
+            ) { it.hasPublicOrDefaultModifier }
+
+        stores
+            .flatMap { it.properties() }
+            .assertFalse(
+                additionalMessage = "A store must not declare public properties — keep use-case deps and internal " +
+                    "state private. The only public surface is the inherited state/effects/dispatch (§11).",
+            ) { it.hasPublicOrDefaultModifier }
     }
 })

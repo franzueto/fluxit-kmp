@@ -525,7 +525,7 @@
 ---
 
 ### ADR-014 — MVI store contract: hand-rolled `BaseStore`, `SharedFlow` effects, optimistic-default reconcile
-- **Status:** Proposed (opened at Phase 05 Slice 1, 2026-05-29; flips to Accepted once `BaseStore` + the first two stores — `RootStore`, `ListsDashboardStore` — ship green against it on JVM + iOS Sim, per `plan/05_STATE_MANAGEMENT.md` §15). This single ADR folds the three sub-decisions `plan/05` §13 originally numbered ADR-008/008a/008b (stale: `00_DECISIONS.md` reserves ADR-008 for Phase 06's expect/actual-vs-Koin question). `plan/05` §13 is renumbered to point here in the same slice.
+- **Status:** Accepted (opened Proposed at Phase 05 Slice 1, 2026-05-29; flipped to Accepted at Slice 4, 2026-05-29, now that `BaseStore` + the first two stores — `RootStore` (Slice 3) and `ListsDashboardStore` (Slice 4) — ship green against it on JVM + iOS Sim, the acceptance condition from `plan/05_STATE_MANAGEMENT.md` §15). This single ADR folds the three sub-decisions `plan/05` §13 originally numbered ADR-008/008a/008b (stale: `00_DECISIONS.md` reserves ADR-008 for Phase 06's expect/actual-vs-Koin question). `plan/05` §13 is renumbered to point here in the same slice.
 - **Date:** 2026-05-29
 - **Context:** Phase 05 (`plan/05_STATE_MANAGEMENT.md`) introduces one shared MVI store per feature in `:shared:state`, sitting on the Phase 04 use cases and exposed to Compose (Android `StateFlow`) and SwiftUI (iOS `AsyncSequence`/`@Observable` via SKIE). Three shape questions must be answered once, uniformly, before any store is written:
   1. **What library backs the store?** MVIKotlin, Orbit, Molecule, or hand-rolled.
@@ -566,4 +566,4 @@ These are *expected* to be opened during the relevant phase. Listed here so we d
 - **ADR-010** (Phase 14): Test pyramid shape and minimum coverage gates per layer.
 - **ADR-011** (Phase 15): Branching strategy + CI matrix shape (trunk-based vs. GitFlow).
 
-> **ADR-014** (MVI store contract) opened **Proposed** at Phase 05 Slice 1 — see the ADR-014 section above. It folds the three sub-decisions `plan/05` §13 originally mislabeled ADR-008/008a/008b.
+> **ADR-014** (MVI store contract) **Accepted** at Phase 05 Slice 4 (opened Proposed at Slice 1) — see the ADR-014 section above. It folds the three sub-decisions `plan/05` §13 originally mislabeled ADR-008/008a/008b.
