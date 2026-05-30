@@ -129,9 +129,9 @@ One store per screen-family, scoped to the screen's lifecycle by the platform ho
 - **Wiring**
   - `CreateClicked` → block re-entry → `CreateList.invoke` → emit navigation effect.
 
-### `ItemDetailStore` (backs Phase 10) — ⛔ Slice 6 BLOCKED (domain gap)
+### `ItemDetailStore` (backs Phase 10) — ✅ Slice 6 (after domain backfill)
 
-- [ ] **Deferred — needs a Phase-04 domain backfill before it can be built without violating §1.** `Init(itemId)` must observe a **single** item, but there is no `ObserveItem` use case — only the repository method `ItemsRepository.observe(itemId)`, and the state layer depends on use cases only (§1, enforced by `StateLayerArchTest`; reaching into a repository here would break it). Likewise `PhotoStatus.Loaded(uri)` needs a `photoId → displayable uri` resolution (a `Photo` read + `PhotoStorage.resolveAbsolute`), with no use case exposing it. The write side is ready (`UpdateItemDetails`, `DeleteItem`, `AttachPhotoToItem` for the three-state `Capturing|Uploading|Loaded` chain, `DetachPhotoFromItem`), but the read seams are missing. **Recommendation:** add `ObserveItem` (+ a photo-uri resolution use case) to `:shared:domain` first (small Phase-04 backfill, with its own Kover gate), then build this store. Do NOT import a repository into `:shared:state`.
+- [x] Built in `store/ItemDetailStore.kt` + contract types alongside (§11), on top of a Phase-04 domain backfill (`ObserveItem` + `ResolvePhotoUri`, committed `c4e3707`) — so the read seams exist as use cases and the state layer never imports a repository (§1). Tests in `ItemDetailStoreTest`. _(Slice 6 — divergences: (a) `PhotoStatus.Uploading` is in the contract but unreachable because `AttachPhotoToItem` is atomic (capture+ingest+attach in one call) — the whole acquire span shows `Capturing`; surfacing `Uploading` needs that use case split. (b) `SaveClicked` persists via `UpdateItemDetails` then emits `NavigateBack` (commit-and-close). (c) `UpdatePhotoClicked` opens the source sheet in-state (`showPhotoSourceSheet`), not via an effect, per §4. (d) `CaptureError.UserCancelled` → quiet abort (restore prior status); `PermissionDenied` → `RequestCameraPermission`/`RequestPhotoLibraryAccess`. (e) `BackClicked` with `dirty` → `ConfirmDiscardChanges` effect.)_
 
 - **State**
   - `item: LoadState<Item>`
@@ -275,6 +275,33 @@ protected suspend fun <T> optimistic(
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-30** — Slice 6 (cont.): Phase-04 domain backfill + `ItemDetailStore`
+  (§4, Phase 10) — closes the deferral logged the previous day. **Domain backfill**
+  (`:shared:domain`, commit `c4e3707`): added two read use cases the state layer
+  needed but §7 lacked — `ObserveItem(itemId): Flow<Item?>` (delegate to
+  `ItemsRepository.observe`) and `ResolvePhotoUri(photoId): String?` (reads the photo
+  row's `relativePath` via `PhotosRepository.observe(...).first()` → resolves through
+  `PhotoStorage.resolveAbsolute`; one-shot read since photos are immutable once
+  ingested). Tests `ObserveItemTest`/`ResolvePhotoUriTest` keep the domain Kover
+  branch gate green. This avoids reaching into a repository from `:shared:state`
+  (which §1 / `StateLayerArchTest` forbids). **`ItemDetailStore`:** `Init(itemId)`
+  collects `ObserveItem` (null → `LoadState.Error`), syncs the `editing` working copy
+  from the item while `!dirty`, and resolves the photo to a uri via `ResolvePhotoUri`.
+  Photo chain calls the atomic `AttachPhotoToItem` (capture+ingest+attach);
+  `DetachPhotoFromItem` for remove; `UpdateItemDetails` for save; `DeleteItem` for the
+  confirm-delete flow. Tests in `ItemDetailStoreTest` (load+sync, dirty→discard-confirm,
+  save→persist+NavigateBack, attach→Loaded, UserCancelled quiet abort, PermissionDenied
+  →Request*, confirm-delete→NavigateBack). Gate green (`:shared:state:check
+  :build-logic:test --rerun-tasks` + `:shared:domain:check` + `scripts/test-ios.sh`,
+  iOS smoke 4/4). **Divergences:** (1) `PhotoStatus.Uploading` is in the §4 contract but
+  **unreachable** — `AttachPhotoToItem` performs capture+ingest+attach as one suspend
+  call, so the store can't observe the capture→upload boundary; the whole span shows
+  `Capturing`. Surfacing `Uploading` separately needs `AttachPhotoToItem` split into
+  discrete capture + ingest use cases (noted in the store KDoc). (2) `SaveClicked`
+  commits-and-closes (`UpdateItemDetails` → `NavigateBack`). (3) `UpdatePhotoClicked`
+  opens the source sheet in-state (`showPhotoSourceSheet`), not via an effect (per §4).
+  (4) `BackClicked` with unsaved edits emits `ConfirmDiscardChanges`. _Commit `<pending>`._
 
 - **2026-05-29** — Slice 6: `ListDetailStore` (§4/§5/§6, backs Phase 08). Added
   `store/ListDetailStore.kt` + its contract types alongside (`ListDetailState`,
