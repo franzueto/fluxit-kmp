@@ -299,7 +299,7 @@ coverage ≈92%).
   unknown-capture-error, and — via a failable `update`/`delete` repo wrapper —
   save-failure, confirm-delete failure, and ingest-failure attach paths). Store branch
   coverage now ≈92%; `minValue` restored to the §12 **90** and `:shared:state:koverVerify`
-  green. Closes the one tracked Phase 05 follow-up. _Commit `<pending>`._
+  green. Closes the one tracked Phase 05 follow-up. _Commit `822bab0`._
 
 - **2026-05-30** — Phase 05 close-out Slice C: live runtime iOS smoke (§12). Upgraded
   `ios-app/Tests/StoreBridgingSmokeTests.swift` from compile-level to a real
