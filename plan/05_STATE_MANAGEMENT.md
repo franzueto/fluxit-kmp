@@ -62,11 +62,11 @@ abstract class BaseStore<S : Any, I : Any, E : Any>(
 
 ## 3. SKIE-friendly exposure (iOS)
 
-- [ ] All store classes are top-level (no nested generics on the public surface) so SKIE can synthesize Swift-native types.
-- [ ] State / Intent / Effect types are sealed hierarchies marked `@SealedClass` (SKIE annotation) so SwiftUI gets exhaustive `switch` checking.
-- [ ] `Flow` returns are auto-converted by SKIE to `AsyncSequence` — verified in `ios-app` smoke target.
-- [ ] No `Result`/`Outcome` exposed from a store's public surface (errors are pre-mapped into `State.Error` or emitted as `Effect.ShowError`). SKIE handles sealed types natively, so this is a stylistic choice for SwiftUI consumption clarity.
-- [ ] Provide a tiny Swift extension at `ios-app/Shared/StoreObserving.swift`:
+- [x] All store classes are top-level (no nested generics on the public surface) so SKIE can synthesize Swift-native types. _(Slice 5 — verified in the generated framework: `SharedListsDashboardStore`/`SharedRootStore` are top-level; State/Intent/Effect subtypes are top-level classes.)_
+- [x] State / Intent / Effect types are sealed hierarchies marked `@SealedClass` (SKIE annotation) so SwiftUI gets exhaustive `switch` checking. _(Slice 5 — **diverged**: SKIE 0.10.2 projects sealed hierarchies as Swift enums with exhaustive `switch` via `onEnum(of:)` **by default**; no `@SealedClass`/`@SealedInterface` annotation is required, and the configuration-annotations artifact isn't on the commonMain classpath. The exhaustive-switch guarantee is proven directly by the iOS smoke's `switch onEnum(of:)` over `ListsEffect`/`LoadState` — which compiles only because every case is present.)_
+- [x] `Flow` returns are auto-converted by SKIE to `AsyncSequence` — verified in `ios-app` smoke target. _(Slice 5 — `StoreObserving.observe(_:into:)` iterates `store.state` with `for await`; the smoke's `compileCheck` type-checks it against a real `ListsDashboardStore`.)_
+- [x] No `Result`/`Outcome` exposed from a store's public surface (errors are pre-mapped into `State.Error` or emitted as `Effect.ShowError`). SKIE handles sealed types natively, so this is a stylistic choice for SwiftUI consumption clarity. _(Slice 5 — confirmed; `LoadState.Error(message)` + `ListsEffect.ShowError(message)` are the only error surfaces, via `DomainError.userMessage`.)_
+- [x] Provide a tiny Swift extension at `ios-app/Shared/StoreObserving.swift`: _(Slice 5 — landed at `ios-app/Sources/Shared/StoreObserving.swift`, written against `BaseStore<S, I, E>` since the SKIE-exposed `Store` protocol is non-generic at the Obj-C boundary.)_
   ```swift
   @MainActor func observe<S, I, E>(_ store: Store<S, I, E>, into binding: Binding<S>) async { … }
   ```
@@ -237,7 +237,7 @@ protected suspend fun <T> optimistic(
   - Optimistic failure path: state reverts; error effect emitted. _(`delete_failure_reverts_the_row_and_emits_show_error`.)_
   - Undo window: timer expiration clears `pendingDelete`; explicit undo restores; rapid second delete handled. _(Expiry + rapid-second-delete covered; explicit-undo asserts the snackbar is dismissed — restore itself is data-layer-blocked, see §6.)_
   - Search debounce: typing 5 chars in 50ms triggers exactly one `SearchLists` call. _(`a_burst_of_keystrokes_debounces_to_a_single_search`.)_
-- [ ] **iOS smoke**: a minimal `ios-app` test that calls `dispatch(.openList(...))` from Swift and observes `effects` as `AsyncSequence`. Proves SKIE bridging. _(Deferred → Slice 5 with the SKIE annotations.)_
+- [x] **iOS smoke**: a minimal `ios-app` test that calls `dispatch(.openList(...))` from Swift and observes `effects` as `AsyncSequence`. Proves SKIE bridging. _(Slice 5 — `ios-app/Tests/StoreBridgingSmokeTests.swift` (target `FluxItTests`, run via `scripts/test-ios.sh` + CI), 4 tests green on the iOS Sim. **Compile-level** per the agreed scope: it proves the bridging SHAPE — exhaustive `switch onEnum(of:)` over `ListsEffect`/`LoadState`, native `Tab` enum, `dispatch(intent:)` callable, and `Flow→AsyncSequence` via `observe(_:into:)` type-checked against a real `ListsDashboardStore`. A fully-wired runtime store isn't Swift-constructible until Phase 06 DI (no in-memory repository is exported), so the live dispatch→effect round-trip lands then.)_
 - [x] **No flakes**: no `Thread.sleep`. All time advanced via `TestScope.advanceTimeBy`. `FakeClock` advances in lockstep. _(Slice 4 — undo timers / debounce exercised via `advanceTimeBy` + `runCurrent` on virtual time.)_
 - [ ] Coverage target ≥ 90% on `:shared:state`. _(Tracked to the §15 hand-off; no Kover gate wired on `:shared:state` yet.)_
 
@@ -259,14 +259,44 @@ protected suspend fun <T> optimistic(
 ## 15. Hand-off checklist (gate to Phase 06)
 
 - [ ] All checkboxes above ✅.
-- [ ] iOS smoke test exercises one store end-to-end from Swift.
-- [ ] All store tests use virtual time; no `delay`-based flakes.
+- [~] iOS smoke test exercises one store end-to-end from Swift. _(Slice 5 — compile-level smoke green (`FluxItTests`, §3/§12); the live runtime dispatch→effect round-trip is deferred to Phase 06 when a Swift-constructible (DI-wired) store exists. See §12.)_
+- [x] All store tests use virtual time; no `delay`-based flakes. _(Slices 2–4 — `runStoreTest` + `advanceTimeBy`; no `Thread.sleep`.)_
 - [ ] `MASTER_PLAN.md`: Phase 05 → 🟢, ▶ Next Step → Phase 06.
 - [x] `00_DECISIONS.md`: ADR-014 accepted (the single MVI store contract; folds the three §13 sub-decisions). _(Slice 4 — flipped to Accepted; the rest of §15 remains gated on the iOS smoke + Phase 06 hand-off.)_
 
 ---
 
 ## Implementation log (chronological, for traceability across sessions)
+
+- **2026-05-29** — Slice 5: SKIE bridging (§3) + iOS smoke (§12/§15). Added the
+  `ios-app/Sources/Shared/StoreObserving.swift` SwiftUI helper —
+  `observe(store, into: binding)` iterates `store.state` with `for await` and
+  writes a `Binding<S>`; written against `BaseStore<S, I, E>` because the
+  SKIE-exposed `Store` protocol is non-generic at the Obj-C boundary. Added the
+  iOS smoke `ios-app/Tests/StoreBridgingSmokeTests.swift` (new XcodeGen target
+  `FluxItTests`, hosted by the `FluxIt` app, link-only against
+  `Shared.xcframework`) + `scripts/test-ios.sh` (assembles the XCFramework,
+  regenerates the project, runs the bundle on a dynamically-resolved iPhone sim)
+  + a CI step. 4 tests green on the iOS Sim: exhaustive `switch onEnum(of:)` over
+  `ListsEffect` and `LoadState`, native `Tab` enum (+ `CaseIterable`), payload
+  construction, and a `compileCheck` that type-checks `dispatch(intent:)` +
+  `observe(_:into:)` against a real `ListsDashboardStore`.
+  **Divergences / deferrals:** (1) **No `@SealedClass`/`@SealedInterface`
+  annotations** — SKIE 0.10.2 projects sealed hierarchies as exhaustive Swift
+  enums (`onEnum(of:)`) **by default**; the configuration-annotations artifact
+  isn't even on the commonMain classpath. The §3 annotation requirement is met
+  by default behaviour, proven by the smoke's compile-time exhaustive switches
+  rather than by adding a dependency. (2) **Compile-level smoke, by agreement** —
+  a fully-wired store isn't Swift-constructible until Phase 06 DI (no in-memory
+  repository is exported to the framework; exporting test fakes or the SQL data
+  layer was rejected). The smoke proves the bridging *shape*; the live runtime
+  dispatch→effect round-trip lands in Phase 06. (3) `StoreObserving.swift` lives
+  at `ios-app/Sources/Shared/` (the plan wrote `ios-app/Shared/`) to match the
+  existing `Sources/` tree; the test uses `@testable import FluxIt` + a
+  module-qualified `FluxIt.observe(...)` since `XCTestCase` (NSObject) has its own
+  KVO `observe`. Gate green: `:shared:state:check` + `:shared:domain:check` +
+  `:build-logic:test --rerun-tasks` (JVM + iOS Sim + Konsist) and
+  `scripts/test-ios.sh` (FluxItTests on the Simulator). _Commit `<pending>`._
 
 - **2026-05-29** — Slice 4: `:shared:domain-testing` fixtures module +
   `ListsDashboardStore` (§4 ListsDashboard, §5 README, §6 undo, §7 search, §11

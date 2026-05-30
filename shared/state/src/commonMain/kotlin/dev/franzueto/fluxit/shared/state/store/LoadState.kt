@@ -12,9 +12,9 @@ package dev.franzueto.fluxit.shared.state.store
  * - [Error] — the load failed; [Error.message] is already user-grade
  *   (mapped via `DomainError.userMessage`).
  *
- * Plain `sealed interface` — SKIE projects it as a Swift enum for exhaustive
- * `switch`; the SKIE `@SealedInterface` annotation is applied in Slice 5 with
- * the iOS smoke.
+ * Plain `sealed interface` — SKIE 0.10.2 projects sealed hierarchies as Swift
+ * enums with exhaustive `switch` (via `onEnum(of:)`) by default; no explicit
+ * `@SealedInterface` annotation is needed (verified by the Slice 5 iOS smoke).
  */
 public sealed interface LoadState<out T> {
     public data object Loading : LoadState<Nothing>

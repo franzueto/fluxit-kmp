@@ -56,5 +56,25 @@ targets:
       - framework: ../shared/state/build/XCFrameworks/release/Shared.xcframework
         embed: true
     scheme:
-      testTargets: []
+      testTargets:
+        - FluxItTests
       gatherCoverageData: false
+
+  # Phase 05 §12/§15 — SKIE bridging smoke. A unit-test bundle hosted by the
+  # FluxIt app; links the same Shared.xcframework (link-only, the host app
+  # already embeds it) and imports `Shared` to exercise the store surface.
+  FluxItTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: Tests
+    dependencies:
+      - target: FluxIt
+      - framework: ../shared/state/build/XCFrameworks/release/Shared.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.franzueto.fluxit.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
