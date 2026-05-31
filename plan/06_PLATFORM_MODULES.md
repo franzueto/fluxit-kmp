@@ -266,4 +266,4 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   androidMain/iosMain** — the only OS primitive (UUID) already lives in `:core:core-utils`
   (ADR-006a) so `configModule` binds `IdGenerator.System` rather than a redundant
   `expect class UuidGenerator`; `Clock` is kotlinx.datetime common. `configModule`
-  replaces the interim `Clock.System` binding in Slice 6. _Commit `<pending>`._
+  replaces the interim `Clock.System` binding in Slice 6. _Commit `9752383`._
