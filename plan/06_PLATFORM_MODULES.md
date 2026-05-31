@@ -68,17 +68,14 @@ Each module's `commonMain` declares:
 - [ ] `RecordingAnalyticsSink` (in `commonTest`) is the only other sink in v1, used by store/integration tests.
 - [ ] **Privacy**: maintain `docs/ANALYTICS_EVENTS.md` (Phase 16 §4) listing every event + property + retention + PII classification. Update in lockstep with `AnalyticsEvent` sealed hierarchy.
 
-## 4. `platform-config`
+## 4. `platform-config` — ✅ Slice 2
 
-- [ ] commonMain: `ConfigKey<T>` typed keys (`Calendar.enabled: Boolean`, `Starred.enabled: Boolean`, `Reminders.maxFutureDays: Int`, `Photo.reencodeQuality: Float`, `Photo.maxDimension: Int`, …).
-- [ ] commonMain: `BuildConfigProvider(buildKonfig: GeneratedBuildKonfig) : ConfigProvider` — reads compile-time flags via [BuildKonfig](https://github.com/yshrsmz/BuildKonfig) Gradle plugin.
-- [ ] commonMain: bind domain ports `Clock` and `IdGenerator` here too — they are platform-shaped capabilities even if our `actual`s are trivial.
-  - `Clock` → `kotlinx.datetime.Clock.System` (commonMain).
-  - `IdGenerator` → `expect class UuidGenerator : IdGenerator`. androidMain uses `java.util.UUID.randomUUID()`. iosMain uses `NSUUID().UUIDString`.
-- [ ] BuildKonfig configured in `:platform:platform-config/build.gradle.kts` to emit per-flavor (debug/release) and per-platform values. Default flag values from ADR-004:
-  - `Calendar.enabled = false`
-  - `Starred.enabled = false`
-- [ ] Konsist: `ConfigProvider` is the only thing the rest of the codebase reads flags through — no direct `BuildConfig.*` references outside this module.
+- [x] `ConfigKey<T>` typed keys — `CalendarEnabled`/`StarredEnabled` (Boolean), `ReminderMaxFutureDays` (Int), `PhotoReencodeQuality` (Float), `PhotoMaxDimension` (Int). _(Slice 2 — placed in **`:shared:domain/port/ConfigProvider.kt`**, not `platform-config` commonMain, so the keys + the `ConfigProvider` port sit with every other domain port (`AppLogger`, `Clock`, `ReminderScheduler`) and stay readable from use cases/stores. The `ConfigProvider` port itself didn't exist (Phase 04 §5 deferred it to its first consumer) — built here. `get` is generic so `ConfigProvider` is a plain `interface`, not a `fun interface` (Kotlin forbids a SAM with a type-parameterized abstract method).)_
+- [x] commonMain: `DefaultConfigProvider : ConfigProvider` returning each key's `default`. _(Slice 2 — **diverged from `BuildConfigProvider(buildKonfig)`:** BuildKonfig is a Gradle plugin not in the catalog and v1 needs no per-flavor values (staged features off everywhere). The seam is the `configModule` binding — swapping in a `BuildKonfigConfigProvider` later leaves the `ConfigProvider`/`ConfigKey` surface + call sites untouched.)_
+- [x] commonMain: `configModule` binds `Clock` → `Clock.System`, `IdGenerator` → `IdGenerator.System`, `ConfigProvider` → `DefaultConfigProvider`. _(Slice 2 — **diverged from `expect class UuidGenerator`:** the UUID-v4 actual already lives in `:core:core-utils` (`IdGenerator.System` over expect/actual `newId()`, ADR-006a); re-deriving it here would duplicate that. So `platform-config` has **no** androidMain/iosMain code — its only OS primitive (UUID) is provided transitively by core-utils, and `Clock` is kotlinx.datetime common. `configModule` replaces the interim `Clock.System` binding in `:shared:state`'s `InterimPlatformModule` (Slice 6) and adds the `IdGenerator`/`ConfigProvider` bindings.)_
+- [ ] BuildKonfig per-flavor/per-platform values. _(Deferred — see above; ADR-004 defaults ship via `ConfigKey.default`: `CalendarEnabled = false`, `StarredEnabled = false`.)_
+- [x] Konsist: `ConfigProvider` is the only flag-reading seam — no `BuildConfig.*` references outside this module. _(Slice 2 — holds trivially: no `BuildConfig` references exist yet; revisit when BuildKonfig lands.)_
+- [x] **Test fake**: `FakeConfigProvider` (map override + default fallback) in `:shared:domain-testing` commonMain; `DefaultConfigProviderTest` asserts the ADR-004 defaults. _(Slice 2.)_
 
 ## 5. `platform-reminders`
 
@@ -252,3 +249,21 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   this module's commonTest) so it's reusable across modules per §2. The interim
   `AppLogger.NoOp` binding in `:shared:state`'s `InterimPlatformModule` is replaced by
   `loggingModule` in Slice 6, not here (no dead wiring ahead of the swap). _Commit `d5b1cc2`._
+
+- **2026-05-31** — Slice 2: `platform-config` — `ConfigProvider` + real `Clock`/
+  `IdGenerator` bindings (§4). Built the `ConfigProvider` port + typed `ConfigKey<T>`
+  hierarchy (ADR-004 defaults) in `:shared:domain/port` — the port was a Phase 04 §5
+  deferral, landed here with its first home. Shipped `DefaultConfigProvider` (static
+  defaults) + `configModule` binding `ConfigProvider`/`Clock.System`/`IdGenerator.System`
+  in `:platform:platform-config`; added the reusable `FakeConfigProvider` to
+  `:shared:domain-testing`. Tests: `DefaultConfigProviderTest`. Gate green:
+  `:platform:platform-config:check` + `:shared:domain:check` (≥95% Kover, JVM + iOS
+  Sim) + `:build-logic:test`. **Divergences:** (1) `ConfigKey`/`ConfigProvider` live in
+  `:shared:domain` (port pattern) not `platform-config` commonMain. (2) `ConfigProvider`
+  is a plain `interface` — a generic abstract method can't sit on a `fun interface`.
+  (3) **No BuildKonfig** (not in catalog; no per-flavor values needed in v1) — static
+  defaults via `ConfigKey.default`, BuildKonfig is a later binding swap. (4) **No
+  androidMain/iosMain** — the only OS primitive (UUID) already lives in `:core:core-utils`
+  (ADR-006a) so `configModule` binds `IdGenerator.System` rather than a redundant
+  `expect class UuidGenerator`; `Clock` is kotlinx.datetime common. `configModule`
+  replaces the interim `Clock.System` binding in Slice 6. _Commit `<pending>`._
