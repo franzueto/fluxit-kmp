@@ -251,4 +251,4 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   per platform later. (3) `RecordingAppLogger` lives in `:shared:domain-testing` (not
   this module's commonTest) so it's reusable across modules per §2. The interim
   `AppLogger.NoOp` binding in `:shared:state`'s `InterimPlatformModule` is replaced by
-  `loggingModule` in Slice 6, not here (no dead wiring ahead of the swap). _Commit `<pending>`._
+  `loggingModule` in Slice 6, not here (no dead wiring ahead of the swap). _Commit `d5b1cc2`._
