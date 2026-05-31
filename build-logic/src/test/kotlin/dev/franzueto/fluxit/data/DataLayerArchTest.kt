@@ -44,7 +44,12 @@ class DataLayerArchTest : FunSpec({
             .filter { file ->
                 "/build/" !in file.path &&
                     "/shared/data/" !in file.path &&
-                    "/build-logic/" !in file.path
+                    "/build-logic/" !in file.path &&
+                    // ADR-015: the :shared:state DI graph test (androidUnitTest)
+                    // constructs an in-memory JVM SqlDriver to verify the Koin
+                    // composition root end-to-end. Production still receives the
+                    // driver from the platform start site, never from :shared:state.
+                    "/shared/state/src/androidUnitTest/" !in file.path
             }
             .assertFalse(
                 additionalMessage = "SQLDelight must stay encapsulated inside :shared:data. " +

@@ -12,6 +12,11 @@ settings:
     SWIFT_VERSION: "5.10"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+    # The Shared framework now embeds SQLDelight's native driver (sqliter) via
+    # :shared:state → :shared:data (ADR-015 composition root). sqliter calls
+    # libsqlite3 through cinterop, so the app + test bundle must link the
+    # system SQLite. (Phase 06's real composition root keeps this dependency.)
+    OTHER_LDFLAGS: "-lsqlite3"
 
 targets:
   FluxIt:
@@ -56,5 +61,25 @@ targets:
       - framework: ../shared/state/build/XCFrameworks/release/Shared.xcframework
         embed: true
     scheme:
-      testTargets: []
+      testTargets:
+        - FluxItTests
       gatherCoverageData: false
+
+  # Phase 05 §12/§15 — SKIE bridging smoke. A unit-test bundle hosted by the
+  # FluxIt app; links the same Shared.xcframework (link-only, the host app
+  # already embeds it) and imports `Shared` to exercise the store surface.
+  FluxItTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: Tests
+    dependencies:
+      - target: FluxIt
+      - framework: ../shared/state/build/XCFrameworks/release/Shared.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.franzueto.fluxit.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"

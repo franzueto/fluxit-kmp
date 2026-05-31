@@ -524,6 +524,67 @@
 
 ---
 
+### ADR-014 — MVI store contract: hand-rolled `BaseStore`, `SharedFlow` effects, optimistic-default reconcile
+- **Status:** Accepted (opened Proposed at Phase 05 Slice 1, 2026-05-29; flipped to Accepted at Slice 4, 2026-05-29, now that `BaseStore` + the first two stores — `RootStore` (Slice 3) and `ListsDashboardStore` (Slice 4) — ship green against it on JVM + iOS Sim, the acceptance condition from `plan/05_STATE_MANAGEMENT.md` §15). This single ADR folds the three sub-decisions `plan/05` §13 originally numbered ADR-008/008a/008b (stale: `00_DECISIONS.md` reserves ADR-008 for Phase 06's expect/actual-vs-Koin question). `plan/05` §13 is renumbered to point here in the same slice.
+- **Date:** 2026-05-29
+- **Context:** Phase 05 (`plan/05_STATE_MANAGEMENT.md`) introduces one shared MVI store per feature in `:shared:state`, sitting on the Phase 04 use cases and exposed to Compose (Android `StateFlow`) and SwiftUI (iOS `AsyncSequence`/`@Observable` via SKIE). Three shape questions must be answered once, uniformly, before any store is written:
+  1. **What library backs the store?** MVIKotlin, Orbit, Molecule, or hand-rolled.
+  2. **How are one-shot effects carried?** `SharedFlow(replay=0)` vs. `Channel(BUFFERED)`.
+  3. **Is the default write-on-tap UX optimistic or pessimistic?**
+  The data-flow contract is fixed by MASTER_PLAN ("Data Flow"): `UseCase ──▶ Store(MVI) ──▶ State(StateFlow) ──▶ UI`, intents flow back up; optimistic updates apply intent → emit optimistic state → call use case → reconcile on emission, errors revert via the same Flow. The store is also the `Outcome<T, DomainError>` → UI boundary: use cases return `Outcome`/cold `Flow`, but the store's public surface must be SKIE-friendly (no `Outcome`/`Result` leaked to Swift), so errors are pre-mapped into `State.Error` or an `Effect.ShowError`.
+- **Decision:** Adopt a **hand-rolled `Store<S, I, E>` interface + `BaseStore` abstract class** in `:shared:state/store/`, with the shape fixed in `plan/05` §2:
+  - **Public surface (and only this):** `val state: StateFlow<S>`, `val effects: Flow<E>`, `fun dispatch(intent: I)`. Enforced by a Konsist "store harness" rule (§11) — no public mutable state, no leaked `MutableStateFlow`/`MutableSharedFlow`.
+  - **Intents processed serially** through a single `Channel<I>(UNLIMITED)` consumed in the store scope, so reductions inside one store never race. Cross-store concurrency is fine (disjoint state).
+  - **No reducer purity.** `reduce(intent)` may launch coroutines and call use cases; testability is preserved by injecting fake repos/`FakeClock` and driving virtual time, not by purity.
+  - **Effects are one-shot** via `MutableSharedFlow(replay = 0, extraBufferCapacity = 16)`. State must always be sufficient to re-render the UI without consuming an effect (effects = navigation, toasts, permission prompts, undo snackbars).
+  - **Scope is injected, never created.** Each store takes a `CoroutineScope` (Android `viewModelScope`; iOS a SKIE-bridged owner scope). Cancelling the scope cancels in-flight reductions.
+  - **Optimistic-then-reconcile is the default** for reversible write-on-tap UX, encoded once as the `BaseStore.optimistic { apply; revert; op }` helper (§5): `update(apply)` → call use case → on `Outcome.Failure`, `update(revert)` + map error to `Effect.ShowError`. `apply`/`revert` are pure functions of *current* state (computed at revert time, not snapshotted), so concurrent intents reconcile correctly. **Pessimistic** ("show spinner, await result, then act") is opt-in for irreversible/navigation operations (e.g. `CreateList`'s navigate-on-success), documented per store.
+  - **Error → user message** mapping (§9) lives in `:shared:state/error/` as `DomainError.userMessage`, intentionally *not* in domain (keeps domain locale-neutral).
+  - **Logging** via an injected `AppLogger` (§10) — the §5 domain port lands in this phase as `BaseStore`'s first consumer (Kermit-backed actual deferred to Phase 06). Stores do **not** emit analytics (use cases own that, per Phase 04 §5 — avoids double-counting).
+- **Consequences:**
+  - ➕ Tiny surface, zero MVI-framework dependency in v1 — no Android-leaning ergonomics, no adapter shims fighting SKIE. Re-evaluate only on a concrete pain point.
+  - ➕ `SharedFlow(replay=0)` renders natively as `AsyncSequence` under SKIE (a `Channel` would need bridging) and replay-0 prevents stale toasts replaying on rotation / iOS scene reuse.
+  - ➕ One `optimistic` helper means every write-on-tap store gets identical reconcile/revert semantics; the undo window (§6) and search debounce (§7) build on the same `update`/`emit` primitives.
+  - ➕ Serial intent channel removes a whole class of intra-store races for free.
+  - ➖ Hand-rolled means we own the `BaseStore` tests and any future ergonomics (e.g. state-diff logging) ourselves — no community library to lean on. Accepted: the surface is ~40 LOC.
+  - ➖ Impure `reduce` trades testability-by-purity for ergonomics; mitigated by the `runStoreTest` harness (Turbine + `TestScope` + `FakeClock`, §12) and the ≥90% coverage gate.
+  - 🔁 If a store's `reduce` grows unwieldy, factor intent groups into private `suspend` handlers — the `Store` contract is unaffected. If we ever hit a real need for time-travel/inspector tooling, revisit MVIKotlin then (the public `Store` interface is the seam that makes a swap mechanical).
+- **Alternatives considered:**
+  - **MVIKotlin / Orbit** — rejected for v1: both add a dependency and Android-leaning ergonomics, and Orbit's `intent {}`/`reduce {}` DSL plus MVIKotlin's `Store`/`Executor`/`Reducer` split are more surface than a 6-store app needs. SKIE projects our plain sealed types + `SharedFlow` cleanly; a framework's wrapper types are the thing most likely to need SKIE adapter shims.
+  - **Molecule (Compose-runtime-as-state)** — rejected: pulls the Compose runtime into `:shared:state`, which is a UI-framework dependency in a module that must stay UI-agnostic and SKIE-exposed; recomposition-as-state-modeling is overkill for these stores.
+  - **`Channel(BUFFERED)` for effects** — rejected: needs explicit SKIE bridging to reach Swift and lacks `SharedFlow`'s natural `AsyncSequence` projection; buffered replay also risks delivering a stale one-shot effect after lifecycle churn.
+  - **Pessimistic-by-default** — rejected as the default: spinners on every tap fight the "calming, dependable" feel; optimistic-with-revert is the better baseline, with pessimistic reserved for the few irreversible/navigation cases.
+- **Resolves Open Questions in Phase 05:** §13's three ADR slots (folded here). Leaves §14's tuning questions (undo-window length, composer-on-failure, photo-chain granularity, nav-effect granularity) to per-store implementation — they affect feel, not this contract.
+
+---
+
+### ADR-015 — Composition root & Koin module topology: `:shared:state` hosts `initKoin`, per-layer modules, interim platform ports
+
+- **Status:** Accepted (Phase 05 close-out / Phase 06 Slice A, 2026-05-30). Closes the `plan/05` §8 deferral ("Koin `stateModule` — no DI graph assembled yet; stores use constructor injection for now") by assembling the graph; the real platform-port bindings land incrementally in Phase 06.
+- **Date:** 2026-05-30
+- **Context:** Phase 05 shipped six MVI stores using constructor injection (ADR-014) with no DI graph. Three §15 hand-off items are blocked on that graph: the `stateModule` (§8), the live runtime iOS smoke (§12, needs a Swift-constructible store), and — transitively — confidence that the store surface assembles. Phases 03/04 are complete: `:shared:domain` ships ~25 use cases (classes with `operator invoke`, ADR-007b) and the ports `Clock`/`IdGenerator`/`ReminderScheduler`/`PhotoCapture`/`PhotoStorage`/`AppLogger`; `:shared:data` ships real `Sql*Repository` + `fluxItDatabase(SqlDriver)` + `DriverFactory` (expect/actual). But the *real* platform implementations of `ReminderScheduler`/`PhotoCapture`/`PhotoStorage` are Phase 06 (`:platform:*` are stubs). So a full production graph can't exist until Phase 06 — yet the three Phase 05 items must close now, on the Phase 05 branch, for a self-contained PR.
+- **Decision:**
+  - **The composition root lives in `:shared:state`** (package `…shared.state.di`), not a new `:shared` umbrella module. `:shared:state` is already the iOS XCFramework root (`Shared.xcframework`, `export(:shared:domain)`, SKIE applied); hosting `initKoin` here avoids reshuffling the framework and a second iOS-facing module. A dedicated `:shared` umbrella is revisited only if `:android-app` ever needs aggregation `:shared:state` can't provide.
+  - **One Koin module per layer**, aggregated by `fun initKoin(extra: List<Module> = emptyList()): KoinApplication`:
+    - `domainModule` — `factory { CreateList(get(), …) }` per use case (reads as a use-case inventory; the Koin shape ADR-007b anticipated).
+    - `dataModule` — `single { fluxItDatabase(get()) }` + `single<ListsRepository> { SqlListsRepository(get()) }` … bound to the domain repository interfaces. The platform `SqlDriver` (from `DriverFactory`) is supplied via the `extra` modules at each start site, so `dataModule` itself stays in `commonMain`.
+    - `platformModule` — the domain ports. **Real where cheap:** `Clock` and `IdGenerator` (the latter via the existing `:core:core-utils` `IdGenerator.System`). **Interim no-op where expensive:** `ReminderScheduler`/`PhotoCapture`/`PhotoStorage`, clearly labelled `// INTERIM — replaced by :platform:* in Phase 06`. `AppLogger` → the existing `NoOp` until `:platform:platform-logging`'s Kermit actual lands.
+    - `stateModule` — `factory { … }` per per-screen store + `single { RootStore(...) }` (per-screen stores are factory-scoped so each navigation entry gets a fresh store + `CoroutineScope`; `RootStore` is process-lifetime). `AccountStore`'s `version`/`flags` bind to a literal version + `emptyMap()` until `ConfigProvider` lands.
+  - **`:shared:state` gains a `:shared:data` dependency, confined to the `di/` composition root.** Stores themselves still depend on use cases only (§1). The `StateLayerArchTest` "no `:shared:data` / SQLDelight import" rule is scoped to exempt `…shared.state.di`.
+  - **iOS entry:** `initKoin()` plus a `KoinHelper` resolver (e.g. `rootStore()`) are exposed through the framework so Swift starts the graph and resolves a store — enabling the §12 live runtime smoke.
+- **Consequences:**
+  - ➕ Closes all three Phase 05 §15 items on the Phase 05 branch without pulling the heavy `:platform:*` work forward — keeps the Phase 05 PR self-contained.
+  - ➕ Koin `verify()` over the assembled graph gives a real "the store surface wires up" test (§8 confidence), backed by real repos + real DB.
+  - ➖ Interim no-op ports mean reminder scheduling / photo capture are inert until Phase 06; acceptable — no UI consumes them yet.
+  - 🔁 Phase 06 deletes the interim bindings and swaps `platformModule` for the real `:platform:*` Koin modules; the `initKoin` aggregation seam stays.
+- **Alternatives considered:**
+  - **New `:shared` umbrella module for `initKoin`** — rejected for now: forces re-pointing the XCFramework + a second iOS module for no current benefit.
+  - **Wire `:shared:domain-testing` fakes instead of interim no-ops** — rejected: real repos + DB exist (Phase 03 🟢), so use them; only the genuinely-missing platform ports get interim no-ops.
+  - **Defer all three items to Phase 06** — rejected by the branch decision: the items are Phase 05 §8/§12 and should ship in the Phase 05 PR.
+- **Resolves Open Questions:** `plan/05` §8 (DI wiring), §12 (live iOS smoke + `:shared:state` coverage gate).
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
@@ -531,4 +592,7 @@ These are *expected* to be opened during the relevant phase. Listed here so we d
 - **ADR-009** (Phase 13): Notification permission UX — when to ask, how to recover from denial.
 - **ADR-010** (Phase 14): Test pyramid shape and minimum coverage gates per layer.
 - **ADR-011** (Phase 15): Branching strategy + CI matrix shape (trunk-based vs. GitFlow).
-- **ADR-014** (Phase 05): MVI store contract — intents/state/effects, error model, optimistic update pattern. Renumbered from earlier "ADR-007" placeholder; Phase 04 reserved 007/007a/007b for domain-layer ADRs.
+
+> **ADR-014** (MVI store contract) **Accepted** at Phase 05 Slice 4 (opened Proposed at Slice 1) — see the ADR-014 section above. It folds the three sub-decisions `plan/05` §13 originally mislabeled ADR-008/008a/008b.
+
+> **ADR-015** (composition root & Koin module topology) **Accepted** at Phase 05 close-out / Phase 06 Slice A — see the ADR-015 section above. `:shared:state` hosts `initKoin` + per-layer Koin modules; real repos/DB + interim no-op platform ports until Phase 06. Note: ADR-008 (Phase 06 expect/actual-vs-Koin) is effectively answered here — capabilities are Koin-injected interfaces.

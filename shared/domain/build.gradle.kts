@@ -73,6 +73,11 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            // Repository / port fakes (FakeListsRepository, FakeClock, …) now live
+            // in :shared:domain-testing commonMain so :shared:state tests can reuse
+            // them (Phase 05 Slice 4). Their *Test.kt specs stay here and pull them
+            // back in via this dependency — package paths are unchanged.
+            implementation(project(":shared:domain-testing"))
             // JSON dep allowed in tests so RecurrenceRule round-trips can be
             // verified without coupling production domain to a format runtime.
             implementation(libs.kotlinx.serialization.json)
