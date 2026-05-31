@@ -311,4 +311,4 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   **Divergences/notes:** (1) mapper named `toScheduledNotification`. (2) Content gap — port
   carries no name; generic title/owner-shaped body in v1. (3) iOS behaviour by manual device
   QA (scope decision); iOS-Sim only compiles it. (4) Crashlytics/exact-alarm not used (§13 /
-  ADR-009a). (5) interim `NoOpReminderScheduler` swapped in Slice 6. _Commit `<pending>`._
+  ADR-009a). (5) interim `NoOpReminderScheduler` swapped in Slice 6. _Commit `ea09e49`._
