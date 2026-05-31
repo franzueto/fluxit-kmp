@@ -21,8 +21,8 @@ android-min-sdk = "26"          # confirmed 2026-05-13: Android 8.0 baseline (ad
 
 # --- Compose (Android) ---
 compose-bom = "2025.01.00"
-androidx-activity = "1.9.3"
-androidx-navigation = "2.8.5"
+androidx-activity = "1.13.0"
+androidx-navigation = "2.9.8"
 
 # --- KMP libraries ---
 koin = "4.0.1"
