@@ -43,7 +43,7 @@ dependency-versions = "0.51.0"  # com.github.ben-manes.versions
 
 # --- Testing ---
 turbine = "1.2.0"
-kotest = "5.9.1"
+kotest = "6.1.11"
 mockk = "1.13.13"
 
 [libraries]
