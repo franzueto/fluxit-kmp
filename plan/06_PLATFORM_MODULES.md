@@ -60,13 +60,13 @@ Each module's `commonMain` declares:
 - [ ] Crashlytics initialization done in `android-app` / `ios-app` startup (Phase 06 doesn't include vendor SDK init — only the writer wiring). _(Deferred with §13 Crashlytics decision.)_
 - [x] **Test fake**: `RecordingAppLogger` collecting `(level, tag, message, throwable)` entries. _(Slice 1 — placed in `:shared:domain-testing` `commonMain` (next to `FakeClock` etc.), not `platform-logging` commonTest, so it is reusable from any module's tests per the "reused across other modules" note. `KermitAppLoggerTest` (commonTest) proves the severity/tag/throwable mapping via a recording Kermit `LogWriter`.)_
 
-## 3. `platform-analytics`
+## 3. `platform-analytics` — ✅ Slice 3
 
-- [ ] commonMain: `AnalyticsEvent.toFlatPayload(): Pair<String, Map<String, Any>>` — single source for vendor-agnostic event flattening (e.g. `ListCreated(id, color, icon)` → `"list_created", {color: "PRIMARY_BLUE", icon: "CART"}`). Snake-case names. **Never include user-content** (no list names, no item titles, no photo bytes).
-- [ ] commonMain: `analyticsModule = module { single<AnalyticsSink> { LoggingAnalyticsSink(get()) } }`. **v1 ships `LoggingAnalyticsSink` only** (locked by Phase 16 ADR-012a). Events flow to `AppLogger` at `Debug`; nothing leaves the device. The `expect class AnalyticsSinkProvider` indirection is **not built in v1** — re-introduce when v2 adds a vendor sink.
-- [ ] **androidMain / iosMain**: no Firebase Analytics SDK in v1. `FirebaseAnalyticsSink` class is **not shipped**; do not add the dependency. Adding it in v2 is a focused PR (one new class per platform + Koin binding swap).
-- [ ] `RecordingAnalyticsSink` (in `commonTest`) is the only other sink in v1, used by store/integration tests.
-- [ ] **Privacy**: maintain `docs/ANALYTICS_EVENTS.md` (Phase 16 §4) listing every event + property + retention + PII classification. Update in lockstep with `AnalyticsEvent` sealed hierarchy.
+- [x] Vendor-agnostic event flattening. _(Slice 3 — **modeled as `AnalyticsEvent.name: String` + `properties: Map<String, Any?>` directly on the sealed type** rather than a `toFlatPayload()` extension: each event owns its already-flat payload, so every sink consumes the same two members uniformly. Snake_case names, **no user-content** (only appearance tokens). Seed taxonomy is deliberately tiny — `AppStarted`, `ListCreated(color, icon)` (id omitted from the payload) — the full hierarchy is Phase 16 §4 work grown as features emit. Lives in `:shared:domain/port/AnalyticsSink.kt` with the other ports; the `AnalyticsSink` port was a Phase 04 §5 deferral, built here.)_
+- [x] commonMain: `analyticsModule = module { single<AnalyticsSink> { LoggingAnalyticsSink(get()) } }`. v1 ships `LoggingAnalyticsSink` only (ADR-012a — events → `AppLogger` at debug; nothing leaves the device). No `AnalyticsSinkProvider` indirection. _(Slice 3 — `LoggingAnalyticsSink` routes through the `AppLogger` **port** (not Kermit directly) so the module stays off any logging backend and tests assert via `RecordingAppLogger`. Logs at debug under tag `Analytics`.)_
+- [x] **androidMain / iosMain**: no Firebase Analytics SDK in v1; `FirebaseAnalyticsSink` not shipped. _(Slice 3 — confirmed deferred per the scope decision; `platform-analytics` has **no** per-platform code in v1 (`LoggingAnalyticsSink` is pure common). A Firebase sink is a v2 focused PR.)_
+- [x] `RecordingAnalyticsSink` — only other v1 sink. _(Slice 3 — placed in `:shared:domain-testing` commonMain (not this module's commonTest) so store/integration tests in any module can reuse it. `LoggingAnalyticsSinkTest` proves routing via `RecordingAppLogger`.)_
+- [ ] **Privacy**: `docs/ANALYTICS_EVENTS.md` (Phase 16 §4) listing every event + property + retention + PII classification. _(Deferred to Phase 16 with the full taxonomy — the v1 seed events carry no PII by construction.)_
 
 ## 4. `platform-config` — ✅ Slice 2
 
@@ -267,3 +267,18 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   (ADR-006a) so `configModule` binds `IdGenerator.System` rather than a redundant
   `expect class UuidGenerator`; `Clock` is kotlinx.datetime common. `configModule`
   replaces the interim `Clock.System` binding in Slice 6. _Commit `9752383`._
+
+- **2026-05-31** — Slice 3: `platform-analytics` — `AnalyticsSink` port + v1
+  `LoggingAnalyticsSink` (§3, ADR-012a). Built the `AnalyticsSink` port + a tiny
+  `AnalyticsEvent` seed taxonomy (`AppStarted`, `ListCreated(color, icon)`; name +
+  already-flat content-free `properties`) in `:shared:domain/port` — the port was a
+  Phase 04 §5 deferral; the full taxonomy + `docs/ANALYTICS_EVENTS.md` stays Phase 16
+  §4 (confirmed scope decision). Shipped `LoggingAnalyticsSink` (routes events to the
+  `AppLogger` port at debug, tag `Analytics`) + `analyticsModule` in
+  `:platform:platform-analytics`; added the reusable `RecordingAnalyticsSink` to
+  `:shared:domain-testing`. Tests: `LoggingAnalyticsSinkTest` (via `RecordingAppLogger`).
+  Gate green: `:platform:platform-analytics:check` + `:shared:domain:check` (≥95% Kover,
+  JVM + iOS Sim) + `:build-logic:test`. **Divergences:** (1) event payload modeled as
+  `name`/`properties` members rather than a `toFlatPayload()` extension. (2) No Firebase
+  / per-platform code (deferred per scope decision) — pure-common module. (3)
+  `RecordingAnalyticsSink` in `:shared:domain-testing` for cross-module reuse. _Commit `<pending>`._
