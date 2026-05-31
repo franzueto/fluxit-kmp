@@ -281,4 +281,4 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   JVM + iOS Sim) + `:build-logic:test`. **Divergences:** (1) event payload modeled as
   `name`/`properties` members rather than a `toFlatPayload()` extension. (2) No Firebase
   / per-platform code (deferred per scope decision) — pure-common module. (3)
-  `RecordingAnalyticsSink` in `:shared:domain-testing` for cross-module reuse. _Commit `<pending>`._
+  `RecordingAnalyticsSink` in `:shared:domain-testing` for cross-module reuse. _Commit `857d9a2`._
