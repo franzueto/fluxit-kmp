@@ -13,6 +13,29 @@
 
 ---
 
+## 0. Slice plan (commit cadence)
+
+Phase 06 ships one `feat` commit per slice (plan files synced in-commit, impl-log
+entry `_Commit `<pending>`._`) + a `docs(plan):` SHA-backfill commit, per the Phase 05
+cadence. Each `platform-*` slice ships: commonMain Koin module + helpers,
+`androidMain` + `iosMain` actuals, and a fake/test. Slice order (approved plan Part 2):
+
+1. **`platform-logging`** — Kermit-backed `AppLogger` actual + `loggingModule`. ✅
+2. **`platform-config`** — `ConfigProvider` + typed `ConfigKey`s + real `Clock`/`IdGenerator` bindings.
+3. **`platform-analytics`** — `AnalyticsSink` port (built in `:shared:domain` first) + `LoggingAnalyticsSink` (ADR-012a).
+4. **`platform-reminders`** — `ReminderScheduler` (WorkManager+NotificationCompat / `UNUserNotificationCenter`).
+5. **`platform-photo`** — `PhotoCapture` + `PhotoStorage` + encoder + Activity/UIViewController host plumbing.
+6. **Swap interim → real** in `initKoin`: replace `InterimPlatformModule` bindings with the 5 platform modules, **delete `InterimPlatformModule.kt`**, update `appModules()`/`initKoinIos()` + android start site.
+7. **Composition roots** — `:android-app` (Koin start + Compose `NavHost` off `RootStore`); iOS `@main App` + `NavigationStack`.
+8. **Lists Dashboard end-to-end** both platforms; on-device/sim round-trip; flip ADRs 009/009a/009b(/009c) Accepted; Phase 06 → 🟢.
+
+A Konsist `PlatformLayerArchTest` (mirroring `StateLayer`/`DataLayerArchTest`) lands
+with the first slice that introduces a bannable platform import (reminders/photo),
+guarding that nothing outside `:platform:*` imports `androidx.work.*`/`UserNotifications`/
+`androidx.camera.*`/`Photos`/Firebase/`kermit.crashlytics`.
+
+---
+
 ## 1. Module map
 
 | Module | Ports implemented (Phase 04) | Android backbone | iOS backbone |
@@ -29,20 +52,13 @@ Each module's `commonMain` declares:
 
 `androidMain` and `iosMain` each ship the actual implementations.
 
-## 2. `platform-logging`
+## 2. `platform-logging` — ✅ Slice 1
 
-- [ ] commonMain: `KermitAppLogger(private val kermit: Logger) : AppLogger` — adapter from domain `AppLogger` to Kermit's `Logger`. Only thing in `commonMain`.
-- [ ] commonMain: `loggingModule = module { single<AppLogger> { KermitAppLogger(get()) } ; single { Logger(StaticConfig(minSeverity = Severity.Info, logWriterList = get<List<LogWriter>>())) } }`.
-- [ ] **androidMain**:
-  - `LogcatWriter(tag = "FluxIt")` (already in Kermit).
-  - `CrashlyticsLogWriter` from `kermit-crashlytics` artifact — bridges `Warn`+ to Crashlytics non-fatals, `Error` to fatals.
-  - Provides `List<LogWriter>` to Koin: `[LogcatWriter, CrashlyticsLogWriter]`.
-- [ ] **iosMain**:
-  - `OSLogWriter(subsystem = "com.fluxit", category = "app")`.
-  - `CrashlyticsLogWriter` (same artifact, iOS variant).
-  - Provides `List<LogWriter>`: `[OSLogWriter, CrashlyticsLogWriter]`.
-- [ ] Crashlytics initialization done in `android-app` / `ios-app` startup (Phase 06 doesn't include vendor SDK init — only the writer wiring).
-- [ ] **Test fake**: `RecordingAppLogger` collecting messages in a list; reused across other modules' tests.
+- [x] commonMain: `KermitAppLogger(private val logger: Logger) : AppLogger` — adapter from domain `AppLogger` to Kermit's `Logger`; maps the four port levels onto Kermit severities + forwards `tag` and the warn/error `Throwable`. _(Slice 1.)_
+- [x] commonMain: `loggingModule = module { single<Logger> { Logger(StaticConfig(minSeverity = Severity.Info, logWriterList = platformLogWriters()), tag = "FluxIt") } ; single<AppLogger> { KermitAppLogger(get()) } }`. _(Slice 1 — writer list comes from the expect/actual `platformLogWriters()` seam rather than a Koin-resolved `List<LogWriter>`, so no separate binding is needed and the writer list is a compile-time platform concern.)_
+- [x] **androidMain / iosMain**: `actual fun platformLogWriters(): List<LogWriter>`. _(Slice 1 — both return `listOf(platformLogWriter())` — Kermit's default resolves to `LogcatWriter` on Android / `NSLogWriter` (os_log) on iOS. **Diverged from the sketch's explicit `LogcatWriter`/`OSLogWriter(subsystem=…)` construction + `CrashlyticsLogWriter`:** Crashlytics is an unresolved open question (§13) and pulls Firebase + a `google-services.json`/`GoogleService-Info.plist` into the build, so v1 ships Logcat/os_log only. `platformLogWriters()` is the seam the Crashlytics writer slots into per platform when §13 resolves — `loggingModule`/`KermitAppLogger` stay unchanged.)_
+- [ ] Crashlytics initialization done in `android-app` / `ios-app` startup (Phase 06 doesn't include vendor SDK init — only the writer wiring). _(Deferred with §13 Crashlytics decision.)_
+- [x] **Test fake**: `RecordingAppLogger` collecting `(level, tag, message, throwable)` entries. _(Slice 1 — placed in `:shared:domain-testing` `commonMain` (next to `FakeClock` etc.), not `platform-logging` commonTest, so it is reusable from any module's tests per the "reused across other modules" note. `KermitAppLoggerTest` (commonTest) proves the severity/tag/throwable mapping via a recording Kermit `LogWriter`.)_
 
 ## 3. `platform-analytics`
 
@@ -212,3 +228,27 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
 - [ ] Firebase / Crashlytics configs (if adopted) added to repo with secrets in CI, not in source.
 - [ ] `MASTER_PLAN.md`: Phase 06 → 🟢, ▶ Next Step → Phase 07.
 - [ ] `00_DECISIONS.md`: ADR-009 (a/b/c) accepted.
+
+---
+
+## 15. Implementation Log
+
+- **2026-05-31** — Slice 1: `platform-logging` — Kermit-backed `AppLogger` actual
+  (§2). Shipped `KermitAppLogger` (commonMain) adapting the `:shared:domain`
+  `AppLogger` port onto a Kermit `Logger` (four levels → Kermit severities, `tag`
+  forwarded, warn/error `Throwable` carried); `loggingModule` binding a `single<Logger>`
+  (`StaticConfig(minSeverity = Info, tag = "FluxIt")`) + `single<AppLogger>`; and the
+  expect/actual `platformLogWriters()` seam (androidMain Logcat / iosMain os_log via
+  Kermit's `platformLogWriter()`). Added the reusable `RecordingAppLogger` fake to
+  `:shared:domain-testing` commonMain. Tests: `KermitAppLoggerTest` (commonTest) proves
+  the severity/tag/throwable mapping via a recording Kermit `LogWriter`. Gate green:
+  `:platform:platform-logging:check` (JVM + iOS Sim) + `:build-logic:test --rerun-tasks`.
+  **Divergences:** (1) writer list is the expect/actual `platformLogWriters()` (compile-
+  time platform concern) rather than a Koin-resolved `List<LogWriter>` — simpler, one
+  fewer binding. (2) Crashlytics writer **not** shipped: it's an unresolved §13 open
+  question that drags Firebase + vendor config into the build; v1 is Logcat/os_log only,
+  with `platformLogWriters()` as the documented seam the Crashlytics writer slots into
+  per platform later. (3) `RecordingAppLogger` lives in `:shared:domain-testing` (not
+  this module's commonTest) so it's reusable across modules per §2. The interim
+  `AppLogger.NoOp` binding in `:shared:state`'s `InterimPlatformModule` is replaced by
+  `loggingModule` in Slice 6, not here (no dead wiring ahead of the swap). _Commit `<pending>`._
