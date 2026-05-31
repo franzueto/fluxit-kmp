@@ -77,15 +77,25 @@ Each module's `commonMain` declares:
 - [x] Konsist: `ConfigProvider` is the only flag-reading seam — no `BuildConfig.*` references outside this module. _(Slice 2 — holds trivially: no `BuildConfig` references exist yet; revisit when BuildKonfig lands.)_
 - [x] **Test fake**: `FakeConfigProvider` (map override + default fallback) in `:shared:domain-testing` commonMain; `DefaultConfigProviderTest` asserts the ADR-004 defaults. _(Slice 2.)_
 
-## 5. `platform-reminders`
+## 5. `platform-reminders` — ✅ Slice 4 (Android impl + iOS impl; manual device QA pending)
 
 This is the heaviest module. Both platforms have rough edges around permissions, recurrence, deep-link payloads, and reboot persistence.
 
+> **✅ Slice 4 status.** `ReminderScheduler` shipped on both platforms: `AndroidReminderScheduler`
+> (WorkManager + NotificationCompat) and `IosReminderScheduler` (UNUserNotificationCenter), wired by
+> the `expect`/`actual` `remindersModule()`. Recurrence→trigger mapping done for all four `RecurrenceRule`
+> cases. The `:build-logic` Konsist `PlatformLayerArchTest` (plan §0) now guards `androidx.work.*` /
+> `platform.UserNotifications` / CameraX / Photos / Firebase / kermit-crashlytics outside `:platform:*`.
+> Android behaviour covered by Robolectric (WorkManager test harness: one-shot enqueue, weekly per-day,
+> permission-denied, cancel); iOS impl is built by the iOS-Sim gate and verified by manual device QA
+> (Phase 06 scope decision). The interim `NoOpReminderScheduler` is swapped out in Slice 6.
+> **Open boxes below** (permission UX wiring, demo screen, on-device fire) are Phase 13 / manual-QA items.
+
 ### Common contract
 
-- [ ] Implement `ReminderScheduler` (Phase 04 §5).
-- [ ] `Reminder.toPlatformPayload()` extension producing a vendor-agnostic `ScheduledNotification` (title, body, deep-link URI, fire instant, optional recurrence rule). Title/body composed from list/item names — pulled by the use case before calling the scheduler (scheduler stays content-agnostic).
-- [ ] Deep links: `fluxit://list/{listId}` for list reminders, `fluxit://item/{itemId}` for item reminders. Handled by app-level navigation glue.
+- [x] Implement `ReminderScheduler` (Phase 04 §5). _(Slice 4 — Android + iOS actuals.)_
+- [x] `Reminder.toScheduledNotification()` producing a vendor-agnostic `ScheduledNotification` (title, body, deep-link URI, fire instant, recurrence). _(Slice 4 — named `toScheduledNotification` not `toPlatformPayload`. **Content gap:** the `ReminderScheduler` port passes only a `Reminder`, which carries no list/item name — so v1 uses a generic title + owner-shaped body; name enrichment needs the port to carry text and is a documented follow-up.)_
+- [x] Deep links: `fluxit://list/{listId}` / `fluxit://item/{itemId}`. _(Slice 4 — `ReminderOwner.deepLink()`; app-level nav glue lands with the composition-root UI, Slice 7.)_
 
 ### androidMain (WorkManager + NotificationCompat)
 
@@ -282,3 +292,23 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   `name`/`properties` members rather than a `toFlatPayload()` extension. (2) No Firebase
   / per-platform code (deferred per scope decision) — pure-common module. (3)
   `RecordingAnalyticsSink` in `:shared:domain-testing` for cross-module reuse. _Commit `857d9a2`._
+
+- **2026-05-31** — Slice 4: `platform-reminders` — `ReminderScheduler` on both
+  platforms (§5; ADR-009a — WorkManager best-effort). commonMain: `ScheduledNotification`
+  + `Reminder.toScheduledNotification()` + `ReminderOwner.deepLink()` + the expect
+  `remindersModule()`. androidMain: `AndroidReminderScheduler` (None→OneTime, Daily→24h
+  periodic, Weekly→one 7-day periodic per day, Monthly→one-shot re-armed by the worker),
+  `ReminderWorker` (NotificationCompat + deep-link tap intent + Monthly re-arm),
+  `AndroidNotifications` (channel `fluxit_reminders` + POST_NOTIFICATIONS check), the
+  POST_NOTIFICATIONS manifest entry, and the android `remindersModule()`. iosMain:
+  `IosReminderScheduler` (UNCalendarNotificationTrigger per recurrence; weekday mapping)
+  + iOS `remindersModule()`. Added catalog deps (androidx.work 2.9.1, androidx.core,
+  robolectric 4.14, androidx.test.core, junit) and the `:build-logic` Konsist
+  `PlatformLayerArchTest` (plan §0). Tests: `ScheduledNotificationTest` (mapper, common)
+  + Robolectric `AndroidReminderSchedulerTest` (4: one-shot/weekly/permission-denied/cancel,
+  via WorkManager test harness). Gate green: `:platform:platform-reminders:check` (JVM +
+  Robolectric + iOS-Sim compile) + `:build-logic:test` (Konsist incl. new arch test).
+  **Divergences/notes:** (1) mapper named `toScheduledNotification`. (2) Content gap — port
+  carries no name; generic title/owner-shaped body in v1. (3) iOS behaviour by manual device
+  QA (scope decision); iOS-Sim only compiles it. (4) Crashlytics/exact-alarm not used (§13 /
+  ADR-009a). (5) interim `NoOpReminderScheduler` swapped in Slice 6. _Commit `<pending>`._
