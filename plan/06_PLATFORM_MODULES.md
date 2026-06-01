@@ -387,4 +387,4 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   composition root); (b) the iOS `ForEach` ids rows by index, not `ListSummary.id` — the `ListId`
   value class projects as a boxed `Any` across SKIE so a `\.id.value` keypath won't type-check.
   Gate green: `:android-app:check` + `:shared:state:check` + `:build-logic:test --rerun-tasks` +
-  `scripts/test-ios.sh`. _Commit `<pending>`._
+  `scripts/test-ios.sh`. _Commit `0c3fb49`._
