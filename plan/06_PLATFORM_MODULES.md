@@ -134,54 +134,51 @@ This is the heaviest module. Both platforms have rough edges around permissions,
 - [ ] Test app `RemindersDemo` debug screen: schedule "in 10 seconds" → assert local notification fires on both platforms.
 - [ ] Open question: **silent failures on missed reminders** (device off / DND) — log, no recovery. Document.
 
-## 6. `platform-photo`
+## 6. `platform-photo` — ✅ Slice 5 (Android + iOS impls; manual device QA pending)
+
+> **✅ Slice 5 status.** `PhotoStorage` + `PhotoEncoder` shipped on both platforms and
+> wired by the expect/actual `photoModule()`; `PhotoCapture` shipped on both (manual-QA
+> only per the Phase 06 scope decision — no instrumented test drives the system camera /
+> picker). Konsist: nothing new — the default system-camera / `UIImagePickerController`
+> path uses neither CameraX (`androidx.camera.*`) nor `Photos.framework`, both already
+> banned outside `:platform:*` by `PlatformLayerArchTest`. Interim NoOp photo bindings
+> swapped in Slice 6. Open boxes (`PhotoDemo` screen, permission UX) are Phase 13 /
+> manual-QA items.
 
 ### Common contract
 
-- [ ] Implement `PhotoCapture` and `PhotoStorage` (Phase 04 §5).
-- [ ] commonMain: `PhotoEncoder` interface — `suspend fun reencode(bytes: ByteArray, mime: String, maxDim: Int, jpegQuality: Float): ByteArray`. Keeps encoding logic out of `PhotoCapture` so we can re-encode at ingest time per Phase 03 open question.
+- [x] Implement `PhotoCapture` and `PhotoStorage` (Phase 04 §5). _(Slice 5 — Android + iOS actuals.)_
+- [x] commonMain: `PhotoEncoder` interface — `suspend fun reencode(bytes, mime, maxDim, jpegQuality): ByteArray`. Keeps encoding logic out of `PhotoCapture` so we can re-encode at ingest time per Phase 03 open question. _(Slice 5 — plus a `mimeToExtension()` helper used by both storages; everything normalises to JPEG so unknown types fall back to `jpg`.)_
 
 ### androidMain
 
-- [ ] `AndroidPhotoStorage(context)`:
-  - Root: `context.filesDir / "photos"` (auto-cleared on uninstall, not backed up by default — opt out of `android:fullBackupContent` for this dir).
-  - `write(bytes, mime)` → writes `<uuid>.<ext>` atomically (`File.tmp` + `renameTo`).
-  - `delete(relativePath)` → returns true if removed.
-  - `resolveAbsolute(relativePath)` → returns a `content://` URI via FileProvider (so Compose's `AsyncImage` and external apps can read).
-- [ ] `AndroidPhotoCapture(activityResultRegistry)`:
-  - `capture()` → `ActivityResultContracts.TakePicture()` writing to a temp file; reads bytes back.
-  - `pickFromLibrary()` → `ActivityResultContracts.PickVisualMedia(ImageOnly)`.
-  - Lives in androidMain but the registry is provided by the Activity — see §7 for the wiring trick.
-- [ ] `AndroidPhotoEncoder`: BitmapFactory + `Bitmap.compress(JPEG, quality)`, downsampled with `inSampleSize` to honor `maxDim`. Runs on `Dispatchers.IO`.
-- [ ] **CAMERA permission** + `WRITE_EXTERNAL_STORAGE` not needed (capturing into internal storage; system camera UI handles its own permission).
-- [ ] FileProvider declared in manifest with `<paths>` for `files-path/photos`.
+- [x] `AndroidPhotoStorage(context)`: root `filesDir/photos`; atomic write (`.tmp` + `renameTo`, copy-fallback); `delete` returns whether a file went; `resolveAbsolute` → **absolute file path** (v1). _(Slice 5 — **diverged from `content://` via FileProvider for storage:** a content URI is only needed to hand a photo to an *external* app (share/edit), which v1 doesn't do — Compose's loaders read the in-app file path directly. Storage FileProvider is a documented follow-up. Not-backed-up is enforced by the app `backup_rules` in Slice 7, not this module.)_
+- [x] `AndroidPhotoCapture(context, registryProvider)`: `capture()` → `TakePicture` into a cache temp file (FileProvider URI) read back as bytes; `pickFromLibrary()` → `PickVisualMedia(ImageOnly)` content URI read via `ContentResolver`. Registry comes from the §7 host-holder. _(Slice 5 — manual-QA only.)_
+- [x] `AndroidPhotoEncoder`: BitmapFactory (`inSampleSize` decode + exact scale) + `Bitmap.compress(JPEG, quality)`, on `Dispatchers.IO`. _(Slice 5.)_
+- [x] **CAMERA permission** + `WRITE_EXTERNAL_STORAGE` not needed (internal storage; system camera owns its permission). _(Slice 5.)_
+- [x] FileProvider declared in manifest — for the **camera temp file** (`${applicationId}.fileprovider`, `cache-path`), a narrower concern than the deferred storage FileProvider. _(Slice 5.)_
 
 ### iosMain
 
-- [ ] `IosPhotoStorage`:
-  - Root: `FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("photos")`.
-  - `write` / `delete` / `resolveAbsolute` analogues. iOS is auto-backed-up — we *do* want photos in iCloud backup so users don't lose them; document that decision.
-- [ ] `IosPhotoCapture`:
-  - `capture()` → presents `UIImagePickerController(sourceType: .camera)` wrapped in a Kotlin coroutine via continuation.
-  - `pickFromLibrary()` → `PHPickerViewController` (iOS 14+).
-  - **Permissions**: `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` strings in `Info.plist`. PHPicker doesn't require library permission (returns ephemeral results); camera does.
-- [ ] `IosPhotoEncoder`: `UIImage` resize → `jpegData(compressionQuality:)`.
+- [x] `IosPhotoStorage`: root `applicationSupport/photos`; `write`/`read`/`delete`/`resolveAbsolute` over `NSFileManager`; left in iCloud backup (§10). _(Slice 5 — `NSData`↔`ByteArray` bridge helpers added.)_
+- [x] `IosPhotoCapture`: `capture()`/`pickFromLibrary()` present `UIImagePickerController` (camera / photoLibrary) via a continuation + `NSObject` delegate; host from `TopViewControllerProvider`. _(Slice 5 — **diverged from `PHPickerViewController` for the library pick:** v1 uses one `UIImagePickerController` delegate for both sources (less plumbing); PHPicker is a documented follow-up. `NSCameraUsageDescription`/`NSPhotoLibraryUsageDescription` go in the app `Info.plist` (Slice 7). Manual-QA only.)_
+- [x] `IosPhotoEncoder`: `UIImage` resize (bitmap context) → `UIImageJPEGRepresentation`. _(Slice 5.)_
 
 ### Both
 
-- [ ] `PhotoDemo` debug screen: take a photo, persist, navigate away, come back, render it.
-- [ ] Tests: `FakePhotoStorage` (in-memory map) and `FakePhotoCapture` (returns canned bytes) — used by `:shared:state` ItemDetailStore tests.
+- [ ] `PhotoDemo` debug screen: take a photo, persist, navigate away, come back, render it. _(Phase 13 / manual-QA.)_
+- [x] Tests: `FakePhotoStorage` / `FakePhotoCapture` already in `:shared:domain-testing` (Phase 04). Slice 5 adds `MimeExtensionsTest` (common) + Robolectric `AndroidPhotoStorageTest` (write→read→delete round-trip, `resolveAbsolute`, mime→ext); capture is manual-QA.
 
-## 7. The "I need a UIKit/Activity reference" problem
+## 7. The "I need a UIKit/Activity reference" problem — ✅ Slice 5
 
 `PhotoCapture` needs an Activity (Android) and a UIViewController (iOS) to present picker UIs. Domain ports can't carry these.
 
-**Pattern adopted**: a per-platform `HostHolder` provided at app start.
+**Pattern adopted**: a per-platform host-holder provided at app start.
 
-- [ ] commonMain: no host concept; the *capture impl* is constructed with whatever host it needs.
-- [ ] androidMain: `AndroidPhotoCapture` consumes an `ActivityResultRegistryProvider` interface; the Activity sets the current registry on resume and clears it on pause. Capture impl waits for a registry to be present (with a short timeout → `CaptureError.Unknown` if none).
-- [ ] iosMain: `IosPhotoCapture` consumes a `TopViewControllerProvider` (`UIApplication.shared.windows.first?.rootViewController?.topMostPresentedController()`) — no app-side wiring needed.
-- [ ] Document the pattern in `:platform:platform-photo/README.md` so future modules with similar needs (file picker, share sheet) follow it.
+- [x] commonMain: no host concept; the *capture impl* is constructed with whatever host it needs. _(Slice 5.)_
+- [x] androidMain: `AndroidPhotoCapture` consumes an `ActivityResultRegistryProvider` (a `MutableStateFlow<ActivityResultRegistry?>` holder); the Activity `attach`es on resume / `detach`es on pause (Slice 7). Capture waits for a non-null registry (5s timeout → `CaptureError.Unknown`). _(Slice 5.)_
+- [x] iosMain: `IosPhotoCapture` consumes a `TopViewControllerProvider`; the default walks the key window's presented-controller chain — no app-side wiring needed. _(Slice 5.)_
+- [x] Document the pattern in `:platform:platform-photo/README.md` so future host-needing modules (file picker, share sheet) follow it. _(Slice 5.)_
 
 ## 8. Koin wiring
 
@@ -312,3 +309,27 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   carries no name; generic title/owner-shaped body in v1. (3) iOS behaviour by manual device
   QA (scope decision); iOS-Sim only compiles it. (4) Crashlytics/exact-alarm not used (§13 /
   ADR-009a). (5) interim `NoOpReminderScheduler` swapped in Slice 6. _Commit `ea09e49`._
+
+- **2026-05-31** — Slice 5: `platform-photo` — `PhotoStorage`/`PhotoCapture`/`PhotoEncoder`
+  on both platforms + the §7 host-holder (§6/§7). commonMain: `PhotoEncoder` interface +
+  `mimeToExtension()` helper + the expect `photoModule()`. androidMain: `AndroidPhotoStorage`
+  (filesDir/photos, atomic tmp+rename, absolute-path `resolveAbsolute`), `AndroidPhotoEncoder`
+  (BitmapFactory inSampleSize + scale + JPEG compress on Dispatchers.IO), `AndroidPhotoCapture`
+  (ActivityResult `TakePicture`/`PickVisualMedia` over the `ActivityResultRegistryProvider`
+  host-holder; camera temp file via FileProvider + manifest provider + `fluxit_photo_paths.xml`)
+  and the android `photoModule()`. iosMain: `IosPhotoStorage` (applicationSupport/photos,
+  NSFileManager, iCloud-backed §10) + `NSData`↔`ByteArray` bridges, `IosPhotoEncoder`
+  (`UIImage` resize → `UIImageJPEGRepresentation`), `IosPhotoCapture` (`UIImagePickerController`
+  + `NSObject` delegate via continuation, `TopViewControllerProvider` default), iOS `photoModule()`.
+  Catalog: added `androidx-activity` (plain `activity`, for `ActivityResultRegistry`/contracts).
+  Tests: `MimeExtensionsTest` (common) + Robolectric `AndroidPhotoStorageTest` (5: round-trip,
+  resolveAbsolute, delete semantics, missing-path read, mime→ext); capture is manual-QA only.
+  Gate green: `:platform:platform-photo:check` (JVM + Robolectric + iOS-Sim compile) +
+  `:build-logic:test`. **Divergences:** (1) storage `resolveAbsolute` returns an absolute file
+  path, not a `content://` FileProvider URI — that's only needed for *external* sharing (v1
+  has none); documented follow-up. The capture FileProvider is a separate, narrower concern
+  (camera temp file). (2) iOS library pick uses `UIImagePickerController` not `PHPickerViewController`
+  (one delegate, less plumbing; PHPicker is a follow-up). (3) Capture (both platforms) is
+  manual-QA only per the Phase 06 scope decision — built (Android) / built-not-run (iOS-Sim),
+  no instrumented test. (4) No CameraX / `Photos.framework` → nothing to add to the Konsist
+  ban. (5) interim NoOp photo bindings swapped in Slice 6. _Commit `<pending>`._

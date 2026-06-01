@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider path config for the camera capture temp file (plan/06 §6/§7).
+     Only the app cache dir is shared; the photos store under files/ is never
+     exposed via the provider in v1. -->
+<paths>
+    <cache-path
+        name="captures"
+        path="." />
+</paths>
