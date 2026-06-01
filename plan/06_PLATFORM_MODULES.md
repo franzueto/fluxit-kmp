@@ -198,18 +198,25 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
 - [ ] iosMain: bridges to `UNUserNotificationCenter.requestAuthorization`, `AVCaptureDevice.requestAccess`, `PHPhotoLibrary.requestAuthorization`.
 - [ ] Permission state observation: `Flow<PermissionStatus>` (cold) per permission, recomputed on app foreground. Stores subscribe to surface "permission required" banners.
 
-## 10. Backup / data residency
+## 10. Backup / data residency — ✅ Slice 8
 
-- [ ] **Android**: opt out of auto-backup for the SQLDelight DB (lists are device-local in v1; restoring on a new device with no sync would be confusing). `android:fullBackupContent="@xml/backup_rules"` excluding `databases/fluxit.db` and `files/photos/`. Document v2 reversal once sync ships.
-- [ ] **iOS**: leave default (included in iCloud backup). User expectation is that an iCloud restore brings their lists back; this is the only "sync" v1 effectively offers.
-- [ ] Document the asymmetry in `:platform:platform-config/README.md` so it's not a surprise.
+- [x] **Android**: auto-backup enabled but the SQLDelight DB + photo store excluded (lists are device-local in v1; restoring on a new device with no sync would be confusing). `android:fullBackupContent="@xml/backup_rules"` (API ≤30) + `android:dataExtractionRules="@xml/data_extraction_rules"` (API 31+) excluding `fluxit.db` (+ `-wal`/`-shm`, WAL is on) and `files/photos/`. _(Slice 8 — **the exclude `path` for the DB is `fluxit.db`, not `databases/fluxit.db`** as the original sketch had it: in the `<full-backup-content>` / `<data-extraction-rules>` schema, `domain="database"` already roots at the `databases/` dir, so the path is the bare filename. v2 reversal documented in both rules files + `platform-config/README.md` + ADR-017.)_
+- [x] **iOS**: leave default (included in iCloud backup). User expectation is that an iCloud restore brings their lists back; this is the only "sync" v1 effectively offers. _(Slice 8 — no app-side change; documented.)_
+- [x] Document the asymmetry in `:platform:platform-config/README.md` so it's not a surprise. _(Slice 8 — created the README.)_
 
-## 11. ADRs to write in this phase
+## 11. ADRs to write in this phase — ✅ Slice 8
 
-- [ ] **ADR-009** — Platform ports use Koin-injected interfaces (not bare `expect/actual` for capabilities). Why: easier to fake in tests, swap impls per build flavor, and keeps the `expect/actual` surface to truly OS-level primitives (`UuidGenerator`, file IO).
-- [ ] **ADR-009a** — WorkManager (best-effort) over `AlarmManager` (exact) for v1 reminders. Why: exact alarms now need explicit user permission on Android 14+; v1's reliability target is "reminded around the right time," not "reminded to the second."
-- [ ] **ADR-009b** — Android backups disabled for fluxit.db + photos in v1. Reasoning + revert plan once sync ships.
-- [ ] **ADR-009c** — `LoggingAnalyticsSink` ships as v1 default (no Firebase Analytics). Defers privacy/consent UI to v2. (Pending §3 confirmation.)
+> Numbering reconciled to the canonical `00_DECISIONS.md` ledger at close-out (the
+> reserved slots differed from this section's original draft). Mapping: the drafted
+> **ADR-009** → **ADR-008** (the reserved Phase-06 slot; ADR-009 stays reserved for
+> the Phase-13 notification-permission-UX decision); **ADR-009a** → **ADR-016**;
+> **ADR-009b** → **ADR-017**; **ADR-009c** → **ADR-012a** (already in `plan/16`,
+> formal acceptance in Phase 16, not duplicated here).
+
+- [x] **ADR-008** — Platform capabilities are Koin-injected interfaces (not bare `expect/actual`). Keeps the `expect/actual` surface to truly OS-level primitives (`newId()`, `DriverFactory`, the module factories). _(Slice 8 — flipped Accepted at close-out.)_
+- [x] **ADR-016** — WorkManager (best-effort) over `AlarmManager` (exact) for v1 reminders. Exact alarms need explicit user permission on Android 12+/14+; v1's target is "reminded around the right time." _(Slice 8 — Accepted.)_
+- [x] **ADR-017** — Android backups disabled for `fluxit.db` + photos in v1; reasoning + v2 revert plan. _(Slice 8 — Accepted.)_
+- [x] **ADR-012a** — `LoggingAnalyticsSink` as v1 default (no Firebase Analytics); defers consent UI to v2. _(Owned by `plan/16`; formal acceptance in Phase 16. Not re-numbered here.)_
 
 ## 12. Testing
 
@@ -223,17 +230,17 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
 
 - ✅ **Firebase Analytics in v1?** **Resolved (Phase 16 / ADR-012a):** no. `LoggingAnalyticsSink` only. `FirebaseAnalyticsSink` not shipped; not even in tree.
 - [ ] **Crashlytics in v1?** Recommend yes — a shipped app without crash reporting is flying blind. Adds Firebase iOS/Android SDK + `GoogleService-Info.plist` / `google-services.json` config to repo.
-- [ ] **Backup strategy** — confirm the Android off / iOS on asymmetry (§10).
+- ✅ **Backup strategy** — **Resolved (Slice 8 / ADR-017):** Android auto-backup enabled but `fluxit.db` + `files/photos/` excluded; iOS left on default iCloud backup. Asymmetry documented in `platform-config/README.md`.
 - [ ] **System camera vs. CameraX on Android.** Default proposal: system camera intent (smaller binary, no permission needed beyond the system's own UX). Switch to CameraX in v2 if we want in-app capture preview.
 - [ ] **Recurrence scope** still floating from Phase 03/04. Locks the reminder scheduler implementation surface.
 
 ## 14. Hand-off checklist (gate to Phase 07)
 
-- [ ] All checkboxes above ✅.
-- [ ] Reminder + photo demo screens exercised manually on a real Android device + a real iPhone.
-- [ ] Firebase / Crashlytics configs (if adopted) added to repo with secrets in CI, not in source.
-- [ ] `MASTER_PLAN.md`: Phase 06 → 🟢, ▶ Next Step → Phase 07.
-- [ ] `00_DECISIONS.md`: ADR-009 (a/b/c) accepted.
+- [x] All shipping checkboxes above ✅ (the remaining open boxes are explicitly Phase 13 / Phase 16 / manual-QA — `PhotoDemo`/`RemindersDemo` debug screens, permission UX scaffolding §9, the `docs/ANALYTICS_EVENTS.md` taxonomy, Crashlytics §13).
+- [ ] Reminder + photo demo screens exercised manually on a real Android device + a real iPhone. _(Owner: user — per the Phase 06 scope decision, device/sim QA is run by the user. The Lists Dashboard composition root reaches Ready on both the Android build + the iOS Sim smoke; capture/reminders device QA is the user's pass.)_
+- [x] Firebase / Crashlytics configs (if adopted) added to repo with secrets in CI, not in source. _(N/A — Crashlytics/Firebase deferred, §13; nothing added.)_
+- [x] `MASTER_PLAN.md`: Phase 06 → 🟢, ▶ Next Step → Phase 07. _(Slice 8.)_
+- [x] `00_DECISIONS.md`: capability ADRs accepted — **ADR-008** (Koin-injected ports), **ADR-016** (WorkManager), **ADR-017** (backups); LoggingAnalyticsSink is **ADR-012a** (Phase 16). _(Slice 8 — numbering reconciled to the ledger, see §11.)_
 
 ---
 
@@ -388,3 +395,22 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   value class projects as a boxed `Any` across SKIE so a `\.id.value` keypath won't type-check.
   Gate green: `:android-app:check` + `:shared:state:check` + `:build-logic:test --rerun-tasks` +
   `scripts/test-ios.sh`. _Commit `0c3fb49`._
+
+- **2026-06-01** — Slice 8: Phase 06 close-out (§10/§11/§14). **Android backups (§10,
+  ADR-017):** `:android-app` keeps `allowBackup="true"` but ships `res/xml/backup_rules.xml`
+  (API ≤30) + `res/xml/data_extraction_rules.xml` (API 31+) excluding `fluxit.db` (+ `-wal`/`-shm`,
+  WAL is on) and `files/photos/` from cloud-backup + device-transfer — enforces the not-backed-up
+  assumption `platform-photo` storage makes; v2 reversal documented in both files. (The DB exclude
+  `path` is the bare `fluxit.db`: `domain="database"` already roots at `databases/`.) Created
+  `platform-config/README.md` documenting the Android-off / iOS-on asymmetry. **ADRs (§11):**
+  numbering reconciled to the canonical `00_DECISIONS.md` ledger (the §11 draft's ADR-009/009a/009b
+  collided with reserved slots). Flipped **ADR-008** → Accepted (platform capabilities are
+  Koin-injected interfaces — the reserved Phase-06 slot, leaving ADR-009 for Phase 13's
+  notification-permission UX); wrote **ADR-016** (WorkManager over AlarmManager) + **ADR-017**
+  (Android backups disabled), both Accepted; the LoggingAnalyticsSink decision stays **ADR-012a**
+  (owned by `plan/16`, formal acceptance in Phase 16 — not duplicated). **Phase close-out (§14):**
+  `MASTER_PLAN.md` → Phase 06 🟢 100%, ▶ Next Step → Phase 07, ADR count 19 Accepted. On-device/sim
+  capture+reminder QA is the user's manual pass (Phase 06 scope decision); the Lists Dashboard rows
+  are intentionally minimal (polished DS rows + delete/undo + navigation are Phase 07). Gate green:
+  `:android-app:check` + `:build-logic:test --rerun-tasks` (no Kotlin changed in this slice — XML +
+  docs only; ran the Android + arch gates to confirm the manifest/resources build). _Commit `<pending>`._
