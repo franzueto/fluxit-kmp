@@ -354,4 +354,4 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   Gate green: `:shared:state:check` (JVM + Kover ≥90% + iOS-Sim) + `:build-logic:test`
   + `scripts/test-ios.sh`. **Notes:** AccountStore `version`/`flags` stay interim
   literals (routing them through `ConfigProvider` is a later slice, not the port swap).
-  _Commit `<pending>`._
+  _Commit `dbea031`._
