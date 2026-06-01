@@ -27,7 +27,7 @@ cadence. Each `platform-*` slice ships: commonMain Koin module + helpers,
 5. **`platform-photo`** — `PhotoCapture` + `PhotoStorage` + encoder + Activity/UIViewController host plumbing.
 6. **Swap interim → real** in `initKoin`: replace `InterimPlatformModule` bindings with the 5 platform modules, **delete `InterimPlatformModule.kt`**, update `appModules()`/`initKoinIos()` + android start site. ✅
 7. **Composition roots** — `:android-app` (Koin start + Compose `NavHost` off `RootStore`); iOS `@main App` + `NavigationStack`. ✅
-8. **Lists Dashboard end-to-end** both platforms; on-device/sim round-trip; flip ADRs 009/009a/009b(/009c) Accepted; Phase 06 → 🟢.
+8. **Close-out** — Android backup excludes (ADR-017); capability ADRs Accepted (ADR-008 Koin-injected ports / ADR-016 WorkManager / ADR-017 backups; analytics = ADR-012a in Phase 16); hand-off checklist + Phase 06 → 🟢. (On-device/sim capture+reminder round-trip is the user's manual QA pass; the polished Lists Dashboard e2e is Phase 07.) ✅
 
 A Konsist `PlatformLayerArchTest` (mirroring `StateLayer`/`DataLayerArchTest`) lands
 with the first slice that introduces a bannable platform import (reminders/photo),
@@ -413,4 +413,4 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   capture+reminder QA is the user's manual pass (Phase 06 scope decision); the Lists Dashboard rows
   are intentionally minimal (polished DS rows + delete/undo + navigation are Phase 07). Gate green:
   `:android-app:check` + `:build-logic:test --rerun-tasks` (no Kotlin changed in this slice — XML +
-  docs only; ran the Android + arch gates to confirm the manifest/resources build). _Commit `<pending>`._
+  docs only; ran the Android + arch gates to confirm the manifest/resources build). _Commit `6d07473`._
