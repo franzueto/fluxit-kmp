@@ -278,4 +278,4 @@ Mapping table (same on both platforms):
   tokens — regenerated via `generateTokens` (Kotlin `FluxItColors` + the committed
   `ios-app/Generated/FluxItTokens.swift` Swift mirror). iOS `FluxItSwipeRow`
   (`.swipeActions`) lands with the iOS dashboard in Slice 7. Gate green:
-  `:core:core-designsystem:check`, `:build-logic:test --rerun-tasks`. _Commit `<pending>`._
+  `:core:core-designsystem:check`, `:build-logic:test --rerun-tasks`. _Commit `edaa871`._
