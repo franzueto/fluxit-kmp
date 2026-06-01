@@ -332,4 +332,4 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   (one delegate, less plumbing; PHPicker is a follow-up). (3) Capture (both platforms) is
   manual-QA only per the Phase 06 scope decision — built (Android) / built-not-run (iOS-Sim),
   no instrumented test. (4) No CameraX / `Photos.framework` → nothing to add to the Konsist
-  ban. (5) interim NoOp photo bindings swapped in Slice 6. _Commit `<pending>`._
+  ban. (5) interim NoOp photo bindings swapped in Slice 6. _Commit `0b89714`._
