@@ -15,6 +15,11 @@ android {
 kotlin {
     sourceSets {
         androidMain.dependencies {
+            // The design system maps the domain's list-identity enums
+            // (FluxItIconRef / ColorToken) to ImageVector / Color (ADR-005a,
+            // Phase 04 §2: domain owns the refs, the DS consumes them). The
+            // inward arrow (domain → designsystem) stays forbidden via ArchTest.
+            implementation(project(":shared:domain"))
             // Generated FluxItColors / FluxItTypography / FluxItShapes /
             // FluxItElevation / FluxItSpacing reference Compose types
             // (Color, TextStyle, Dp, RoundedCornerShape). These deps make

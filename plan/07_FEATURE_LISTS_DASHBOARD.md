@@ -237,7 +237,7 @@ Mapping table (same on both platforms):
 - [ ] Snapshot tests checked in; CI golden compare green.
 - [ ] No Konsist failures; literal-ban + cross-feature-dep rules verified.
 - [ ] **Design sign-off** on swipe-to-delete (vs. mockup's visible trash icon). Outcome recorded in commit message.
-- [ ] **`02_DESIGN_SYSTEM.md` backfill**: add `FluxItSwipeRow` to the primitives list (§5).
+- [x] **`02_DESIGN_SYSTEM.md` backfill**: add `FluxItSwipeRow` to the primitives list (§5). _(Slice 2.)_
 - [ ] `MASTER_PLAN.md`: Phase 07 → 🟢, ▶ Next Step → Phase 08, M4 (Core User Surfaces) progress bar advanced.
 
 ---
@@ -261,3 +261,21 @@ Mapping table (same on both platforms):
   `DashboardViewModel`/`koinViewModel` scoping yet — that lands with the real screen in
   Slice 5 to keep the scaffold a pure move. Gate green: `:features:feature-lists:check`,
   `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`. _Commit `70a3f37`._
+
+- **2026-06-01** — Slice 2: design-system backfill — `FluxItSwipeRow` + public
+  list-identity mappers (§3 / §12 / §13, Phase 02 §5). Added `FluxItSwipeRow` to
+  `core-designsystem` (Material3 `SwipeToDismissBox`, end-to-start only, rose-tinted
+  `accentRose @ 20%` background, `confirmValueChange` → `onDelete`; the store owns the
+  optimistic removal + 5s undo so the primitive never animates back). Promoted the
+  `FluxItIconRef→ImageVector` and `ColorToken→Color` mappings out of the debug Theme
+  Gallery into public DS API (`components/ListIdentity.kt`), both `when`s exhaustive over
+  the domain enums so a new ref/token breaks the build here. This needed two supporting
+  changes: (1) `core-designsystem` now `implementation(project(":shared:domain"))` —
+  the intended ADR-006c/Phase-04-§2 direction (domain owns the refs, DS consumes them;
+  the inward arrow stays ArchTest-forbidden); (2) `tokens.json` gained the four missing
+  list-identity accent swatches (`accent.emerald #10b981`, `orange #f97316`,
+  `indigo #6366f1`, `sky #0ea5e9`) — `ColorToken` has six values but only blue+rose had
+  tokens — regenerated via `generateTokens` (Kotlin `FluxItColors` + the committed
+  `ios-app/Generated/FluxItTokens.swift` Swift mirror). iOS `FluxItSwipeRow`
+  (`.swipeActions`) lands with the iOS dashboard in Slice 7. Gate green:
+  `:core:core-designsystem:check`, `:build-logic:test --rerun-tasks`. _Commit `<pending>`._
