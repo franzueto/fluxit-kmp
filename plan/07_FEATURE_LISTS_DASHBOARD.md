@@ -260,4 +260,4 @@ Mapping table (same on both platforms):
   `koinInject` store-resolution pattern rather than introducing the §4
   `DashboardViewModel`/`koinViewModel` scoping yet — that lands with the real screen in
   Slice 5 to keep the scaffold a pure move. Gate green: `:features:feature-lists:check`,
-  `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`. _Commit `<pending>`._
+  `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`. _Commit `70a3f37`._
