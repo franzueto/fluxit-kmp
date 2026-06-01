@@ -90,6 +90,15 @@ kotlin {
             // use-case-only rule on the stores themselves.
             implementation(libs.koin.core)
             implementation(project(":shared:data"))
+            // Phase 06 Slice 6: the di/ composition root aggregates the five real
+            // :platform:* Koin modules (fluxitPlatformModules()), replacing the
+            // interim no-op port bindings. Scoped to di/ — StateLayerArchTest
+            // exempts that package from the :platform:* import ban (ADR-015).
+            implementation(project(":platform:platform-logging"))
+            implementation(project(":platform:platform-config"))
+            implementation(project(":platform:platform-analytics"))
+            implementation(project(":platform:platform-reminders"))
+            implementation(project(":platform:platform-photo"))
             // The Sql*Repository constructors default `ids` to IdGenerator.System
             // (core-utils). Even though DataModule never passes it, the compiler
             // resolves that default-value type, so core-utils must be on the
@@ -104,6 +113,12 @@ kotlin {
             // FakeClock / …) so ListsDashboardStore tests drive real use cases over
             // in-memory repositories instead of bespoke stubs (Phase 05 Slice 4).
             implementation(project(":shared:domain-testing"))
+        }
+        // initKoinAndroid (the Android composition-root entry point, Phase 06
+        // Slice 7) installs `androidContext()` into the Koin graph, so androidMain
+        // needs koin-android. Mirrors iosMain's reliance on the common koin.core.
+        androidMain.dependencies {
+            implementation(libs.koin.android)
         }
         // KoinGraphTest runs JVM-only (androidUnitTest): it needs a concrete
         // SqlDriver to satisfy DataModule. The JVM sqlite driver supplies an

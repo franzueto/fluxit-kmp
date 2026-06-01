@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup / device-transfer exclusions for API 31+ (ADR-009b, plan/06 §10).
+  Mirrors backup_rules.xml (API ≤ 30): exclude the SQLDelight database (+ its
+  WAL/shm sidecars) and the photo store from both cloud backup and direct
+  device-to-device transfer, for the local-only-no-sync reasons documented there.
+  v2 reversal once sync ships: drop these excludes.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" path="fluxit.db" />
+        <exclude domain="database" path="fluxit.db-wal" />
+        <exclude domain="database" path="fluxit.db-shm" />
+        <exclude domain="file" path="photos/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="database" path="fluxit.db" />
+        <exclude domain="database" path="fluxit.db-wal" />
+        <exclude domain="database" path="fluxit.db-shm" />
+        <exclude domain="file" path="photos/" />
+    </device-transfer>
+</data-extraction-rules>

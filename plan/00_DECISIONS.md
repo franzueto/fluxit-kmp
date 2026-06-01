@@ -585,13 +585,59 @@
 
 ---
 
+### ADR-008 — Platform capabilities are Koin-injected interfaces, not bare `expect`/`actual`
+
+- **Status:** Accepted (flipped from the reserved/Proposed Phase-06 slot on 2026-06-01 at Phase 06 close-out; preconditions met — all five `:platform:*` modules ship a domain-port impl bound through a Koin `Module`, the JVM `KoinGraphTest` + iOS runtime smoke both resolve the assembled graph, and the composition roots — `:android-app` `initKoinAndroid` / `ios-app` `doInitKoinIos` — consume only the injected interfaces). Anticipated as the Phase-06 "expect/actual-vs-Koin" question; ADR-015's note already flagged it as effectively answered. This entry ratifies the as-built state. (This is the decision `plan/06_PLATFORM_MODULES.md` §11 drafted as "ADR-009"; numbered ADR-008 here to fit the reserved ledger slot and keep ADR-009 free for the Phase-13 notification-permission-UX decision.)
+- **Date:** 2026-06-01
+- **Context:** Every Phase-04 capability port (`AppLogger`, `ConfigProvider`, `AnalyticsSink`, `ReminderScheduler`, `PhotoCapture`/`PhotoStorage`/`PhotoEncoder`, plus `Clock`/`IdGenerator`) needs a per-platform implementation. The two idioms available: (a) a bare top-level `expect`/`actual` declaration resolved by the Kotlin compiler per target, or (b) a domain `interface` (the port) with Android/iOS classes bound through Koin. Domain (ADR-007/007a/007b) is pure and must not see platform types; `:shared:state` stores depend on ports only (ADR-014/015).
+- **Decision:** Capabilities are **Koin-injected interfaces**. Each `:platform:*` module exposes one Koin `Module` (`loggingModule`, `configModule`, `analyticsModule`, and the `expect`/`actual` `remindersModule()`/`photoModule()` for the OS-context-bound ones) binding the domain port to its platform impl. `expect`/`actual` is kept to the narrow seams where it genuinely fits — the *module factory* (`remindersModule()`/`photoModule()`), Kermit's `platformLogWriters()`, `:core:core-utils` `newId()`, and `:shared:data`'s `DriverFactory` — i.e. truly OS-level primitives, not whole capabilities.
+- **Consequences:**
+  - ➕ Ports are trivially fakeable (the `:shared:domain-testing` fakes wire through the same Koin seam), swappable per build flavor, and the `expect`/`actual` surface stays small.
+  - ➕ One aggregator (`fluxitPlatformModules()`) gives both platforms an identical start site; the OS-context-bound modules resolve their actual per target.
+  - ➖ A capability resolves at runtime (Koin) rather than compile time, so a missing binding is a `KoinGraphTest` failure, not a compile error. Accepted: the graph test + both platform builds cover it.
+- **Alternatives considered:**
+  - **Bare `expect`/`actual` for each capability** — rejected: forces platform types toward common call sites, fights the pure-domain rule, and is far harder to fake/swap in tests.
+  - **A single hand-rolled `PlatformModule` service-locator** — rejected: re-implements Koin badly and loses `verify()`/graph-test coverage.
+- **Resolves Open Questions:** the Phase-06 "expect/actual vs. injected interfaces" question (this file's Pending list) and `plan/06` §8.
+
+---
+
+### ADR-016 — WorkManager (best-effort) over `AlarmManager` (exact) for v1 reminders
+
+- **Status:** Accepted (Phase 06 close-out, 2026-06-01; `platform-reminders` ships `AndroidReminderScheduler` on WorkManager — Slice 4). (Drafted as "ADR-009a" in `plan/06` §11; numbered ADR-016 here as the next free sequential slot, since ADR-009 is reserved for Phase 13.)
+- **Date:** 2026-06-01
+- **Context:** Android list reminders need to fire near a target time and survive reboot. Two mechanisms: `AlarmManager` exact alarms (`setExactAndAllowWhileIdle`) — second-accurate but, on Android 12+/14+, gated behind the `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` permission with its own user-facing settings toggle and Play-policy scrutiny — or `WorkManager` (`OneTimeWorkRequest`/`PeriodicWorkRequest`) — best-effort timing (subject to Doze batching) but no special permission and built-in reboot persistence.
+- **Decision:** Use **WorkManager**. v1's reliability target is "reminded around the right time," not "to the second," and the WorkManager persistence model removes any need for a `BOOT_COMPLETED` receiver. Recurrence is mapped onto work requests (one per weekday for `Weekly`; a self-rescheduling one-shot chain for `Monthly`), with `RehydrateReminders` repairing drift at app start.
+- **Consequences:**
+  - ➕ No exact-alarm permission prompt or Play-policy exposure; reboot-safe for free.
+  - ➖ Doze can delay delivery; documented in the module README as an accepted v1 limitation (missed reminders are logged, not recovered).
+  - 🔁 v2 may add an opt-in exact-alarm path for time-critical reminders behind the runtime permission.
+- **Alternatives considered:** `AlarmManager` exact alarms — rejected for v1 on the permission-friction + policy grounds above. The iOS side uses `UNUserNotificationCenter` calendar triggers (no analogous choice).
+
+---
+
+### ADR-017 — Android auto-backup disabled for the SQLDelight DB + photo store in v1
+
+- **Status:** Accepted (Phase 06 close-out, 2026-06-01; `:android-app` ships `backup_rules.xml` + `data_extraction_rules.xml` excluding `fluxit.db` (+ WAL/shm) and `files/photos/`, with `allowBackup="true"`). (Drafted as "ADR-009b" in `plan/06` §11; numbered ADR-017 here as the next free sequential slot.)
+- **Date:** 2026-06-01
+- **Context:** Android auto-backup would copy the app's database + files to the cloud (and device-transfer) by default. v1 is local-only with no sync (ADR-003): a restore onto a new device, with no server to reconcile against, would surface stale/confusing lists, and `platform-photo`'s storage explicitly assumes `files/photos/` is **not** backed up. iOS, by contrast, leaves data in the default iCloud backup (§10) — that backup *is* effectively the only "sync" v1 offers, and an iCloud restore bringing lists back matches user expectation.
+- **Decision:** On Android, keep auto-backup **enabled** but **exclude** `fluxit.db` (and its `-wal`/`-shm` sidecars, since WAL is on) and `files/photos/` from both cloud-backup and device-transfer, via `android:fullBackupContent` (API ≤ 30) + `android:dataExtractionRules` (API 31+). Accept the documented Android-off / iOS-on asymmetry.
+- **Consequences:**
+  - ➕ No confusing partial restore of un-synced lists/photos on Android; `platform-photo`'s not-backed-up assumption is enforced at the app level.
+  - ➖ An Android user who factory-resets loses local lists/photos (no cloud copy). Accepted for a local-only v1.
+  - 🔁 v2 reversal once sync ships: drop the excludes so a cloud restore rehydrates lists. Documented in both rules files + `platform-config/README.md`.
+- **Alternatives considered:** `allowBackup="false"` (disable entirely) — rejected: blunter than needed and would also exclude any future non-sensitive app data; the selective-exclude rules express the actual intent and leave a clean v2 reversal seam. Backing up the DB — rejected per the no-sync reconciliation problem above.
+
+---
+
 ## Pending / Anticipated ADRs
 
 These are *expected* to be opened during the relevant phase. Listed here so we don't forget.
-- **ADR-008** (Phase 06): expect/actual vs. Koin-injected interfaces for platform capabilities (we'll likely standardize on injected interfaces).
 - **ADR-009** (Phase 13): Notification permission UX — when to ask, how to recover from denial.
 - **ADR-010** (Phase 14): Test pyramid shape and minimum coverage gates per layer.
 - **ADR-011** (Phase 15): Branching strategy + CI matrix shape (trunk-based vs. GitFlow).
+
+> **ADR-008** (platform capabilities are Koin-injected interfaces) **Accepted** at Phase 06 close-out — see the ADR-008 section above. The Phase-06 capability decisions `plan/06` §11 drafted as ADR-009/009a/009b landed as **ADR-008** (this slot), **ADR-016** (WorkManager over AlarmManager), and **ADR-017** (Android backups disabled); the "009c" LoggingAnalyticsSink decision is **ADR-012a** (formal acceptance in Phase 16). ADR-009 stays reserved for the Phase-13 notification-permission-UX decision.
 
 > **ADR-014** (MVI store contract) **Accepted** at Phase 05 Slice 4 (opened Proposed at Slice 1) — see the ADR-014 section above. It folds the three sub-decisions `plan/05` §13 originally mislabeled ADR-008/008a/008b.
 

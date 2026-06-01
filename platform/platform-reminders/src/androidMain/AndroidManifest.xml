@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- POST_NOTIFICATIONS (Android 13+) merges into the app manifest so reminders
+     can post notifications. The runtime grant is checked by AndroidReminderScheduler
+     and requested by the app UI (Phase 13). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+</manifest>

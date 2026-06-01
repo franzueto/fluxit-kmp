@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider exposes the camera capture temp file (in cacheDir) to the system
+     camera app, which needs a content:// URI to write the full-resolution image
+     (plan/06 §6/§7). Authority is ${applicationId}.fileprovider so it merges into
+     whichever app embeds this module. Photo *storage* still hands back absolute
+     file paths in v1 (content:// for sharing is a documented follow-up). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/fluxit_photo_paths" />
+        </provider>
+    </application>
+</manifest>
