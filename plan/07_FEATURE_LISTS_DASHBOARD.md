@@ -14,6 +14,39 @@
 
 ---
 
+## 0. Slice plan & cadence
+
+Phase 07 ships one `feat` commit per slice (plan files synced in-commit, impl-log
+entry `_Commit `<pending>`._`) + a `docs(plan):` SHA-backfill commit, per the Phase
+05/06 cadence. Pre-commit gate: `:check` of each touched module + `:build-logic:test
+--rerun-tasks`; iOS-facing slices also run `scripts/test-ios.sh`.
+
+**Decisions taken at kickoff (2026-06-01):** (a) the Android dashboard UI lives in a
+new `:features:feature-lists` Gradle module (per §4/§11), not inline in `:android-app`;
+(b) snapshot infra (Paparazzi + swift-snapshot-testing) is built in the final slice,
+meeting the exit criterion.
+
+1. **`:features:feature-lists` scaffold** — new `fluxit.kmp.feature` module; move the
+   Phase-06 minimal dashboard in as `DashboardRoute`/`DashboardScreen`; `:android-app`
+   depends on it; §11 Konsist rules (cross-feature ban already present; add the
+   `:shared:data` ban).
+2. **DS backfill** — `FluxItSwipeRow` + public `FluxItIconRef→ImageVector` /
+   `ColorToken→Color` mappers in `core-designsystem`; `02_DESIGN_SYSTEM.md` §5 note.
+3. **`RootStore` deep-link extension** — `openDeepLink(url)` intent + `NavigateToList`/
+   `NavigateToItem` effects + a pure `fluxit://` parser, unit-tested (≥90% gate).
+4. **Android app shell & nav graph** — full route set + tab host (`FluxItBottomTabBar`
+   + center FAB off `RootStore.currentTab`), deep-link intent filter, edge-to-edge.
+5. **Android dashboard screen** — real DS composition, swipe-to-delete + 5s undo
+   snackbar, FAB→create, empty/empty-search/error/loading, exhaustive `EffectHandler`.
+6. **Coming-soon + Account + Settings stub + debug seed** — `SeedSampleData` use case
+   (`:shared:state/debug/`), Account seed button (debug), coming-soon placeholder.
+7. **iOS app shell + dashboard** — `NavigationStack` per tab, tab bar + FAB overlay,
+   DS-composed `DashboardView` with `.swipeActions` + undo overlay, deep links, seed.
+8. **Snapshot infra + tests + close-out** — Paparazzi + swift-snapshot-testing goldens;
+   `MASTER_PLAN.md` → 🟢; hand-off (§13).
+
+---
+
 ## 1. App shell (one-time setup)
 
 ### Android (`android-app`)
@@ -206,3 +239,25 @@ Mapping table (same on both platforms):
 - [ ] **Design sign-off** on swipe-to-delete (vs. mockup's visible trash icon). Outcome recorded in commit message.
 - [ ] **`02_DESIGN_SYSTEM.md` backfill**: add `FluxItSwipeRow` to the primitives list (§5).
 - [ ] `MASTER_PLAN.md`: Phase 07 → 🟢, ▶ Next Step → Phase 08, M4 (Core User Surfaces) progress bar advanced.
+
+---
+
+## 14. Implementation Log
+
+- **2026-06-01** — Slice 1: `:features:feature-lists` module scaffold (§0 / §4 / §11).
+  Stood up the new feature module via the pre-existing `fluxit.kmp.feature` convention
+  plugin (namespace `dev.franzueto.fluxit.feature.lists`, Compose enabled, deps on
+  `:shared:state` + `:shared:domain` + `:core:core-designsystem` + the `compose-ui`
+  bundle + `koin-compose`). Registered it in `settings.gradle.kts`. Moved the Phase-06
+  minimal `ListsDashboardScreen` out of `:android-app/ui` and split it into
+  `DashboardRoute` (Koin/store glue — `koinInject<ListsDashboardStore>` + `collectAsState`,
+  forwards `store::dispatch`) and the stateless `DashboardScreen(state, onIntent)`;
+  `:android-app` now depends on `:features:feature-lists` and `FluxItRoot`'s NavHost
+  renders `DashboardRoute()`. Konsist: the cross-feature-dep ban already covers
+  `/features/feature-*`; added the §11 `:shared:data`-import ban to `ArchitectureTest`.
+  The minimal body is a deliberate placeholder — DS composition, swipe/undo, and the
+  effect→nav mapping land in Slices 2/4/5. **Divergence:** kept the Phase-06
+  `koinInject` store-resolution pattern rather than introducing the §4
+  `DashboardViewModel`/`koinViewModel` scoping yet — that lands with the real screen in
+  Slice 5 to keep the scaffold a pure move. Gate green: `:features:feature-lists:check`,
+  `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`. _Commit `<pending>`._

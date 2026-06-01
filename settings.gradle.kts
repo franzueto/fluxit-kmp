@@ -52,3 +52,7 @@ project(":shared:domain").projectDir = file("shared/domain")
 project(":shared:domain-testing").projectDir = file("shared/domain-testing")
 project(":shared:data").projectDir = file("shared/data")
 project(":shared:state").projectDir = file("shared/state")
+
+// features
+include(":features:feature-lists")
+project(":features:feature-lists").projectDir = file("features/feature-lists")

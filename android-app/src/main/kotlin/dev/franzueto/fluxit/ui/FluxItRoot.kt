@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dev.franzueto.fluxit.core.designsystem.theme.FluxItTheme
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItSpacing
+import dev.franzueto.fluxit.feature.lists.DashboardRoute
 import dev.franzueto.fluxit.shared.state.store.InitState
 import dev.franzueto.fluxit.shared.state.store.RootIntent
 import dev.franzueto.fluxit.shared.state.store.RootStore
@@ -84,7 +85,7 @@ private fun StartupError(
 private fun FluxItNavHost() {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = LISTS_ROUTE) {
-        composable(LISTS_ROUTE) { ListsDashboardScreen() }
+        composable(LISTS_ROUTE) { DashboardRoute() }
     }
 }
 
