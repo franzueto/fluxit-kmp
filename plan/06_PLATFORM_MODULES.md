@@ -25,7 +25,7 @@ cadence. Each `platform-*` slice ships: commonMain Koin module + helpers,
 3. **`platform-analytics`** — `AnalyticsSink` port (built in `:shared:domain` first) + `LoggingAnalyticsSink` (ADR-012a).
 4. **`platform-reminders`** — `ReminderScheduler` (WorkManager+NotificationCompat / `UNUserNotificationCenter`).
 5. **`platform-photo`** — `PhotoCapture` + `PhotoStorage` + encoder + Activity/UIViewController host plumbing.
-6. **Swap interim → real** in `initKoin`: replace `InterimPlatformModule` bindings with the 5 platform modules, **delete `InterimPlatformModule.kt`**, update `appModules()`/`initKoinIos()` + android start site.
+6. **Swap interim → real** in `initKoin`: replace `InterimPlatformModule` bindings with the 5 platform modules, **delete `InterimPlatformModule.kt`**, update `appModules()`/`initKoinIos()` + android start site. ✅
 7. **Composition roots** — `:android-app` (Koin start + Compose `NavHost` off `RootStore`); iOS `@main App` + `NavigationStack`.
 8. **Lists Dashboard end-to-end** both platforms; on-device/sim round-trip; flip ADRs 009/009a/009b(/009c) Accepted; Phase 06 → 🟢.
 
@@ -182,9 +182,11 @@ This is the heaviest module. Both platforms have rough edges around permissions,
 
 ## 8. Koin wiring
 
-- [ ] Each module exports one Koin `Module`. App-level Koin init in `android-app` / `ios-app` aggregates: `loggingModule + analyticsModule + configModule + remindersModule + photoModule + dataModule + stateModule + featureModules…`.
-- [ ] **Ordering matters**: logging first (so other modules can log init), config next (clock + ids needed for IDs in stores), then capabilities, then features.
-- [ ] Provide a single `fluxitPlatformModules(): List<Module>` aggregator in commonMain to make Koin start sites identical on both platforms.
+## 8. Koin wiring — ✅ Slice 6
+
+- [x] Each module exports one Koin `Module`. _(Slice 6 — `:shared:state`'s `appModules()` now aggregates `fluxitPlatformModules() + domainModule + dataModule + stateModule`; the interim `platformModule` is gone.)_
+- [x] **Ordering matters**: logging first, config next, then capabilities, then features. _(Slice 6 — `fluxitPlatformModules()` = `loggingModule, configModule, analyticsModule, remindersModule(), photoModule()` in that order; domain/data/state follow.)_
+- [x] Provide a single `fluxitPlatformModules(): List<Module>` aggregator to make Koin start sites identical on both platforms. _(Slice 6 — in `:shared:state` `di/InitKoin.kt`; `expect`/`actual` `remindersModule()`/`photoModule()` resolve per-platform. Lives in `:shared:state` (not a UI module) so `initKoin`/`initKoinIos` already pick it up — the iOS smoke now resolves the real iOS platform ports + reaches `RootStore` Ready. **`InterimPlatformModule.kt` deleted**; the `factory<CoroutineScope>` moved into `stateModule`. JVM `KoinGraphTest` runs over the real common platform modules + `:shared:domain-testing` fakes for the two OS-context-bound capability ports (those actuals are covered by their own modules' builds + on-device QA). `appModules(platformModules = …)` gained an injectable param for that substitution.)_
 
 ## 9. Permissions UX scaffolding
 
@@ -333,3 +335,23 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   manual-QA only per the Phase 06 scope decision — built (Android) / built-not-run (iOS-Sim),
   no instrumented test. (4) No CameraX / `Photos.framework` → nothing to add to the Konsist
   ban. (5) interim NoOp photo bindings swapped in Slice 6. _Commit `0b89714`._
+
+- **2026-05-31** — Slice 6: swap interim → real platform ports in the composition
+  root (§8). Added the `fluxitPlatformModules()` aggregator to `:shared:state`
+  `di/InitKoin.kt` (`loggingModule, configModule, analyticsModule, remindersModule(),
+  photoModule()` in §8 order) and rewired `appModules()` to
+  `fluxitPlatformModules() + domainModule + dataModule + stateModule`. **Deleted
+  `InterimPlatformModule.kt`** (NoOp scheduler/capture/storage + interim
+  Clock/AppLogger); the `factory<CoroutineScope>` moved into `stateModule`. Added
+  the five `:platform:*` modules as `:shared:state` commonMain deps (di/ is exempt
+  from `StateLayerArchTest`'s `:platform:*` import ban). `appModules()` gained an
+  injectable `platformModules` param so the JVM `KoinGraphTest` runs over the real
+  common platform modules + `:shared:domain-testing` fakes for the OS-context-bound
+  reminders/photo ports (whose android actuals need `androidContext()` + WorkManager).
+  `initKoinIos()` needs no change — it calls `initKoin` which now defaults to the
+  real platform graph; the iOS smoke (`scripts/test-ios.sh`) resolves the **real**
+  iOS `remindersModule()`/`photoModule()` actuals and `RootStore` still reaches Ready.
+  Gate green: `:shared:state:check` (JVM + Kover ≥90% + iOS-Sim) + `:build-logic:test`
+  + `scripts/test-ios.sh`. **Notes:** AccountStore `version`/`flags` stay interim
+  literals (routing them through `ConfigProvider` is a later slice, not the port swap).
+  _Commit `<pending>`._

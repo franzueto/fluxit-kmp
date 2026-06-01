@@ -90,6 +90,15 @@ kotlin {
             // use-case-only rule on the stores themselves.
             implementation(libs.koin.core)
             implementation(project(":shared:data"))
+            // Phase 06 Slice 6: the di/ composition root aggregates the five real
+            // :platform:* Koin modules (fluxitPlatformModules()), replacing the
+            // interim no-op port bindings. Scoped to di/ — StateLayerArchTest
+            // exempts that package from the :platform:* import ban (ADR-015).
+            implementation(project(":platform:platform-logging"))
+            implementation(project(":platform:platform-config"))
+            implementation(project(":platform:platform-analytics"))
+            implementation(project(":platform:platform-reminders"))
+            implementation(project(":platform:platform-photo"))
             // The Sql*Repository constructors default `ids` to IdGenerator.System
             // (core-utils). Even though DataModule never passes it, the compiler
             // resolves that default-value type, so core-utils must be on the
