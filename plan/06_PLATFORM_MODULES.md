@@ -26,7 +26,7 @@ cadence. Each `platform-*` slice ships: commonMain Koin module + helpers,
 4. **`platform-reminders`** — `ReminderScheduler` (WorkManager+NotificationCompat / `UNUserNotificationCenter`).
 5. **`platform-photo`** — `PhotoCapture` + `PhotoStorage` + encoder + Activity/UIViewController host plumbing.
 6. **Swap interim → real** in `initKoin`: replace `InterimPlatformModule` bindings with the 5 platform modules, **delete `InterimPlatformModule.kt`**, update `appModules()`/`initKoinIos()` + android start site. ✅
-7. **Composition roots** — `:android-app` (Koin start + Compose `NavHost` off `RootStore`); iOS `@main App` + `NavigationStack`.
+7. **Composition roots** — `:android-app` (Koin start + Compose `NavHost` off `RootStore`); iOS `@main App` + `NavigationStack`. ✅
 8. **Lists Dashboard end-to-end** both platforms; on-device/sim round-trip; flip ADRs 009/009a/009b(/009c) Accepted; Phase 06 → 🟢.
 
 A Konsist `PlatformLayerArchTest` (mirroring `StateLayer`/`DataLayerArchTest`) lands
@@ -355,3 +355,36 @@ This phase ships the *plumbing*; Phase 13 ships the polished UX. Scaffolding her
   + `scripts/test-ios.sh`. **Notes:** AccountStore `version`/`flags` stay interim
   literals (routing them through `ConfigProvider` is a later slice, not the port swap).
   _Commit `dbea031`._
+
+- **2026-05-31** — Slice 7: composition-root UI on both platforms (§0 item 7, §7).
+  **Common (`:shared:state` di/):** `initKoin` gained an `appDeclaration: KoinAppDeclaration`
+  param (runs inside `startKoin { }` before modules) so a platform can install Koin
+  extensions other modules depend on; added `resolveListsDashboardStore()` (Swift-callable
+  factory resolver, mirroring `resolveRootStore()`). New `androidMain` `initKoinAndroid(context)`
+  (mirrors `initKoinIos`) supplies the native `SqlDriver` via `DriverFactory(context).create()`
+  **and** installs `androidContext(context)` via `appDeclaration` — now **required** because the
+  real `remindersModule()`/`photoModule()` android actuals resolve `androidContext()` (interim
+  Slice-6 modules didn't). Added `koin-android` to `:shared:state` `androidMain`.
+  **`:android-app`:** `FluxItApp.onCreate()` → `initKoinAndroid(this)`; `MainActivity` `inject()`s
+  the `ActivityResultRegistryProvider` host-holder (§7) and `attach`/`detach`es
+  `activityResultRegistry` on resume/pause via a `DefaultLifecycleObserver` (without this, photo
+  capture times out), then hosts `FluxItRoot` — a Compose composition root that resolves
+  `RootStore` via `koinInject`, dispatches `AppStarted`, and gates a `NavHost` (start destination
+  Lists) on `InitState` (splash / retry / Ready). `ListsDashboardScreen` is wired to
+  `ListsDashboardStore` (state renders; search dispatches into the real use-case feed). Added
+  `:platform:platform-photo` to `:android-app` deps for the holder type. **iOS `ios-app`:**
+  `FluxItApp.init` now starts Koin once via `doInitKoinIos()` (the composition root owns it for
+  the process); `ContentView` resolves `RootStore`, dispatches `AppStarted`, observes `init`, and
+  shows a `NavigationStack` → `ListsDashboardView` (wired to `ListsDashboardStore` via
+  `resolveListsDashboardStore()`) on Ready. `NSCameraUsageDescription` +
+  `NSPhotoLibraryUsageDescription` added to `Info.plist`. **Test fix:** the §12 runtime smoke
+  (`testRootStoreReachesReadyAtRuntime`) no longer calls `doInitKoinIos()`/`stopKoinApp()` itself
+  — the app host now starts Koin at launch, so a second start threw
+  `KoinApplicationAlreadyStartedException`; it resolves the already-started `RootStore` instead.
+  **Divergences:** (a) the Android Lists rows / iOS list use plain Compose-Material3 / SwiftUI
+  rather than the design-system list components — the polished DS rows + delete/undo + navigation
+  effects land with the Lists feature phase / Slice 8 e2e (Slice 7's job is the reachable
+  composition root); (b) the iOS `ForEach` ids rows by index, not `ListSummary.id` — the `ListId`
+  value class projects as a boxed `Any` across SKIE so a `\.id.value` keypath won't type-check.
+  Gate green: `:android-app:check` + `:shared:state:check` + `:build-logic:test --rerun-tasks` +
+  `scripts/test-ios.sh`. _Commit `<pending>`._

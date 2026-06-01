@@ -114,6 +114,12 @@ kotlin {
             // in-memory repositories instead of bespoke stubs (Phase 05 Slice 4).
             implementation(project(":shared:domain-testing"))
         }
+        // initKoinAndroid (the Android composition-root entry point, Phase 06
+        // Slice 7) installs `androidContext()` into the Koin graph, so androidMain
+        // needs koin-android. Mirrors iosMain's reliance on the common koin.core.
+        androidMain.dependencies {
+            implementation(libs.koin.android)
+        }
         // KoinGraphTest runs JVM-only (androidUnitTest): it needs a concrete
         // SqlDriver to satisfy DataModule. The JVM sqlite driver supplies an
         // in-memory FluxItDatabase so the full graph resolves end-to-end.

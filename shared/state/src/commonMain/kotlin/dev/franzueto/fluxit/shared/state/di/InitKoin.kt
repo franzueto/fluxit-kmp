@@ -5,11 +5,13 @@ import dev.franzueto.fluxit.platform.config.configModule
 import dev.franzueto.fluxit.platform.logging.loggingModule
 import dev.franzueto.fluxit.platform.photo.photoModule
 import dev.franzueto.fluxit.platform.reminders.remindersModule
+import dev.franzueto.fluxit.shared.state.store.ListsDashboardStore
 import dev.franzueto.fluxit.shared.state.store.RootStore
 import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.module.Module
+import org.koin.dsl.KoinAppDeclaration
 import org.koin.mp.KoinPlatform
 
 /**
@@ -37,8 +39,22 @@ public fun appModules(platformModules: List<Module> = fluxitPlatformModules()): 
  * Start Koin with the FluxIt graph plus any platform-supplied [extra] modules
  * (the `SqlDriver` binding is always required there). Android calls this from
  * `FluxItApp`; iOS from the `@main App`; tests pass an in-memory driver module.
+ *
+ * [appDeclaration] runs inside the `startKoin { }` block before the modules are
+ * registered, so a platform can install Koin extensions that other modules then
+ * depend on — Android passes `{ androidContext(app) }` here, which the real
+ * `remindersModule()` / `photoModule()` Android actuals resolve via
+ * `androidContext()`. iOS and the JVM graph test need nothing extra, so it
+ * defaults to a no-op.
  */
-public fun initKoin(extra: List<Module> = emptyList()): KoinApplication = startKoin { modules(appModules() + extra) }
+public fun initKoin(
+    extra: List<Module> = emptyList(),
+    appDeclaration: KoinAppDeclaration = {},
+): KoinApplication =
+    startKoin {
+        appDeclaration()
+        modules(appModules() + extra)
+    }
 
 /**
  * Swift-callable resolver (ADR-015 Slice C). SKIE surfaces this top-level
@@ -46,6 +62,14 @@ public fun initKoin(extra: List<Module> = emptyList()): KoinApplication = startK
  * [initKoin] without referencing Koin's Swift API directly.
  */
 public fun resolveRootStore(): RootStore = KoinPlatform.getKoin().get()
+
+/**
+ * Swift-callable resolver for the Lists tab store. Unlike [RootStore] (a session
+ * `single`), [ListsDashboardStore] is a Koin `factory`, so each call returns a
+ * fresh store over a fresh `CoroutineScope` — the SwiftUI Lists screen resolves
+ * one per appearance and lets it cancel when the view leaves (Phase 06 Slice 7).
+ */
+public fun resolveListsDashboardStore(): ListsDashboardStore = KoinPlatform.getKoin().get()
 
 /**
  * Tear down the Koin graph. Surfaced for the iOS runtime smoke (Slice C) so a

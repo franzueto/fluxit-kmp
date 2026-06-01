@@ -20,14 +20,15 @@ import XCTest
 //     that type-checks `observe(_:into:)` + `dispatch` against a real store type.
 final class StoreBridgingSmokeTests: XCTestCase {
     // §12 runtime smoke (Slice C): real graph, real driver, real round-trip.
-    // Empty DB → InitializeApp rehydrates zero reminders (interim no-op
-    // scheduler returns Ok) → init transitions Initializing → Ready.
+    // Empty DB → InitializeApp rehydrates zero reminders (real iOS scheduler
+    // returns Ok over an empty store) → init transitions Initializing → Ready.
+    //
+    // Phase 06 Slice 7: the iOS composition root (`FluxItApp.init`, the test
+    // host's `@main App`) now starts Koin at launch and owns it for the process,
+    // so the test no longer calls `doInitKoinIos()` / `stopKoinApp()` itself —
+    // doing so would throw `KoinApplicationAlreadyStartedException`. It resolves
+    // the already-started session `RootStore` and drives the same round-trip.
     func testRootStoreReachesReadyAtRuntime() async throws {
-        // Kotlin/Native prefixes `init*` functions with `do` to avoid the
-        // Obj-C initializer clash, so `initKoinIos()` surfaces as `doInitKoinIos()`.
-        InitKoinIosKt.doInitKoinIos()
-        defer { InitKoinKt.stopKoinApp() }
-
         let store = InitKoinKt.resolveRootStore()
         store.dispatch(intent: RootIntentAppStarted())
 
