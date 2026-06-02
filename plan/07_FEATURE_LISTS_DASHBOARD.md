@@ -40,7 +40,7 @@ meeting the exit criterion.
    snackbar, FAB→create, empty/empty-search/error/loading, exhaustive `EffectHandler`.
 6. ✅ **Coming-soon + Account + Settings stub + debug seed** — `SeedSampleData` use case
    (`:shared:state/debug/`), Account seed button (debug), coming-soon placeholder.
-7. **iOS app shell + dashboard** — `NavigationStack` per tab, tab bar + FAB overlay,
+7. ✅ **iOS app shell + dashboard** — `NavigationStack` per tab, tab bar + FAB overlay,
    DS-composed `DashboardView` with `.swipeActions` + undo overlay, deep links, seed.
 8. **Snapshot infra + tests + close-out** — Paparazzi + swift-snapshot-testing goldens;
    `MASTER_PLAN.md` → 🟢; hand-off (§13).
@@ -70,20 +70,20 @@ meeting the exit criterion.
 
 ### iOS (`ios-app`)
 
-- [ ] `FluxItApp.swift` declares the `App` with `WindowGroup { RootView() }`.
-- [ ] `RootView` owns `RootStoreOwner` (the `StoreOwner` pattern from Phase 05 §8) and observes `state.currentTab`.
-- [ ] `NavigationStack` per tab, each rooted at the tab's screen.
-- [ ] Deep link handling: `.onOpenURL { url in rootStore.dispatch(.openDeepLink(url)) }` → `RootStore` emits `Effect.NavigateToList(id)` etc.
-- [ ] `.preferredColorScheme(.dark)` at the root (per ADR-005b).
-- [ ] Safe area + bottom-inset handling for the tab bar's blur backdrop.
+- [x] `FluxItApp.swift` declares the `App` with `WindowGroup { ContentView() }` (the existing root view, kept from Phase 06). _(Slice 7)_
+- [x] `ContentView` resolves the `RootStore` (Phase-06 `resolve*` facade, not a `StoreOwner` wrapper) and gates on `InitState`; the ready branch hosts `TabHostView`, which observes `state.currentTab`. **Divergence:** Phase 06 settled on the top-level `resolve*()` resolver facade over the §1 `StoreOwner` sketch, so this reuses it. _(Slice 7)_
+- [x] `NavigationStack` per tab (Lists + Account each own one; Calendar/Starred are inline `ComingSoon`, mirroring the Android shell). _(Slice 7)_
+- [x] Deep link handling: `.onOpenURL { url in store.dispatch(intent: RootIntentOpenDeepLink(url:)) }` → `RootStore` emits `NavigateToList`/`NavigateToItem`; `observeEffects` switches to the Lists tab and pushes the route. _(Slice 7)_
+- [x] `.preferredColorScheme(.dark)` at the root (per ADR-005b) — already set on `FluxItApp` in Phase 06. _(Slice 7)_
+- [x] Safe area + bottom-inset handling for the tab bar's blur backdrop (`FluxItScaffold`'s `safeAreaInset` bottom slot). _(Slice 7)_
 
 ## 2. Tab host
 
-- [ ] `FluxItBottomTabBar` (Phase 02 §5) consumes a `selected: Tab` and `onSelect: (Tab) -> Unit`. Tab enum: `Lists, Calendar, Starred, Account`.
-- [ ] Active state: filled icon variant + `primary.blue` tint; inactive: outlined + `text.muted`.
-- [ ] Tab order matches the mockup. FAB is **center-docked** above the tab bar (separate composable / SwiftUI overlay), aligned to the same horizontal center as the search field.
-- [ ] Tapping Calendar or Starred dispatches `RootStore.Intent.TabSelected(tab)`; `RootStore` checks `ConfigProvider[Calendar.enabled]` (false in v1 → emits `NavigateToTab(.comingSoon(tab))`).
-- [ ] Coming-soon screen uses `FluxItEmptyState` with copy: "Coming in a future update." and an icon hinting the upcoming feature.
+- [x] `FluxItBottomTabBar` (Phase 02 §5) consumes a `selected: Tab` and `onSelect: (Tab) -> Unit`. Tab enum: `Lists, Calendar, Starred, Account`. _(Android Slice 4 / iOS Slice 7)_
+- [x] Active state: filled icon variant + `primary.blue` tint; inactive: outlined + `text.muted`. _(DS primitive, both platforms.)_
+- [x] Tab order matches the mockup. FAB is **center-docked** above the tab bar (separate composable / SwiftUI overlay). _(Android Slice 4 / iOS Slice 7.)_
+- [x] Tapping Calendar or Starred dispatches `RootStore.Intent.TabSelected(tab)`. **Divergence (Slice 6 decision):** Calendar/Starred render "Coming soon" **inline** off `currentTab` rather than via a config-gated `NavigateToTab(.comingSoon)` route — inline already meets ADR-004 with no v1 behaviour change; config-gating is deferred. _(Android Slice 4 / iOS Slice 7.)_
+- [x] Coming-soon screen uses `FluxItEmptyState` with copy: "Coming in a future update." _(Both platforms.)_
 
 ## 3. Dashboard screen
 
@@ -119,11 +119,11 @@ FluxItScaffold
 
 ### Behaviors
 
-- [ ] **Search**: typing debounces 200ms (state-side per Phase 05 §7); clear-button shows when non-empty.
-- [ ] **Pull-to-refresh** (Android `PullToRefreshContainer`, iOS `.refreshable`): dispatches `Refresh`. Local-only v1 means refresh just re-emits from DB; still useful as a UX affordance.
-- [ ] **Undo snackbar**: bottom-anchored, 5s countdown, dismissible by tap. Render above the tab bar but below the FAB. On Android use a custom `Snackbar`-like composable (Material's `SnackbarHost` doesn't sit well above a custom tab bar); on iOS use a `.overlay(alignment: .bottom)` view with a timer-driven progress bar.
-- [ ] **Long-press a row** (v1 nice-to-have, optional): no-op for now. Reserved for v2 multi-select.
-- [ ] **Empty-search state**: when `searchQuery.isNotBlank()` and `lists.isEmpty()`, show "No lists matching '{query}'" instead of the create-first empty state.
+- [x] **Search**: debounced state-side (Phase 05 §7); both platforms bind the `FluxItSearchField` to `SearchQueryChanged`. _(Android Slice 5 / iOS Slice 7.)_
+- [x] **Pull-to-refresh** (iOS `.refreshable` → `Refresh`). **Android divergence:** the Compose screen surfaces refresh only via the error-state Retry button (no `PullToRefreshContainer` yet) — deferred as a non-blocking polish item. _(iOS Slice 7.)_
+- [x] **Undo snackbar**: bottom-anchored, 5s countdown, dismissible by tap. Android uses a custom `FluxItCard`-based composable; iOS uses `.overlay(alignment: .bottom)` with a `TimelineView`-driven `FluxItProgressBar`. _(Android Slice 5 / iOS Slice 7.)_
+- [x] **Long-press a row**: no-op in v1 (reserved for v2 multi-select) — nothing wired on either platform. _(Slice 7.)_
+- [x] **Empty-search state**: when the query is non-blank and the list is empty, both platforms show "No lists matching '{query}'" instead of the create-first empty state. _(Android Slice 5 / iOS Slice 7.)_
 
 ## 4. Compose (Android) — file layout
 
@@ -145,17 +145,23 @@ FluxItScaffold
 
 ## 5. SwiftUI (iOS) — file layout
 
+**As built (Slice 7) — divergence from the sketched `Features/Dashboard/` tree:**
+xcodegen globs `ios-app/Sources/**`, so files are organised flat under `Sources/`
+rather than a `Features/` tree, and related types are co-located per file:
+
 ```
-ios-app/Features/Dashboard/
-  DashboardView.swift            ← @MainActor View, observes store via StoreOwner
-  DashboardRow.swift             ← FluxItListItem dashboard variant
-  DashboardComponents.swift      ← undo overlay, empty/error
-  DashboardPreviews.swift        ← #Preview blocks for snapshot tests
+ios-app/Sources/
+  ContentView.swift              ← composition root + TabHostView (tab bar, FAB, per-tab NavigationStacks, deep-link effect routing)
+  ListsDashboardView.swift       ← DS-composed dashboard + undo/error overlays + skeleton + subtitleFor/relativeTime + icon/color mappers
+  AccountView.swift              ← AccountView + SettingsView stub + #if DEBUG seed section
+  DesignSystem/Components/FluxItSwipeRow.swift  ← `.swipeActions` modifier (iOS half of the DS primitive, deferred from Slice 2)
+  Shared/StoreObserving.swift    ← observe(state) + observeEffects(effects) helpers
 ```
 
-- [ ] `DashboardView` uses `@StateObject var owner: StoreOwner<ListsDashboardStore>` constructed via Koin facade (`KoinIOS.dashboardStore()`).
-- [ ] `.task` blocks observe `state` and `effects` AsyncSequences (per Phase 05 §3).
-- [ ] All `Color`/`Font`/`spacing` references go through `FluxItTokens.*` — generated Swift mirror from Phase 02.
+- [x] `DashboardView` resolves the store via the Phase-06 `resolveListsDashboardStore()` facade (not a `StoreOwner` wrapper — Phase 06 settled on the resolver facade). _(Slice 7)_
+- [x] `.task` blocks observe `state` and `effects` AsyncSequences via `observe`/`observeEffects` (per Phase 05 §3). _(Slice 7)_
+- [x] All `Color`/`Font`/`spacing` references go through `FluxItTokens.*` — generated Swift mirror from Phase 02. _(Slice 7)_
+- **Slice 7 note:** the value-class ids (`ListId`/`ItemId`) erase to an opaque Obj-C `id` (no `.value` getter) at the SKIE boundary, so `:shared:state` gained tiny Swift-facing `navigation/IosEffectIds.kt` accessors (`NavigateToListDetail.listId()`, `RootEffect.NavigateToList.listId()`, `NavigateToItem.itemId()`) to build route payloads; rows still dispatch intents with the boxed id directly. List identity keys off the stable feed order (`enumerated().offset`) for the same reason. `Tab` is `Shared.Tab`-qualified to avoid the SwiftUI 18 `Tab` clash.
 
 ## 6. Navigation effects → routes
 
@@ -170,7 +176,7 @@ Mapping table (same on both platforms):
 | `ShowUndoSnackbar(name, secs)` | Trigger snackbar overlay state |
 | `ShowError(message)` | Trigger toast / inline error |
 
-- [ ] One `EffectHandler` per platform translates the sealed `Effect` enum into nav/snackbar calls. Exhaustive `when`/`switch` so adding a new effect breaks the build.
+- [x] One `EffectHandler` per platform translates the sealed `Effect` enum into nav/snackbar calls. Exhaustive `when`/`switch` so adding a new effect breaks the build. Android: `DashboardRoute`'s `when` (Slice 5). iOS: `ListsDashboardView.handle(_:)` over `onEnum(of: ListsEffect)` + `ContentView`'s `RootEffect` switch (Slice 7). _(`NavigateToTab` is a dead-but-handled path on both — the host owns the tab bar.)_
 
 ## 7. Debug seed action
 
@@ -393,3 +399,35 @@ Mapping table (same on both platforms):
   `:android-app:assembleDebug` (debug + release compile), `:build-logic:test
   --rerun-tasks` (Konsist literal-ban passes for the new app/settings code).
   _Commit `83c4ee8`._
+
+- **2026-06-02** — Slice 7: iOS app shell + dashboard (§0 / §1 / §2 / §3 / §5 / §6).
+  Built the SwiftUI surface to parity with the Android shell. `ContentView` is the
+  composition root: it resolves `RootStore`, gates on `InitState`, and on `.ready`
+  hosts `TabHostView` — a `FluxItScaffold` + `FluxItBottomTabBar` driven off
+  `RootStore.currentTab`, a center FAB overlay on the Lists tab, and a
+  `NavigationStack` per tab (Lists + Account; Calendar/Starred render inline
+  `ComingSoon`, mirroring the Android inline divergence from Slice 6).
+  `ListsDashboardView` is the DS-composed dashboard: `FluxItTopBarLarge` +
+  `FluxItSearchField` + a `LoadState`-driven `List` of `FluxItDashboardListItem`
+  rows with `.fluxItSwipeToDelete`, a bottom undo/error overlay with a
+  `TimelineView`-driven `FluxItProgressBar` countdown, a 3-row skeleton loader, and
+  `subtitleFor`/`relativeTime`/icon+color mappers mirroring the Compose side.
+  `AccountView` + `SettingsView` stub reuse `AccountStore`, with a `#if DEBUG` seed
+  section (the SwiftUI equivalent of Android's `src/debug`/`src/release` strip)
+  resolving the shared `SeedSampleData`. Effect handling is exhaustive on both the
+  `ListsEffect` (dashboard) and `RootEffect` (deep-link) switches; `.onOpenURL` →
+  `RootIntent.OpenDeepLink` → `NavigateToList`/`NavigateToItem` switches to the Lists
+  tab and pushes the route. Added `observeEffects` alongside `observe` in
+  `StoreObserving`, and the iOS half of the `FluxItSwipeRow` DS primitive (deferred
+  from Slice 2). **Divergences:** (a) files live flat under `Sources/` (xcodegen
+  globs the dir), not the sketched `Features/Dashboard/` tree, with related types
+  co-located per file; (b) reused the Phase-06 `resolve*()` facade over the §1
+  `StoreOwner` sketch; (c) the `@JvmInline value class` ids erase to an opaque Obj-C
+  `id` at the SKIE boundary (no `.value` getter), so `:shared:state` gained
+  `navigation/IosEffectIds.kt` accessors (`listId()`/`itemId()`, unit-tested) to
+  build route payloads, and list identity keys off the stable feed order; (d) `Tab`
+  is `Shared.Tab`-qualified to dodge the SwiftUI 18 `Tab` clash. Gate green:
+  `:shared:state:check` (incl. `koverVerify` ≥90% + the new accessor tests +
+  `iosSimulatorArm64Test`), `scripts/test-ios.sh` (XCFramework assemble → xcodegen →
+  simulator: 5/5 SKIE bridging tests, full app target compiles),
+  `:build-logic:test --rerun-tasks` (Konsist). _Commit `<pending>`._

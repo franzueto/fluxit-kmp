@@ -5,6 +5,8 @@ import dev.franzueto.fluxit.platform.config.configModule
 import dev.franzueto.fluxit.platform.logging.loggingModule
 import dev.franzueto.fluxit.platform.photo.photoModule
 import dev.franzueto.fluxit.platform.reminders.remindersModule
+import dev.franzueto.fluxit.shared.state.debug.SeedSampleData
+import dev.franzueto.fluxit.shared.state.store.AccountStore
 import dev.franzueto.fluxit.shared.state.store.ListsDashboardStore
 import dev.franzueto.fluxit.shared.state.store.RootStore
 import org.koin.core.KoinApplication
@@ -70,6 +72,21 @@ public fun resolveRootStore(): RootStore = KoinPlatform.getKoin().get()
  * one per appearance and lets it cancel when the view leaves (Phase 06 Slice 7).
  */
 public fun resolveListsDashboardStore(): ListsDashboardStore = KoinPlatform.getKoin().get()
+
+/**
+ * Swift-callable resolver for the Account tab store. Like [ListsDashboardStore] a
+ * Koin `factory` (a fresh store + scope per appearance); the iOS Account screen
+ * resolves one per appearance. `version`/`flags` stay the interim literals bound
+ * in `stateModule` until a later slice routes them through `ConfigProvider`.
+ */
+public fun resolveAccountStore(): AccountStore = KoinPlatform.getKoin().get()
+
+/**
+ * Swift-callable resolver for the debug-only [SeedSampleData] use case (plan/07
+ * §7). The use case is harmless in any build — the iOS Account screen gates the
+ * *button* behind a `#if DEBUG`, mirroring the Android source-set strip.
+ */
+public fun resolveSeedSampleData(): SeedSampleData = KoinPlatform.getKoin().get()
 
 /**
  * Tear down the Koin graph. Surfaced for the iOS runtime smoke (Slice C) so a

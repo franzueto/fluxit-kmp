@@ -21,3 +21,17 @@ func observe<S: AnyObject, I: AnyObject, E: AnyObject>(
         binding.wrappedValue = state
     }
 }
+
+// Companion observer for a store's one-shot `effects: Flow<E>` (replay = 0).
+// SKIE projects the flow as an `AsyncSequence`, so the same base-class generics
+// let any screen drain its effects into a `@MainActor` handler — the SwiftUI
+// mirror of Android's `LaunchedEffect { store.effects.collect { … } }`.
+@MainActor
+func observeEffects<S: AnyObject, I: AnyObject, E: AnyObject>(
+    _ store: BaseStore<S, I, E>,
+    _ handle: @MainActor @escaping (E) -> Void
+) async {
+    for await effect in store.effects {
+        handle(effect)
+    }
+}
