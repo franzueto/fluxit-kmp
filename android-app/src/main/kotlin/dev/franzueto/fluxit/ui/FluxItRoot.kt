@@ -179,7 +179,13 @@ private fun TabHost(
         ) { padding ->
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                 when (currentTab) {
-                    Tab.Lists -> DashboardRoute()
+                    Tab.Lists ->
+                        DashboardRoute(
+                            onOpenList = { id -> navController.navigate("list/${id.value}") },
+                            onCreateList = { navController.navigate(ROUTE_CREATE_LIST) },
+                            onComingSoon = { tab -> rootStore.dispatch(RootIntent.TabSelected(tab)) },
+                            onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                        )
                     Tab.Calendar -> ComingSoon("Calendar")
                     Tab.Starred -> ComingSoon("Starred")
                     Tab.Account -> Placeholder("Account")

@@ -36,7 +36,7 @@ meeting the exit criterion.
    `NavigateToItem` effects + a pure `fluxit://` parser, unit-tested (≥90% gate).
 4. ✅ **Android app shell & nav graph** — full route set + tab host (`FluxItBottomTabBar`
    + center FAB off `RootStore.currentTab`), deep-link intent filter, edge-to-edge.
-5. **Android dashboard screen** — real DS composition, swipe-to-delete + 5s undo
+5. ✅ **Android dashboard screen** — real DS composition, swipe-to-delete + 5s undo
    snackbar, FAB→create, empty/empty-search/error/loading, exhaustive `EffectHandler`.
 6. **Coming-soon + Account + Settings stub + debug seed** — `SeedSampleData` use case
    (`:shared:state/debug/`), Account seed button (debug), coming-soon placeholder.
@@ -135,12 +135,13 @@ FluxItScaffold
   DashboardPreviews.kt           ← @Preview functions for Theme Gallery + snapshot tests
 ```
 
-- [ ] `DashboardRoute(navController)`:
-  - `val store = koinViewModel<DashboardViewModel>().store`
-  - Collects `state` via `collectAsStateWithLifecycle()`.
-  - Collects `effects` via `LaunchedEffect` → maps to nav actions / snackbar shows.
-- [ ] `DashboardViewModel(store: ListsDashboardStore) : ViewModel()` — exists only to scope the store to `viewModelScope` (per Phase 05 §8); no logic of its own.
-- [ ] All `dp`/`Color`/`TextStyle` references go through `FluxItTheme.tokens` / `FluxItIcons.*` — Konsist verifies.
+- [x] `DashboardRoute(onOpenList, onCreateList, onComingSoon, onOpenSettings)` _(Slice 5)_:
+  - `val store = viewModel { DashboardViewModel { scope -> koin.get { parametersOf(scope) } } }.store`.
+  - Collects `state` via `collectAsState()` (lifecycle-aware variant deferred — no extra dep needed for v1).
+  - Collects `effects` via `LaunchedEffect` → exhaustive `when` mapping to nav callbacks + undo/error snackbar state.
+- [x] `DashboardViewModel(storeFactory)` — exists only to scope the store to `viewModelScope` (Phase 05 §8); takes a `(CoroutineScope) -> ListsDashboardStore` factory and mints the store with `viewModelScope`. The `:shared:state` Koin factory gained an optional `CoroutineScope` parameter (no-arg resolves keep the fresh-scope fallback for iOS/tests). _(Slice 5)_
+- [x] All `dp`/`Color`/`TextStyle` references go through DS primitives + tokens / `FluxItIcons.*` — Konsist verifies. _(Slice 5)_
+- **Slice 5 notes:** sticky header is `FluxItTopBarLarge("My Lists", trailing=Settings)` rendered as the screen's first column child (the host's single `FluxItScaffold` owns the bottom bar; no nested scaffold). The mockup avatar (§12) is deferred — not yet a bundled asset. The FAB lives in the host and navigates straight to `create-list` (the store's `NavigateToCreateList` path stays wired + handled but has no in-screen producer yet). Loading renders 3 muted `FluxItDashboardListItem` placeholders (no DS skeleton/shimmer primitive yet; literal-ban forbids raw sizing in feature code). Pure subtitle/relative-time logic (`subtitleFor`) is unit-tested in Slice 8 alongside snapshots.
 
 ## 5. SwiftUI (iOS) — file layout
 
@@ -325,3 +326,27 @@ Mapping table (same on both platforms):
   screen land in Slice 6; row/FAB store-effect wiring lands with the dashboard in
   Slice 5. Gate green: `:android-app:check` (lint + Konsist via `:build-logic:test`),
   `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`. _Commit `ea0b595`._
+
+- **2026-06-02** — Slice 5: Android dashboard screen — the heart (§3 / §4 / §6). Fleshed
+  out `:features:feature-lists` into four files: `DashboardScreen.kt` (stateless DS
+  composition — `FluxItTopBarLarge` "My Lists" + settings gear, `FluxItSearchField`,
+  `LoadState`-driven body), `DashboardComponents.kt` (`DashboardListRow` = `FluxItSwipeRow`
+  ∘ `FluxItDashboardListItem` with `toImageVector()`/`toColor()` mappers + chevron;
+  `UndoSnackbar`/`ErrorSnackbar` built from `FluxItCard`+`FluxItProgressBar`; `SkeletonList`;
+  pure `subtitleFor`/`relativeTime` per §3/§12), `DashboardViewModel.kt` (scopes the store
+  to `viewModelScope`), and `DashboardRoute.kt` (builds the VM via `viewModel { … koin.get
+  { parametersOf(scope) } }`, exhaustive `ListsEffect` → nav-callback/snackbar mapping,
+  drives the 5s undo countdown bar). Swipe-to-delete dispatches `DeleteListClicked`; the
+  store's optimistic remove + `ShowUndoSnackbar` opens the snackbar, tap "Undo" →
+  `UndoDeleteClicked`, and `pendingDelete == null` (expiry/finalize) hides it. Empty,
+  empty-search ("No lists matching …"), error (with Retry → `Refresh`), and loading states
+  all handled. `:shared:state` `StateModule` gained an optional `CoroutineScope` Koin
+  parameter so the VM can thread `viewModelScope` while no-arg resolves (iOS/`KoinGraphTest`)
+  keep the fresh-scope fallback. `android-app` `TabHost` now calls `DashboardRoute` with
+  nav callbacks (`onOpenList`/`onCreateList`/`onOpenSettings` → `navController`). Divergences
+  (in §4): inline header instead of scaffold top-slot; avatar deferred; FAB navigates
+  directly (store create path handled but unproduced in-screen); loading is muted
+  placeholder rows, not shimmer. `viewModel {}` resolves via activity-compose's transitive
+  `lifecycle-viewmodel-compose` (no catalog change). Gate green: `:features:feature-lists:check`,
+  `:shared:state:check` (incl. `koverVerify`), `:android-app:assembleDebug`,
+  `:build-logic:test --rerun-tasks`. _Commit `<pending>`._
