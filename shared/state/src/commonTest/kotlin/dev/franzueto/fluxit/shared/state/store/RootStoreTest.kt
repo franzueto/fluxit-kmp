@@ -2,6 +2,8 @@ package dev.franzueto.fluxit.shared.state.store
 
 import app.cash.turbine.test
 import dev.franzueto.fluxit.shared.domain.error.Outcome
+import dev.franzueto.fluxit.shared.domain.model.ItemId
+import dev.franzueto.fluxit.shared.domain.model.ListId
 import dev.franzueto.fluxit.shared.domain.port.AppLogger
 import dev.franzueto.fluxit.shared.domain.port.SchedulerError
 import dev.franzueto.fluxit.shared.domain.usecase.app.InitializeApp
@@ -81,6 +83,39 @@ class RootStoreTest {
                     tab = awaitItem().currentTab
                 }
                 assertEquals(Tab.Account, tab)
+            }
+        }
+
+    @Test
+    fun open_deep_link_to_a_list_emits_navigate_to_list() =
+        runStoreTest {
+            val store = rootStore()
+            store.effects.test {
+                store.dispatch(RootIntent.OpenDeepLink("fluxit://list/abc"))
+                assertEquals(RootEffect.NavigateToList(ListId("abc")), awaitItem())
+            }
+        }
+
+    @Test
+    fun open_deep_link_to_an_item_emits_navigate_to_item() =
+        runStoreTest {
+            val store = rootStore()
+            store.effects.test {
+                store.dispatch(RootIntent.OpenDeepLink("fluxit://item/xyz"))
+                assertEquals(RootEffect.NavigateToItem(ItemId("xyz")), awaitItem())
+            }
+        }
+
+    @Test
+    fun open_deep_link_that_is_unparseable_emits_no_effect() =
+        runStoreTest {
+            val store = rootStore()
+            store.effects.test {
+                store.dispatch(RootIntent.OpenDeepLink("https://example.com/list/abc"))
+                // Drop it: dispatch a known-good link afterwards and assert that
+                // it's the only effect we see (the bad one produced nothing).
+                store.dispatch(RootIntent.OpenDeepLink("fluxit://list/next"))
+                assertEquals(RootEffect.NavigateToList(ListId("next")), awaitItem())
             }
         }
 }

@@ -32,7 +32,7 @@ meeting the exit criterion.
    `:shared:data` ban).
 2. **DS backfill** — `FluxItSwipeRow` + public `FluxItIconRef→ImageVector` /
    `ColorToken→Color` mappers in `core-designsystem`; `02_DESIGN_SYSTEM.md` §5 note.
-3. **`RootStore` deep-link extension** — `openDeepLink(url)` intent + `NavigateToList`/
+3. ✅ **`RootStore` deep-link extension** — `OpenDeepLink(url)` intent + `NavigateToList`/
    `NavigateToItem` effects + a pure `fluxit://` parser, unit-tested (≥90% gate).
 4. **Android app shell & nav graph** — full route set + tab host (`FluxItBottomTabBar`
    + center FAB off `RootStore.currentTab`), deep-link intent filter, edge-to-edge.
@@ -279,3 +279,21 @@ Mapping table (same on both platforms):
   `ios-app/Generated/FluxItTokens.swift` Swift mirror). iOS `FluxItSwipeRow`
   (`.swipeActions`) lands with the iOS dashboard in Slice 7. Gate green:
   `:core:core-designsystem:check`, `:build-logic:test --rerun-tasks`. _Commit `edaa871`._
+
+- **2026-06-01** — Slice 3: `RootStore` deep-link extension (§0 / §1 / §6, plan/06 §5).
+  Added a **pure** `DeepLink` parser in `:shared:state` `navigation/DeepLink.kt`
+  (`DeepLink.parse(url)` → `DeepLink.List(ListId)` / `DeepLink.Item(ItemId)` / `null`),
+  matching the `fluxit://list/{id}` + `fluxit://item/{id}` shapes minted by
+  `platform-reminders.ScheduledNotification.deepLink`. Extended `RootStore` with a
+  `RootIntent.OpenDeepLink(url)` intent and `RootEffect.NavigateToList(ListId)` /
+  `NavigateToItem(ItemId)` effects; the reduce path parses and emits the matching effect,
+  logging-and-dropping anything unparseable (foreign scheme, unknown host, blank id, extra
+  path segments) so a stale/garbled reminder URL leaves the user where they are. Naming
+  note: the intent is `OpenDeepLink` (MVI data class, matching plan/13's `RootStore.
+  OpenDeepLink(uri)` reference) rather than a bare
+  `openDeepLink(url)` method — the shell dispatches it like every other intent. Unit tests:
+  7-case `DeepLinkTest` (all parser branches, for the Kover ≥90% gate) + 3 Turbine reduce
+  tests in `RootStoreTest` (list, item, drop-then-next-good). Gate green:
+  `:shared:state:check` (incl. `koverVerify`), `:build-logic:test --rerun-tasks`,
+  `scripts/test-ios.sh` (XCFramework header regenerates, 5 bridging smoke tests pass).
+  _Commit `<pending>`._

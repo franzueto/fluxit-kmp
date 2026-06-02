@@ -1,9 +1,12 @@
 package dev.franzueto.fluxit.shared.state.store
 
+import dev.franzueto.fluxit.shared.domain.model.ItemId
+import dev.franzueto.fluxit.shared.domain.model.ListId
 import dev.franzueto.fluxit.shared.domain.port.AppLogger
 import dev.franzueto.fluxit.shared.domain.usecase.app.InitProgress
 import dev.franzueto.fluxit.shared.domain.usecase.app.InitializeApp
 import dev.franzueto.fluxit.shared.state.error.userMessage
+import dev.franzueto.fluxit.shared.state.navigation.DeepLink
 import dev.franzueto.fluxit.shared.state.navigation.Tab
 import kotlinx.coroutines.CoroutineScope
 
@@ -30,6 +33,20 @@ public class RootStore(
         when (intent) {
             RootIntent.AppStarted -> initialize()
             is RootIntent.TabSelected -> update { copy(currentTab = intent.tab) }
+            is RootIntent.OpenDeepLink -> openDeepLink(intent.url)
+        }
+    }
+
+    /**
+     * Route a `fluxit://` deep link (reminder taps, plan/06 §5) to the matching
+     * detail screen. A malformed / unknown URL is logged and dropped — the user
+     * stays wherever they were rather than being yanked to an error surface.
+     */
+    private suspend fun openDeepLink(url: String) {
+        when (val link = DeepLink.parse(url)) {
+            is DeepLink.List -> emit(RootEffect.NavigateToList(link.id))
+            is DeepLink.Item -> emit(RootEffect.NavigateToItem(link.id))
+            null -> logger.warn(TAG, "ignoring unparseable deep link: $url")
         }
     }
 
@@ -79,11 +96,30 @@ public sealed interface RootIntent {
     public data class TabSelected(
         val tab: Tab,
     ) : RootIntent
+
+    /**
+     * A `fluxit://` deep link arrived (reminder tap; plan/06 §5). The shell
+     * hands the raw URL string straight through — parsing lives in
+     * [DeepLink.parse] so it stays platform-agnostic and unit-tested.
+     */
+    public data class OpenDeepLink(
+        val url: String,
+    ) : RootIntent
 }
 
 public sealed interface RootEffect {
     /** v2 placeholder — onboarding isn't built yet (no consumer in v1). */
     public data object NavigateToOnboarding : RootEffect
+
+    /** A `fluxit://list/{id}` deep link resolved — push that list's detail. */
+    public data class NavigateToList(
+        val id: ListId,
+    ) : RootEffect
+
+    /** A `fluxit://item/{id}` deep link resolved — push that item's detail. */
+    public data class NavigateToItem(
+        val id: ItemId,
+    ) : RootEffect
 
     public data class ShowFatalError(
         val message: String,
