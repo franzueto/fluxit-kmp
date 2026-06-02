@@ -392,4 +392,4 @@ Mapping table (same on both platforms):
   Gate green: `:shared:state:check` (incl. `koverVerify`), `:android-app:check` +
   `:android-app:assembleDebug` (debug + release compile), `:build-logic:test
   --rerun-tasks` (Konsist literal-ban passes for the new app/settings code).
-  _Commit `<pending>`._
+  _Commit `83c4ee8`._
