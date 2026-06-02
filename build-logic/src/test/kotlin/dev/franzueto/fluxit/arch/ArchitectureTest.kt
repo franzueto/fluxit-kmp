@@ -113,6 +113,21 @@ class ArchitectureTest : FunSpec({
             }
     }
 
+    test("feature-* modules do not import :shared:data directly (plan/07 §11)") {
+        // A feature reaches persistence only through domain interfaces, via use
+        // cases, via its store (plan/07 §11). A direct `dev.franzueto.fluxit.shared.data`
+        // import would let the UI bind to SQLDelight-backed types and skip that seam.
+        scope()
+            .files
+            .filter { "/features/feature-" in it.path && "/build/" !in it.path }
+            .assertFalse(
+                additionalMessage = "Feature modules must reach data only through domain use cases via the store — " +
+                    "no direct :shared:data import.",
+            ) { file ->
+                file.imports.any { it.name.startsWith("dev.franzueto.fluxit.shared.data") }
+            }
+    }
+
     test("GlobalScope and runBlocking are forbidden outside test source sets") {
         scope()
             .files

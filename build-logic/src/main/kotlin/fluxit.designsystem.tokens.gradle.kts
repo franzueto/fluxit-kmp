@@ -74,6 +74,18 @@ tasks.matching { it.name.startsWith("compile") && "Kotlin" in it.name }
         dependsOn(generateIcons)
     }
 
+// ktlint / detekt scan the androidMain source set, which includes the generated
+// token + icon srcDirs registered above. They filter those paths out at execution
+// (see fluxit.quality), but Gradle's input snapshot still sees the directories as
+// inputs produced by the generators — so without an explicit dependency the
+// implicit-dependency validator fails the build whenever a generator is out of
+// date (e.g. after editing tokens.json). Wire the dependency so `:check` is sound.
+tasks.matching { it.name.startsWith("runKtlint") || it.name.startsWith("detekt") }
+    .configureEach {
+        dependsOn(generateTokens)
+        dependsOn(generateIcons)
+    }
+
 tasks.register<VerifyTokensInSyncTask>("verifyTokensInSync") {
     composeOutputDir.set(composeDir)
     swiftOutputDir.set(swiftDir)

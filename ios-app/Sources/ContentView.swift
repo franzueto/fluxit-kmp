@@ -1,15 +1,19 @@
-import SwiftUI
 import Shared
+import SwiftUI
 
-/// The iOS composition-root view (Phase 06 Slice 7). Resolves the session-scoped
-/// `RootStore` from Koin, runs `InitializeApp` once via `AppStarted`, and gates a
-/// `NavigationStack` on the resulting `InitState`:
+/// The iOS composition-root view (Phase 06 Slice 7; tab host + nav graph fleshed
+/// out in Phase 07 Slice 7). Resolves the session-scoped `RootStore`, runs
+/// `InitializeApp` once via `AppStarted`, and gates on the resulting `InitState`:
 ///  - `.initializing` → a splash spinner.
 ///  - `.failed` → a minimal retry surface (polished splash UX is a later phase).
-///  - `.ready` → the Lists Dashboard.
+///  - `.ready` → the `TabHostView`.
+///
+/// App-level deep links (reminder taps; plan/06 §5) arrive via `.onOpenURL` →
+/// `RootIntent.OpenDeepLink`, and the resulting `NavigateToList`/`NavigateToItem`
+/// effects are translated into navigation pushes inside `TabHostView`.
 struct ContentView: View {
     private let store = InitKoinKt.resolveRootStore()
-    @State private var state: RootState = RootState(init: InitStateInitializing(), currentTab: .lists)
+    @State private var state = RootState(init: InitStateInitializing(), currentTab: .lists)
 
     var body: some View {
         Group {
@@ -22,15 +26,143 @@ struct ContentView: View {
                     Button("Retry") { store.dispatch(intent: RootIntentAppStarted()) }
                 }
             case .ready:
-                NavigationStack {
-                    ListsDashboardView()
-                        .navigationTitle("Lists")
-                }
+                TabHostView(store: store, currentTab: state.currentTab)
             }
         }
         .task {
             store.dispatch(intent: RootIntentAppStarted())
             await observe(store, into: $state)
         }
+        .onOpenURL { url in
+            store.dispatch(intent: RootIntentOpenDeepLink(url: url.absoluteString))
+        }
+    }
+}
+
+/// Pushed destinations for a tab's `NavigationStack`. Detail / create screens are
+/// placeholders until their feature phases land (08 / 09); Settings is a real
+/// stub (Slice 6). Deep links push `.listDetail` / `.itemDetail`.
+private enum DashRoute: Hashable {
+    case listDetail(String)
+    case itemDetail(String)
+    case createList
+    case settings
+}
+
+/// The bottom-tab host (plan/07 §2). The four tabs render unconditionally; the
+/// selected tab is owned by `RootStore.currentTab` and a tap dispatches
+/// `TabSelected`. Lists + Account each own a `NavigationStack`; Calendar/Starred
+/// render the inline "Coming soon" placeholder (ADR-004). The center FAB overlays
+/// the bottom bar on the Lists tab. `RootStore` deep-link effects switch to the
+/// Lists tab and push the target route.
+private struct TabHostView: View {
+    let store: RootStore
+    let currentTab: Shared.Tab
+
+    @State private var listsPath: [DashRoute] = []
+    @State private var accountPath: [DashRoute] = []
+
+    private static let tabsOrder: [Shared.Tab] = [.lists, .calendar, .starred, .account]
+
+    private var tabItems: [FluxItTabItem] {
+        [
+            FluxItTabItem(icon: FluxItTokens.Icons.list, activeIcon: FluxItTokens.Icons.listFilled, label: "Lists"),
+            FluxItTabItem(icon: FluxItTokens.Icons.calendar, activeIcon: FluxItTokens.Icons.calendarFilled, label: "Calendar"),
+            FluxItTabItem(icon: FluxItTokens.Icons.star, activeIcon: FluxItTokens.Icons.starFilled, label: "Starred"),
+            FluxItTabItem(icon: FluxItTokens.Icons.account, activeIcon: FluxItTokens.Icons.accountFilled, label: "Account"),
+        ]
+    }
+
+    var body: some View {
+        FluxItScaffold {
+            FluxItBottomTabBar(
+                tabs: tabItems,
+                selectedIndex: TabHostView.tabsOrder.firstIndex(of: currentTab) ?? 0,
+                onSelect: { index in store.dispatch(intent: RootIntentTabSelected(tab: TabHostView.tabsOrder[index])) }
+            )
+        } content: {
+            ZStack(alignment: .bottom) {
+                tabContent
+                if currentTab == .lists {
+                    FluxItFab(icon: FluxItTokens.Icons.plus, accessibilityLabel: "Create new list") {
+                        listsPath.append(.createList)
+                    }
+                    .padding(.bottom, FluxItTokens.Spacing.scaleXl)
+                }
+            }
+        }
+        .task {
+            await observeEffects(store) { effect in
+                switch onEnum(of: effect) {
+                case let .navigateToList(e):
+                    store.dispatch(intent: RootIntentTabSelected(tab: .lists))
+                    listsPath.append(.listDetail(e.listId()))
+                case let .navigateToItem(e):
+                    store.dispatch(intent: RootIntentTabSelected(tab: .lists))
+                    listsPath.append(.itemDetail(e.itemId()))
+                case .navigateToOnboarding, .showFatalError:
+                    break
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var tabContent: some View {
+        switch currentTab {
+        case .lists:
+            NavigationStack(path: $listsPath) {
+                ListsDashboardView(
+                    onOpenList: { listsPath.append(.listDetail($0)) },
+                    onCreateList: { listsPath.append(.createList) },
+                    onOpenSettings: { listsPath.append(.settings) }
+                )
+                .navigationDestination(for: DashRoute.self) { route in destination(route, path: $listsPath) }
+            }
+        case .calendar:
+            ComingSoonView(feature: "Calendar")
+        case .starred:
+            ComingSoonView(feature: "Starred")
+        case .account:
+            NavigationStack(path: $accountPath) {
+                AccountView(onOpenSettings: { accountPath.append(.settings) })
+                    .navigationDestination(for: DashRoute.self) { route in destination(route, path: $accountPath) }
+            }
+        }
+    }
+
+    @ViewBuilder private func destination(_ route: DashRoute, path: Binding<[DashRoute]>) -> some View {
+        switch route {
+        case let .listDetail(id):
+            PlaceholderView(label: "List detail\n\(id)")
+        case let .itemDetail(id):
+            PlaceholderView(label: "Item detail\n\(id)")
+        case .createList:
+            PlaceholderView(label: "Create list")
+        case .settings:
+            SettingsView(onBack: { path.wrappedValue.removeLast() })
+        }
+    }
+}
+
+private struct ComingSoonView: View {
+    let feature: String
+
+    var body: some View {
+        FluxItEmptyState(title: "\(feature) is coming soon", message: "Coming in a future update.")
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .background(FluxItTokens.Colors.backgroundDark.ignoresSafeArea())
+    }
+}
+
+private struct PlaceholderView: View {
+    let label: String
+
+    var body: some View {
+        Text(label)
+            .multilineTextAlignment(.center)
+            .foregroundStyle(FluxItTokens.Colors.textPrimary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(FluxItTokens.Colors.backgroundDark.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
     }
 }
