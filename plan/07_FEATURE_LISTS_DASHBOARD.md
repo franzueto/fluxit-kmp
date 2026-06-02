@@ -296,4 +296,4 @@ Mapping table (same on both platforms):
   tests in `RootStoreTest` (list, item, drop-then-next-good). Gate green:
   `:shared:state:check` (incl. `koverVerify`), `:build-logic:test --rerun-tasks`,
   `scripts/test-ios.sh` (XCFramework header regenerates, 5 bridging smoke tests pass).
-  _Commit `<pending>`._
+  _Commit `4bd7b4e`._
