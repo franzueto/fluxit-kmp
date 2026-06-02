@@ -324,4 +324,4 @@ Mapping table (same on both platforms):
   parent-list lookup exists. Config-gated Calendar/Starred routing + the real Account
   screen land in Slice 6; row/FAB store-effect wiring lands with the dashboard in
   Slice 5. Gate green: `:android-app:check` (lint + Konsist via `:build-logic:test`),
-  `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`. _Commit `<pending>`._
+  `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`. _Commit `ea0b595`._
