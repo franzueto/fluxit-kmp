@@ -34,7 +34,7 @@ meeting the exit criterion.
    `ColorToken→Color` mappers in `core-designsystem`; `02_DESIGN_SYSTEM.md` §5 note.
 3. ✅ **`RootStore` deep-link extension** — `OpenDeepLink(url)` intent + `NavigateToList`/
    `NavigateToItem` effects + a pure `fluxit://` parser, unit-tested (≥90% gate).
-4. **Android app shell & nav graph** — full route set + tab host (`FluxItBottomTabBar`
+4. ✅ **Android app shell & nav graph** — full route set + tab host (`FluxItBottomTabBar`
    + center FAB off `RootStore.currentTab`), deep-link intent filter, edge-to-edge.
 5. **Android dashboard screen** — real DS composition, swipe-to-delete + 5s undo
    snackbar, FAB→create, empty/empty-search/error/loading, exhaustive `EffectHandler`.
@@ -51,17 +51,22 @@ meeting the exit criterion.
 
 ### Android (`android-app`)
 
-- [ ] `MainActivity` hosts `FluxItApp()` Composable; lifecycle-scoped Koin retrieval of `RootStore`.
-- [ ] Navigation: **Navigation Compose** (`androidx.navigation:navigation-compose`). Single `NavHost` with routes:
+- [x] `MainActivity` hosts `FluxItRoot()` Composable; Koin-injected `RootStore` (Slice 4).
+- [x] Navigation: **Navigation Compose** (`androidx.navigation:navigation-compose`). Single `NavHost` with routes: _(Slice 4)_
   - `dashboard` (start destination, hosts the tab bar)
   - `list/{listId}`
   - `list/{listId}/item/{itemId}`
   - `create-list` (modal — bottom sheet + dialog hybrid; see Phase 09)
-  - `coming-soon/{tab}` for Calendar + Starred placeholders
   - `settings` (account → settings entry)
-- [ ] Deep link handling: Activity intent filter for `fluxit://list/{listId}` and `fluxit://item/{itemId}` (matches Phase 06 §5 reminder payloads); routes through nav controller.
-- [ ] Status bar: transparent, `statusBarStyle = dark` (light icons on `#101822`).
-- [ ] Edge-to-edge enabled.
+  - **Divergence:** Calendar/Starred render "Coming soon" as **inline tab-host content**
+    (swapped on `RootStore.currentTab`) rather than via a pushed `coming-soon/{tab}`
+    route — the tab bar lives inside the `dashboard` host, so a pushed route would hide
+    it. Config-gated routing (§2/§80) lands in Slice 6. Also added a standalone
+    `item/{itemId}` route: a bare item deep link has no parent `listId` to build the
+    nested route, so it lands on an item placeholder until a Phase 08 lookup use case.
+- [x] Deep link handling: Activity `VIEW` intent filter for `fluxit://list/{listId}` and `fluxit://item/{itemId}`; `MainActivity` (`singleTop`) forwards `intent.data` to `RootStore.OpenDeepLink` from `onCreate` + `onNewIntent`; effects → `navController` pushes. _(Slice 4)_
+- [x] Status bar: transparent, `SystemBarStyle.dark` (light icons on `#101822`). _(Slice 4)_
+- [x] Edge-to-edge enabled (`enableEdgeToEdge`). _(Slice 4)_
 
 ### iOS (`ios-app`)
 
@@ -297,3 +302,26 @@ Mapping table (same on both platforms):
   `:shared:state:check` (incl. `koverVerify`), `:build-logic:test --rerun-tasks`,
   `scripts/test-ios.sh` (XCFramework header regenerates, 5 bridging smoke tests pass).
   _Commit `4bd7b4e`._
+
+- **2026-06-02** — Slice 4: Android app shell & nav graph (§0 / §1 / §6). Replaced the
+  single-route NavHost in `android-app/ui/FluxItRoot.kt` with the full route set
+  (`dashboard` tab host, `list/{listId}`, `list/{listId}/item/{itemId}`, `create-list`,
+  `settings`) — not-yet-built screens render a `Placeholder`. Added `TabHost`: a
+  `FluxItScaffold` with `FluxItBottomTabBar` (4 `FluxItTabItem`s with filled active-icon
+  variants) whose `selectedIndex`/`onSelect` are driven off `RootStore.currentTab` +
+  `RootIntent.TabSelected`, a body that swaps on the current tab (Lists → live
+  `DashboardRoute()`; Calendar/Starred → inline "Coming soon" `FluxItEmptyState`;
+  Account → placeholder), and a center-docked `FluxItFab` (→ `create-list`).
+  App-level deep links: a `LaunchedEffect` collects `RootStore.effects` and maps
+  `NavigateToList`/`NavigateToItem` → `navController` pushes; `MainActivity` is now
+  `singleTop`, calls `enableEdgeToEdge` (transparent bars, `SystemBarStyle.dark` →
+  light icons on `#101822`), injects `RootStore`, and forwards the `VIEW` intent's
+  `fluxit://` data to `RootIntent.OpenDeepLink` from `onCreate` + `onNewIntent`; the
+  manifest gained the matching `VIEW`/`BROWSABLE` intent filter for hosts `list`+`item`.
+  **Divergences** (both in §1): coming-soon is inline tab content (not a pushed
+  `coming-soon/{tab}` route — the tab bar lives in the `dashboard` host), and a
+  standalone `item/{itemId}` route absorbs bare item deep links until a Phase 08
+  parent-list lookup exists. Config-gated Calendar/Starred routing + the real Account
+  screen land in Slice 6; row/FAB store-effect wiring lands with the dashboard in
+  Slice 5. Gate green: `:android-app:check` (lint + Konsist via `:build-logic:test`),
+  `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`. _Commit `<pending>`._
