@@ -23,8 +23,10 @@ entry `_Commit `<pending>`._`) + a `docs(plan):` SHA-backfill commit, per the Ph
 
 **Decisions taken at kickoff (2026-06-01):** (a) the Android dashboard UI lives in a
 new `:features:feature-lists` Gradle module (per §4/§11), not inline in `:android-app`;
-(b) snapshot infra (Paparazzi + swift-snapshot-testing) is built in the final slice,
-meeting the exit criterion.
+(b) snapshot infra (Paparazzi + swift-snapshot-testing) was sketched for the final
+slice — but **revised at Slice 8 (2026-06-02): deferred to v2** per the standing
+earlier-phase decision to keep golden-image testing out of v1 (see §10 note); the
+final slice instead ships the deferred unit tests + close-out.
 
 1. **`:features:feature-lists` scaffold** — new `fluxit.kmp.feature` module; move the
    Phase-06 minimal dashboard in as `DashboardRoute`/`DashboardScreen`; `:android-app`
@@ -490,4 +492,4 @@ Mapping table (same on both platforms):
   progress. No iOS API surface changed → `test-ios.sh` not required this slice. Gate green:
   `:features:feature-lists:check` (lint + the new unit tests, debug + release),
   `:build-logic:test --rerun-tasks` (Konsist literal-ban + cross-feature + `:shared:data` bans).
-  _Commit `<pending>`._
+  _Commit `dbc6b2f`._
