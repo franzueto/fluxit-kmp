@@ -349,4 +349,4 @@ Mapping table (same on both platforms):
   placeholder rows, not shimmer. `viewModel {}` resolves via activity-compose's transitive
   `lifecycle-viewmodel-compose` (no catalog change). Gate green: `:features:feature-lists:check`,
   `:shared:state:check` (incl. `koverVerify`), `:android-app:assembleDebug`,
-  `:build-logic:test --rerun-tasks`. _Commit `<pending>`._
+  `:build-logic:test --rerun-tasks`. _Commit `a8dcfce`._
