@@ -430,4 +430,4 @@ Mapping table (same on both platforms):
   `:shared:state:check` (incl. `koverVerify` ≥90% + the new accessor tests +
   `iosSimulatorArm64Test`), `scripts/test-ios.sh` (XCFramework assemble → xcodegen →
   simulator: 5/5 SKIE bridging tests, full app target compiles),
-  `:build-logic:test --rerun-tasks` (Konsist). _Commit `<pending>`._
+  `:build-logic:test --rerun-tasks` (Konsist). _Commit `6962873`._
