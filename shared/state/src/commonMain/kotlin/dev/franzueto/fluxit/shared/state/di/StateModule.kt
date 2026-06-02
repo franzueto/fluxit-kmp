@@ -1,5 +1,6 @@
 package dev.franzueto.fluxit.shared.state.di
 
+import dev.franzueto.fluxit.shared.state.debug.SeedSampleData
 import dev.franzueto.fluxit.shared.state.store.AccountStore
 import dev.franzueto.fluxit.shared.state.store.CreateListStore
 import dev.franzueto.fluxit.shared.state.store.ItemDetailStore
@@ -39,5 +40,10 @@ public val stateModule: Module =
         factory { ListDetailStore(get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { CreateListStore(get(), get(), get(), get()) }
         factory { ItemDetailStore(get(), get(), get(), get(), get(), get(), get(), get()) }
-        factory { AccountStore(get(), get(), version = "0.0.0-interim", flags = emptyMap()) }
+        factory { params ->
+            AccountStore(params.getOrNull<CoroutineScope>() ?: get(), get(), version = "0.0.0-interim", flags = emptyMap())
+        }
+        // Debug-only seed action (plan/07 §7); the use case is harmless in any
+        // build — the *button* is stripped from release via source-set selection.
+        factory { SeedSampleData(get(), get(), get()) }
     }

@@ -38,7 +38,7 @@ meeting the exit criterion.
    + center FAB off `RootStore.currentTab`), deep-link intent filter, edge-to-edge.
 5. ✅ **Android dashboard screen** — real DS composition, swipe-to-delete + 5s undo
    snackbar, FAB→create, empty/empty-search/error/loading, exhaustive `EffectHandler`.
-6. **Coming-soon + Account + Settings stub + debug seed** — `SeedSampleData` use case
+6. ✅ **Coming-soon + Account + Settings stub + debug seed** — `SeedSampleData` use case
    (`:shared:state/debug/`), Account seed button (debug), coming-soon placeholder.
 7. **iOS app shell + dashboard** — `NavigationStack` per tab, tab bar + FAB overlay,
    DS-composed `DashboardView` with `.swipeActions` + undo overlay, deep links, seed.
@@ -174,11 +174,11 @@ Mapping table (same on both platforms):
 
 ## 7. Debug seed action
 
-- [ ] In debug builds, the Account tab includes a "Seed sample data" button that invokes a `SeedSampleData` use case (lives in `:shared:state/debug/`):
+- [x] In debug builds, the Account tab includes a "Seed sample data" button that invokes a `SeedSampleData` use case (lives in `:shared:state/debug/` → `commonMain/.../state/debug/`, so the iOS Slice-7 seed resolves the same type). _(Slice 6)_
   - Creates the 5 lists from the mockup ("Supermarket", "Home To-Do", "Trip to Japan", "Gift Ideas", "Work Q4 Goals") with their respective icons + colors.
-  - Adds 3–10 items to each.
-- [ ] Stripped from release builds via Gradle source-set selection (`debug` only).
-- [ ] Used by manual QA + screenshot tests so we don't depend on a network or fixture file.
+  - Adds 3–10 items to each (a few pre-completed via `ToggleItemCompleted`).
+- [x] Stripped from release builds via Gradle source-set selection (`android-app/src/debug` real `DebugActionsSection`, `src/release` no-op twin) — mirrors the designsystem Theme Gallery in `androidDebug`. _(Slice 6)_
+- [x] Used by manual QA + screenshot tests so we don't depend on a network or fixture file. _(Slice 6; screenshot use lands Slice 8.)_
 
 ## 8. Accessibility
 
@@ -350,3 +350,46 @@ Mapping table (same on both platforms):
   `lifecycle-viewmodel-compose` (no catalog change). Gate green: `:features:feature-lists:check`,
   `:shared:state:check` (incl. `koverVerify`), `:android-app:assembleDebug`,
   `:build-logic:test --rerun-tasks`. _Commit `a8dcfce`._
+
+- **2026-06-02** — Slice 6: Coming-soon + Account + Settings stub + debug seed
+  (§2 / §7 / §12). Added the **`SeedSampleData`** use case in `:shared:state`
+  `commonMain/.../debug/` (kept in `commonMain`, not `androidDebug`, so the iOS
+  Slice-7 seed resolves the same type) — a thin orchestrator over the existing
+  `:shared:domain` use cases (`CreateList` → `AddItem` → `ToggleItemCompleted`),
+  going through the same seams the stores use and never touching `:shared:data`.
+  It seeds the five mockup lists (Supermarket / Home To-Do / Trip to Japan / Gift
+  Ideas / Work Q4 Goals) with 3–10 items each and a few pre-completed; non-
+  transactional (returns the first `DomainError` and stops). Bound as a `factory`
+  in `stateModule`; unit-tested (`SeedSampleDataTest`, 3 cases — keeps
+  `:shared:state` Kover ≥90%) by composing the real use cases over
+  `FakeListsRepository`/`FakeItemsRepository` (the fakes don't join, so item
+  counts are asserted via `observeByList`, not the list summary). **Real Account
+  screen** (`android-app/ui/account/`): `AccountScreen` + `AccountViewModel`
+  (scopes `AccountStore` to `viewModelScope` — `AccountStore`'s `stateModule`
+  factory gained the same optional `CoroutineScope` param as `ListsDashboardStore`,
+  no-arg resolves keep the fresh-scope fallback), inline `FluxItTopBarLarge`
+  header (host owns the scaffold), a Settings row showing the interim version, and
+  the debug seed section. **Settings stub** (`android-app/ui/settings/`):
+  `SettingsScreen` behind the `settings` route — About (version from
+  `AccountStore`), Privacy (no-op "Anonymous crash reports" `Switch` + "Takes
+  effect on next launch" note; real Crashlytics/`platform-config` wiring deferred
+  to Phase 16), Privacy Policy / ToS rows opening placeholder URLs via an
+  `ACTION_VIEW` intent, and the debug seed section. **Debug-only exposure** via
+  Gradle source-set selection: `android-app/src/debug/.../DebugActions.kt` renders
+  the real `DebugActionsSection` (resolves `SeedSampleData` from Koin, runs it,
+  surfaces the count/error inline); `src/release/.../DebugActions.kt` is a no-op
+  twin — so the seed button + its `SeedSampleData` reference are stripped from
+  release (mirrors the designsystem Theme Gallery in `androidDebug`; both debug +
+  release compile clean). **Coming-soon decision:** kept Calendar/Starred as the
+  Slice-4 **inline** "Coming soon" `FluxItEmptyState` rather than wiring
+  `RootStore`/`ConfigProvider` config-gating — the inline tab content already meets
+  ADR-004, and config-gated routing would add a `ConfigProvider` seam with no
+  v1 behaviour change; revisit if a second gated surface needs it. **Divergences:**
+  `About` has no standalone destination — it lives inside the Settings stub, so
+  `AccountEffect.NavigateToAbout` routes to Settings too; the Privacy toggle is
+  local/no-op (Phase 16). State + android-app only (no iOS API consumed by Swift
+  changed) → skipped `test-ios.sh` per §0 (the iOS seed resolver lands Slice 7).
+  Gate green: `:shared:state:check` (incl. `koverVerify`), `:android-app:check` +
+  `:android-app:assembleDebug` (debug + release compile), `:build-logic:test
+  --rerun-tasks` (Konsist literal-ban passes for the new app/settings code).
+  _Commit `<pending>`._

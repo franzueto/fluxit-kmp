@@ -2,6 +2,8 @@
 
 package dev.franzueto.fluxit.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +17,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -44,6 +47,8 @@ import dev.franzueto.fluxit.shared.state.store.InitState
 import dev.franzueto.fluxit.shared.state.store.RootEffect
 import dev.franzueto.fluxit.shared.state.store.RootIntent
 import dev.franzueto.fluxit.shared.state.store.RootStore
+import dev.franzueto.fluxit.ui.account.AccountScreen
+import dev.franzueto.fluxit.ui.settings.SettingsScreen
 import org.koin.compose.koinInject
 
 /**
@@ -147,7 +152,13 @@ private fun FluxItNavHost(rootStore: RootStore) {
             arguments = listOf(navArgument(ARG_ITEM_ID) { type = NavType.StringType }),
         ) { Placeholder("Item detail") }
         composable(ROUTE_CREATE_LIST) { Placeholder("Create list") }
-        composable(ROUTE_SETTINGS) { Placeholder("Settings") }
+        composable(ROUTE_SETTINGS) {
+            val context = LocalContext.current
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+            )
+        }
     }
 }
 
@@ -188,7 +199,7 @@ private fun TabHost(
                         )
                     Tab.Calendar -> ComingSoon("Calendar")
                     Tab.Starred -> ComingSoon("Starred")
-                    Tab.Account -> Placeholder("Account")
+                    Tab.Account -> AccountScreen(onOpenSettings = { navController.navigate(ROUTE_SETTINGS) })
                 }
             }
         }
