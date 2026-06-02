@@ -159,7 +159,7 @@ internal fun subtitleFor(
     return "${summary.totalItems} items · $metadata"
 }
 
-private fun relativeTime(
+internal fun relativeTime(
     from: Instant,
     now: Instant,
 ): String {
