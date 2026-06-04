@@ -74,13 +74,15 @@ private struct TabHostView: View {
     }
 
     var body: some View {
-        FluxItScaffold {
-            FluxItBottomTabBar(
-                tabs: tabItems,
-                selectedIndex: TabHostView.tabsOrder.firstIndex(of: currentTab) ?? 0,
-                onSelect: { index in store.dispatch(intent: RootIntentTabSelected(tab: TabHostView.tabsOrder[index])) }
-            )
-        } content: {
+        FluxItScaffold(
+            bottomBar: {
+                FluxItBottomTabBar(
+                    tabs: tabItems,
+                    selectedIndex: TabHostView.tabsOrder.firstIndex(of: currentTab) ?? 0,
+                    onSelect: { index in store.dispatch(intent: RootIntentTabSelected(tab: TabHostView.tabsOrder[index])) }
+                )
+            }
+        ) {
             ZStack(alignment: .bottom) {
                 tabContent
                 if currentTab == .lists {
