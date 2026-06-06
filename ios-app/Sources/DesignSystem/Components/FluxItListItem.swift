@@ -75,6 +75,7 @@ public struct FluxItDashboardListItem: View {
 // Variant 2 — Detail to-buy item: hollow radio leading, chevron trailing.
 public struct FluxItToBuyListItem: View {
     private let title: String
+    private let subtitle: String?
     private let onToggle: () -> Void
     private let onTap: () -> Void
     private let chevronIcon: Image?
@@ -82,10 +83,12 @@ public struct FluxItToBuyListItem: View {
     public init(
         title: String,
         onToggle: @escaping () -> Void,
+        subtitle: String? = nil,
         onTap: @escaping () -> Void = {},
         chevronIcon: Image? = nil
     ) {
         self.title = title
+        self.subtitle = subtitle
         self.onToggle = onToggle
         self.onTap = onTap
         self.chevronIcon = chevronIcon
@@ -103,10 +106,17 @@ public struct FluxItToBuyListItem: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Mark as completed")
-                Text(title)
-                    .font(.system(size: 16))
-                    .foregroundStyle(FluxItTokens.Colors.textPrimary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 16))
+                        .foregroundStyle(FluxItTokens.Colors.textPrimary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 13))
+                            .foregroundStyle(FluxItTokens.Colors.textMuted)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 if let chevronIcon {
                     chevronIcon.foregroundStyle(FluxItTokens.Colors.textMuted)
                 }
@@ -126,50 +136,58 @@ public struct FluxItCompletedListItem: View {
     private let title: String
     private let onToggle: () -> Void
     private let checkIcon: Image
-    private let trashIcon: Image
-    private let onDelete: () -> Void
+    private let onTap: () -> Void
+    private let trashIcon: Image?
+    private let onDelete: (() -> Void)?
 
     public init(
         title: String,
         onToggle: @escaping () -> Void,
         checkIcon: Image,
-        trashIcon: Image,
-        onDelete: @escaping () -> Void
+        onTap: @escaping () -> Void = {},
+        trashIcon: Image? = nil,
+        onDelete: (() -> Void)? = nil
     ) {
         self.title = title
         self.onToggle = onToggle
         self.checkIcon = checkIcon
+        self.onTap = onTap
         self.trashIcon = trashIcon
         self.onDelete = onDelete
     }
 
     public var body: some View {
-        HStack(spacing: 12) {
-            Button(action: onToggle) {
-                checkIcon
-                    .foregroundStyle(FluxItTokens.Colors.primaryBlue)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Completed")
-            Text(title)
-                .font(.system(size: 16))
-                .strikethrough()
-                .foregroundStyle(FluxItTokens.Colors.textMuted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button(action: onDelete) {
-                trashIcon
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Button(action: onToggle) {
+                    checkIcon
+                        .foregroundStyle(FluxItTokens.Colors.primaryBlue)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Mark as not completed")
+                Text(title)
+                    .font(.system(size: 16))
+                    .strikethrough()
                     .foregroundStyle(FluxItTokens.Colors.textMuted)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let trashIcon, let onDelete {
+                    Button(action: onDelete) {
+                        trashIcon
+                            .foregroundStyle(FluxItTokens.Colors.textMuted)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Delete")
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Delete")
+            .padding(.horizontal, FluxItTokens.Spacing.itemPaddingX)
+            .padding(.vertical, FluxItTokens.Spacing.itemPaddingY)
+            .background(FluxItTokens.Colors.surfaceCardMuted)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .padding(.horizontal, FluxItTokens.Spacing.itemPaddingX)
-        .padding(.vertical, FluxItTokens.Spacing.itemPaddingY)
-        .background(FluxItTokens.Colors.surfaceCardMuted)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .buttonStyle(.plain)
     }
 }

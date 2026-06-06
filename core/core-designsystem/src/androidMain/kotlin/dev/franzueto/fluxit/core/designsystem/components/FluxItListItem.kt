@@ -90,6 +90,7 @@ public fun FluxItDashboardListItem(
 public fun FluxItToBuyListItem(
     title: String,
     onToggle: () -> Unit,
+    subtitle: String? = null,
     trailingIcon: ImageVector? = null,
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -124,12 +125,12 @@ public fun FluxItToBuyListItem(
                         .border(width = 2.dp, color = FluxItColors.textMuted, shape = CircleShape),
             )
         }
-        Text(
-            text = title,
-            style = FluxItTypography.bodyMd,
-            color = FluxItColors.textPrimary,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = FluxItTypography.bodyMd, color = FluxItColors.textPrimary)
+            if (subtitle != null) {
+                Text(text = subtitle, style = FluxItTypography.labelSm, color = FluxItColors.textMuted)
+            }
+        }
         if (trailingIcon != null) {
             Icon(imageVector = trailingIcon, contentDescription = null, tint = FluxItColors.textMuted)
         }
@@ -144,8 +145,9 @@ public fun FluxItCompletedListItem(
     title: String,
     onToggle: () -> Unit,
     checkIcon: ImageVector,
-    trashIcon: ImageVector,
-    onDelete: () -> Unit,
+    onClick: () -> Unit = {},
+    trashIcon: ImageVector? = null,
+    onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -154,12 +156,13 @@ public fun FluxItCompletedListItem(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(FluxItColors.surfaceCardMuted)
+                .clickable(onClick = onClick)
                 .padding(horizontal = FluxItSpacing.itemPaddingX, vertical = FluxItSpacing.itemPaddingY),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         IconButton(onClick = onToggle) {
-            Icon(imageVector = checkIcon, contentDescription = "Completed", tint = FluxItColors.primaryBlue)
+            Icon(imageVector = checkIcon, contentDescription = "Mark as not completed", tint = FluxItColors.primaryBlue)
         }
         Text(
             text = title,
@@ -167,8 +170,10 @@ public fun FluxItCompletedListItem(
             color = FluxItColors.textMuted,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = onDelete) {
-            Icon(imageVector = trashIcon, contentDescription = "Delete", tint = FluxItColors.textMuted)
+        if (trashIcon != null && onDelete != null) {
+            IconButton(onClick = onDelete) {
+                Icon(imageVector = trashIcon, contentDescription = "Delete", tint = FluxItColors.textMuted)
+            }
         }
     }
 }
