@@ -13,7 +13,7 @@
 kotlin = "2.1.0"
 kover = "0.9.1"
 agp = "8.7.3"
-ksp = "2.1.0-1.0.29"            # KSP version tracks Kotlin version
+ksp = "2.3.9"            # KSP version tracks Kotlin version
 java-toolchain = "21"
 android-compile-sdk = "35"
 android-target-sdk = "35"
