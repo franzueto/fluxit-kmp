@@ -287,4 +287,4 @@ ios-app/Features/ListDetail/
   Star / Reminders / Delete-list are omitted on iOS rather than shown "(coming soon)"
   like Android — same v1 scope, different affordance; (b) snapshot/UI tests deferred to
   v2 (§11). Gate green: `:shared:state:check`, `:build-logic:test`, `scripts/test-ios.sh`
-  (`** TEST SUCCEEDED **`). _Commit `<pending>`._
+  (`** TEST SUCCEEDED **`). _Commit `f182e75`._
