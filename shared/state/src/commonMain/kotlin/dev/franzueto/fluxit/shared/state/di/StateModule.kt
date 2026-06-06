@@ -37,7 +37,9 @@ public val stateModule: Module =
         factory { params ->
             ListsDashboardStore(params.getOrNull<CoroutineScope>() ?: get(), get(), get(), get(), get(), get())
         }
-        factory { ListDetailStore(get(), get(), get(), get(), get(), get(), get(), get()) }
+        factory { params ->
+            ListDetailStore(params.getOrNull<CoroutineScope>() ?: get(), get(), get(), get(), get(), get(), get(), get())
+        }
         factory { CreateListStore(get(), get(), get(), get()) }
         factory { ItemDetailStore(get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { params ->

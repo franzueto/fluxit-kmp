@@ -41,6 +41,7 @@ import dev.franzueto.fluxit.core.designsystem.icons.Star
 import dev.franzueto.fluxit.core.designsystem.icons.StarFilled
 import dev.franzueto.fluxit.core.designsystem.theme.FluxItTheme
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItSpacing
+import dev.franzueto.fluxit.feature.listdetail.ListDetailRoute
 import dev.franzueto.fluxit.feature.lists.DashboardRoute
 import dev.franzueto.fluxit.shared.state.navigation.Tab
 import dev.franzueto.fluxit.shared.state.store.InitState
@@ -138,7 +139,14 @@ private fun FluxItNavHost(rootStore: RootStore) {
         composable(
             route = ROUTE_LIST_DETAIL,
             arguments = listOf(navArgument(ARG_LIST_ID) { type = NavType.StringType }),
-        ) { Placeholder("List detail") }
+        ) { backStackEntry ->
+            val listId = backStackEntry.arguments?.getString(ARG_LIST_ID).orEmpty()
+            ListDetailRoute(
+                listId = listId,
+                onBack = { navController.popBackStack() },
+                onOpenEditItem = { itemId -> navController.navigate("list/$listId/item/${itemId.value}") },
+            )
+        }
         composable(
             route = ROUTE_ITEM_DETAIL,
             arguments =

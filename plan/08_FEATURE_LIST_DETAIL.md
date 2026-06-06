@@ -10,7 +10,44 @@
 - Toggling an item's completion animates between TO BUY ↔ COMPLETED sections without dropping a frame; underlying repository call is fire-and-forget from the UI's POV (optimistic).
 - Inline composer survives process death: typed-but-unsubmitted text is restored.
 - All design-system primitives — Konsist literal-ban green.
-- Snapshot tests checked in for: empty list, partially complete, fully complete, completed-section hidden, composer with text, swipe-pending-delete, error state.
+- ~~Snapshot tests checked in for: empty list, partially complete, fully complete, completed-section hidden, composer with text, swipe-pending-delete, error state.~~ **Revised (Slice 1): deferred to v2** — snapshot infra is out of v1 scope by the standing decision (see memory `snapshot-testing-deferred-v2` / Phase 07 §10 note). v1 relies on `@Preview`/SwiftUI previews for visual review plus the `:shared:state` `ListDetailStoreTest` suite, the exhaustive `when`/`switch` effect→nav mapping, pure-logic unit tests, and Konsist.
+
+---
+
+## 0. Slice plan & cadence
+
+Phase 08 ships one `feat` commit per slice (plan files synced in-commit, impl-log
+entry `_Commit `<pending>`._`) + a `docs(plan):` SHA-backfill commit, per the Phase
+05–07 cadence. Pre-commit gate: `:check` of each touched module + `:build-logic:test
+--rerun-tasks`; iOS-facing slices also run `scripts/test-ios.sh`.
+
+**Decisions taken at kickoff (2026-06-06):** (a) the Android list-detail UI lives in a
+new `:features:feature-list-detail` Gradle module (per §9/§12), mirroring
+`:features:feature-lists`; (b) snapshot infra stays deferred to v2 (above); (c) the
+shipped `ListDetailStore` (Phase 05) exposes intents only for the in-scope behaviours —
+the §4 menu's **Edit list / Star / Reminders / Delete-list** entries (and the §6
+cross-screen delete-list undo) depend on stores/use cases that land in Phases 09/13, so
+they render as **disabled "(coming soon)"** menu rows in v1; only **Clear completed** is
+wired. The bulk-undo backfill (§13/§14 — `ClearCompletedItems → List<ItemId>` +
+`RestoreItems`) stays deferred consistent with the store's documented data-layer block.
+
+1. **`:features:feature-list-detail` scaffold + Android screen** — new
+   `fluxit.kmp.feature` module; `ListDetailRoute`/`ListDetailScreen`/
+   `ListDetailComponents`/`ListDetailPreviews`/`ListDetailViewModel`; `:android-app`
+   NavHost renders it (replacing the `Placeholder`); completion header + progress,
+   TO BUY/COMPLETED sections with row variants in `FluxItSwipeRow`, composer dock,
+   optimistic toggle, swipe-delete + 5s undo, hide/show, exhaustive `EffectHandler`,
+   list-actions sheet (Clear completed wired; rest disabled), `SavedStateHandle`
+   process-death persistence (§5). DS backfill: `FluxItToBuyListItem` subtitle +
+   optional trash on `FluxItCompletedListItem` (§2 trash-removal). `:shared:state`
+   `ListDetailStore` factory gains the optional-`CoroutineScope` param (viewModelScope).
+2. **iOS list-detail screen** — `ListDetailView`/`ListDetailRow`/`ComposerDock`/
+   `ListActionsSheet`; `ContentView` `.listDetail` route renders it; observe/effects,
+   row variants, `.swipeActions` delete + undo overlay, composer, actions sheet,
+   `@SceneStorage` persistence (§5).
+3. **Tests + close-out** — pure-logic unit tests (`completionFraction` / row
+   formatters) in `:features:feature-list-detail` androidUnitTest; `MASTER_PLAN.md` →
+   🟢; hand-off (§14). Snapshot + UI-instrumented tests tracked for v2 (§11).
 
 ---
 
@@ -186,3 +223,42 @@ ios-app/Features/ListDetail/
 - [ ] **Phase 04 backfill**: `ClearCompletedItems` signature → `Outcome<List<ItemId>, DomainError>`; new `RestoreItems(ids)` use case added; both tested.
 - [ ] **Phase 03 backfill**: `softDeleteCompletedByList` query updated to `RETURNING id`.
 - [ ] `MASTER_PLAN.md`: Phase 08 → 🟢, ▶ Next Step → Phase 09.
+
+---
+
+## 15. Implementation Log
+
+- **2026-06-06** — Slice 1: `:features:feature-list-detail` module + Android screen
+  (§0 / §1 / §2 / §3 / §5 / §9 / §12). Stood up the new feature module via the
+  `fluxit.kmp.feature` convention plugin (namespace
+  `dev.franzueto.fluxit.feature.listdetail`, Compose on, deps `:shared:state` +
+  `:shared:domain` + `:core:core-designsystem` + the `compose-ui` bundle +
+  `koin-compose`); registered in `settings.gradle.kts`; `:android-app` depends on it and
+  the NavHost's `list/{listId}` route now renders `ListDetailRoute` (replacing the
+  `Placeholder`). Split into `ListDetailRoute` (Koin/ViewModel glue + exhaustive
+  `ListDetailEffect` `when` → nav callbacks / undo+error snackbar / actions-sheet
+  visibility), the stateless `ListDetailScreen` (`FluxItScaffold` with `FluxItTopBarCentered`
+  variant B, completion header + `FluxItProgressBar` above the `LazyColumn`, TO BUY /
+  COMPLETED sections via `FluxItToBuyListItem` / `FluxItCompletedListItem` wrapped in
+  `FluxItSwipeRow`, sticky `FluxItInlineComposer` dock with `imePadding()`), and
+  `ListDetailComponents` (snackbars, `CompletionHeader`, rows, list-actions
+  `ModalBottomSheet`, `completionFraction`). Optimistic toggle / swipe-delete + 5s undo /
+  hide-show / composer all dispatch to the Phase-05 store; the undo countdown mirrors the
+  dashboard's 50ms-tick pattern. **§5 persistence:** `ListDetailViewModel` owns a
+  `SavedStateHandle` (keys `composer:{listId}` / `showCompleted:{listId}`), replaying the
+  saved values as intents on (re)creation — the shipped store has no `initialState` ctor
+  param (a §5 sketch that never landed), so intent-replay is the restoration path;
+  pending-delete is intentionally not persisted. **DS backfill:** added an optional
+  `subtitle` to `FluxItToBuyListItem` (§2 second line) and made the trash trailing
+  optional on `FluxItCompletedListItem` (§2 trash-removal — swipe handles delete); the
+  Theme Gallery still passes both so it compiles. **`:shared:state`:** the `ListDetailStore`
+  Koin factory gained the optional-`CoroutineScope` param so the VM scopes it to
+  `viewModelScope` (mirrors `ListsDashboardStore`). **Divergences:** (a) §4's Edit / Star /
+  Reminders / Delete-list menu rows render disabled "(coming soon)" — their backing
+  intents land in Phases 09/13 and the store exposes none; only Clear completed (with the
+  §13 confirm alert) is wired; (b) composer submit is button-tap only — the DS
+  `FluxItInlineComposer` exposes no `ImeAction.Done` / disabled-when-blank wiring yet
+  (store ignores blank submits), tracked as DS polish; (c) snapshot tests deferred to v2
+  (§11). Gate green: `:features:feature-list-detail:check`, `:core:core-designsystem:check`,
+  `:shared:state:check`, `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`,
+  `scripts/test-ios.sh` (`** TEST SUCCEEDED **`). _Commit `<pending>`._
