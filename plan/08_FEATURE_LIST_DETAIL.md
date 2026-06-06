@@ -262,3 +262,29 @@ ios-app/Features/ListDetail/
   (§11). Gate green: `:features:feature-list-detail:check`, `:core:core-designsystem:check`,
   `:shared:state:check`, `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`,
   `scripts/test-ios.sh` (`** TEST SUCCEEDED **`). _Commit `b8e2e61`._
+
+- **2026-06-06** — Slice 2: iOS list-detail screen (§0 / §1 / §3 / §4 / §5 / §9).
+  Added `ListDetailView` / `ListDetailRow` / `ComposerDock` / `ListActionsSheet` to
+  `ios-app/Sources/` (auto-included via the synchronized folder) and wired the
+  `ContentView` `.listDetail` route to render `ListDetailView` (replacing the
+  placeholder), pushing `.itemDetail` on edit. `ListDetailView` resolves the store via
+  a new `resolveListDetailStore()` facade, observes `state`/`effects` through
+  `observe`/`observeEffects`, and exhaustively switches `ListDetailEffect` →
+  nav callbacks / undo+error overlays / actions sheet. Composition mirrors Android: a
+  `FluxItScaffold` with `FluxItTopBarCentered` (variant B), a `CompletionHeaderView` +
+  `FluxItProgressBar` above a flat `List` of TO BUY / COMPLETED rows (inline non-sticky
+  headers, §13), `.fluxItSwipeToDelete` per row, and a `ComposerDock` in the bottom bar
+  with `.submitLabel(.send)`. **§5 persistence:** `@SceneStorage` keyed `composer:{listId}`
+  / `showCompleted:{listId}` (dynamic keys set in `init`), replayed into the store as
+  intents on first appearance and written back via `.onChange`. **DS backfill (iOS half):**
+  `FluxItToBuyListItem` gained an optional `subtitle`; `FluxItCompletedListItem` gained
+  `onTap` + made the trash trailing optional (§2 trash-removal — swipe handles delete);
+  the Theme Gallery still passes trash so it compiles. **`:shared:state`:** added the
+  `resolveListDetailStore()` resolver, a `ListDetailEffect.NavigateToEditItem.itemId()`
+  Swift accessor, and a `listIdOf(value:)` factory (the `@JvmInline` `ListId` ctor isn't
+  surfaced for direct Swift construction, needed to build `Init`). **Divergences:** (a)
+  the §4 menu uses `.confirmationDialog`, which can't render disabled rows, so Edit /
+  Star / Reminders / Delete-list are omitted on iOS rather than shown "(coming soon)"
+  like Android — same v1 scope, different affordance; (b) snapshot/UI tests deferred to
+  v2 (§11). Gate green: `:shared:state:check`, `:build-logic:test`, `scripts/test-ios.sh`
+  (`** TEST SUCCEEDED **`). _Commit `<pending>`._

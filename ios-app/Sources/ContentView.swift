@@ -135,7 +135,11 @@ private struct TabHostView: View {
     @ViewBuilder private func destination(_ route: DashRoute, path: Binding<[DashRoute]>) -> some View {
         switch route {
         case let .listDetail(id):
-            PlaceholderView(label: "List detail\n\(id)")
+            ListDetailView(
+                listId: id,
+                onBack: { path.wrappedValue.removeLast() },
+                onOpenEditItem: { itemId in path.wrappedValue.append(.itemDetail(itemId)) }
+            )
         case let .itemDetail(id):
             PlaceholderView(label: "Item detail\n\(id)")
         case .createList:

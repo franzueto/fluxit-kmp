@@ -7,6 +7,7 @@ import dev.franzueto.fluxit.platform.photo.photoModule
 import dev.franzueto.fluxit.platform.reminders.remindersModule
 import dev.franzueto.fluxit.shared.state.debug.SeedSampleData
 import dev.franzueto.fluxit.shared.state.store.AccountStore
+import dev.franzueto.fluxit.shared.state.store.ListDetailStore
 import dev.franzueto.fluxit.shared.state.store.ListsDashboardStore
 import dev.franzueto.fluxit.shared.state.store.RootStore
 import org.koin.core.KoinApplication
@@ -72,6 +73,17 @@ public fun resolveRootStore(): RootStore = KoinPlatform.getKoin().get()
  * one per appearance and lets it cancel when the view leaves (Phase 06 Slice 7).
  */
 public fun resolveListsDashboardStore(): ListsDashboardStore = KoinPlatform.getKoin().get()
+
+/**
+ * Swift-callable resolver for the List Detail store (plan/08 §9). Like
+ * [ListsDashboardStore] a Koin `factory` (fresh store + scope per appearance); the
+ * SwiftUI `ListDetailView` resolves one per appearance and dispatches
+ * `ListDetailIntent.Init(listId)` to bind it to a specific list. The optional
+ * `CoroutineScope` factory param is unused from Swift — it resolves over a fresh
+ * `SupervisorJob` scope (the iOS view's lifetime owns cancellation via the store's
+ * own `scope`).
+ */
+public fun resolveListDetailStore(): ListDetailStore = KoinPlatform.getKoin().get()
 
 /**
  * Swift-callable resolver for the Account tab store. Like [ListsDashboardStore] a
