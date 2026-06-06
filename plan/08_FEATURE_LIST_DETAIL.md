@@ -316,4 +316,4 @@ ios-app/Features/ListDetail/
   data-layer block (no per-item/bulk restore primitive; clear-completed surfaces failures
   only). Effect→nav mapping stays enforced by the exhaustive compile-time `when`/`switch`
   on both platforms + the `:shared:state` `ListDetailStoreTest` suite. Gate green:
-  `:features:feature-list-detail:check`, `:build-logic:test`. _Commit `<pending>`._
+  `:features:feature-list-detail:check`, `:build-logic:test`. _Commit `e30c622`._
