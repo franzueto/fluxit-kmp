@@ -261,4 +261,4 @@ ios-app/Features/ListDetail/
   (store ignores blank submits), tracked as DS polish; (c) snapshot tests deferred to v2
   (§11). Gate green: `:features:feature-list-detail:check`, `:core:core-designsystem:check`,
   `:shared:state:check`, `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`,
-  `scripts/test-ios.sh` (`** TEST SUCCEEDED **`). _Commit `<pending>`._
+  `scripts/test-ios.sh` (`** TEST SUCCEEDED **`). _Commit `b8e2e61`._
