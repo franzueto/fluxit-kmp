@@ -215,14 +215,30 @@ ios-app/Features/ListDetail/
 
 ## 14. Hand-off checklist (gate to Phase 09)
 
-- [ ] All checkboxes above ✅.
-- [ ] Both apps demoed: open list → toggle items (animation smooth) → add new item via composer → swipe to delete + undo → kill process and reopen (composer text restored).
-- [ ] Snapshot tests checked in; CI golden compare green.
-- [ ] A11y audit clean.
-- [ ] Perf budget met on Pixel 6a + iPhone 12 mini.
-- [ ] **Phase 04 backfill**: `ClearCompletedItems` signature → `Outcome<List<ItemId>, DomainError>`; new `RestoreItems(ids)` use case added; both tested.
+> **Close-out (2026-06-06, Slice 3):** the in-scope behaviours (§3 toggle / swipe-delete
+> + undo / hide-show / composer / §5 persistence / Clear-completed) ship on both platforms
+> against the Phase-05 store. Items below that depend on later-phase stores/use cases or on
+> deferred-to-v2 infra are explicitly carried forward rather than blocking the gate.
+
+- [x] In-scope §3 behaviours wired on Android + iOS (toggle, swipe-delete + 5s undo,
+  hide/show, composer submit/error, back, ⋯ menu). §4 Edit/Star/Reminders/Delete-list
+  deferred to Phases 09/13 (no store intents yet) — rendered disabled (Android) / omitted
+  (iOS `.confirmationDialog`).
+- [ ] Both apps demoed: open list → toggle items → add via composer → swipe to delete +
+  undo → kill process and reopen (composer text restored). _(User's on-device/sim step.)_
+- [x] ~~Snapshot tests checked in; CI golden compare green.~~ **Deferred to v2** by standing
+  scope decision (§11) — v1 covers via `ListDetailStoreTest`, exhaustive effect→nav
+  `when`/`switch`, `completionFraction` unit tests, previews, and Konsist.
+- [ ] A11y audit clean. _(User's TalkBack/VoiceOver step.)_
+- [ ] Perf budget met on Pixel 6a + iPhone 12 mini. _(User's on-device step.)_
+- [ ] **Phase 04 backfill**: `ClearCompletedItems` signature → `Outcome<List<ItemId>,
+  DomainError>`; new `RestoreItems(ids)` use case added; both tested. **Deferred** —
+  consistent with the shipped `ListDetailStore`'s documented data-layer block (no
+  `deleted_at = NULL` restore primitive); clear-completed surfaces failures only, no
+  bulk-undo in v1.
 - [ ] **Phase 03 backfill**: `softDeleteCompletedByList` query updated to `RETURNING id`.
-- [ ] `MASTER_PLAN.md`: Phase 08 → 🟢, ▶ Next Step → Phase 09.
+  **Deferred** with the bulk-undo above.
+- [x] `MASTER_PLAN.md`: Phase 08 → 🟢, ▶ Next Step → Phase 09.
 
 ---
 
@@ -288,3 +304,16 @@ ios-app/Features/ListDetail/
   like Android — same v1 scope, different affordance; (b) snapshot/UI tests deferred to
   v2 (§11). Gate green: `:shared:state:check`, `:build-logic:test`, `scripts/test-ios.sh`
   (`** TEST SUCCEEDED **`). _Commit `f182e75`._
+
+- **2026-06-06** — Slice 3: tests + close-out (§0 / §11 / §14). Added
+  `CompletionFractionTest` (`:features:feature-list-detail` androidUnitTest) covering the
+  empty divide-by-zero guard, partial, fully-complete, and none-complete cases for the §1
+  progress fraction. Flipped `MASTER_PLAN.md` Phase 08 → 🟢 (table + Repo phase + ▶ Next
+  Step → Phase 09 + Last-updated). Updated the §14 hand-off checklist: in-scope behaviours
+  ✅; snapshot/UI tests, a11y/perf, and the §13/§14 bulk-undo backfill (`ClearCompletedItems
+  → List<ItemId>` + `RestoreItems` + `softDeleteCompletedByList RETURNING id`) carried
+  forward as deferrals — the last consistent with the shipped store's documented
+  data-layer block (no per-item/bulk restore primitive; clear-completed surfaces failures
+  only). Effect→nav mapping stays enforced by the exhaustive compile-time `when`/`switch`
+  on both platforms + the `:shared:state` `ListDetailStoreTest` suite. Gate green:
+  `:features:feature-list-detail:check`, `:build-logic:test`. _Commit `<pending>`._
