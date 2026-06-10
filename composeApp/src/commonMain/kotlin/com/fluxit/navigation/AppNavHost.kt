@@ -2,6 +2,7 @@ package com.fluxit.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
+import androidx.savedstate.read
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -37,7 +38,7 @@ fun AppNavHost() {
             Routes.LIST_DETAIL,
             arguments = listOf(navArgument("listId") { type = NavType.StringType }),
         ) { entry ->
-            val listId = entry.arguments?.getString("listId") ?: return@composable
+            val listId = entry.arguments?.read { getStringOrNull("listId") } ?: return@composable
             ListDetailScreen(
                 listId = listId,
                 onBack = { navController.popBackStack() },
@@ -55,7 +56,7 @@ fun AppNavHost() {
                 }
             ),
         ) { entry ->
-            val editingId = entry.arguments?.getString("editingId")
+            val editingId = entry.arguments?.read { getStringOrNull("editingId") }
             CreateListScreen(
                 editingId = editingId,
                 onDismiss = { navController.popBackStack() },
@@ -69,7 +70,7 @@ fun AppNavHost() {
             Routes.ITEM_DETAIL,
             arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
         ) { entry ->
-            val itemId = entry.arguments?.getString("itemId") ?: return@composable
+            val itemId = entry.arguments?.read { getStringOrNull("itemId") } ?: return@composable
             ItemDetailScreen(
                 itemId = itemId,
                 onBack = { navController.popBackStack() },

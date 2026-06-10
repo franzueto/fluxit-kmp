@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+
 package com.fluxit.data
 
 import kotlinx.cinterop.ExperimentalForeignApi
