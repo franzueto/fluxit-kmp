@@ -325,4 +325,4 @@ ios-app/Features/CreateList/
   (error/label/subtitle/pickable-icons). Gate green:
   `:features:feature-create-list:check`, `:features:feature-list-detail:check`,
   `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`.
-  _Commit `<pending>`._
+  _Commit `f224af5`._
