@@ -290,4 +290,4 @@ ios-app/Features/CreateList/
   (edit prefill/save/no-op-save/failure/missing-list, dirty-cancel both modes,
   validation visibility, flag default+override, 60/61 boundary). Gate green:
   `:shared:state:check`, `:shared:domain:check` (Kover gates included),
-  `:build-logic:test --rerun-tasks`. _Commit `<pending>`._
+  `:build-logic:test --rerun-tasks`. _Commit `a2661d0`._
