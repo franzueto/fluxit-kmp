@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>List Items View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b7cee",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101822",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ios-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        /* Custom checkbox tick svg from component example */
+        .custom-checkbox {
+            --checkbox-tick-svg: url('data:image/svg+xml,%3csvg viewBox=%270 0 16 16%27 fill=%27white%27 xmlns=%27http://www.w3.org/2000/svg%27%3e%3cpath d=%27M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z%27/%3e%3c/svg%3e');
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white min-h-screen flex flex-col custom-checkbox">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 ios-blur border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center p-4 justify-between max-w-md mx-auto">
+<div class="flex items-center gap-2">
+<button class="flex items-center justify-center p-1 -ml-2 text-primary">
+<span class="material-symbols-outlined">arrow_back_ios</span>
+<span class="text-lg">Lists</span>
+</button>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center">Supermarket</h2>
+<div class="flex items-center justify-end">
+<button class="flex items-center justify-center p-2 text-primary">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex-1 max-w-md mx-auto w-full pb-32">
+<!-- Progress Indicator -->
+<div class="flex flex-col gap-3 p-4">
+<div class="flex gap-6 justify-between items-end">
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wider">List completion</p>
+<p class="text-slate-900 dark:text-white text-sm font-semibold">13/20</p>
+</div>
+<div class="rounded-full bg-slate-200 dark:bg-slate-800 h-2 overflow-hidden">
+<div class="h-full rounded-full bg-primary" style="width: 65%;"></div>
+</div>
+</div>
+<!-- Section: Active Items -->
+<div class="mt-4 px-4">
+<h3 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 ml-1">To Buy</h3>
+<div class="space-y-1">
+<!-- List Item 1 -->
+<div class="flex items-center gap-4 bg-white dark:bg-slate-800/40 px-4 py-3 rounded-xl border border-transparent active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
+<div class="flex size-7 items-center justify-center">
+<input class="h-6 w-6 rounded-full border-slate-300 dark:border-slate-600 border-2 bg-transparent text-primary checked:bg-primary checked:border-primary checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:outline-none transition-all cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-base font-medium leading-normal truncate">Organic Bananas</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Produce Section</p>
+</div>
+<div class="shrink-0 flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-600 text-lg">chevron_right</span>
+<button class="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-red-500 text-xl" data-icon="Trash">delete</span>
+</button>
+</div>
+</div>
+<!-- List Item 2 -->
+<div class="flex items-center gap-4 bg-white dark:bg-slate-800/40 px-4 py-3 rounded-xl border border-transparent active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
+<div class="flex size-7 items-center justify-center">
+<input class="h-6 w-6 rounded-full border-slate-300 dark:border-slate-600 border-2 bg-transparent text-primary checked:bg-primary checked:border-primary checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:outline-none transition-all cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-base font-medium leading-normal truncate">Whole Milk (1 gal)</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Dairy Section</p>
+</div>
+<div class="shrink-0 flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-600 text-lg">chevron_right</span>
+<button class="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-red-500 text-xl">delete</span>
+</button>
+</div>
+</div>
+<!-- List Item 3 -->
+<div class="flex items-center gap-4 bg-white dark:bg-slate-800/40 px-4 py-3 rounded-xl border border-transparent active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
+<div class="flex size-7 items-center justify-center">
+<input class="h-6 w-6 rounded-full border-slate-300 dark:border-slate-600 border-2 bg-transparent text-primary checked:bg-primary checked:border-primary checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:outline-none transition-all cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-base font-medium leading-normal truncate">Sourdough Bread</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Bakery Section</p>
+</div>
+<div class="shrink-0 flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-600 text-lg">chevron_right</span>
+<button class="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-red-500 text-xl">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Section: Completed Items -->
+<div class="mt-8 px-4 opacity-60">
+<div class="flex items-center justify-between mb-2 ml-1">
+<h3 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Completed</h3>
+<button class="text-xs font-semibold text-primary">Hide</button>
+</div>
+<div class="space-y-1">
+<div class="flex items-center gap-4 bg-slate-100 dark:bg-slate-900/40 px-4 py-2 rounded-xl border border-transparent">
+<div class="flex size-7 items-center justify-center">
+<input checked="" class="h-6 w-6 rounded-full border-primary border-2 bg-primary text-primary checked:bg-primary checked:border-primary checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:outline-none cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-base font-normal leading-normal truncate line-through text-slate-500 dark:text-slate-400">Greek Yogurt</p>
+</div>
+<div class="shrink-0">
+<button class="p-2">
+<span class="material-symbols-outlined text-slate-400 text-xl">delete</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-4 bg-slate-100 dark:bg-slate-900/40 px-4 py-2 rounded-xl border border-transparent">
+<div class="flex size-7 items-center justify-center">
+<input checked="" class="h-6 w-6 rounded-full border-primary border-2 bg-primary text-primary checked:bg-primary checked:border-primary checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:outline-none cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-base font-normal leading-normal truncate line-through text-slate-500 dark:text-slate-400">Chicken Breasts</p>
+</div>
+<div class="shrink-0">
+<button class="p-2">
+<span class="material-symbols-outlined text-slate-400 text-xl">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Quick-Add Field (iOS Style) -->
+<div class="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background-light dark:from-background-dark via-background-light/95 dark:via-background-dark/95 to-transparent pt-8 pb-8 px-4 ios-blur z-50">
+<div class="max-w-md mx-auto flex items-center gap-3">
+<div class="relative flex-1">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400">add</span>
+</div>
+<input class="w-full bg-slate-200/50 dark:bg-slate-800/80 border-none rounded-full py-3 pl-12 pr-4 text-base focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 transition-all text-slate-900 dark:text-white placeholder-slate-500" placeholder="Add new item..." type="text"/>
+</div>
+<button class="bg-primary text-white size-12 rounded-full flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-transform">
+<span class="material-symbols-outlined">arrow_upward</span>
+</button>
+</div>
+</div>
+<!-- Empty State (Hidden for this preview) -->
+<!-- 
+    <div class="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+        <div class="size-24 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600">
+            <span class="material-symbols-outlined text-6xl">shopping_cart</span>
+        </div>
+        <h3 class="text-xl font-bold">List is empty</h3>
+        <p class="text-slate-500 dark:text-slate-400">Start adding items using the bar below.</p>
+    </div>
+    -->
+</body></html>
