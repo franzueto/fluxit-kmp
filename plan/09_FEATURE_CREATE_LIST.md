@@ -15,6 +15,50 @@
 
 ---
 
+## 0. Slice plan & cadence
+
+Phase 09 ships one `feat` commit per slice (plan files synced in-commit, impl-log
+entry `_Commit `<pending>`._`) + a `docs(plan):` SHA-backfill commit, per the Phase
+05–08 cadence. Pre-commit gate: `:check` of each touched module + `:build-logic:test
+--rerun-tasks`; iOS-facing slices also run `scripts/test-ios.sh`.
+
+**Decisions taken at kickoff (2026-06-10):**
+(a) **Edit mode lands this phase as a `CreateListStore` backfill** — the shipped
+Phase-05 store is create-only, so Slice 1 adds the optional `editingId` (prefill via
+`ListsRepository.observe(id).first()`, save via `RenameList` + `UpdateListAppearance`,
+success → `Effect.Dismiss`), plus the §6 `dirty`/`ConfirmDiscard` flow and the §4
+`validationVisible` gating, none of which shipped in Phase 05. Phase 08's ⋯ menu
+"Edit list" row flips from disabled "(coming soon)" to live on both platforms.
+(b) **Reminder editor stays in Phase 13**: a new `ConfigKey.RemindersEditorEnabled`
+defaults **false** in v1 (ADR-004 staged-off pattern — diverges from §8's
+"defaults to true"), so the Reminder Settings row renders disabled with subtitle
+"Coming soon"; the §8 result-return plumbing is deferred with it.
+(c) **Snapshot tests deferred to v2** (standing decision, see Phase 08 §0) — §15's
+snapshot list is replaced by store tests + previews + Konsist.
+(d) **`NAME_MAX_LEN` 100 → 60** in the store, matching this plan's locked cap (§2/§4)
+and the §15 boundary cases.
+(e) **8th icon chip = `STAR`, no MORE affordance** (§5 decision stands); the grid
+renders `state.palette` from `PaletteCatalog` directly.
+
+1. **`CreateListStore` backfill + tests** (`:shared:state`) — `editingId` Koin param
+   (`parametersOf(scope, editingId)`), edit-mode prefill + original-snapshot dirty
+   compare, edit-mode submit path (one `CreateClicked` intent serves both modes —
+   no `SaveClicked` alias; §3 divergence), `CancelClicked` → `ConfirmDiscard` when dirty +
+   `DiscardConfirmed` intent, `NameBlurred`/invalid-submit → `validationVisible`,
+   name cap 60, `ConfigKey.RemindersEditorEnabled`; `CreateListStoreTest` grows to
+   cover all of it (Kover ≥90% stays green).
+2. **Android `:features:feature-create-list` module + nav** — Route/Screen/
+   Components/Previews/ViewModel; `create-list?editingId={id}` route (slide-in
+   modal) replaces the `Placeholder`; FAB + dashboard entries unchanged; Phase 08
+   menu "Edit list" wired to navigate with `editingId`.
+3. **iOS screen** — `CreateListView`/`IconGrid`/`ColorSwatchRow`/
+   `ReminderSettingsRow`; `.createList` route renders it; `resolveCreateListStore()`
+   facade + SKIE accessor backfills as needed; list-detail sheet gains "Edit list".
+4. **Close-out** — `MASTER_PLAN.md` → Phase 09 🟢 / ▶ Next Step → Phase 10; §14
+   divergences logged; hand-off (§17).
+
+---
+
 ## 1. Modal presentation
 
 This is a **full-screen modal**, not a bottom sheet — the field/grid/swatch density needs the room and the mockup shows a full-screen layout with Cancel/title/Create button arrangement.
@@ -215,3 +259,35 @@ ios-app/Features/CreateList/
 - [ ] A11y audit clean.
 - [ ] Mockup divergences (§14) signed off by design.
 - [ ] `MASTER_PLAN.md`: Phase 09 → 🟢, ▶ Next Step → Phase 10.
+
+## 18. Implementation Log
+
+> One entry per slice (see §0), appended in the slice's `feat` commit with a
+> pending-commit marker and backfilled to the real SHA in the follow-up
+> `docs(plan):` commit.
+
+- **2026-06-10** — Slice 1: `CreateListStore` backfill + tests (§0 / §3 / §4 / §6 /
+  §8 / §9). The Phase-05 store was create-only; it now also owns the edit flow: an
+  optional `editingId` constructor param (Koin factory takes optional
+  `CoroutineScope` + `ListId` params, either/both/neither) flips it into edit mode —
+  prefill loads the first `ObserveListDetail` emission (a null detail → the list is
+  gone → `Dismiss`), keeps the loaded `ListDetail` as the private `original`
+  snapshot, and submit (still the single `CreateClicked` intent — **no `SaveClicked`
+  alias**, §3 divergence) persists via `RenameList` (only when the trimmed name
+  changed) + `UpdateListAppearance` (only when icon/color changed), a no-change save
+  being an immediate success; success emits `Dismiss`, never `NavigateToListDetail`.
+  The three edit use cases ride in an `EditListDeps` holder (detekt 8-param cap,
+  cf. `ListDetailChrome`) and `RenameList`/`UpdateListAppearance` joined
+  `domainModule`. §6 cancel/discard: `CancelClicked` emits `ConfirmDiscard` when
+  dirty (create mode: any field off its default / pending reminder; edit mode:
+  differs from `original`, not-yet-prefilled = pristine), else `Dismiss`; new
+  `DiscardConfirmed` intent → `Dismiss`. §4 visibility: new
+  `state.validationVisible`, set by the new `NameBlurred` intent or by a submit
+  attempt with an invalid name (which no longer silently no-ops). `NAME_MAX_LEN`
+  100 → 60 (§0 decision d). §8: new domain `ConfigKey.RemindersEditorEnabled`
+  (default **false**, §0 decision b) surfaced as `state.reminderEditorEnabled` via
+  an injected `ConfigProvider`. `CreateListStoreTest` grew from 9 to 19 cases
+  (edit prefill/save/no-op-save/failure/missing-list, dirty-cancel both modes,
+  validation visibility, flag default+override, 60/61 boundary). Gate green:
+  `:shared:state:check`, `:shared:domain:check` (Kover gates included),
+  `:build-logic:test --rerun-tasks`. _Commit `<pending>`._

@@ -1,8 +1,10 @@
 package dev.franzueto.fluxit.shared.state.di
 
+import dev.franzueto.fluxit.shared.domain.model.ListId
 import dev.franzueto.fluxit.shared.state.debug.SeedSampleData
 import dev.franzueto.fluxit.shared.state.store.AccountStore
 import dev.franzueto.fluxit.shared.state.store.CreateListStore
+import dev.franzueto.fluxit.shared.state.store.EditListDeps
 import dev.franzueto.fluxit.shared.state.store.ItemDetailStore
 import dev.franzueto.fluxit.shared.state.store.ListDetailStore
 import dev.franzueto.fluxit.shared.state.store.ListsDashboardStore
@@ -40,7 +42,19 @@ public val stateModule: Module =
         factory { params ->
             ListDetailStore(params.getOrNull<CoroutineScope>() ?: get(), get(), get(), get(), get(), get(), get(), get())
         }
-        factory { CreateListStore(get(), get(), get(), get()) }
+        // Optional params (either, both, or neither): a CoroutineScope (Android
+        // passes viewModelScope) and a ListId (edit mode's editingId, plan/09 §9).
+        factory { params ->
+            CreateListStore(
+                scope = params.getOrNull<CoroutineScope>() ?: get(),
+                logger = get(),
+                createList = get(),
+                scheduleReminder = get(),
+                edit = EditListDeps(get(), get(), get()),
+                config = get(),
+                editingId = params.getOrNull<ListId>(),
+            )
+        }
         factory { ItemDetailStore(get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { params ->
             AccountStore(params.getOrNull<CoroutineScope>() ?: get(), get(), version = "0.0.0-interim", flags = emptyMap())

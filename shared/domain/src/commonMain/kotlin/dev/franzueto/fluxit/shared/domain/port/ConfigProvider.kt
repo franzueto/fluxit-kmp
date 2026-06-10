@@ -21,6 +21,13 @@ public sealed class ConfigKey<T>(
     /** Starred/favorites staged off in v1 (ADR-004). */
     public data object StarredEnabled : ConfigKey<Boolean>("starred.enabled", false)
 
+    /**
+     * Reminder editor (Phase 13) staged off until it ships; while false the
+     * Create-List screen's Reminder Settings row renders disabled "Coming
+     * soon" (plan/09 §8 kill-switch path).
+     */
+    public data object RemindersEditorEnabled : ConfigKey<Boolean>("reminders.editor_enabled", false)
+
     /** Upper bound on how far ahead a reminder may be scheduled. */
     public data object ReminderMaxFutureDays : ConfigKey<Int>("reminders.max_future_days", 365)
 

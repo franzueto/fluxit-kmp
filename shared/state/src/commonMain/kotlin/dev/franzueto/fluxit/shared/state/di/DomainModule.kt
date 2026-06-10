@@ -11,7 +11,9 @@ import dev.franzueto.fluxit.shared.domain.usecase.items.UpdateItemDetails
 import dev.franzueto.fluxit.shared.domain.usecase.lists.CreateList
 import dev.franzueto.fluxit.shared.domain.usecase.lists.DeleteList
 import dev.franzueto.fluxit.shared.domain.usecase.lists.ObserveLists
+import dev.franzueto.fluxit.shared.domain.usecase.lists.RenameList
 import dev.franzueto.fluxit.shared.domain.usecase.lists.SearchLists
+import dev.franzueto.fluxit.shared.domain.usecase.lists.UpdateListAppearance
 import dev.franzueto.fluxit.shared.domain.usecase.photos.AttachPhotoToItem
 import dev.franzueto.fluxit.shared.domain.usecase.photos.DetachPhotoFromItem
 import dev.franzueto.fluxit.shared.domain.usecase.photos.PhotoJanitor
@@ -37,6 +39,8 @@ public val domainModule: Module =
         factory { CancelReminder(get(), get()) }
         factory { DeleteList(get(), get(), get()) }
         factory { CreateList(get()) }
+        factory { RenameList(get()) }
+        factory { UpdateListAppearance(get()) }
         factory { ObserveListDetail(get(), get()) }
         factory { ToggleItemCompleted(get()) }
         factory { AddItem(get()) }
