@@ -291,3 +291,38 @@ ios-app/Features/CreateList/
   validation visibility, flag default+override, 60/61 boundary). Gate green:
   `:shared:state:check`, `:shared:domain:check` (Kover gates included),
   `:build-logic:test --rerun-tasks`. _Commit `a2661d0`._
+
+- **2026-06-10** — Slice 2: Android `:features:feature-create-list` module + nav
+  (§0 / §1 / §2 / §3 / §4 / §5 / §6 / §7 / §8 / §10). New module via the
+  `fluxit.kmp.feature` convention plugin (namespace
+  `dev.franzueto.fluxit.feature.createlist`, Compose on, same dep set as
+  `feature-list-detail`); registered in `settings.gradle.kts` + `:android-app`.
+  Split: `CreateListRoute` (Koin/ViewModel glue — `viewModel { CreateListViewModel
+  { scope -> koin.get { parametersOf(scope[, id]) } } }` — + exhaustive
+  `CreateListEffect` `when` → dismiss / confirm-discard alert / error banner /
+  pop+push on `NavigateToListDetail`; `BackHandler` dispatches `CancelClicked` so
+  system back gets the §6 dirty check), stateless `CreateListScreen`
+  (`FluxItTopBarCentered` with "Cancel" leading text button, scrollable form,
+  sticky `FluxItPrimaryButton` dock — disabled unless `validation == Valid` and
+  not `Submitting`, label flips Create List/Save/Creating…/Saving…), and
+  `CreateListComponents` (4-column `FluxItIconChip` grid via `chunked`, single
+  `FluxItColorSwatch` row, §8 reminder row, §4 inline error + §7 banner).
+  `:android-app` `create-list?editingId={id}` route (optional nullable arg,
+  vertical-slide enter/exit) replaces the `Placeholder`; FAB + dashboard navigate
+  the bare base route; the Phase 08 list-detail sheet's **"Edit list details" row
+  is now live** (pure nav hop — `ListDetailRoute` gained `onOpenEditList`, no
+  store intent needed). **Divergences:** (a) the icon grid renders 7 chips —
+  `FluxItIconRef.MORE` is filtered out (`pickableIcons`): it's the ⋯ chrome
+  glyph, not a list identity, and §5 drops the "more" affordance (so §2's "8
+  icons → 2 rows" is 4+3 until the set grows); (b) the reminder row renders
+  disabled "Coming soon" (flag off, §0 decision b) and the
+  `NavigateToReminderSettings` effect arm is a documented no-op — no Phase 13
+  stub route exists to push; (c) submit shows a disabled "Creating…/Saving…"
+  label instead of §7's in-button spinner — the DS `FluxItPrimaryButton` has no
+  progress slot yet (DS polish item, joins the Phase 08 composer note); (d) the
+  top bar renders "‹ Cancel" (the DS back-button chevron prefix) vs the mockup's
+  bare "Cancel". `CreateListFormattersTest` covers the pure formatters
+  (error/label/subtitle/pickable-icons). Gate green:
+  `:features:feature-create-list:check`, `:features:feature-list-detail:check`,
+  `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`.
+  _Commit `<pending>`._
