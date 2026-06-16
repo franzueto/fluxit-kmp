@@ -326,3 +326,36 @@ ios-app/Features/CreateList/
   `:features:feature-create-list:check`, `:features:feature-list-detail:check`,
   `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`.
   _Commit `f224af5`._
+
+- **2026-06-16** — Slice 3: iOS `CreateListView` + create/edit wiring (§0 / §1 /
+  §2 / §3 / §4 / §5 / §6 / §7 / §8 / §9 / §10). New `CreateListView.swift`
+  (auto-included via the synchronized `Sources/` folder — no `pbxproj` edit):
+  `FluxItScaffold` with a centered "‹ Cancel" top bar, a `ScrollView` form (name
+  field, 4-column icon grid via a private `chunked(into:)`, color swatch row,
+  disabled reminder row) and a sticky submit dock; `observe`/`observeEffects`
+  bridge state + the exhaustive `CreateListEffect` switch (dismiss /
+  confirm-discard alert / `navigateToListDetail` → `onCreated(e.listId())` /
+  `showError` banner / `navigateToReminderSettings` no-op). Auto-focus in create
+  mode + focus-loss `NameBlurred` use a new **optional** `focused:
+  FocusState<Bool>.Binding?` param on the DS `FluxItTextField` (additive,
+  defaults `nil` so existing callers are untouched — the `.focused` modifier only
+  binds applied directly to the inner `TextField`). `.interactiveDismissDisabled(true)`
+  routes swipe-down through the §6 dirty check. Kotlin glue: two Swift-callable
+  resolvers `resolveCreateListStore()` / `resolveCreateListStore(editingId:)`
+  (the latter boxes `ListId` and passes `parametersOf` so the factory's
+  `getOrNull<ListId>()` flips edit mode — Swift can't build the value class) +
+  `CreateListEffect.NavigateToListDetail.listId()` string accessor, both in
+  `:shared:state`. `ContentView` now presents create via a `.fullScreenCover`
+  bound to `createListPresented` (FAB + dashboard `onCreateList` flip it; the
+  `DashRoute.createList` stack case is dropped); `ListDetailView` owns its own
+  `editPresented` cover for **edit mode**, and `ListActionsSheet` gained an "Edit
+  list details" button + `onEditList` closure (doc comment updated — Edit is now
+  live). **Divergences** (same set as Slice 2, mirrored to Swift): 7-chip icon
+  grid (`.more` filtered), "‹ Cancel" leading, no in-button spinner
+  (Creating…/Saving… label), reminder row "Coming soon" + `navigateToReminderSettings`
+  no-op (no Phase 13 stub). The initial `@State` `CreateListState` literal
+  constructs `Palette(icons:colors:)` explicitly (SKIE marks the no-arg
+  `Palette()` init unavailable) mirroring `PaletteCatalog` — replaced on the
+  first `observe` emission. Gate green: `scripts/test-ios.sh` (**TEST
+  SUCCEEDED**), `:shared:state:check`, `:build-logic:test --rerun-tasks`.
+  _Commit `<pending>`._

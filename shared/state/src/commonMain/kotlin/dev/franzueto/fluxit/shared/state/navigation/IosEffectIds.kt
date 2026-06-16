@@ -1,6 +1,7 @@
 package dev.franzueto.fluxit.shared.state.navigation
 
 import dev.franzueto.fluxit.shared.domain.model.ListId
+import dev.franzueto.fluxit.shared.state.store.CreateListEffect
 import dev.franzueto.fluxit.shared.state.store.ListDetailEffect
 import dev.franzueto.fluxit.shared.state.store.ListsEffect
 import dev.franzueto.fluxit.shared.state.store.RootEffect
@@ -21,6 +22,8 @@ public fun RootEffect.NavigateToList.listId(): String = id.value
 public fun RootEffect.NavigateToItem.itemId(): String = id.value
 
 public fun ListDetailEffect.NavigateToEditItem.itemId(): String = id.value
+
+public fun CreateListEffect.NavigateToListDetail.listId(): String = newListId.value
 
 /**
  * Swift-callable [ListId] factory. The `@JvmInline value class` constructor isn't

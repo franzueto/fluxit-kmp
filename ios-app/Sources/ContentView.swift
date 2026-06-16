@@ -39,13 +39,14 @@ struct ContentView: View {
     }
 }
 
-/// Pushed destinations for a tab's `NavigationStack`. Detail / create screens are
-/// placeholders until their feature phases land (08 / 09); Settings is a real
-/// stub (Slice 6). Deep links push `.listDetail` / `.itemDetail`.
+/// Pushed destinations for a tab's `NavigationStack`. Item detail is a
+/// placeholder until its feature phase lands (Phase 10); Settings is a real stub
+/// (Slice 6). Create-List is **not** a stack route — it's a `.fullScreenCover`
+/// modal owned by `createListPresented` (plan/09 §1). Deep links push
+/// `.listDetail` / `.itemDetail`.
 private enum DashRoute: Hashable {
     case listDetail(String)
     case itemDetail(String)
-    case createList
     case settings
 }
 
@@ -61,6 +62,7 @@ private struct TabHostView: View {
 
     @State private var listsPath: [DashRoute] = []
     @State private var accountPath: [DashRoute] = []
+    @State private var createListPresented = false
 
     private static let tabsOrder: [Shared.Tab] = [.lists, .calendar, .starred, .account]
 
@@ -87,11 +89,21 @@ private struct TabHostView: View {
                 tabContent
                 if currentTab == .lists {
                     FluxItFab(icon: FluxItTokens.Icons.plus, accessibilityLabel: "Create new list") {
-                        listsPath.append(.createList)
+                        createListPresented = true
                     }
                     .padding(.bottom, FluxItTokens.Spacing.scaleXl)
                 }
             }
+        }
+        .fullScreenCover(isPresented: $createListPresented) {
+            CreateListView(
+                editingId: nil,
+                onDismiss: { createListPresented = false },
+                onCreated: { id in
+                    createListPresented = false
+                    listsPath.append(.listDetail(id))
+                }
+            )
         }
         .task {
             await observeEffects(store) { effect in
@@ -115,7 +127,7 @@ private struct TabHostView: View {
             NavigationStack(path: $listsPath) {
                 ListsDashboardView(
                     onOpenList: { listsPath.append(.listDetail($0)) },
-                    onCreateList: { listsPath.append(.createList) },
+                    onCreateList: { createListPresented = true },
                     onOpenSettings: { listsPath.append(.settings) }
                 )
                 .navigationDestination(for: DashRoute.self) { route in destination(route, path: $listsPath) }
@@ -142,8 +154,6 @@ private struct TabHostView: View {
             )
         case let .itemDetail(id):
             PlaceholderView(label: "Item detail\n\(id)")
-        case .createList:
-            PlaceholderView(label: "Create list")
         case .settings:
             SettingsView(onBack: { path.wrappedValue.removeLast() })
         }

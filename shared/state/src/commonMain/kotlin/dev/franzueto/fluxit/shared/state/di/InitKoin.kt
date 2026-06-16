@@ -5,8 +5,10 @@ import dev.franzueto.fluxit.platform.config.configModule
 import dev.franzueto.fluxit.platform.logging.loggingModule
 import dev.franzueto.fluxit.platform.photo.photoModule
 import dev.franzueto.fluxit.platform.reminders.remindersModule
+import dev.franzueto.fluxit.shared.domain.model.ListId
 import dev.franzueto.fluxit.shared.state.debug.SeedSampleData
 import dev.franzueto.fluxit.shared.state.store.AccountStore
+import dev.franzueto.fluxit.shared.state.store.CreateListStore
 import dev.franzueto.fluxit.shared.state.store.ListDetailStore
 import dev.franzueto.fluxit.shared.state.store.ListsDashboardStore
 import dev.franzueto.fluxit.shared.state.store.RootStore
@@ -14,6 +16,7 @@ import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.module.Module
+import org.koin.core.parameter.parametersOf
 import org.koin.dsl.KoinAppDeclaration
 import org.koin.mp.KoinPlatform
 
@@ -84,6 +87,24 @@ public fun resolveListsDashboardStore(): ListsDashboardStore = KoinPlatform.getK
  * own `scope`).
  */
 public fun resolveListDetailStore(): ListDetailStore = KoinPlatform.getKoin().get()
+
+/**
+ * Swift-callable resolver for the Create-List store in **create mode** (plan/09
+ * §10). Like [ListsDashboardStore] a Koin `factory` (fresh store + scope per
+ * appearance); the SwiftUI `CreateListView` resolves one per presentation. The
+ * optional `CoroutineScope`/`ListId` factory params are both omitted, so the
+ * store builds over a fresh `SupervisorJob` scope with `editingId = null`.
+ */
+public fun resolveCreateListStore(): CreateListStore = KoinPlatform.getKoin().get()
+
+/**
+ * Swift-callable resolver for the Create-List store in **edit mode** (plan/09
+ * §9). Builds the [ListId] from the route-arg string internally (cf. [listIdOf])
+ * and passes it through `parametersOf` so the Koin factory's `getOrNull<ListId>()`
+ * flips the store into edit mode — Swift can't supply the boxed value class via
+ * the default-arg constructor directly.
+ */
+public fun resolveCreateListStore(editingId: String): CreateListStore = KoinPlatform.getKoin().get { parametersOf(ListId(editingId)) }
 
 /**
  * Swift-callable resolver for the Account tab store. Like [ListsDashboardStore] a
