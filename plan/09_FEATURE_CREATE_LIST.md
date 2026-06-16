@@ -210,12 +210,36 @@ ios-app/Features/CreateList/
 
 ## 14. Mockup divergences (for design review)
 
-- [ ] **8th icon chip = STAR, not MORE.** Justification in §5; ask design to confirm or supply additional icons that would make a "more" sheet meaningful in v1.
-- [ ] **Swipe-to-dismiss with unsaved changes blocked** on iOS. The mockup doesn't address dismiss gestures — flag the chosen behavior.
+Sign-off below records what **shipped** (both platforms, Slices 2–3); the design
+review still owns the visual ✅ (the `[ ]` checkboxes are design's, not eng's).
+
+- [ ] **7-chip icon grid — `MORE` filtered (not 8 incl. STAR/MORE).** §5 drops the
+  "more" affordance in v1 (the catalog has nothing more to show, and `MORE` is the
+  ⋯ chrome glyph, not a list identity), so the grid is the 7 identity icons (4 + 3).
+  `pickableIcons` filters `FluxItIconRef.MORE` on both platforms. Ask design to
+  confirm, or supply additional icons that would make a "more" sheet meaningful.
+- [ ] **Swipe-to-dismiss with unsaved changes blocked** on iOS
+  (`.interactiveDismissDisabled(true)` → swipe-down routes through `CancelClicked`
+  and the §6 dirty check). The mockup doesn't address dismiss gestures.
+- [ ] **Top bar renders "‹ Cancel"** (the DS back-button chevron prefix) vs the
+  mockup's bare "Cancel", on both platforms (shared `FluxItTopBarCentered`).
+- [ ] **No in-button spinner on submit** — the button shows a disabled
+  "Creating…/Saving…" label instead of §7's spinner (`FluxItPrimaryButton` /
+  `FluxItButton` has no progress slot yet; DS polish item, joins the Phase 08
+  composer note).
+- [ ] **Reminder Settings row disabled "Coming soon"** (flag off, §0 decision b);
+  the `NavigateToReminderSettings` effect arm is a documented no-op on both
+  platforms — no Phase 13 stub route exists to push (exit-criteria deviation:
+  "routes to a stub Phase 13 screen").
+- [ ] **No `SaveClicked` intent** — one `CreateClicked` serves both modes (§3),
+  labelled "Save" in edit mode.
+- [ ] **Snapshot tests deferred to v2** (§0 decision c / §15) — exit-criteria
+  deviation by standing scope decision; coverage leans on `CreateListStoreTest`,
+  the exhaustive `when`/`switch`, pure-formatter unit tests, previews, and Konsist.
 
 ## 15. Testing
 
-- [ ] **Snapshot tests**: empty/initial, name-typed-no-error, name-empty-error, name-too-long-error, all-fields-set-with-reminder, submitting (spinner), submission-error, edit-mode-prefilled.
+- [x] ~~**Snapshot tests**: empty/initial, name-typed-no-error, name-empty-error, name-too-long-error, all-fields-set-with-reminder, submitting (spinner), submission-error, edit-mode-prefilled.~~ **Deferred to v2** (§0 decision c — standing scope decision, see Phase 08 §0). Replaced by `CreateListStoreTest` (19 cases) + `CreateListFormattersTest` (pure error/label/subtitle/pickable-icons) + previews + Konsist.
 - [ ] **UI behavior**:
   - Type name → submit enables.
   - Tap icon → state updates; tap color → state updates.
@@ -253,12 +277,16 @@ ios-app/Features/CreateList/
 
 ## 17. Hand-off checklist (gate to Phase 10)
 
-- [ ] All checkboxes above ✅.
-- [ ] Both apps demoed: FAB → fill form → create → land in detail; ⋯ Edit → change icon → save → return.
-- [ ] Snapshot tests checked in; CI golden compare green.
-- [ ] A11y audit clean.
-- [ ] Mockup divergences (§14) signed off by design.
-- [ ] `MASTER_PLAN.md`: Phase 09 → 🟢, ▶ Next Step → Phase 10.
+- [x] Functional scope above implemented across Slices 1–3 (snapshot/UI-instrumented
+  items deferred to v2 per §0 decision c — see §15).
+- [ ] Both apps demoed: FAB → fill form → create → land in detail; ⋯ Edit → change
+  icon → save → return. _(User's on-device/sim manual pass.)_
+- [x] ~~Snapshot tests checked in; CI golden compare green.~~ **Deferred to v2** (§15).
+- [ ] A11y audit clean. _(User's manual TalkBack/VoiceOver pass — not automated, v2.)_
+- [ ] Mockup divergences (§14) signed off **by design** — the full set is logged in
+  §14 (7-chip grid, "‹ Cancel", no in-button spinner, reminder "Coming soon" +
+  no Phase 13 stub, no `SaveClicked`, snapshots deferred). Eng sign-off done.
+- [x] `MASTER_PLAN.md`: Phase 09 → 🟢, ▶ Next Step → Phase 10.
 
 ## 18. Implementation Log
 
@@ -359,3 +387,17 @@ ios-app/Features/CreateList/
   first `observe` emission. Gate green: `scripts/test-ios.sh` (**TEST
   SUCCEEDED**), `:shared:state:check`, `:build-logic:test --rerun-tasks`.
   _Commit `ee3fc42`._
+
+- **2026-06-16** — Slice 4: close-out (§14 / §15 / §17). `MASTER_PLAN.md` flipped
+  Phase 09 → 🟢 Complete (100%), advanced ▶ Next Step → Phase 10 (Feature: Item
+  Detail — Photo), and refreshed the Last-updated / Repo-phase summaries. Plan §14
+  expanded to the full **divergence sign-off** set shipped across Slices 2–3
+  (7-chip icon grid with `MORE` filtered; "‹ Cancel" leading; no in-button spinner
+  → Creating…/Saving… label; reminder row disabled "Coming soon" +
+  `NavigateToReminderSettings` no-op, no Phase 13 stub route; no `SaveClicked`
+  alias; snapshot tests deferred to v2) — eng sign-off done, design's visual ✅
+  still pending. §15 snapshot bullet struck through as deferred (replaced by
+  `CreateListStoreTest` + `CreateListFormattersTest` + previews + Konsist); §17
+  hand-off checklist reconciled (functional scope + `MASTER_PLAN` done; demo /
+  a11y / design sign-off are the user's manual/external steps). Docs-only — no
+  code touched, so no module gate beyond the doc edits. _Commit `<pending>`._
