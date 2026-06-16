@@ -400,4 +400,4 @@ review still owns the visual ✅ (the `[ ]` checkboxes are design's, not eng's).
   `CreateListStoreTest` + `CreateListFormattersTest` + previews + Konsist); §17
   hand-off checklist reconciled (functional scope + `MASTER_PLAN` done; demo /
   a11y / design sign-off are the user's manual/external steps). Docs-only — no
-  code touched, so no module gate beyond the doc edits. _Commit `<pending>`._
+  code touched, so no module gate beyond the doc edits. _Commit `397063c`._
