@@ -358,4 +358,4 @@ ios-app/Features/CreateList/
   `Palette()` init unavailable) mirroring `PaletteCatalog` — replaced on the
   first `observe` emission. Gate green: `scripts/test-ios.sh` (**TEST
   SUCCEEDED**), `:shared:state:check`, `:build-logic:test --rerun-tasks`.
-  _Commit `<pending>`._
+  _Commit `ee3fc42`._
