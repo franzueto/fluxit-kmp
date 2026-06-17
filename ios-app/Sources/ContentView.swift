@@ -87,7 +87,11 @@ private struct TabHostView: View {
         ) {
             ZStack(alignment: .bottom) {
                 tabContent
-                if currentTab == .lists {
+                // The create-list FAB belongs to the dashboard root only. On a pushed
+                // detail screen it would overlay the list-detail ComposerDock and read
+                // as "add item" while actually creating a list (the +-button is hidden
+                // once `listsPath` is non-empty).
+                if currentTab == .lists, listsPath.isEmpty {
                     FluxItFab(icon: FluxItTokens.Icons.plus, accessibilityLabel: "Create new list") {
                         createListPresented = true
                     }
