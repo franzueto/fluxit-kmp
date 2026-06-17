@@ -66,6 +66,20 @@ private struct TabHostView: View {
 
     private static let tabsOrder: [Shared.Tab] = [.lists, .calendar, .starred, .account]
 
+    /// The bottom tab bar is part of this scaffold, so it would otherwise stay
+    /// docked over every pushed destination — including `ListDetailView`, whose own
+    /// scaffold owns the sticky `ComposerDock`. Two scaffolds claiming the bottom
+    /// safe-area inset collide and the tab bar wins, hiding the composer. Hide the
+    /// tab bar whenever the active tab has pushed a destination (standard iOS detail
+    /// behavior) so the detail screen owns the full bottom area.
+    private var chromeHidden: Bool {
+        switch currentTab {
+        case .lists: return !listsPath.isEmpty
+        case .account: return !accountPath.isEmpty
+        default: return false
+        }
+    }
+
     private var tabItems: [FluxItTabItem] {
         [
             FluxItTabItem(icon: FluxItTokens.Icons.list, activeIcon: FluxItTokens.Icons.listFilled, label: "Lists"),
@@ -78,11 +92,13 @@ private struct TabHostView: View {
     var body: some View {
         FluxItScaffold(
             bottomBar: {
-                FluxItBottomTabBar(
-                    tabs: tabItems,
-                    selectedIndex: TabHostView.tabsOrder.firstIndex(of: currentTab) ?? 0,
-                    onSelect: { index in store.dispatch(intent: RootIntentTabSelected(tab: TabHostView.tabsOrder[index])) }
-                )
+                if !chromeHidden {
+                    FluxItBottomTabBar(
+                        tabs: tabItems,
+                        selectedIndex: TabHostView.tabsOrder.firstIndex(of: currentTab) ?? 0,
+                        onSelect: { index in store.dispatch(intent: RootIntentTabSelected(tab: TabHostView.tabsOrder[index])) }
+                    )
+                }
             }
         ) {
             ZStack(alignment: .bottom) {
