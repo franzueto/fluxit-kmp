@@ -311,7 +311,7 @@ ios-app/Features/ItemDetail/
 ## 18. Implementation log
 
 > One entry per slice (see §0). Each `feat` commit lands its entry with the SHA left as
-> `_Commit `<pending>`._`, then a follow-up `docs(plan):` commit backfills the SHA.
+> `_Commit `8b527f5`._`, then a follow-up `docs(plan):` commit backfills the SHA.
 
 ### Slice 1 — store backfill + DI/resolver
 
@@ -334,16 +334,16 @@ cases), so this was the thin backfill decision (a) called for — no rewrite:
 
 Gate: `:shared:state:check` + `:build-logic:test --rerun-tasks` green.
 
-_Commit `<pending>`._
+_Commit `8b527f5`._
 
 ### Slice 2 — Android `:features:feature-item-detail` + nav
 
-_Commit `<pending>`._
+_Commit `8b527f5`._
 
 ### Slice 3 — iOS ItemDetail screen + wiring
 
-_Commit `<pending>`._
+_Commit `8b527f5`._
 
 ### Slice 4 — close-out
 
-_Commit `<pending>`._
+_Commit `8b527f5`._
