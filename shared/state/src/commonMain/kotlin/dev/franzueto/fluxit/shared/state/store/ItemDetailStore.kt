@@ -71,7 +71,7 @@ public class ItemDetailStore(
                 if (currentState.dirty) emit(ItemDetailEffect.ConfirmDiscardChanges) else emit(ItemDetailEffect.NavigateBack)
             ItemDetailIntent.SaveClicked -> save()
             is ItemDetailIntent.TitleChanged ->
-                update { copy(editing = editing.copy(title = intent.title), dirty = true) }
+                update { copy(editing = editing.copy(title = intent.title), dirty = true, titleValidation = validateTitle(intent.title)) }
             is ItemDetailIntent.DescriptionChanged ->
                 update { copy(editing = editing.copy(description = intent.description), dirty = true) }
             ItemDetailIntent.UpdatePhotoClicked -> update { copy(showPhotoSourceSheet = true) }
@@ -105,6 +105,7 @@ public class ItemDetailStore(
             copy(
                 item = LoadState.Loaded(item),
                 editing = if (dirty) editing else item.toPatch(),
+                titleValidation = if (dirty) titleValidation else validateTitle(item.title),
             )
         }
     }
@@ -125,7 +126,12 @@ public class ItemDetailStore(
 
     private suspend fun save() {
         val id = itemId ?: return
-        val editing = currentState.editing
+        val s = currentState
+        // Block re-entry while a save is in flight, and guard the §5 gate server-side:
+        // an invalid title never persists even if the host's button-disable lags.
+        if (s.submitting || s.titleValidation != NameValidation.Valid) return
+        update { copy(submitting = true) }
+        val editing = s.editing
         val result =
             updateItemDetails(
                 id,
@@ -135,10 +141,13 @@ public class ItemDetailStore(
             )
         when (result) {
             is Outcome.Ok -> {
-                update { copy(dirty = false) }
+                update { copy(dirty = false, submitting = false) }
                 emit(ItemDetailEffect.NavigateBack)
             }
-            is Outcome.Err -> emit(ItemDetailEffect.ShowError(result.error.userMessage))
+            is Outcome.Err -> {
+                update { copy(submitting = false) }
+                emit(ItemDetailEffect.ShowError(result.error.userMessage))
+            }
         }
     }
 
@@ -203,6 +212,24 @@ public class ItemDetailStore(
     }
 
     private fun Item.toPatch(): ItemPatch = ItemPatch(title = title, subtitle = subtitle, description = description, photoId = photoId)
+
+    private fun validateTitle(raw: String): NameValidation {
+        val trimmed = raw.trim()
+        return when {
+            trimmed.isEmpty() -> NameValidation.Empty
+            trimmed.length > TITLE_MAX_LEN -> NameValidation.TooLong
+            else -> NameValidation.Valid
+        }
+    }
+
+    private companion object {
+        /**
+         * Presentation-only title cap for live field feedback / the §5 Save gate.
+         * `UpdateItemDetails` itself caps nothing (it validates non-blank only), so
+         * this is a state-layer UX bound — not a domain rule. 120 per `plan/10` §2.
+         */
+        const val TITLE_MAX_LEN = 120
+    }
 }
 
 // ---- ItemDetailStore contract (§11: lives alongside its store). ----
@@ -214,6 +241,14 @@ public data class ItemDetailState(
     val photoStatus: PhotoStatus = PhotoStatus.None,
     val showPhotoSourceSheet: Boolean = false,
     val confirmDelete: Boolean = false,
+    /** §5: a save is in flight — the host disables Save and shows the "Saving…" label. */
+    val submitting: Boolean = false,
+    /**
+     * §2/§5 title validity, live from each [ItemDetailIntent.TitleChanged] and from the
+     * prefill sync. The host gates Save on `== NameValidation.Valid`; reuses the
+     * [NameValidation] enum shared with [CreateListStore].
+     */
+    val titleValidation: NameValidation = NameValidation.Empty,
 )
 
 /**

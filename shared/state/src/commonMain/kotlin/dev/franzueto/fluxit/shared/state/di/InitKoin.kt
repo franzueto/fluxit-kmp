@@ -9,6 +9,7 @@ import dev.franzueto.fluxit.shared.domain.model.ListId
 import dev.franzueto.fluxit.shared.state.debug.SeedSampleData
 import dev.franzueto.fluxit.shared.state.store.AccountStore
 import dev.franzueto.fluxit.shared.state.store.CreateListStore
+import dev.franzueto.fluxit.shared.state.store.ItemDetailStore
 import dev.franzueto.fluxit.shared.state.store.ListDetailStore
 import dev.franzueto.fluxit.shared.state.store.ListsDashboardStore
 import dev.franzueto.fluxit.shared.state.store.RootStore
@@ -105,6 +106,15 @@ public fun resolveCreateListStore(): CreateListStore = KoinPlatform.getKoin().ge
  * the default-arg constructor directly.
  */
 public fun resolveCreateListStore(editingId: String): CreateListStore = KoinPlatform.getKoin().get { parametersOf(ListId(editingId)) }
+
+/**
+ * Swift-callable resolver for the Edit-Item store (plan/10 §8). A Koin `factory`
+ * (fresh store + scope per appearance); the SwiftUI `ItemDetailView` resolves one
+ * per presentation. The target item id is supplied later via
+ * `ItemDetailIntent.Init` (built from the route-arg string with [itemIdOf]), not at
+ * resolution — so this takes no parameter.
+ */
+public fun resolveItemDetailStore(): ItemDetailStore = KoinPlatform.getKoin().get()
 
 /**
  * Swift-callable resolver for the Account tab store. Like [ListsDashboardStore] a

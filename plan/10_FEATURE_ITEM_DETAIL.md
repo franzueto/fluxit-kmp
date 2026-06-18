@@ -15,6 +15,83 @@
 
 ---
 
+## 0. Slice plan & cadence
+
+Phase 10 ships one `feat` commit per slice (plan file synced in-commit, impl-log
+entry `_Commit `<pending>`._`) + a `docs(plan):` SHA-backfill commit, per the Phase
+05–09 cadence. Pre-commit gate: `:check` of each touched module + `:build-logic:test
+--rerun-tasks`; iOS-facing slices also run `scripts/test-ios.sh` (must print
+`** TEST SUCCEEDED **`). Kover gates `:shared:state` (≥90%) when the store changes.
+
+**Decisions taken at kickoff (2026-06-18):**
+
+(a) **`ItemDetailStore` already ships the full edit/photo/delete contract** (built ahead
+of this phase; 36 store-test cases green) — **unlike** Phase 09, where the create-only
+`CreateListStore` needed an edit-mode backfill. So Slice 1 is a **thin** store backfill,
+not a rewrite: add a `submitting` save-in-flight flag (Save disabled + "Saving…" label
+while in flight — **no in-button spinner**, carrying the Phase 09 DS debt) and
+title-validation/cap-120 gating (§2/§5), then grow `ItemDetailStoreTest`. If review finds
+the shipped contract already adequate for the UI, Slice 1 collapses to the DI/resolver
+facade only.
+
+(b) **Photo capture uses the simple system UI already shipped in Phase 06 — no CameraX,
+no custom preview.** Android = `ActivityResultContracts.TakePicture()` (system camera
+Intent) + `PickVisualMedia`; iOS = `UIImagePickerController` for both camera and library.
+Phase 10 only *drives* the Phase 06 `PhotoCapture` port; it builds no capture surface of
+its own. **Permission UX is thin (diverges from §4):** the domain `AttachPhotoToItem`
+surfaces a flat `CaptureError.PermissionDenied` with **no** soft-vs-hard
+(`canRequestAgain`) distinction, so §4's soft/hard banner split is **not** implementable
+without a domain change — deferred to v2. Moreover, Android's `TakePicture()` delegates
+camera permission entirely to the system camera app, so `AndroidPhotoCapture` **never
+returns `PermissionDenied` for the camera path** (only `UserCancelled`/`Unknown`) — the
+in-screen permission banner is effectively **iOS-camera-only** and is a no-op on Android.
+v1 ships one banner ("… access is off — Open Settings") inside the photo section, driven
+by the existing `RequestCameraPermission` / `RequestPhotoLibraryAccess` effects. Logged
+as a §13 divergence.
+
+(c) **`PhotoStatus.Uploading` stays unreachable** (already documented in the store KDoc —
+`AttachPhotoToItem` is atomic capture→ingest→attach). The whole acquire span shows the
+single `Capturing` busy state, so §3's `Capturing → Uploading → Loaded` sequence collapses
+to `Capturing → Loaded`.
+
+(d) **`dirty` is a boolean flag** set on any title/description/photo change, not §5's
+per-field `editing != original` comparison (the shipped store derives it eagerly). A
+type-and-retype back to the original value still reads dirty → back shows the discard
+confirm. Document as a §13 divergence; per-field derivation deferred.
+
+(e) **Snapshot tests deferred to v2** (standing decision, Phase 08/09 §0) — §14's snapshot
+list is replaced by store tests + previews + Konsist + exhaustive `when`/`switch`.
+
+(f) **Process-death restoration (§7) is host-only and outside v1's automated gate** — the
+store reloads via `Init(itemId)` and re-syncs the working copy while not dirty; the §7
+`SavedStateHandle` / `@SceneStorage` edit-overlay persistence is a nice-to-have left to
+the on-device QA pass (snapshot/restore not automated, per the standing v2 deferral).
+
+1. **Store backfill + DI/resolver** (`:shared:state`) — `submitting` flag threaded through
+   `save()` (Save gating + "Saving…" label), title validation/cap 120 (§2/§5);
+   `resolveItemDetailStore()` facade in `InitKoin.kt` + the SKIE accessors iOS needs to
+   pass the `ItemId` value-class through `Init` (string accessor in `IosEffectIds.kt` if
+   the boxed id won't surface); `ItemDetailStoreTest` grows to cover the new gating (Kover
+   ≥90% stays green). Gate: `:shared:state:check` + `:build-logic:test`.
+2. **Android `:features:feature-item-detail` module + nav** — `ItemDetailRoute` /
+   `ItemDetailScreen` / `PhotoSection` / `PermissionBanner` / `ItemDetailComponents` /
+   `ItemDetailPreviews` (§8); **both** placeholder routes (`list/{listId}/item/{itemId}`
+   and the `item/{itemId}` deep link) in `FluxItRoot` swap from `Placeholder` to the real
+   screen; PhotoCapture / PermissionRequester glue via the Phase 06 ports (no direct
+   `androidx.activity.result.*` import — §11); Coil 3 `AsyncImage` render (§12). Gate:
+   `:features:feature-item-detail:check` + `:build-logic:test`.
+3. **iOS ItemDetail screen + wiring** — `ItemDetailView` / `PhotoSection` /
+   `PermissionBanner` / `ItemDetailFormSections` / `ItemDetailPreviews` (§8); the
+   `.itemDetail(id)` case in `ContentView` swaps from `PlaceholderView` to the real screen
+   on both nav stacks; `UIImagePickerController` via the port (no direct UIKit import —
+   §11); Kingfisher / `AsyncImage` render (§12). Gate: `:shared:state:check` (if DI
+   touched) + `scripts/test-ios.sh` (`** TEST SUCCEEDED **`).
+4. **Close-out** — `MASTER_PLAN.md` → Phase 10 🟢, M4 (Core User Surfaces) **complete**,
+   ▶ Next Step → Phase 13 (Phases 11/12 deferred per ADR-004/ADR-003); §13 mockup
+   divergences + (a)–(d) above signed off; §16 hand-off; reconcile §14/§15.
+
+---
+
 ## 1. Screen anatomy
 
 ```
@@ -228,3 +305,45 @@ ios-app/Features/ItemDetail/
 - [ ] A11y audit clean.
 - [ ] Mockup divergences (§13) signed off by design.
 - [ ] `MASTER_PLAN.md`: Phase 10 → 🟢, M4 (Core User Surfaces) **complete** — advance to M3/M5 work; ▶ Next Step → Phase 13 (notifications + reminders editor) since Phases 11 & 12 are deferred to v2 per ADR-004 / ADR-003.
+
+---
+
+## 18. Implementation log
+
+> One entry per slice (see §0). Each `feat` commit lands its entry with the SHA left as
+> `_Commit `<pending>`._`, then a follow-up `docs(plan):` commit backfills the SHA.
+
+### Slice 1 — store backfill + DI/resolver
+
+`ItemDetailStore` was already feature-complete from an earlier phase (18 store-test
+cases), so this was the thin backfill decision (a) called for — no rewrite:
+
+- **`submitting` flag** threaded through `save()`: set true on entry, cleared on both
+  success and failure; success additionally clears `dirty` and emits `NavigateBack`.
+  Save now no-ops on re-entry while a save is in flight.
+- **Title validation** — new `titleValidation: NameValidation` (reuses the enum shared
+  with `CreateListStore`), recomputed on every `TitleChanged` and on the prefill sync
+  (only while not dirty). `validateTitle` caps at `TITLE_MAX_LEN = 120` (§2). `save()`
+  also guards server-side: an `!= Valid` title never persists even if the host's
+  button-disable lags.
+- **DI/resolver** — `resolveItemDetailStore()` in `InitKoin.kt` (no-param factory; the
+  item id arrives later via `Init`) + `itemIdOf(value:)` in `IosEffectIds.kt` so Swift
+  can build the `ItemId` value class for `ItemDetailIntent.Init` (mirrors `listIdOf`).
+- **Tests** — 6 new cases (valid/empty/too-long title, invalid-save no-op, submitting
+  cleared on success + on failure); 24 total, Kover ≥90% green.
+
+Gate: `:shared:state:check` + `:build-logic:test --rerun-tasks` green.
+
+_Commit `<pending>`._
+
+### Slice 2 — Android `:features:feature-item-detail` + nav
+
+_Commit `<pending>`._
+
+### Slice 3 — iOS ItemDetail screen + wiring
+
+_Commit `<pending>`._
+
+### Slice 4 — close-out
+
+_Commit `<pending>`._

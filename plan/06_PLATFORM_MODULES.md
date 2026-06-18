@@ -44,7 +44,7 @@ guarding that nothing outside `:platform:*` imports `androidx.work.*`/`UserNotif
 | `platform-analytics` | `AnalyticsSink` | Firebase Analytics (or no-op debug sink) | Firebase Analytics |
 | `platform-config` | `ConfigProvider`, `Clock`, `IdGenerator` | BuildKonfig + remote config flag (v2) | BuildKonfig |
 | `platform-reminders` | `ReminderScheduler` | WorkManager + `NotificationCompat` | `UNUserNotificationCenter` |
-| `platform-photo` | `PhotoCapture`, `PhotoStorage` | CameraX + ActivityResult API + app-internal storage | `PHPickerViewController` + `AVCaptureSession` + `FileManager` |
+| `platform-photo` | `PhotoCapture`, `PhotoStorage` | System camera Intent (`ActivityResultContracts.TakePicture`) + `PickVisualMedia` + app-internal storage | `UIImagePickerController` (camera + library) + `FileManager` |
 
 Each module's `commonMain` declares:
 - Koin module factory (`val xModule: Module`)

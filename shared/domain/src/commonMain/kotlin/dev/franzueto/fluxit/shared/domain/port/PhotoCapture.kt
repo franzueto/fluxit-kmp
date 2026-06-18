@@ -49,7 +49,9 @@ public sealed class CaptureError {
 /**
  * Domain port for acquiring a photo from the camera or system library
  * (Phase 04 §5; implemented per-platform in Phase 06's `:platform:platform-photo`
- * over CameraX / PHPicker). Returns [Outcome] (not `kotlin.Result`) per
+ * over the system camera Intent (`ActivityResultContracts.TakePicture` /
+ * `PickVisualMedia`) on Android and `UIImagePickerController` on iOS — no CameraX,
+ * no custom capture preview). Returns [Outcome] (not `kotlin.Result`) per
  * ADR-007 — the failure channel carries a typed [CaptureError].
  */
 public interface PhotoCapture {
