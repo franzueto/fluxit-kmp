@@ -49,6 +49,12 @@ public class IosPhotoCapture(
 
     private suspend fun present(sourceType: UIImagePickerControllerSourceType): Outcome<CapturedPhoto, CaptureError> {
         val host = topViewControllerProvider.topViewController() ?: return Outcome.Err(CaptureError.Unknown(null))
+        // Assigning an unavailable source type to UIImagePickerController throws
+        // ("Source type N not available") — most commonly the camera on the Simulator,
+        // which has no hardware. Guard so it surfaces as a recoverable error, not a crash.
+        if (!UIImagePickerController.isSourceTypeAvailable(sourceType)) {
+            return Outcome.Err(CaptureError.Unknown(IllegalStateException("Image source $sourceType not available on this device")))
+        }
         return suspendCancellableCoroutine { cont ->
             val picker = UIImagePickerController()
             picker.sourceType = sourceType
