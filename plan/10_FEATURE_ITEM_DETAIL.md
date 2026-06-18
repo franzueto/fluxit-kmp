@@ -374,6 +374,42 @@ _Commit `7aa4661`._
 
 ### Slice 3 — iOS ItemDetail screen + wiring
 
+New `ios-app/Sources/ItemDetailView.swift` (auto-included via the synchronized
+`Sources/` folder — no `project.yml`/pbxproj edit), the SwiftUI mirror of the Android
+`ItemDetailScreen`: a `FluxItScaffold` with the variant-B top bar ("‹ Back" leading),
+a scrolling form (general info, photo, optional permission banner, delete, last-edited
+footer), and a sticky Save dock — all from `core-designsystem` primitives. Both
+`.itemDetail` nav-stack entries in `ContentView` (the `ListDetailView` push + the
+`RootEffect.NavigateToItem` deep-link append) now render `ItemDetailView(itemId:)`; the
+unused `PlaceholderView` was removed and the `DashRoute` doc-comment refreshed.
+
+- **Store wiring** — `InitKoinKt.resolveItemDetailStore()` (no-arg, from Slice 1) +
+  `ItemDetailIntentInit(itemId: IosEffectIdsKt.itemIdOf(value: id))` dispatched once on
+  first appearance. Effects drain via `onEnum(of:)` over an exhaustive `switch`
+  (NavigateBack → `dismiss`, ConfirmDiscardChanges → local discard alert,
+  Request{Camera,PhotoLibrary} → permission banner, ShowError → dock banner).
+- **Photo** — the store + `AttachPhotoToItem` over the Phase 06 `IosPhotoCapture`
+  (`UIImagePickerController`) do the capture; the view just dispatches
+  `PhotoSourceSelected(source: .camera/.library)` and renders `PhotoStatus`. A `Loaded`
+  uri is decoded with `UIImage(contentsOfFile:)` — no Coil/Kingfisher (Android-parity
+  simple decode, §13). Source action sheet is a `.confirmationDialog` driven by
+  `state.showPhotoSourceSheet`; "Remove Photo" shows only when a photo is attached.
+- **SKIE gotchas** — the `@State` initial `ItemDetailState` is built from the full
+  primary ctor (no synthesized no-arg `init()`); `kotlinx` `Instant` has no usable Swift
+  type name, so the last-edited footer takes `updatedAt.toEpochMilliseconds()` (Int64)
+  rather than declaring the type. Permission banner / `PermissionTarget` are iOS-only and
+  live in this file (this is where the `Request*` effects actually fire, §0 b).
+
+**Divergence from §8:** the iOS screen ships as this single `ItemDetailView.swift`
+rather than the listed `PhotoSection`/`PermissionBanner`/`ItemDetailFormSections`/
+`ItemDetailPreviews` split — mirroring the Phase 09 `CreateListView.swift` monolith
+(Swift `private` is file-scoped, so the Android internal-helper split buys nothing; iOS
+ships no SwiftUI previews, per the Create-List/List-Detail precedent).
+
+Gate: `scripts/test-ios.sh` → `** TEST SUCCEEDED **` (tokens/icons regen, release
+XCFramework, xcodegen, XCTest). No `:shared:state`/DI touched, so the Kotlin gates
+from Slice 1 still hold.
+
 _Commit `<pending>`._
 
 ### Slice 4 — close-out

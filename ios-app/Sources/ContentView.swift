@@ -39,9 +39,9 @@ struct ContentView: View {
     }
 }
 
-/// Pushed destinations for a tab's `NavigationStack`. Item detail is a
-/// placeholder until its feature phase lands (Phase 10); Settings is a real stub
-/// (Slice 6). Create-List is **not** a stack route — it's a `.fullScreenCover`
+/// Pushed destinations for a tab's `NavigationStack`. Item detail renders the real
+/// Edit-Item screen (Phase 10); Settings is a real stub (Slice 6). Create-List is
+/// **not** a stack route — it's a `.fullScreenCover`
 /// modal owned by `createListPresented` (plan/09 §1). Deep links push
 /// `.listDetail` / `.itemDetail`.
 private enum DashRoute: Hashable {
@@ -173,7 +173,7 @@ private struct TabHostView: View {
                 onOpenEditItem: { itemId in path.wrappedValue.append(.itemDetail(itemId)) }
             )
         case let .itemDetail(id):
-            PlaceholderView(label: "Item detail\n\(id)")
+            ItemDetailView(itemId: id)
         case .settings:
             SettingsView(onBack: { path.wrappedValue.removeLast() })
         }
@@ -187,18 +187,5 @@ private struct ComingSoonView: View {
         FluxItEmptyState(title: "\(feature) is coming soon", message: "Coming in a future update.")
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             .background(FluxItTokens.Colors.backgroundDark.ignoresSafeArea())
-    }
-}
-
-private struct PlaceholderView: View {
-    let label: String
-
-    var body: some View {
-        Text(label)
-            .multilineTextAlignment(.center)
-            .foregroundStyle(FluxItTokens.Colors.textPrimary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(FluxItTokens.Colors.backgroundDark.ignoresSafeArea())
-            .toolbar(.hidden, for: .navigationBar)
     }
 }
