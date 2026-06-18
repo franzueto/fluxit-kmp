@@ -472,6 +472,39 @@ class ItemDetailStoreTest {
         }
 
     @Test
+    fun dismissing_the_photo_sheet_clears_the_flag() =
+        runStoreTest {
+            val f = itemDetailFix()
+            val id = f.seedItem()
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.UpdatePhotoClicked)
+            testScope.runCurrent()
+            assertTrue(f.store.state.value.showPhotoSourceSheet)
+            f.store.dispatch(ItemDetailIntent.PhotoSourceSheetDismissed)
+            testScope.runCurrent()
+            assertEquals(false, f.store.state.value.showPhotoSourceSheet)
+        }
+
+    @Test
+    fun removing_a_photo_also_closes_the_sheet() =
+        runStoreTest {
+            val f = itemDetailFix()
+            val id = f.seedItem()
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.PhotoSourceSelected(PhotoPickSource.Camera))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.UpdatePhotoClicked)
+            testScope.runCurrent()
+            assertTrue(f.store.state.value.showPhotoSourceSheet)
+            f.store.dispatch(ItemDetailIntent.RemovePhotoClicked)
+            testScope.runCurrent()
+            assertEquals(false, f.store.state.value.showPhotoSourceSheet)
+            assertEquals(PhotoStatus.None, f.store.state.value.photoStatus)
+        }
+
+    @Test
     fun a_failed_save_resets_submitting() =
         runStoreTest {
             val f = itemDetailFailFix()

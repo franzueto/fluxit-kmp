@@ -75,6 +75,7 @@ public class ItemDetailStore(
             is ItemDetailIntent.DescriptionChanged ->
                 update { copy(editing = editing.copy(description = intent.description), dirty = true) }
             ItemDetailIntent.UpdatePhotoClicked -> update { copy(showPhotoSourceSheet = true) }
+            ItemDetailIntent.PhotoSourceSheetDismissed -> update { copy(showPhotoSourceSheet = false) }
             is ItemDetailIntent.PhotoSourceSelected -> attachPhoto(intent.source)
             ItemDetailIntent.RemovePhotoClicked -> removePhoto()
             ItemDetailIntent.DeleteClicked -> update { copy(confirmDelete = true) }
@@ -194,6 +195,7 @@ public class ItemDetailStore(
 
     private suspend fun removePhoto() {
         val id = itemId ?: return
+        update { copy(showPhotoSourceSheet = false) }
         // The item flow re-emits with photoId = null → refreshPhoto sets None.
         if (detachPhotoFromItem(id) is Outcome.Err) {
             emit(ItemDetailEffect.ShowError("Couldn't remove the photo. Please try again."))
@@ -296,6 +298,9 @@ public sealed interface ItemDetailIntent {
     ) : ItemDetailIntent
 
     public data object UpdatePhotoClicked : ItemDetailIntent
+
+    /** The photo-source action sheet was dismissed without picking a source. */
+    public data object PhotoSourceSheetDismissed : ItemDetailIntent
 
     public data class PhotoSourceSelected(
         val source: PhotoPickSource,

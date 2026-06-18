@@ -338,12 +338,44 @@ _Commit `8b527f5`._
 
 ### Slice 2 — Android `:features:feature-item-detail` + nav
 
-_Commit `8b527f5`._
+New Compose feature module (`fluxit.kmp.feature` + compose), mirroring
+`feature-create-list`: `ItemDetailRoute` (Koin/VM glue + effect→chrome mapping),
+`ItemDetailViewModel` (store in `viewModelScope`, dispatches `Init`),
+`ItemDetailScreen` (stateless), `PhotoSection`, `PermissionBanner`,
+`ItemDetailComponents` (form sections + formatters + delete + footer), and
+`ItemDetailPreviews` (the §14 snapshot matrix as previews). Both placeholder routes
+in `FluxItRoot` (`list/{listId}/item/{itemId}` + the `item/{itemId}` deep link) now
+render the real screen; the unused `Placeholder` composable was removed.
+
+- **Camera/picker need no feature-module glue** — `MainActivity` already attaches
+  the Phase 06 `ActivityResultRegistryProvider`, and `AttachPhotoToItem` orchestrates
+  capture→ingest→attach, so the UI just dispatches `PhotoSourceSelected` and renders
+  `photoStatus`. No `androidx.activity.result.*` import here (§11 / Konsist green).
+- **Photo render** uses a `BitmapFactory.decodeFile` → `ImageBitmap` on `Dispatchers.IO`
+  (§12 divergence: Coil 3 + pre-warm/caching deferred to v2 — avoids a new dependency,
+  keeps the slice self-contained; one photo per item, decoded once per uri).
+- **Store touch-ups discovered during UI integration:** added
+  `ItemDetailIntent.PhotoSourceSheetDismissed` and made `RemovePhotoClicked` close the
+  sheet, so the state-driven action sheet is fully controllable (2 new store tests).
+  Also made the `ItemDetailStore` Koin factory accept an optional `CoroutineScope` so
+  the ViewModel passes `viewModelScope` (no-arg `resolveItemDetailStore()` unaffected).
+
+**Divergences logged:** Save lives in a sticky bottom dock (`FluxItPrimaryButton`),
+not a top-bar text trailing — the DS centered top bar has only a disabled-less *icon*
+trailing (mirrors Phase 09's `SubmitDock`, §1). Item delete emits a plain `NavigateBack`
+(no undo) — the store has no `NavigateBackWithUndo`, so §6's 5-second item-undo is not
+wired in v1. Permission banner is iOS-camera-only per §0 (b) (no-op on Android). Photo
+card tap opens the sheet (§13 — kept).
+
+Gate: `:features:feature-item-detail:check` + `:shared:state:check` + `:build-logic:test`
++ `:android-app:compileDebugKotlin` green.
+
+_Commit `<pending>`._
 
 ### Slice 3 — iOS ItemDetail screen + wiring
 
-_Commit `8b527f5`._
+_Commit `<pending>`._
 
 ### Slice 4 — close-out
 
-_Commit `8b527f5`._
+_Commit `<pending>`._

@@ -44,6 +44,7 @@ import dev.franzueto.fluxit.core.designsystem.icons.StarFilled
 import dev.franzueto.fluxit.core.designsystem.theme.FluxItTheme
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItSpacing
 import dev.franzueto.fluxit.feature.createlist.CreateListRoute
+import dev.franzueto.fluxit.feature.itemdetail.ItemDetailRoute
 import dev.franzueto.fluxit.feature.listdetail.ListDetailRoute
 import dev.franzueto.fluxit.feature.lists.DashboardRoute
 import dev.franzueto.fluxit.shared.state.navigation.Tab
@@ -109,9 +110,8 @@ private fun StartupError(
 /**
  * The app NavHost (plan/07 §1, §6). The start destination [ROUTE_DASHBOARD] is the
  * [TabHost] (tab bar + center FAB driven off [RootStore.currentTab]); the other
- * routes are pushed destinations. Screens not yet built (list/item detail,
- * create-list, settings) render [Placeholder] until their feature phases land
- * (08 / 09 / Slice 6).
+ * routes are pushed destinations (list detail, item detail, create-list, settings),
+ * each backed by its feature-module Route composable.
  *
  * App-level deep links (reminder taps; plan/06 §5) arrive as
  * [RootEffect.NavigateToList] / [RootEffect.NavigateToItem] one-shots off the
@@ -158,11 +158,21 @@ private fun FluxItNavHost(rootStore: RootStore) {
                     navArgument(ARG_LIST_ID) { type = NavType.StringType },
                     navArgument(ARG_ITEM_ID) { type = NavType.StringType },
                 ),
-        ) { Placeholder("Item detail") }
+        ) { backStackEntry ->
+            ItemDetailRoute(
+                itemId = backStackEntry.arguments?.getString(ARG_ITEM_ID).orEmpty(),
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(
             route = ROUTE_ITEM_DEEP_LINK,
             arguments = listOf(navArgument(ARG_ITEM_ID) { type = NavType.StringType }),
-        ) { Placeholder("Item detail") }
+        ) { backStackEntry ->
+            ItemDetailRoute(
+                itemId = backStackEntry.arguments?.getString(ARG_ITEM_ID).orEmpty(),
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(
             route = ROUTE_CREATE_LIST,
             arguments =
@@ -257,13 +267,6 @@ private fun ComingSoon(feature: String) {
             title = "$feature is coming soon",
             message = "Coming in a future update.",
         )
-    }
-}
-
-@Composable
-private fun Placeholder(label: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(label)
     }
 }
 

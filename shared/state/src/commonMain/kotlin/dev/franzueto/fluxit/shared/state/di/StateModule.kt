@@ -55,7 +55,12 @@ public val stateModule: Module =
                 editingId = params.getOrNull<ListId>(),
             )
         }
-        factory { ItemDetailStore(get(), get(), get(), get(), get(), get(), get(), get()) }
+        // Optional CoroutineScope param: Android passes viewModelScope (so the item
+        // feed is cancelled when the screen leaves); iOS/tests take the fresh-scope
+        // fallback. The item id arrives later via ItemDetailIntent.Init.
+        factory { params ->
+            ItemDetailStore(params.getOrNull<CoroutineScope>() ?: get(), get(), get(), get(), get(), get(), get(), get())
+        }
         factory { params ->
             AccountStore(params.getOrNull<CoroutineScope>() ?: get(), get(), version = "0.0.0-interim", flags = emptyMap())
         }
