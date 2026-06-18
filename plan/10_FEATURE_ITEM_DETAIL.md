@@ -370,7 +370,7 @@ card tap opens the sheet (§13 — kept).
 Gate: `:features:feature-item-detail:check` + `:shared:state:check` + `:build-logic:test`
 + `:android-app:compileDebugKotlin` green.
 
-_Commit `<pending>`._
+_Commit `7aa4661`._
 
 ### Slice 3 — iOS ItemDetail screen + wiring
 
