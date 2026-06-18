@@ -311,7 +311,7 @@ ios-app/Features/ItemDetail/
 ## 18. Implementation log
 
 > One entry per slice (see §0). Each `feat` commit lands its entry with the SHA left as
-> `_Commit `8b527f5`._`, then a follow-up `docs(plan):` commit backfills the SHA.
+> `_Commit `<pending>`._`, then a follow-up `docs(plan):` commit backfills the SHA.
 
 ### Slice 1 — store backfill + DI/resolver
 
@@ -410,7 +410,7 @@ Gate: `scripts/test-ios.sh` → `** TEST SUCCEEDED **` (tokens/icons regen, rele
 XCFramework, xcodegen, XCTest). No `:shared:state`/DI touched, so the Kotlin gates
 from Slice 1 still hold.
 
-_Commit `<pending>`._
+_Commit `8426f08`._
 
 ### Slice 4 — close-out
 
