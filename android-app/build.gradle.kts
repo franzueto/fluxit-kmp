@@ -7,6 +7,7 @@ dependencies {
     implementation(project(":core:core-designsystem"))
     implementation(project(":features:feature-lists"))
     implementation(project(":features:feature-list-detail"))
+    implementation(project(":features:feature-create-list"))
     // Phase 06 Slice 7: MainActivity wires the §7 host-holder
     // (ActivityResultRegistryProvider) so AndroidPhotoCapture can present the
     // camera / picker against the resumed Activity's ActivityResultRegistry.

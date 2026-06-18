@@ -39,13 +39,14 @@ struct ContentView: View {
     }
 }
 
-/// Pushed destinations for a tab's `NavigationStack`. Detail / create screens are
-/// placeholders until their feature phases land (08 / 09); Settings is a real
-/// stub (Slice 6). Deep links push `.listDetail` / `.itemDetail`.
+/// Pushed destinations for a tab's `NavigationStack`. Item detail is a
+/// placeholder until its feature phase lands (Phase 10); Settings is a real stub
+/// (Slice 6). Create-List is **not** a stack route — it's a `.fullScreenCover`
+/// modal owned by `createListPresented` (plan/09 §1). Deep links push
+/// `.listDetail` / `.itemDetail`.
 private enum DashRoute: Hashable {
     case listDetail(String)
     case itemDetail(String)
-    case createList
     case settings
 }
 
@@ -61,8 +62,23 @@ private struct TabHostView: View {
 
     @State private var listsPath: [DashRoute] = []
     @State private var accountPath: [DashRoute] = []
+    @State private var createListPresented = false
 
     private static let tabsOrder: [Shared.Tab] = [.lists, .calendar, .starred, .account]
+
+    /// The bottom tab bar is part of this scaffold, so it would otherwise stay
+    /// docked over every pushed destination — including `ListDetailView`, whose own
+    /// scaffold owns the sticky `ComposerDock`. Two scaffolds claiming the bottom
+    /// safe-area inset collide and the tab bar wins, hiding the composer. Hide the
+    /// tab bar whenever the active tab has pushed a destination (standard iOS detail
+    /// behavior) so the detail screen owns the full bottom area.
+    private var chromeHidden: Bool {
+        switch currentTab {
+        case .lists: return !listsPath.isEmpty
+        case .account: return !accountPath.isEmpty
+        default: return false
+        }
+    }
 
     private var tabItems: [FluxItTabItem] {
         [
@@ -76,22 +92,38 @@ private struct TabHostView: View {
     var body: some View {
         FluxItScaffold(
             bottomBar: {
-                FluxItBottomTabBar(
-                    tabs: tabItems,
-                    selectedIndex: TabHostView.tabsOrder.firstIndex(of: currentTab) ?? 0,
-                    onSelect: { index in store.dispatch(intent: RootIntentTabSelected(tab: TabHostView.tabsOrder[index])) }
-                )
+                if !chromeHidden {
+                    FluxItBottomTabBar(
+                        tabs: tabItems,
+                        selectedIndex: TabHostView.tabsOrder.firstIndex(of: currentTab) ?? 0,
+                        onSelect: { index in store.dispatch(intent: RootIntentTabSelected(tab: TabHostView.tabsOrder[index])) }
+                    )
+                }
             }
         ) {
             ZStack(alignment: .bottom) {
                 tabContent
-                if currentTab == .lists {
+                // The create-list FAB belongs to the dashboard root only. On a pushed
+                // detail screen it would overlay the list-detail ComposerDock and read
+                // as "add item" while actually creating a list (the +-button is hidden
+                // once `listsPath` is non-empty).
+                if currentTab == .lists, listsPath.isEmpty {
                     FluxItFab(icon: FluxItTokens.Icons.plus, accessibilityLabel: "Create new list") {
-                        listsPath.append(.createList)
+                        createListPresented = true
                     }
                     .padding(.bottom, FluxItTokens.Spacing.scaleXl)
                 }
             }
+        }
+        .fullScreenCover(isPresented: $createListPresented) {
+            CreateListView(
+                editingId: nil,
+                onDismiss: { createListPresented = false },
+                onCreated: { id in
+                    createListPresented = false
+                    listsPath.append(.listDetail(id))
+                }
+            )
         }
         .task {
             await observeEffects(store) { effect in
@@ -115,7 +147,7 @@ private struct TabHostView: View {
             NavigationStack(path: $listsPath) {
                 ListsDashboardView(
                     onOpenList: { listsPath.append(.listDetail($0)) },
-                    onCreateList: { listsPath.append(.createList) },
+                    onCreateList: { createListPresented = true },
                     onOpenSettings: { listsPath.append(.settings) }
                 )
                 .navigationDestination(for: DashRoute.self) { route in destination(route, path: $listsPath) }
@@ -142,8 +174,6 @@ private struct TabHostView: View {
             )
         case let .itemDetail(id):
             PlaceholderView(label: "Item detail\n\(id)")
-        case .createList:
-            PlaceholderView(label: "Create list")
         case .settings:
             SettingsView(onBack: { path.wrappedValue.removeLast() })
         }

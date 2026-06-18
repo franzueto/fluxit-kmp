@@ -15,6 +15,50 @@
 
 ---
 
+## 0. Slice plan & cadence
+
+Phase 09 ships one `feat` commit per slice (plan files synced in-commit, impl-log
+entry `_Commit `<pending>`._`) + a `docs(plan):` SHA-backfill commit, per the Phase
+05–08 cadence. Pre-commit gate: `:check` of each touched module + `:build-logic:test
+--rerun-tasks`; iOS-facing slices also run `scripts/test-ios.sh`.
+
+**Decisions taken at kickoff (2026-06-10):**
+(a) **Edit mode lands this phase as a `CreateListStore` backfill** — the shipped
+Phase-05 store is create-only, so Slice 1 adds the optional `editingId` (prefill via
+`ListsRepository.observe(id).first()`, save via `RenameList` + `UpdateListAppearance`,
+success → `Effect.Dismiss`), plus the §6 `dirty`/`ConfirmDiscard` flow and the §4
+`validationVisible` gating, none of which shipped in Phase 05. Phase 08's ⋯ menu
+"Edit list" row flips from disabled "(coming soon)" to live on both platforms.
+(b) **Reminder editor stays in Phase 13**: a new `ConfigKey.RemindersEditorEnabled`
+defaults **false** in v1 (ADR-004 staged-off pattern — diverges from §8's
+"defaults to true"), so the Reminder Settings row renders disabled with subtitle
+"Coming soon"; the §8 result-return plumbing is deferred with it.
+(c) **Snapshot tests deferred to v2** (standing decision, see Phase 08 §0) — §15's
+snapshot list is replaced by store tests + previews + Konsist.
+(d) **`NAME_MAX_LEN` 100 → 60** in the store, matching this plan's locked cap (§2/§4)
+and the §15 boundary cases.
+(e) **8th icon chip = `STAR`, no MORE affordance** (§5 decision stands); the grid
+renders `state.palette` from `PaletteCatalog` directly.
+
+1. **`CreateListStore` backfill + tests** (`:shared:state`) — `editingId` Koin param
+   (`parametersOf(scope, editingId)`), edit-mode prefill + original-snapshot dirty
+   compare, edit-mode submit path (one `CreateClicked` intent serves both modes —
+   no `SaveClicked` alias; §3 divergence), `CancelClicked` → `ConfirmDiscard` when dirty +
+   `DiscardConfirmed` intent, `NameBlurred`/invalid-submit → `validationVisible`,
+   name cap 60, `ConfigKey.RemindersEditorEnabled`; `CreateListStoreTest` grows to
+   cover all of it (Kover ≥90% stays green).
+2. **Android `:features:feature-create-list` module + nav** — Route/Screen/
+   Components/Previews/ViewModel; `create-list?editingId={id}` route (slide-in
+   modal) replaces the `Placeholder`; FAB + dashboard entries unchanged; Phase 08
+   menu "Edit list" wired to navigate with `editingId`.
+3. **iOS screen** — `CreateListView`/`IconGrid`/`ColorSwatchRow`/
+   `ReminderSettingsRow`; `.createList` route renders it; `resolveCreateListStore()`
+   facade + SKIE accessor backfills as needed; list-detail sheet gains "Edit list".
+4. **Close-out** — `MASTER_PLAN.md` → Phase 09 🟢 / ▶ Next Step → Phase 10; §14
+   divergences logged; hand-off (§17).
+
+---
+
 ## 1. Modal presentation
 
 This is a **full-screen modal**, not a bottom sheet — the field/grid/swatch density needs the room and the mockup shows a full-screen layout with Cancel/title/Create button arrangement.
@@ -166,12 +210,36 @@ ios-app/Features/CreateList/
 
 ## 14. Mockup divergences (for design review)
 
-- [ ] **8th icon chip = STAR, not MORE.** Justification in §5; ask design to confirm or supply additional icons that would make a "more" sheet meaningful in v1.
-- [ ] **Swipe-to-dismiss with unsaved changes blocked** on iOS. The mockup doesn't address dismiss gestures — flag the chosen behavior.
+Sign-off below records what **shipped** (both platforms, Slices 2–3); the design
+review still owns the visual ✅ (the `[ ]` checkboxes are design's, not eng's).
+
+- [ ] **7-chip icon grid — `MORE` filtered (not 8 incl. STAR/MORE).** §5 drops the
+  "more" affordance in v1 (the catalog has nothing more to show, and `MORE` is the
+  ⋯ chrome glyph, not a list identity), so the grid is the 7 identity icons (4 + 3).
+  `pickableIcons` filters `FluxItIconRef.MORE` on both platforms. Ask design to
+  confirm, or supply additional icons that would make a "more" sheet meaningful.
+- [ ] **Swipe-to-dismiss with unsaved changes blocked** on iOS
+  (`.interactiveDismissDisabled(true)` → swipe-down routes through `CancelClicked`
+  and the §6 dirty check). The mockup doesn't address dismiss gestures.
+- [ ] **Top bar renders "‹ Cancel"** (the DS back-button chevron prefix) vs the
+  mockup's bare "Cancel", on both platforms (shared `FluxItTopBarCentered`).
+- [ ] **No in-button spinner on submit** — the button shows a disabled
+  "Creating…/Saving…" label instead of §7's spinner (`FluxItPrimaryButton` /
+  `FluxItButton` has no progress slot yet; DS polish item, joins the Phase 08
+  composer note).
+- [ ] **Reminder Settings row disabled "Coming soon"** (flag off, §0 decision b);
+  the `NavigateToReminderSettings` effect arm is a documented no-op on both
+  platforms — no Phase 13 stub route exists to push (exit-criteria deviation:
+  "routes to a stub Phase 13 screen").
+- [ ] **No `SaveClicked` intent** — one `CreateClicked` serves both modes (§3),
+  labelled "Save" in edit mode.
+- [ ] **Snapshot tests deferred to v2** (§0 decision c / §15) — exit-criteria
+  deviation by standing scope decision; coverage leans on `CreateListStoreTest`,
+  the exhaustive `when`/`switch`, pure-formatter unit tests, previews, and Konsist.
 
 ## 15. Testing
 
-- [ ] **Snapshot tests**: empty/initial, name-typed-no-error, name-empty-error, name-too-long-error, all-fields-set-with-reminder, submitting (spinner), submission-error, edit-mode-prefilled.
+- [x] ~~**Snapshot tests**: empty/initial, name-typed-no-error, name-empty-error, name-too-long-error, all-fields-set-with-reminder, submitting (spinner), submission-error, edit-mode-prefilled.~~ **Deferred to v2** (§0 decision c — standing scope decision, see Phase 08 §0). Replaced by `CreateListStoreTest` (19 cases) + `CreateListFormattersTest` (pure error/label/subtitle/pickable-icons) + previews + Konsist.
 - [ ] **UI behavior**:
   - Type name → submit enables.
   - Tap icon → state updates; tap color → state updates.
@@ -209,9 +277,127 @@ ios-app/Features/CreateList/
 
 ## 17. Hand-off checklist (gate to Phase 10)
 
-- [ ] All checkboxes above ✅.
-- [ ] Both apps demoed: FAB → fill form → create → land in detail; ⋯ Edit → change icon → save → return.
-- [ ] Snapshot tests checked in; CI golden compare green.
-- [ ] A11y audit clean.
-- [ ] Mockup divergences (§14) signed off by design.
-- [ ] `MASTER_PLAN.md`: Phase 09 → 🟢, ▶ Next Step → Phase 10.
+- [x] Functional scope above implemented across Slices 1–3 (snapshot/UI-instrumented
+  items deferred to v2 per §0 decision c — see §15).
+- [ ] Both apps demoed: FAB → fill form → create → land in detail; ⋯ Edit → change
+  icon → save → return. _(User's on-device/sim manual pass.)_
+- [x] ~~Snapshot tests checked in; CI golden compare green.~~ **Deferred to v2** (§15).
+- [ ] A11y audit clean. _(User's manual TalkBack/VoiceOver pass — not automated, v2.)_
+- [ ] Mockup divergences (§14) signed off **by design** — the full set is logged in
+  §14 (7-chip grid, "‹ Cancel", no in-button spinner, reminder "Coming soon" +
+  no Phase 13 stub, no `SaveClicked`, snapshots deferred). Eng sign-off done.
+- [x] `MASTER_PLAN.md`: Phase 09 → 🟢, ▶ Next Step → Phase 10.
+
+## 18. Implementation Log
+
+> One entry per slice (see §0), appended in the slice's `feat` commit with a
+> pending-commit marker and backfilled to the real SHA in the follow-up
+> `docs(plan):` commit.
+
+- **2026-06-10** — Slice 1: `CreateListStore` backfill + tests (§0 / §3 / §4 / §6 /
+  §8 / §9). The Phase-05 store was create-only; it now also owns the edit flow: an
+  optional `editingId` constructor param (Koin factory takes optional
+  `CoroutineScope` + `ListId` params, either/both/neither) flips it into edit mode —
+  prefill loads the first `ObserveListDetail` emission (a null detail → the list is
+  gone → `Dismiss`), keeps the loaded `ListDetail` as the private `original`
+  snapshot, and submit (still the single `CreateClicked` intent — **no `SaveClicked`
+  alias**, §3 divergence) persists via `RenameList` (only when the trimmed name
+  changed) + `UpdateListAppearance` (only when icon/color changed), a no-change save
+  being an immediate success; success emits `Dismiss`, never `NavigateToListDetail`.
+  The three edit use cases ride in an `EditListDeps` holder (detekt 8-param cap,
+  cf. `ListDetailChrome`) and `RenameList`/`UpdateListAppearance` joined
+  `domainModule`. §6 cancel/discard: `CancelClicked` emits `ConfirmDiscard` when
+  dirty (create mode: any field off its default / pending reminder; edit mode:
+  differs from `original`, not-yet-prefilled = pristine), else `Dismiss`; new
+  `DiscardConfirmed` intent → `Dismiss`. §4 visibility: new
+  `state.validationVisible`, set by the new `NameBlurred` intent or by a submit
+  attempt with an invalid name (which no longer silently no-ops). `NAME_MAX_LEN`
+  100 → 60 (§0 decision d). §8: new domain `ConfigKey.RemindersEditorEnabled`
+  (default **false**, §0 decision b) surfaced as `state.reminderEditorEnabled` via
+  an injected `ConfigProvider`. `CreateListStoreTest` grew from 9 to 19 cases
+  (edit prefill/save/no-op-save/failure/missing-list, dirty-cancel both modes,
+  validation visibility, flag default+override, 60/61 boundary). Gate green:
+  `:shared:state:check`, `:shared:domain:check` (Kover gates included),
+  `:build-logic:test --rerun-tasks`. _Commit `a2661d0`._
+
+- **2026-06-10** — Slice 2: Android `:features:feature-create-list` module + nav
+  (§0 / §1 / §2 / §3 / §4 / §5 / §6 / §7 / §8 / §10). New module via the
+  `fluxit.kmp.feature` convention plugin (namespace
+  `dev.franzueto.fluxit.feature.createlist`, Compose on, same dep set as
+  `feature-list-detail`); registered in `settings.gradle.kts` + `:android-app`.
+  Split: `CreateListRoute` (Koin/ViewModel glue — `viewModel { CreateListViewModel
+  { scope -> koin.get { parametersOf(scope[, id]) } } }` — + exhaustive
+  `CreateListEffect` `when` → dismiss / confirm-discard alert / error banner /
+  pop+push on `NavigateToListDetail`; `BackHandler` dispatches `CancelClicked` so
+  system back gets the §6 dirty check), stateless `CreateListScreen`
+  (`FluxItTopBarCentered` with "Cancel" leading text button, scrollable form,
+  sticky `FluxItPrimaryButton` dock — disabled unless `validation == Valid` and
+  not `Submitting`, label flips Create List/Save/Creating…/Saving…), and
+  `CreateListComponents` (4-column `FluxItIconChip` grid via `chunked`, single
+  `FluxItColorSwatch` row, §8 reminder row, §4 inline error + §7 banner).
+  `:android-app` `create-list?editingId={id}` route (optional nullable arg,
+  vertical-slide enter/exit) replaces the `Placeholder`; FAB + dashboard navigate
+  the bare base route; the Phase 08 list-detail sheet's **"Edit list details" row
+  is now live** (pure nav hop — `ListDetailRoute` gained `onOpenEditList`, no
+  store intent needed). **Divergences:** (a) the icon grid renders 7 chips —
+  `FluxItIconRef.MORE` is filtered out (`pickableIcons`): it's the ⋯ chrome
+  glyph, not a list identity, and §5 drops the "more" affordance (so §2's "8
+  icons → 2 rows" is 4+3 until the set grows); (b) the reminder row renders
+  disabled "Coming soon" (flag off, §0 decision b) and the
+  `NavigateToReminderSettings` effect arm is a documented no-op — no Phase 13
+  stub route exists to push; (c) submit shows a disabled "Creating…/Saving…"
+  label instead of §7's in-button spinner — the DS `FluxItPrimaryButton` has no
+  progress slot yet (DS polish item, joins the Phase 08 composer note); (d) the
+  top bar renders "‹ Cancel" (the DS back-button chevron prefix) vs the mockup's
+  bare "Cancel". `CreateListFormattersTest` covers the pure formatters
+  (error/label/subtitle/pickable-icons). Gate green:
+  `:features:feature-create-list:check`, `:features:feature-list-detail:check`,
+  `:android-app:assembleDebug`, `:build-logic:test --rerun-tasks`.
+  _Commit `f224af5`._
+
+- **2026-06-16** — Slice 3: iOS `CreateListView` + create/edit wiring (§0 / §1 /
+  §2 / §3 / §4 / §5 / §6 / §7 / §8 / §9 / §10). New `CreateListView.swift`
+  (auto-included via the synchronized `Sources/` folder — no `pbxproj` edit):
+  `FluxItScaffold` with a centered "‹ Cancel" top bar, a `ScrollView` form (name
+  field, 4-column icon grid via a private `chunked(into:)`, color swatch row,
+  disabled reminder row) and a sticky submit dock; `observe`/`observeEffects`
+  bridge state + the exhaustive `CreateListEffect` switch (dismiss /
+  confirm-discard alert / `navigateToListDetail` → `onCreated(e.listId())` /
+  `showError` banner / `navigateToReminderSettings` no-op). Auto-focus in create
+  mode + focus-loss `NameBlurred` use a new **optional** `focused:
+  FocusState<Bool>.Binding?` param on the DS `FluxItTextField` (additive,
+  defaults `nil` so existing callers are untouched — the `.focused` modifier only
+  binds applied directly to the inner `TextField`). `.interactiveDismissDisabled(true)`
+  routes swipe-down through the §6 dirty check. Kotlin glue: two Swift-callable
+  resolvers `resolveCreateListStore()` / `resolveCreateListStore(editingId:)`
+  (the latter boxes `ListId` and passes `parametersOf` so the factory's
+  `getOrNull<ListId>()` flips edit mode — Swift can't build the value class) +
+  `CreateListEffect.NavigateToListDetail.listId()` string accessor, both in
+  `:shared:state`. `ContentView` now presents create via a `.fullScreenCover`
+  bound to `createListPresented` (FAB + dashboard `onCreateList` flip it; the
+  `DashRoute.createList` stack case is dropped); `ListDetailView` owns its own
+  `editPresented` cover for **edit mode**, and `ListActionsSheet` gained an "Edit
+  list details" button + `onEditList` closure (doc comment updated — Edit is now
+  live). **Divergences** (same set as Slice 2, mirrored to Swift): 7-chip icon
+  grid (`.more` filtered), "‹ Cancel" leading, no in-button spinner
+  (Creating…/Saving… label), reminder row "Coming soon" + `navigateToReminderSettings`
+  no-op (no Phase 13 stub). The initial `@State` `CreateListState` literal
+  constructs `Palette(icons:colors:)` explicitly (SKIE marks the no-arg
+  `Palette()` init unavailable) mirroring `PaletteCatalog` — replaced on the
+  first `observe` emission. Gate green: `scripts/test-ios.sh` (**TEST
+  SUCCEEDED**), `:shared:state:check`, `:build-logic:test --rerun-tasks`.
+  _Commit `ee3fc42`._
+
+- **2026-06-16** — Slice 4: close-out (§14 / §15 / §17). `MASTER_PLAN.md` flipped
+  Phase 09 → 🟢 Complete (100%), advanced ▶ Next Step → Phase 10 (Feature: Item
+  Detail — Photo), and refreshed the Last-updated / Repo-phase summaries. Plan §14
+  expanded to the full **divergence sign-off** set shipped across Slices 2–3
+  (7-chip icon grid with `MORE` filtered; "‹ Cancel" leading; no in-button spinner
+  → Creating…/Saving… label; reminder row disabled "Coming soon" +
+  `NavigateToReminderSettings` no-op, no Phase 13 stub route; no `SaveClicked`
+  alias; snapshot tests deferred to v2) — eng sign-off done, design's visual ✅
+  still pending. §15 snapshot bullet struck through as deferred (replaced by
+  `CreateListStoreTest` + `CreateListFormattersTest` + previews + Konsist); §17
+  hand-off checklist reconciled (functional scope + `MASTER_PLAN` done; demo /
+  a11y / design sign-off are the user's manual/external steps). Docs-only — no
+  code touched, so no module gate beyond the doc edits. _Commit `397063c`._

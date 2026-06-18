@@ -56,4 +56,5 @@ project(":shared:state").projectDir = file("shared/state")
 // features
 include(":features:feature-lists")
 include(":features:feature-list-detail")
+include(":features:feature-create-list")
 project(":features:feature-lists").projectDir = file("features/feature-lists")

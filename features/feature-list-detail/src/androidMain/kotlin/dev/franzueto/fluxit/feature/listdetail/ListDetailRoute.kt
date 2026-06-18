@@ -33,12 +33,14 @@ import org.koin.core.parameter.parametersOf
  * @param listId the route argument (`list/{listId}`); parsed into a [ListId].
  * @param onBack pop the detail route.
  * @param onOpenEditItem push the edit-item route (Phase 10 destination).
+ * @param onOpenEditList push the create-list modal in edit mode (Phase 09 §9).
  */
 @Composable
 fun ListDetailRoute(
     listId: String,
     onBack: () -> Unit,
     onOpenEditItem: (ItemId) -> Unit,
+    onOpenEditList: () -> Unit = {},
 ) {
     val koin = getKoin()
     val id = remember(listId) { ListId(listId) }
@@ -87,6 +89,7 @@ fun ListDetailRoute(
         state = state,
         onIntent = store::dispatch,
         onBack = { store.dispatch(ListDetailIntent.BackClicked) },
+        onEditList = onOpenEditList,
         chrome =
             ListDetailChrome(
                 undo = undo,

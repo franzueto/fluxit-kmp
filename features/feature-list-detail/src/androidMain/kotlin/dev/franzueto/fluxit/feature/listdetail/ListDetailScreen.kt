@@ -58,6 +58,7 @@ fun ListDetailScreen(
     state: ListDetailState,
     onIntent: OnListDetailIntent,
     onBack: () -> Unit,
+    onEditList: () -> Unit = {},
     chrome: ListDetailChrome = ListDetailChrome(),
 ) {
     val header = state.header
@@ -116,6 +117,7 @@ fun ListDetailScreen(
 
     if (chrome.showMenu) {
         ListActionsSheet(
+            onEditList = onEditList,
             onClearCompleted = { onIntent(ListDetailIntent.ClearCompletedClicked) },
             onDismiss = chrome.onDismissMenu,
         )
@@ -201,14 +203,17 @@ private fun ComposerDock(
 
 /**
  * List-actions sheet (plan/08 §4). v1 wires **Clear completed** (with a
- * confirmation alert, §13); Edit / Star / Reminders / Delete-list entries are
- * rendered disabled — their backing intents land in Phases 09/13 and the shipped
+ * confirmation alert, §13) and — since Phase 09 — **Edit list details**
+ * (a pure navigation hop into the create-list modal's edit mode, no store
+ * intent needed); Star / Reminders / Delete-list entries are rendered
+ * disabled — their backing intents land in Phase 13 and the shipped
  * [dev.franzueto.fluxit.shared.state.store.ListDetailStore] exposes no intents for
  * them yet (documented divergence from §4).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ListActionsSheet(
+    onEditList: () -> Unit,
     onClearCompleted: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -218,7 +223,10 @@ private fun ListActionsSheet(
         Column(
             modifier = Modifier.fillMaxWidth().padding(bottom = FluxItSpacing.scale2xl),
         ) {
-            ActionRow(label = "Edit list details", enabled = false)
+            ActionRow(label = "Edit list details", enabled = true, onClick = {
+                onDismiss()
+                onEditList()
+            })
             ActionRow(label = "Star list", enabled = false)
             ActionRow(label = "Reminder settings", enabled = false)
             ActionRow(label = "Clear completed", enabled = true, onClick = { confirmClear = true })

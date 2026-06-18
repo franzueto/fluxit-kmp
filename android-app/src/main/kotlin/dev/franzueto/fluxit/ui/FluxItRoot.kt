@@ -4,6 +4,8 @@ package dev.franzueto.fluxit.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,6 +43,7 @@ import dev.franzueto.fluxit.core.designsystem.icons.Star
 import dev.franzueto.fluxit.core.designsystem.icons.StarFilled
 import dev.franzueto.fluxit.core.designsystem.theme.FluxItTheme
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItSpacing
+import dev.franzueto.fluxit.feature.createlist.CreateListRoute
 import dev.franzueto.fluxit.feature.listdetail.ListDetailRoute
 import dev.franzueto.fluxit.feature.lists.DashboardRoute
 import dev.franzueto.fluxit.shared.state.navigation.Tab
@@ -145,6 +148,7 @@ private fun FluxItNavHost(rootStore: RootStore) {
                 listId = listId,
                 onBack = { navController.popBackStack() },
                 onOpenEditItem = { itemId -> navController.navigate("list/$listId/item/${itemId.value}") },
+                onOpenEditList = { navController.navigate("$ROUTE_CREATE_LIST_BASE?$ARG_EDITING_ID=$listId") },
             )
         }
         composable(
@@ -159,7 +163,30 @@ private fun FluxItNavHost(rootStore: RootStore) {
             route = ROUTE_ITEM_DEEP_LINK,
             arguments = listOf(navArgument(ARG_ITEM_ID) { type = NavType.StringType }),
         ) { Placeholder("Item detail") }
-        composable(ROUTE_CREATE_LIST) { Placeholder("Create list") }
+        composable(
+            route = ROUTE_CREATE_LIST,
+            arguments =
+                listOf(
+                    navArgument(ARG_EDITING_ID) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+            exitTransition = { slideOutVertically(targetOffsetY = { it }) },
+        ) { backStackEntry ->
+            CreateListRoute(
+                editingId = backStackEntry.arguments?.getString(ARG_EDITING_ID),
+                onDismiss = { navController.popBackStack() },
+                // §7: success pops the modal and pushes the new list's detail.
+                onCreated = { id ->
+                    navController.navigate("list/${id.value}") {
+                        popUpTo(ROUTE_CREATE_LIST) { inclusive = true }
+                    }
+                },
+            )
+        }
         composable(ROUTE_SETTINGS) {
             val context = LocalContext.current
             SettingsScreen(
@@ -201,7 +228,7 @@ private fun TabHost(
                     Tab.Lists ->
                         DashboardRoute(
                             onOpenList = { id -> navController.navigate("list/${id.value}") },
-                            onCreateList = { navController.navigate(ROUTE_CREATE_LIST) },
+                            onCreateList = { navController.navigate(ROUTE_CREATE_LIST_BASE) },
                             onComingSoon = { tab -> rootStore.dispatch(RootIntent.TabSelected(tab)) },
                             onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
                         )
@@ -213,7 +240,7 @@ private fun TabHost(
         }
         FluxItFab(
             icon = FluxItIcons.Plus,
-            onClick = { navController.navigate(ROUTE_CREATE_LIST) },
+            onClick = { navController.navigate(ROUTE_CREATE_LIST_BASE) },
             contentDescription = "Create new list",
             modifier =
                 Modifier
@@ -250,9 +277,15 @@ private val TAB_ITEMS =
 
 private const val ARG_LIST_ID = "listId"
 private const val ARG_ITEM_ID = "itemId"
+private const val ARG_EDITING_ID = "editingId"
 private const val ROUTE_DASHBOARD = "dashboard"
 private const val ROUTE_LIST_DETAIL = "list/{$ARG_LIST_ID}"
 private const val ROUTE_ITEM_DETAIL = "list/{$ARG_LIST_ID}/item/{$ARG_ITEM_ID}"
 private const val ROUTE_ITEM_DEEP_LINK = "item/{$ARG_ITEM_ID}"
-private const val ROUTE_CREATE_LIST = "create-list"
+
+// Optional editingId → the same modal serves create (absent) and edit (plan/09 §9).
+// Navigate with ROUTE_CREATE_LIST_BASE (create) or `create-list?editingId=<id>` (edit);
+// ROUTE_CREATE_LIST is the destination *pattern* only.
+private const val ROUTE_CREATE_LIST_BASE = "create-list"
+private const val ROUTE_CREATE_LIST = "$ROUTE_CREATE_LIST_BASE?$ARG_EDITING_ID={$ARG_EDITING_ID}"
 private const val ROUTE_SETTINGS = "settings"

@@ -29,6 +29,7 @@ struct ListDetailView: View {
     @State private var undo: UndoSnackbarState?
     @State private var error: String?
     @State private var showMenu = false
+    @State private var editPresented = false
     @State private var didStart = false
 
     @SceneStorage private var composerScene: String
@@ -70,8 +71,18 @@ struct ListDetailView: View {
         .toolbar(.hidden, for: .navigationBar)
         .listActionsSheet(
             isPresented: $showMenu,
+            onEditList: { editPresented = true },
             onClearCompleted: { store.dispatch(intent: ListDetailIntentClearCompletedClicked()) }
         )
+        .fullScreenCover(isPresented: $editPresented) {
+            // Edit mode (plan/09 §9): success dismisses; the detail store re-observes
+            // the renamed/recolored list, so no extra refresh is needed here.
+            CreateListView(
+                editingId: listId,
+                onDismiss: { editPresented = false },
+                onCreated: { _ in editPresented = false }
+            )
+        }
         .task {
             startIfNeeded()
             await observe(store, into: $state)
