@@ -451,4 +451,4 @@ snapshot infra + on-device UI/a11y/process-death deferred to v2 QA, previews sta
 §16 hand-off checklist resolved (automated rows ✅, device/snapshot/a11y rows explicitly
 deferred). No production code touched, so the Slice 1–3 gates still hold.
 
-_Commit `<pending>`._
+_Commit `209f45a`._
