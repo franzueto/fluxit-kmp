@@ -64,6 +64,16 @@ naming:
     # @Composable functions are PascalCase by Jetpack Compose convention.
     ignoreAnnotated:
       - 'Composable'
+    # Test functions use backtick `fun \`reads well\`()` names. detekt's default
+    # excludes cover commonTest/iosTest/etc. but not the AGP-9 KMP host-test
+    # source set (androidHostTest, renamed from androidUnitTest), so list the
+    # test source sets explicitly here.
+    excludes:
+      - '**/test/**'
+      - '**/commonTest/**'
+      - '**/androidHostTest/**'
+      - '**/androidDeviceTest/**'
+      - '**/iosTest/**'
   MatchingDeclarationName:
     # Disabled: KMP convention is to suffix actual files with `.android.kt` /
     # `.ios.kt` (e.g. Platform.android.kt declares `actual class Platform`).

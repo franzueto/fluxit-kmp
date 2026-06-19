@@ -45,7 +45,7 @@ class DesignSystemSanityTest : FunSpec({
                     "/src/test/" !in file.path &&
                     "/src/commonTest/" !in file.path &&
                     "/src/androidTest/" !in file.path &&
-                    "/src/androidUnitTest/" !in file.path &&
+                    "/src/androidHostTest/" !in file.path &&
                     !file.name.endsWith("Test.kt") &&
                     !file.name.endsWith("Spec.kt")
             }

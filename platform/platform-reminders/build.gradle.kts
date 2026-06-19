@@ -2,8 +2,10 @@ plugins {
     id("fluxit.kmp.library")
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.platform.reminders"
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.platform.reminders"
+    }
 }
 
 kotlin {
@@ -27,7 +29,7 @@ kotlin {
             // FakeReminderScheduler + FakeClock for the common mapper/contract tests.
             implementation(project(":shared:domain-testing"))
         }
-        androidUnitTest.dependencies {
+        androidHostTest.dependencies {
             // JVM-host Android tests: Robolectric drives a real WorkManager test
             // harness so the scheduler's enqueue/cancel behaviour is asserted.
             implementation(libs.robolectric)

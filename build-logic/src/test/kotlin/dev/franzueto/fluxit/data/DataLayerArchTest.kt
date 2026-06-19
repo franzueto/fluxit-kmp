@@ -45,11 +45,11 @@ class DataLayerArchTest : FunSpec({
                 "/build/" !in file.path &&
                     "/shared/data/" !in file.path &&
                     "/build-logic/" !in file.path &&
-                    // ADR-015: the :shared:state DI graph test (androidUnitTest)
+                    // ADR-015: the :shared:state DI graph test (androidHostTest)
                     // constructs an in-memory JVM SqlDriver to verify the Koin
                     // composition root end-to-end. Production still receives the
                     // driver from the platform start site, never from :shared:state.
-                    "/shared/state/src/androidUnitTest/" !in file.path
+                    "/shared/state/src/androidHostTest/" !in file.path
             }
             .assertFalse(
                 additionalMessage = "SQLDelight must stay encapsulated inside :shared:data. " +
@@ -84,7 +84,7 @@ class DataLayerArchTest : FunSpec({
                     "/src/test/" !in file.path &&
                     "/src/commonTest/" !in file.path &&
                     "/src/androidTest/" !in file.path &&
-                    "/src/androidUnitTest/" !in file.path &&
+                    "/src/androidHostTest/" !in file.path &&
                     "/src/iosTest/" !in file.path &&
                     !file.name.endsWith("Test.kt") &&
                     !file.name.endsWith("Spec.kt") &&

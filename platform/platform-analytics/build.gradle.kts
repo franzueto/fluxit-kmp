@@ -2,8 +2,10 @@ plugins {
     id("fluxit.kmp.library")
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.platform.analytics"
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.platform.analytics"
+    }
 }
 
 kotlin {

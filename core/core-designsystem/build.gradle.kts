@@ -7,9 +7,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.core.designsystem"
-    buildFeatures.compose = true
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.core.designsystem"
+    }
 }
 
 kotlin {

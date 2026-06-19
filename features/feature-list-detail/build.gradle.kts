@@ -5,9 +5,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.feature.listdetail"
-    buildFeatures.compose = true
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.feature.listdetail"
+    }
 }
 
 kotlin {
@@ -27,7 +28,7 @@ kotlin {
         }
         // Pure-logic unit tests for the completion-fraction / row formatters
         // (plan/08 §11). They exercise androidMain (non-Composable) helpers, so
-        // they live in androidUnitTest and run on the JVM via `testDebugUnitTest`.
+        // they live in androidHostTest and run on the JVM via `testDebugUnitTest`.
         commonTest.dependencies {
             implementation(kotlin("test"))
         }

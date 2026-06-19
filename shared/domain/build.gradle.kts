@@ -5,8 +5,10 @@ plugins {
     id("fluxit.kmp.library")
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.shared.domain"
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.shared.domain"
+    }
 }
 
 // Phase 04 §13 hand-off gate: use-case branch coverage ≥ 95% (target 100%,

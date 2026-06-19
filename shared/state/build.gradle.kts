@@ -7,8 +7,10 @@ plugins {
     id("fluxit.kmp.library")
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.shared.state"
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.shared.state"
+    }
 }
 
 // Phase 05 §12 coverage gate: store branch coverage ≥ 90%. Mirrors the
@@ -120,10 +122,10 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.koin.android)
         }
-        // KoinGraphTest runs JVM-only (androidUnitTest): it needs a concrete
+        // KoinGraphTest runs JVM-only (androidHostTest): it needs a concrete
         // SqlDriver to satisfy DataModule. The JVM sqlite driver supplies an
         // in-memory FluxItDatabase so the full graph resolves end-to-end.
-        androidUnitTest.dependencies {
+        androidHostTest.dependencies {
             implementation(libs.koin.core)
             implementation(libs.sqldelight.jvm.driver)
         }

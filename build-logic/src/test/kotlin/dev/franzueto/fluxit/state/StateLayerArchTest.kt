@@ -59,7 +59,7 @@ class StateLayerArchTest : FunSpec({
                 "/shared/state/" in path &&
                     "/build/" !in path &&
                     "/commonTest/" !in path &&
-                    "/androidUnitTest/" !in path &&
+                    "/androidHostTest/" !in path &&
                     "/iosTest/" !in path
             }
             .flatMap { it.properties() }

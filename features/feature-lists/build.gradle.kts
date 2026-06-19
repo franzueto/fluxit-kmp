@@ -5,9 +5,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.feature.lists"
-    buildFeatures.compose = true
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.feature.lists"
+    }
 }
 
 kotlin {
@@ -27,7 +28,7 @@ kotlin {
         }
         // Pure-logic unit tests for the row subtitle / relative-time formatters
         // (plan §4 note — deferred from Slice 5). They exercise androidMain
-        // (non-Composable) helpers, so they live in androidUnitTest and run on
+        // (non-Composable) helpers, so they live in androidHostTest and run on
         // the JVM via `testDebugUnitTest`. kotlin("test") supplies the JUnit4
         // runtime + assertions, mirroring :shared:state / :shared:domain.
         commonTest.dependencies {

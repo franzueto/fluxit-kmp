@@ -2,8 +2,10 @@ plugins {
     id("fluxit.kmp.library")
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.platform.photo"
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.platform.photo"
+    }
 }
 
 kotlin {
@@ -27,7 +29,7 @@ kotlin {
             // FakePhotoStorage / FakePhotoCapture for any common contract tests.
             implementation(project(":shared:domain-testing"))
         }
-        androidUnitTest.dependencies {
+        androidHostTest.dependencies {
             // JVM-host Android tests: Robolectric provides a real Context whose
             // filesDir backs the AndroidPhotoStorage round-trip assertions.
             implementation(libs.robolectric)
