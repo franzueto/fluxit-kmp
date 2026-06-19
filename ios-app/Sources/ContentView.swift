@@ -173,7 +173,7 @@ private struct TabHostView: View {
                 onOpenEditItem: { itemId in path.wrappedValue.append(.itemDetail(itemId)) }
             )
         case let .itemDetail(id):
-            ItemDetailView(itemId: id)
+            ItemDetailView(itemId: id, onBack: { path.wrappedValue.removeLast() })
         case .settings:
             SettingsView(onBack: { path.wrappedValue.removeLast() })
         }

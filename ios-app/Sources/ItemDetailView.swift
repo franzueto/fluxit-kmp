@@ -30,8 +30,15 @@ import SwiftUI
 /// internal-helper split buys nothing here; SwiftUI previews are dropped on iOS).
 struct ItemDetailView: View {
     let itemId: String
+    let onBack: () -> Void
 
-    private let store = InitKoinKt.resolveItemDetailStore()
+    // Held in @State, not a plain `let`: SwiftUI re-creates this view struct every
+    // time the owning `listsPath` mutates (each push/pop re-runs ContentView.body),
+    // and a `let store = resolve()` would mint a fresh Koin factory store on each
+    // re-creation — stranding the `.task` observers on the original instance while
+    // button taps dispatch to the new one (frozen spinner + dead back button).
+    // @State evaluates its initializer once per view identity and preserves it.
+    @State private var store = InitKoinKt.resolveItemDetailStore()
 
     @State private var state = ItemDetailState(
         item: LoadStateLoading(),
@@ -98,12 +105,6 @@ struct ItemDetailView: View {
         }
         .task { await observeEffects(store) { handle($0) } }
     }
-
-    /// Pop the screen. The `NavigationStack` push is owned by `ContentView`, which
-    /// passes the binding's `removeLast` through; this view dismisses via the
-    /// environment so it stays agnostic of who pushed it.
-    @Environment(\.dismiss) private var dismiss
-    private func onBack() { dismiss() }
 
     // MARK: - Lifecycle
 

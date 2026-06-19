@@ -47,6 +47,10 @@ targets:
           - UIInterfaceOrientationPortrait
         UIAppFonts:
           - Inter-Variable.ttf
+        # Phase 10 photo capture — UIImagePickerController hard-crashes the app
+        # when presented without these privacy strings (camera + photo library).
+        NSCameraUsageDescription: FluxIt uses the camera to add a photo to an item.
+        NSPhotoLibraryUsageDescription: FluxIt accesses your photo library so you can choose a photo for an item.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.franzueto.fluxit

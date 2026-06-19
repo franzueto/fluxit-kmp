@@ -6,7 +6,9 @@ import dev.franzueto.fluxit.shared.domain.port.CapturedPhoto
 import dev.franzueto.fluxit.shared.domain.port.PhotoCapture
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
 import platform.UIKit.UIApplication
 import platform.UIKit.UIImage
@@ -47,32 +49,39 @@ public class IosPhotoCapture(
     override suspend fun pickFromLibrary(): Outcome<CapturedPhoto, CaptureError> =
         present(UIImagePickerControllerSourceType.UIImagePickerControllerSourceTypePhotoLibrary)
 
-    private suspend fun present(sourceType: UIImagePickerControllerSourceType): Outcome<CapturedPhoto, CaptureError> {
-        val host = topViewControllerProvider.topViewController() ?: return Outcome.Err(CaptureError.Unknown(null))
-        // Assigning an unavailable source type to UIImagePickerController throws
-        // ("Source type N not available") — most commonly the camera on the Simulator,
-        // which has no hardware. Guard so it surfaces as a recoverable error, not a crash.
-        if (!UIImagePickerController.isSourceTypeAvailable(sourceType)) {
-            return Outcome.Err(CaptureError.Unknown(IllegalStateException("Image source $sourceType not available on this device")))
-        }
-        return suspendCancellableCoroutine { cont ->
-            val picker = UIImagePickerController()
-            picker.sourceType = sourceType
-            val delegate =
-                PickerDelegate { result ->
+    // All UIKit work (host lookup, source-type check, presentation, dismissal) must
+    // run on the main thread — UIImagePickerController throws an
+    // NSInternalInconsistencyException ("Call must be made on main thread") otherwise,
+    // and the store invokes this port from a background coroutine.
+    private suspend fun present(sourceType: UIImagePickerControllerSourceType): Outcome<CapturedPhoto, CaptureError> =
+        withContext(Dispatchers.Main) {
+            val host = topViewControllerProvider.topViewController() ?: return@withContext Outcome.Err(CaptureError.Unknown(null))
+            // Assigning an unavailable source type to UIImagePickerController throws
+            // ("Source type N not available") — most commonly the camera on the Simulator,
+            // which has no hardware. Guard so it surfaces as a recoverable error, not a crash.
+            if (!UIImagePickerController.isSourceTypeAvailable(sourceType)) {
+                return@withContext Outcome.Err(
+                    CaptureError.Unknown(IllegalStateException("Image source $sourceType not available on this device")),
+                )
+            }
+            suspendCancellableCoroutine<Outcome<CapturedPhoto, CaptureError>> { cont ->
+                val picker = UIImagePickerController()
+                picker.sourceType = sourceType
+                val delegate =
+                    PickerDelegate { result ->
+                        activeDelegate = null
+                        picker.dismissViewControllerAnimated(true, completion = null)
+                        cont.resume(result)
+                    }
+                activeDelegate = delegate
+                picker.delegate = delegate
+                cont.invokeOnCancellation {
                     activeDelegate = null
                     picker.dismissViewControllerAnimated(true, completion = null)
-                    cont.resume(result)
                 }
-            activeDelegate = delegate
-            picker.delegate = delegate
-            cont.invokeOnCancellation {
-                activeDelegate = null
-                picker.dismissViewControllerAnimated(true, completion = null)
+                host.presentViewController(picker, animated = true, completion = null)
             }
-            host.presentViewController(picker, animated = true, completion = null)
         }
-    }
 }
 
 /** Bridges the `UIImagePickerController` delegate callbacks to a single [onResult]. */
