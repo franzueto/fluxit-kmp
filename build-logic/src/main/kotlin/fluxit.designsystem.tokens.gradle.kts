@@ -68,7 +68,12 @@ extensions.configure<KotlinMultiplatformExtension>("kotlin") {
     }
 }
 
-tasks.matching { it.name.startsWith("compile") && "Kotlin" in it.name }
+// Match every Kotlin/Native compile (…Kotlin…) AND the AGP-9 KMP Android
+// compile task, which is named `compileAndroidMain` / `compileAndroidHostTest`
+// and does NOT contain "Kotlin" — so key off "compile" + ("Kotlin" or "Android").
+tasks.matching {
+    it.name.startsWith("compile") && ("Kotlin" in it.name || "Android" in it.name)
+}
     .configureEach {
         dependsOn(generateTokens)
         dependsOn(generateIcons)

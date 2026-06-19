@@ -10,10 +10,10 @@
 
 [versions]
 # --- Language & build ---
-kotlin = "2.1.0"
-kover = "0.9.1"
-agp = "8.7.3"
-ksp = "2.1.0-1.0.29"            # KSP version tracks Kotlin version
+kotlin = "2.3.10"
+kover = "0.9.8"
+agp = "9.2.1"
+ksp = "2.3.9"            # KSP version tracks Kotlin version
 java-toolchain = "21"
 android-compile-sdk = "35"
 android-target-sdk = "35"
@@ -38,7 +38,7 @@ kotlinx-coroutines = "1.10.1"
 kotlinx-serialization = "1.7.3"
 kotlinx-datetime = "0.6.1"
 kermit = "2.0.5"
-skie = "0.10.2"
+skie = "0.10.12"
 
 # --- Quality ---
 ktlint-cli = "1.4.1"            # underlying ktlint library version

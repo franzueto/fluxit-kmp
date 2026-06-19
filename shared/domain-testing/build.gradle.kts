@@ -2,8 +2,10 @@ plugins {
     id("fluxit.kmp.library")
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.shared.domaintesting"
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.shared.domaintesting"
+    }
 }
 
 // Shared test-fixtures module (Phase 05 Slice 4). Holds the in-memory repository

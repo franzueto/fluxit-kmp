@@ -5,9 +5,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.feature.createlist"
-    buildFeatures.compose = true
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.feature.createlist"
+    }
 }
 
 kotlin {
@@ -26,7 +27,7 @@ kotlin {
             implementation(libs.koin.compose)
         }
         // Pure-logic unit tests (label/error formatters); they exercise androidMain
-        // (non-Composable) helpers, so they live in androidUnitTest and run on the
+        // (non-Composable) helpers, so they live in androidHostTest and run on the
         // JVM via `testDebugUnitTest`.
         commonTest.dependencies {
             implementation(kotlin("test"))

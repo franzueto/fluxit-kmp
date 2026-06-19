@@ -46,7 +46,7 @@ class ArchitectureTest : FunSpec({
                 // Allow test source sets to use kotlin.Result for
                 // interop with platform APIs that return it.
                 "/src/commonTest/" !in file.path &&
-                    "/src/androidUnitTest/" !in file.path &&
+                    "/src/androidHostTest/" !in file.path &&
                     "/src/iosTest/" !in file.path
             }
             .assertFalse(
@@ -136,7 +136,7 @@ class ArchitectureTest : FunSpec({
                     "/src/test/" !in file.path &&
                     "/src/commonTest/" !in file.path &&
                     "/src/androidTest/" !in file.path &&
-                    "/src/androidUnitTest/" !in file.path &&
+                    "/src/androidHostTest/" !in file.path &&
                     "/src/iosTest/" !in file.path &&
                     !file.name.endsWith("Test.kt") &&
                     !file.name.endsWith("Spec.kt")

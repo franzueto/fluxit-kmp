@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
-    id("com.android.library")
+    id("com.android.kotlin.multiplatform.library")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("co.touchlab.skie")
     id("fluxit.quality")
@@ -43,13 +43,27 @@ private fun version(alias: String): String =
 kotlin {
     jvmToolchain(version("java-toolchain").toInt())
 
-    androidTarget {
-        compilations.configureEach {
-            compileTaskProvider.configure {
-                compilerOptions {
-                    jvmTarget.set(JvmTarget.JVM_17)
-                }
-            }
+    // AGP 9 KMP library plugin: Android config lives inside `kotlin { android { } }`
+    // (replaces the top-level `android { }` block + `androidTarget()`). Modules override
+    // the namespace by re-opening `kotlin { android { namespace = … } }`.
+    android {
+        namespace = "dev.franzueto.fluxit." + project.name.replace("-", "").lowercase()
+        compileSdk = version("android-compile-sdk").toInt()
+        minSdk = version("android-min-sdk").toInt()
+
+        // The KMP Android library plugin disables Android resources (and the
+        // generated R class) by default; modules carry font/xml resources under
+        // androidMain/res, so enable resource processing here for all of them.
+        androidResources {
+            enable = true
+        }
+
+        // Enable JVM-host unit tests (source set: androidHostTest). Robolectric-backed
+        // modules opt in to Android resources via their own configuration.
+        withHostTestBuilder {}
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
         }
     }
 
@@ -80,16 +94,3 @@ kotlin {
     }
 }
 
-android {
-    compileSdk = version("android-compile-sdk").toInt()
-    namespace = "dev.franzueto.fluxit." + project.name.replace("-", "").lowercase()
-
-    defaultConfig {
-        minSdk = version("android-min-sdk").toInt()
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-}

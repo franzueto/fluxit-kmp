@@ -5,9 +5,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.feature.itemdetail"
-    buildFeatures.compose = true
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.feature.itemdetail"
+    }
 }
 
 kotlin {

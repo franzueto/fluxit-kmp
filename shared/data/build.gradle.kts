@@ -3,8 +3,10 @@ plugins {
     alias(libs.plugins.sqldelight)
 }
 
-android {
-    namespace = "dev.franzueto.fluxit.shared.data"
+kotlin {
+    android {
+        namespace = "dev.franzueto.fluxit.shared.data"
+    }
 }
 
 sqldelight {
@@ -38,7 +40,7 @@ kotlin {
         }
         // JVM-side in-memory SQLite driver for the §3/§4 smoke test. iOS-side
         // NativeSqliteDriver-in-memory wiring lands with the §10 test pyramid.
-        val androidUnitTest by getting {
+        val androidHostTest by getting {
             dependencies {
                 implementation(libs.sqldelight.jvm.driver)
             }
