@@ -10,8 +10,8 @@
 
 [versions]
 # --- Language & build ---
-kotlin = "2.1.0"
-kover = "0.9.1"
+kotlin = "2.4.0"
+kover = "0.9.8"
 agp = "8.7.3"
 ksp = "2.1.0-1.0.29"            # KSP version tracks Kotlin version
 java-toolchain = "21"
@@ -34,9 +34,9 @@ junit = "4.13.2"               # Robolectric runner (JUnit4)
 # --- KMP libraries ---
 koin = "4.0.1"
 sqldelight = "2.0.2"
-kotlinx-coroutines = "1.10.1"
-kotlinx-serialization = "1.7.3"
-kotlinx-datetime = "0.6.1"
+kotlinx-coroutines = "1.11.0"
+kotlinx-serialization = "1.11.0"
+kotlinx-datetime = "0.8.0"
 kermit = "2.0.5"
 skie = "0.10.2"
 
