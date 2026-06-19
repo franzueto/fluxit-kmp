@@ -1,5 +1,6 @@
 package dev.franzueto.fluxit.shared.state.navigation
 
+import dev.franzueto.fluxit.shared.domain.model.ItemId
 import dev.franzueto.fluxit.shared.domain.model.ListId
 import dev.franzueto.fluxit.shared.state.store.CreateListEffect
 import dev.franzueto.fluxit.shared.state.store.ListDetailEffect
@@ -31,3 +32,10 @@ public fun CreateListEffect.NavigateToListDetail.listId(): String = newListId.va
  * builds the id for `ListDetailIntent.Init` from its route-arg string here.
  */
 public fun listIdOf(value: String): ListId = ListId(value)
+
+/**
+ * Swift-callable [ItemId] factory — the Edit-Item screen (plan/10) builds the id
+ * for `ItemDetailIntent.Init` from its route-arg string here, for the same
+ * value-class-constructor reason as [listIdOf].
+ */
+public fun itemIdOf(value: String): ItemId = ItemId(value)

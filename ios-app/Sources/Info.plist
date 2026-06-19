@@ -20,6 +20,10 @@
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSCameraUsageDescription</key>
+	<string>FluxIt uses the camera to add a photo to an item.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FluxIt accesses your photo library so you can choose a photo for an item.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Inter-Variable.ttf</string>

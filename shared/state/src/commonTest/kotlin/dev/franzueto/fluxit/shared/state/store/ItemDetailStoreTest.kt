@@ -401,4 +401,124 @@ class ItemDetailStoreTest {
             }
             assertEquals(PhotoStatus.Error, f.store.state.value.photoStatus)
         }
+
+    @Test
+    fun init_marks_a_nonblank_title_valid() =
+        runStoreTest {
+            val f = itemDetailFix()
+            val id = f.seedItem("Milk")
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            assertEquals(NameValidation.Valid, f.store.state.value.titleValidation)
+        }
+
+    @Test
+    fun clearing_the_title_marks_it_empty() =
+        runStoreTest {
+            val f = itemDetailFix()
+            val id = f.seedItem("Milk")
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.TitleChanged("   "))
+            testScope.runCurrent()
+            assertEquals(NameValidation.Empty, f.store.state.value.titleValidation)
+        }
+
+    @Test
+    fun an_over_length_title_is_flagged_too_long() =
+        runStoreTest {
+            val f = itemDetailFix()
+            val id = f.seedItem()
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.TitleChanged("x".repeat(121)))
+            testScope.runCurrent()
+            assertEquals(NameValidation.TooLong, f.store.state.value.titleValidation)
+        }
+
+    @Test
+    fun save_with_an_invalid_title_is_a_noop() =
+        runStoreTest {
+            val f = itemDetailFix()
+            val id = f.seedItem("Milk")
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.TitleChanged(""))
+            testScope.runCurrent()
+            f.store.effects.test {
+                f.store.dispatch(ItemDetailIntent.SaveClicked)
+                testScope.runCurrent()
+                // Blocked by the §5 server-side gate — no navigation, edits stay dirty.
+                expectNoEvents()
+            }
+            assertTrue(f.store.state.value.dirty)
+        }
+
+    @Test
+    fun a_successful_save_leaves_submitting_false() =
+        runStoreTest {
+            val f = itemDetailFix()
+            val id = f.seedItem("Milk")
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.TitleChanged("Bread"))
+            testScope.runCurrent()
+            f.store.effects.test {
+                f.store.dispatch(ItemDetailIntent.SaveClicked)
+                assertIs<ItemDetailEffect.NavigateBack>(awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(false, f.store.state.value.submitting)
+        }
+
+    @Test
+    fun dismissing_the_photo_sheet_clears_the_flag() =
+        runStoreTest {
+            val f = itemDetailFix()
+            val id = f.seedItem()
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.UpdatePhotoClicked)
+            testScope.runCurrent()
+            assertTrue(f.store.state.value.showPhotoSourceSheet)
+            f.store.dispatch(ItemDetailIntent.PhotoSourceSheetDismissed)
+            testScope.runCurrent()
+            assertEquals(false, f.store.state.value.showPhotoSourceSheet)
+        }
+
+    @Test
+    fun removing_a_photo_also_closes_the_sheet() =
+        runStoreTest {
+            val f = itemDetailFix()
+            val id = f.seedItem()
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.PhotoSourceSelected(PhotoPickSource.Camera))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.UpdatePhotoClicked)
+            testScope.runCurrent()
+            assertTrue(f.store.state.value.showPhotoSourceSheet)
+            f.store.dispatch(ItemDetailIntent.RemovePhotoClicked)
+            testScope.runCurrent()
+            assertEquals(false, f.store.state.value.showPhotoSourceSheet)
+            assertEquals(PhotoStatus.None, f.store.state.value.photoStatus)
+        }
+
+    @Test
+    fun a_failed_save_resets_submitting() =
+        runStoreTest {
+            val f = itemDetailFailFix()
+            val id = f.seedItem("Milk")
+            f.store.dispatch(ItemDetailIntent.Init(id))
+            testScope.runCurrent()
+            f.store.dispatch(ItemDetailIntent.TitleChanged("Bread"))
+            testScope.runCurrent()
+            f.items.failUpdateWith = DataError.Storage(RuntimeException("disk full"))
+            f.store.effects.test {
+                f.store.dispatch(ItemDetailIntent.SaveClicked)
+                assertIs<ItemDetailEffect.ShowError>(awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(false, f.store.state.value.submitting)
+        }
 }

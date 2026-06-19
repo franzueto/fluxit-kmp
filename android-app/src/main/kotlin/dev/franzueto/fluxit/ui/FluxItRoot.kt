@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -44,6 +45,7 @@ import dev.franzueto.fluxit.core.designsystem.icons.StarFilled
 import dev.franzueto.fluxit.core.designsystem.theme.FluxItTheme
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItSpacing
 import dev.franzueto.fluxit.feature.createlist.CreateListRoute
+import dev.franzueto.fluxit.feature.itemdetail.ItemDetailRoute
 import dev.franzueto.fluxit.feature.listdetail.ListDetailRoute
 import dev.franzueto.fluxit.feature.lists.DashboardRoute
 import dev.franzueto.fluxit.shared.state.navigation.Tab
@@ -109,9 +111,8 @@ private fun StartupError(
 /**
  * The app NavHost (plan/07 §1, §6). The start destination [ROUTE_DASHBOARD] is the
  * [TabHost] (tab bar + center FAB driven off [RootStore.currentTab]); the other
- * routes are pushed destinations. Screens not yet built (list/item detail,
- * create-list, settings) render [Placeholder] until their feature phases land
- * (08 / 09 / Slice 6).
+ * routes are pushed destinations (list detail, item detail, create-list, settings),
+ * each backed by its feature-module Route composable.
  *
  * App-level deep links (reminder taps; plan/06 §5) arrive as
  * [RootEffect.NavigateToList] / [RootEffect.NavigateToItem] one-shots off the
@@ -151,18 +152,7 @@ private fun FluxItNavHost(rootStore: RootStore) {
                 onOpenEditList = { navController.navigate("$ROUTE_CREATE_LIST_BASE?$ARG_EDITING_ID=$listId") },
             )
         }
-        composable(
-            route = ROUTE_ITEM_DETAIL,
-            arguments =
-                listOf(
-                    navArgument(ARG_LIST_ID) { type = NavType.StringType },
-                    navArgument(ARG_ITEM_ID) { type = NavType.StringType },
-                ),
-        ) { Placeholder("Item detail") }
-        composable(
-            route = ROUTE_ITEM_DEEP_LINK,
-            arguments = listOf(navArgument(ARG_ITEM_ID) { type = NavType.StringType }),
-        ) { Placeholder("Item detail") }
+        itemDetailDestinations(navController)
         composable(
             route = ROUTE_CREATE_LIST,
             arguments =
@@ -194,6 +184,37 @@ private fun FluxItNavHost(rootStore: RootStore) {
                 onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
             )
         }
+    }
+}
+
+/**
+ * The Edit-Item destinations (plan/10 §8): the nested `list/{listId}/item/{itemId}`
+ * route and the bare `item/{itemId}` deep link, both backed by [ItemDetailRoute].
+ * Extracted from [FluxItNavHost] to keep that builder under the detekt method-length
+ * cap; both register the same Route, differing only in their argument set.
+ */
+private fun NavGraphBuilder.itemDetailDestinations(navController: NavHostController) {
+    composable(
+        route = ROUTE_ITEM_DETAIL,
+        arguments =
+            listOf(
+                navArgument(ARG_LIST_ID) { type = NavType.StringType },
+                navArgument(ARG_ITEM_ID) { type = NavType.StringType },
+            ),
+    ) { backStackEntry ->
+        ItemDetailRoute(
+            itemId = backStackEntry.arguments?.getString(ARG_ITEM_ID).orEmpty(),
+            onBack = { navController.popBackStack() },
+        )
+    }
+    composable(
+        route = ROUTE_ITEM_DEEP_LINK,
+        arguments = listOf(navArgument(ARG_ITEM_ID) { type = NavType.StringType }),
+    ) { backStackEntry ->
+        ItemDetailRoute(
+            itemId = backStackEntry.arguments?.getString(ARG_ITEM_ID).orEmpty(),
+            onBack = { navController.popBackStack() },
+        )
     }
 }
 
@@ -257,13 +278,6 @@ private fun ComingSoon(feature: String) {
             title = "$feature is coming soon",
             message = "Coming in a future update.",
         )
-    }
-}
-
-@Composable
-private fun Placeholder(label: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(label)
     }
 }
 

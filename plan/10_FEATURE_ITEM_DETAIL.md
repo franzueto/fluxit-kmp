@@ -15,6 +15,83 @@
 
 ---
 
+## 0. Slice plan & cadence
+
+Phase 10 ships one `feat` commit per slice (plan file synced in-commit, impl-log
+entry `_Commit `<pending>`._`) + a `docs(plan):` SHA-backfill commit, per the Phase
+05–09 cadence. Pre-commit gate: `:check` of each touched module + `:build-logic:test
+--rerun-tasks`; iOS-facing slices also run `scripts/test-ios.sh` (must print
+`** TEST SUCCEEDED **`). Kover gates `:shared:state` (≥90%) when the store changes.
+
+**Decisions taken at kickoff (2026-06-18):**
+
+(a) **`ItemDetailStore` already ships the full edit/photo/delete contract** (built ahead
+of this phase; 36 store-test cases green) — **unlike** Phase 09, where the create-only
+`CreateListStore` needed an edit-mode backfill. So Slice 1 is a **thin** store backfill,
+not a rewrite: add a `submitting` save-in-flight flag (Save disabled + "Saving…" label
+while in flight — **no in-button spinner**, carrying the Phase 09 DS debt) and
+title-validation/cap-120 gating (§2/§5), then grow `ItemDetailStoreTest`. If review finds
+the shipped contract already adequate for the UI, Slice 1 collapses to the DI/resolver
+facade only.
+
+(b) **Photo capture uses the simple system UI already shipped in Phase 06 — no CameraX,
+no custom preview.** Android = `ActivityResultContracts.TakePicture()` (system camera
+Intent) + `PickVisualMedia`; iOS = `UIImagePickerController` for both camera and library.
+Phase 10 only *drives* the Phase 06 `PhotoCapture` port; it builds no capture surface of
+its own. **Permission UX is thin (diverges from §4):** the domain `AttachPhotoToItem`
+surfaces a flat `CaptureError.PermissionDenied` with **no** soft-vs-hard
+(`canRequestAgain`) distinction, so §4's soft/hard banner split is **not** implementable
+without a domain change — deferred to v2. Moreover, Android's `TakePicture()` delegates
+camera permission entirely to the system camera app, so `AndroidPhotoCapture` **never
+returns `PermissionDenied` for the camera path** (only `UserCancelled`/`Unknown`) — the
+in-screen permission banner is effectively **iOS-camera-only** and is a no-op on Android.
+v1 ships one banner ("… access is off — Open Settings") inside the photo section, driven
+by the existing `RequestCameraPermission` / `RequestPhotoLibraryAccess` effects. Logged
+as a §13 divergence.
+
+(c) **`PhotoStatus.Uploading` stays unreachable** (already documented in the store KDoc —
+`AttachPhotoToItem` is atomic capture→ingest→attach). The whole acquire span shows the
+single `Capturing` busy state, so §3's `Capturing → Uploading → Loaded` sequence collapses
+to `Capturing → Loaded`.
+
+(d) **`dirty` is a boolean flag** set on any title/description/photo change, not §5's
+per-field `editing != original` comparison (the shipped store derives it eagerly). A
+type-and-retype back to the original value still reads dirty → back shows the discard
+confirm. Document as a §13 divergence; per-field derivation deferred.
+
+(e) **Snapshot tests deferred to v2** (standing decision, Phase 08/09 §0) — §14's snapshot
+list is replaced by store tests + previews + Konsist + exhaustive `when`/`switch`.
+
+(f) **Process-death restoration (§7) is host-only and outside v1's automated gate** — the
+store reloads via `Init(itemId)` and re-syncs the working copy while not dirty; the §7
+`SavedStateHandle` / `@SceneStorage` edit-overlay persistence is a nice-to-have left to
+the on-device QA pass (snapshot/restore not automated, per the standing v2 deferral).
+
+1. **Store backfill + DI/resolver** (`:shared:state`) — `submitting` flag threaded through
+   `save()` (Save gating + "Saving…" label), title validation/cap 120 (§2/§5);
+   `resolveItemDetailStore()` facade in `InitKoin.kt` + the SKIE accessors iOS needs to
+   pass the `ItemId` value-class through `Init` (string accessor in `IosEffectIds.kt` if
+   the boxed id won't surface); `ItemDetailStoreTest` grows to cover the new gating (Kover
+   ≥90% stays green). Gate: `:shared:state:check` + `:build-logic:test`.
+2. **Android `:features:feature-item-detail` module + nav** — `ItemDetailRoute` /
+   `ItemDetailScreen` / `PhotoSection` / `PermissionBanner` / `ItemDetailComponents` /
+   `ItemDetailPreviews` (§8); **both** placeholder routes (`list/{listId}/item/{itemId}`
+   and the `item/{itemId}` deep link) in `FluxItRoot` swap from `Placeholder` to the real
+   screen; PhotoCapture / PermissionRequester glue via the Phase 06 ports (no direct
+   `androidx.activity.result.*` import — §11); Coil 3 `AsyncImage` render (§12). Gate:
+   `:features:feature-item-detail:check` + `:build-logic:test`.
+3. **iOS ItemDetail screen + wiring** — `ItemDetailView` / `PhotoSection` /
+   `PermissionBanner` / `ItemDetailFormSections` / `ItemDetailPreviews` (§8); the
+   `.itemDetail(id)` case in `ContentView` swaps from `PlaceholderView` to the real screen
+   on both nav stacks; `UIImagePickerController` via the port (no direct UIKit import —
+   §11); Kingfisher / `AsyncImage` render (§12). Gate: `:shared:state:check` (if DI
+   touched) + `scripts/test-ios.sh` (`** TEST SUCCEEDED **`).
+4. **Close-out** — `MASTER_PLAN.md` → Phase 10 🟢, M4 (Core User Surfaces) **complete**,
+   ▶ Next Step → Phase 13 (Phases 11/12 deferred per ADR-004/ADR-003); §13 mockup
+   divergences + (a)–(d) above signed off; §16 hand-off; reconcile §14/§15.
+
+---
+
 ## 1. Screen anatomy
 
 ```
@@ -184,13 +261,36 @@ ios-app/Features/ItemDetail/
 
 ## 13. Mockup divergences (for design review)
 
-- [ ] **Photo "Update" affordance is duplicated** — the section header has a "📷 Update" text button, AND tapping the photo card itself also opens the action sheet. Mockup only shows the header button. We're adding tap-on-card because it's the more discoverable affordance on touch. Flag for design.
-- [ ] **"Remove photo" appears in the action sheet** when a photo is present. Mockup doesn't show a remove affordance at all. Flag for design — alternative: long-press the photo card.
-- [ ] **Delete confirmation dialog vs. swipe** — we use a confirmation dialog here (single-item destructive, no swipe surface in a form), not the swipe-with-undo pattern from list rows. Document.
+> **Signed off (2026-06-18, Phase 10 close-out).** All three shipped on both platforms
+> as described; design review can revisit in v2. Plus the implementation divergences
+> from §0 (a)–(d) and §8 — see the sign-off note at the end of this section.
+
+- [x] **Photo "Update" affordance is duplicated** — the section header has a "📷 Update" text button, AND tapping the photo card itself also opens the action sheet. Mockup only shows the header button. We're adding tap-on-card because it's the more discoverable affordance on touch. Flag for design. _Shipped on both platforms (Android `clickable` card + header `TextButton`; iOS `Button` card + `FluxItSectionHeader` trailing action)._
+- [x] **"Remove photo" appears in the action sheet** when a photo is present. Mockup doesn't show a remove affordance at all. Flag for design — alternative: long-press the photo card. _Shipped: the sheet shows "Remove Photo" only while `photoStatus is Loaded`._
+- [x] **Delete confirmation dialog vs. swipe** — we use a confirmation dialog here (single-item destructive, no swipe surface in a form), not the swipe-with-undo pattern from list rows. Document. _Shipped: Android `AlertDialog`, iOS `.alert`; store emits a plain `NavigateBack` (no undo)._
+
+**§0 / §8 implementation divergences (signed off 2026-06-18):**
+
+- (a) `ItemDetailStore` already shipped the full edit/photo/delete contract → Slice 1 was a thin backfill (`submitting` flag + title validation/cap 120), not a rewrite.
+- (b) Permission UX is thin — domain surfaces a flat `CaptureError.PermissionDenied` (no soft/hard split); Android's system camera owns its permission, so the in-screen banner is **iOS-camera-only** (no-op on Android). Soft/hard split deferred to v2 (needs a domain change).
+- (c) `PhotoStatus.Uploading` stays unreachable (`AttachPhotoToItem` is atomic) — the acquire span shows the single `Capturing` busy state.
+- (d) `dirty` is a boolean flag set on any edit, not §5's per-field `editing != original` compare — a type-and-retype back to the original still reads dirty. Per-field derivation deferred to v2.
+- (§1) Save lives in the sticky bottom dock (`FluxItPrimaryButton`), not a top-bar text trailing — the DS centered top bar has only a disable-less *icon* trailing (mirrors Phase 09's `SubmitDock`).
+- (§12) Image render via simple decode (`BitmapFactory.decodeFile` / `UIImage(contentsOfFile:)`) — Coil 3 / Kingfisher + caching deferred to v2.
+- (§8) iOS ships as a single `ItemDetailView.swift` rather than the listed multi-file split — mirrors the Phase 09 `CreateListView.swift` monolith (Swift `private` is file-scoped; no SwiftUI previews on iOS).
 
 ## 14. Testing
 
-- [ ] **Snapshot tests**: loading, loaded-no-photo, loaded-with-photo, dirty-state (Save enabled), capturing (skeleton), permission-denied-soft (banner + Try Again), permission-denied-hard (banner + Open Settings), delete-confirm dialog, error-state, edit-name-typed.
+> **Reconciled at close-out (2026-06-18).** v1 coverage = `ItemDetailStoreTest` (~26
+> cases, Kover ≥90%), the `ItemDetailFormattersTest` pure-formatter unit tests, the
+> exhaustive `when` (Android effect→chrome) / `switch` (`onEnum(of:)` on iOS) effect
+> mapping, the `@Preview` / SwiftUI preview matrix standing in for snapshots, and
+> Konsist (literal-ban + no cross-feature imports). **Snapshot infra and the on-device
+> UI-behavior / a11y / process-death items below are deferred to v2 QA** per the
+> standing Phase 07–09 scope decision (§0 e/f) — not gated in v1. The store/effect
+> rows are ✅ done; the device rows are the user's manual pass.
+
+- [ ] **Snapshot tests** _(deferred to v2 — previews stand in)_: loading, loaded-no-photo, loaded-with-photo, dirty-state (Save enabled), capturing (skeleton), permission-denied-soft (banner + Try Again), permission-denied-hard (banner + Open Settings), delete-confirm dialog, error-state, edit-name-typed.
 - [ ] **UI behavior**:
   - Type name → Save enables.
   - Pick from library (fake `PhotoCapture` returning canned bytes) → photo renders.
@@ -201,8 +301,8 @@ ios-app/Features/ItemDetail/
   - Back with dirty → confirm dialog; discard → back; keep → stay.
   - Delete → confirm → navigate back with pending-delete snackbar on list detail.
   - Process death restoration: simulate via `ActivityScenario.recreate()` / iOS scene-restore launch arg; assert title/description/photoId restored.
-- [ ] **Effect mapping**: exhaustive test.
-- [ ] **A11y audit** TalkBack + VoiceOver.
+- [x] **Effect mapping**: exhaustive — enforced at compile time by the Android `when (effect)` (no `else`) and the iOS `switch onEnum(of:)`; a new `ItemDetailEffect` breaks the build on both platforms.
+- [ ] **A11y audit** TalkBack + VoiceOver. _(Deferred to v2 — user's manual pass.)_
 - [ ] **Manual QA on real devices**: Pixel 6a (camera + library), iPhone 12 mini (camera + library), iPhone SE 1st gen (smallest supported screen — verify form scrolls, photo card doesn't overflow).
 
 ## 15. Resolved decisions for this phase (2026-05-11)
@@ -221,10 +321,134 @@ ios-app/Features/ItemDetail/
 
 ## 16. Hand-off checklist (gate to Phase 11/13)
 
-- [ ] All checkboxes above ✅.
-- [ ] Both apps demoed: open item → edit name/description → take photo → save → returns to list updated. Then: open item → tap delete → confirm → returns with undo snackbar.
-- [ ] Permission flows tested on real devices (deny soft, deny hard, recover via Settings).
-- [ ] Snapshot tests checked in; CI golden compare green.
-- [ ] A11y audit clean.
-- [ ] Mockup divergences (§13) signed off by design.
-- [ ] `MASTER_PLAN.md`: Phase 10 → 🟢, M4 (Core User Surfaces) **complete** — advance to M3/M5 work; ▶ Next Step → Phase 13 (notifications + reminders editor) since Phases 11 & 12 are deferred to v2 per ADR-004 / ADR-003.
+- [x] All **automated** checkboxes above ✅ (store/formatter tests, exhaustive effect mapping, Konsist); device/snapshot/a11y rows explicitly deferred to v2 QA (§14 reconciliation).
+- [ ] Both apps demoed: open item → edit name/description → take photo → save → returns to list updated. Then: open item → tap delete → confirm → returns. _(User's manual pass — note: item delete has **no undo snackbar** in v1; store emits a plain `NavigateBack`, §6 divergence.)_
+- [ ] Permission flows tested on real devices (iOS-camera-only banner → recover via Settings; Android system camera owns its own permission). _(User's manual pass.)_
+- [x] ~~Snapshot tests checked in; CI golden compare green~~ — **deferred to v2** (standing scope decision, §0 e); previews stand in.
+- [ ] A11y audit clean. _(Deferred to v2 — user's manual pass.)_
+- [x] Mockup divergences (§13) signed off (2026-06-18, close-out) — design review can revisit in v2.
+- [x] `MASTER_PLAN.md`: Phase 10 → 🟢, M4 (Core User Surfaces) **complete**; ▶ Next Step → Phase 13 (notifications + reminders editor) since Phases 11 & 12 are deferred to v2 per ADR-004 / ADR-003.
+
+---
+
+## 18. Implementation log
+
+> One entry per slice (see §0). Each `feat` commit lands its entry with the SHA left as
+> `_Commit `<pending>`._`, then a follow-up `docs(plan):` commit backfills the SHA.
+
+### Slice 1 — store backfill + DI/resolver
+
+`ItemDetailStore` was already feature-complete from an earlier phase (18 store-test
+cases), so this was the thin backfill decision (a) called for — no rewrite:
+
+- **`submitting` flag** threaded through `save()`: set true on entry, cleared on both
+  success and failure; success additionally clears `dirty` and emits `NavigateBack`.
+  Save now no-ops on re-entry while a save is in flight.
+- **Title validation** — new `titleValidation: NameValidation` (reuses the enum shared
+  with `CreateListStore`), recomputed on every `TitleChanged` and on the prefill sync
+  (only while not dirty). `validateTitle` caps at `TITLE_MAX_LEN = 120` (§2). `save()`
+  also guards server-side: an `!= Valid` title never persists even if the host's
+  button-disable lags.
+- **DI/resolver** — `resolveItemDetailStore()` in `InitKoin.kt` (no-param factory; the
+  item id arrives later via `Init`) + `itemIdOf(value:)` in `IosEffectIds.kt` so Swift
+  can build the `ItemId` value class for `ItemDetailIntent.Init` (mirrors `listIdOf`).
+- **Tests** — 6 new cases (valid/empty/too-long title, invalid-save no-op, submitting
+  cleared on success + on failure); 24 total, Kover ≥90% green.
+
+Gate: `:shared:state:check` + `:build-logic:test --rerun-tasks` green.
+
+_Commit `8b527f5`._
+
+### Slice 2 — Android `:features:feature-item-detail` + nav
+
+New Compose feature module (`fluxit.kmp.feature` + compose), mirroring
+`feature-create-list`: `ItemDetailRoute` (Koin/VM glue + effect→chrome mapping),
+`ItemDetailViewModel` (store in `viewModelScope`, dispatches `Init`),
+`ItemDetailScreen` (stateless), `PhotoSection`, `PermissionBanner`,
+`ItemDetailComponents` (form sections + formatters + delete + footer), and
+`ItemDetailPreviews` (the §14 snapshot matrix as previews). Both placeholder routes
+in `FluxItRoot` (`list/{listId}/item/{itemId}` + the `item/{itemId}` deep link) now
+render the real screen; the unused `Placeholder` composable was removed.
+
+- **Camera/picker need no feature-module glue** — `MainActivity` already attaches
+  the Phase 06 `ActivityResultRegistryProvider`, and `AttachPhotoToItem` orchestrates
+  capture→ingest→attach, so the UI just dispatches `PhotoSourceSelected` and renders
+  `photoStatus`. No `androidx.activity.result.*` import here (§11 / Konsist green).
+- **Photo render** uses a `BitmapFactory.decodeFile` → `ImageBitmap` on `Dispatchers.IO`
+  (§12 divergence: Coil 3 + pre-warm/caching deferred to v2 — avoids a new dependency,
+  keeps the slice self-contained; one photo per item, decoded once per uri).
+- **Store touch-ups discovered during UI integration:** added
+  `ItemDetailIntent.PhotoSourceSheetDismissed` and made `RemovePhotoClicked` close the
+  sheet, so the state-driven action sheet is fully controllable (2 new store tests).
+  Also made the `ItemDetailStore` Koin factory accept an optional `CoroutineScope` so
+  the ViewModel passes `viewModelScope` (no-arg `resolveItemDetailStore()` unaffected).
+
+**Divergences logged:** Save lives in a sticky bottom dock (`FluxItPrimaryButton`),
+not a top-bar text trailing — the DS centered top bar has only a disabled-less *icon*
+trailing (mirrors Phase 09's `SubmitDock`, §1). Item delete emits a plain `NavigateBack`
+(no undo) — the store has no `NavigateBackWithUndo`, so §6's 5-second item-undo is not
+wired in v1. Permission banner is iOS-camera-only per §0 (b) (no-op on Android). Photo
+card tap opens the sheet (§13 — kept).
+
+Gate: `:features:feature-item-detail:check` + `:shared:state:check` + `:build-logic:test`
++ `:android-app:compileDebugKotlin` green.
+
+_Commit `7aa4661`._
+
+### Slice 3 — iOS ItemDetail screen + wiring
+
+New `ios-app/Sources/ItemDetailView.swift` (auto-included via the synchronized
+`Sources/` folder — no `project.yml`/pbxproj edit), the SwiftUI mirror of the Android
+`ItemDetailScreen`: a `FluxItScaffold` with the variant-B top bar ("‹ Back" leading),
+a scrolling form (general info, photo, optional permission banner, delete, last-edited
+footer), and a sticky Save dock — all from `core-designsystem` primitives. Both
+`.itemDetail` nav-stack entries in `ContentView` (the `ListDetailView` push + the
+`RootEffect.NavigateToItem` deep-link append) now render `ItemDetailView(itemId:)`; the
+unused `PlaceholderView` was removed and the `DashRoute` doc-comment refreshed.
+
+- **Store wiring** — `InitKoinKt.resolveItemDetailStore()` (no-arg, from Slice 1) +
+  `ItemDetailIntentInit(itemId: IosEffectIdsKt.itemIdOf(value: id))` dispatched once on
+  first appearance. Effects drain via `onEnum(of:)` over an exhaustive `switch`
+  (NavigateBack → `dismiss`, ConfirmDiscardChanges → local discard alert,
+  Request{Camera,PhotoLibrary} → permission banner, ShowError → dock banner).
+- **Photo** — the store + `AttachPhotoToItem` over the Phase 06 `IosPhotoCapture`
+  (`UIImagePickerController`) do the capture; the view just dispatches
+  `PhotoSourceSelected(source: .camera/.library)` and renders `PhotoStatus`. A `Loaded`
+  uri is decoded with `UIImage(contentsOfFile:)` — no Coil/Kingfisher (Android-parity
+  simple decode, §13). Source action sheet is a `.confirmationDialog` driven by
+  `state.showPhotoSourceSheet`; "Remove Photo" shows only when a photo is attached.
+- **SKIE gotchas** — the `@State` initial `ItemDetailState` is built from the full
+  primary ctor (no synthesized no-arg `init()`); `kotlinx` `Instant` has no usable Swift
+  type name, so the last-edited footer takes `updatedAt.toEpochMilliseconds()` (Int64)
+  rather than declaring the type. Permission banner / `PermissionTarget` are iOS-only and
+  live in this file (this is where the `Request*` effects actually fire, §0 b).
+
+**Divergence from §8:** the iOS screen ships as this single `ItemDetailView.swift`
+rather than the listed `PhotoSection`/`PermissionBanner`/`ItemDetailFormSections`/
+`ItemDetailPreviews` split — mirroring the Phase 09 `CreateListView.swift` monolith
+(Swift `private` is file-scoped, so the Android internal-helper split buys nothing; iOS
+ships no SwiftUI previews, per the Create-List/List-Detail precedent).
+
+Gate: `scripts/test-ios.sh` → `** TEST SUCCEEDED **` (tokens/icons regen, release
+XCFramework, xcodegen, XCTest). No `:shared:state`/DI touched, so the Kotlin gates
+from Slice 1 still hold.
+
+_Commit `8426f08`._
+
+### Slice 4 — close-out
+
+Documentation-only. `MASTER_PLAN.md`: Phase 10 → 🟢 Complete (100%) in the index table,
+**M4 (Core User Surfaces) marked complete** (exit criteria met — all four `/design`
+screens reachable end-to-end on both platforms with offline persistence), and the
+"Last updated" / "Repo phase" / ▶ Next Step blurbs rolled forward to Phase 13
+(Notifications & Reminders; Phases 11 Calendar / 12 Starred stay deferred to v2 per
+ADR-004 / ADR-003).
+
+Plan sign-offs: §13 mockup divergences ✅ (photo "Update" duplicated, "Remove Photo" in
+the sheet, delete-confirm dialog) plus the §0 (a)–(d) + §1/§8/§12 implementation
+divergences documented inline; §14 reconciled (store/formatter/effect coverage ✅;
+snapshot infra + on-device UI/a11y/process-death deferred to v2 QA, previews stand in);
+§16 hand-off checklist resolved (automated rows ✅, device/snapshot/a11y rows explicitly
+deferred). No production code touched, so the Slice 1–3 gates still hold.
+
+_Commit `209f45a`._

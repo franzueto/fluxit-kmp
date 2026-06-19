@@ -16,7 +16,13 @@ struct ListDetailView: View {
     let onOpenEditItem: (String) -> Void
 
     private let listId: String
-    private let store = InitKoinKt.resolveListDetailStore()
+    // Held in @State, not a plain `let`: pushing/popping the item-detail screen
+    // mutates the owning `listsPath`, which re-runs ContentView.body and rebuilds
+    // this view struct. A `let store = resolve()` would mint a fresh Koin factory
+    // store on each rebuild — stranding the `.task` observers on the original
+    // instance (frozen spinner + dead controls on return from item detail).
+    // @State evaluates its initializer once per view identity and preserves it.
+    @State private var store = InitKoinKt.resolveListDetailStore()
 
     @State private var state = ListDetailState(
         header: LoadStateLoading(),
