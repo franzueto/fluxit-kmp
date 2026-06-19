@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -151,28 +152,7 @@ private fun FluxItNavHost(rootStore: RootStore) {
                 onOpenEditList = { navController.navigate("$ROUTE_CREATE_LIST_BASE?$ARG_EDITING_ID=$listId") },
             )
         }
-        composable(
-            route = ROUTE_ITEM_DETAIL,
-            arguments =
-                listOf(
-                    navArgument(ARG_LIST_ID) { type = NavType.StringType },
-                    navArgument(ARG_ITEM_ID) { type = NavType.StringType },
-                ),
-        ) { backStackEntry ->
-            ItemDetailRoute(
-                itemId = backStackEntry.arguments?.getString(ARG_ITEM_ID).orEmpty(),
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable(
-            route = ROUTE_ITEM_DEEP_LINK,
-            arguments = listOf(navArgument(ARG_ITEM_ID) { type = NavType.StringType }),
-        ) { backStackEntry ->
-            ItemDetailRoute(
-                itemId = backStackEntry.arguments?.getString(ARG_ITEM_ID).orEmpty(),
-                onBack = { navController.popBackStack() },
-            )
-        }
+        itemDetailDestinations(navController)
         composable(
             route = ROUTE_CREATE_LIST,
             arguments =
@@ -204,6 +184,37 @@ private fun FluxItNavHost(rootStore: RootStore) {
                 onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
             )
         }
+    }
+}
+
+/**
+ * The Edit-Item destinations (plan/10 §8): the nested `list/{listId}/item/{itemId}`
+ * route and the bare `item/{itemId}` deep link, both backed by [ItemDetailRoute].
+ * Extracted from [FluxItNavHost] to keep that builder under the detekt method-length
+ * cap; both register the same Route, differing only in their argument set.
+ */
+private fun NavGraphBuilder.itemDetailDestinations(navController: NavHostController) {
+    composable(
+        route = ROUTE_ITEM_DETAIL,
+        arguments =
+            listOf(
+                navArgument(ARG_LIST_ID) { type = NavType.StringType },
+                navArgument(ARG_ITEM_ID) { type = NavType.StringType },
+            ),
+    ) { backStackEntry ->
+        ItemDetailRoute(
+            itemId = backStackEntry.arguments?.getString(ARG_ITEM_ID).orEmpty(),
+            onBack = { navController.popBackStack() },
+        )
+    }
+    composable(
+        route = ROUTE_ITEM_DEEP_LINK,
+        arguments = listOf(navArgument(ARG_ITEM_ID) { type = NavType.StringType }),
+    ) { backStackEntry ->
+        ItemDetailRoute(
+            itemId = backStackEntry.arguments?.getString(ARG_ITEM_ID).orEmpty(),
+            onBack = { navController.popBackStack() },
+        )
     }
 }
 
