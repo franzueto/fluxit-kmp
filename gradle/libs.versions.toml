@@ -44,7 +44,7 @@ skie = "0.10.12"
 ktlint-cli = "1.4.1"            # underlying ktlint library version
 ktlint-gradle = "12.1.2"        # jlleitschuh wrapper plugin
 detekt = "1.23.7"
-spotless = "7.0.2"
+spotless = "8.7.0"
 konsist = "0.17.3"
 dependency-versions = "0.51.0"  # com.github.ben-manes.versions
 
