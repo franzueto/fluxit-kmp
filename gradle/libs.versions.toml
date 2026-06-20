@@ -20,7 +20,7 @@ android-target-sdk = "35"       # targetSdk stays at 35 — bumping opts into ne
 android-min-sdk = "26"          # confirmed 2026-05-13: Android 8.0 baseline (adaptive icons + FGS types)
 
 # --- Compose (Android) ---
-compose-bom = "2026.05.01"
+compose-bom = "2026.06.00"
 androidx-activity = "1.13.0"
 androidx-navigation = "2.9.8"
 
