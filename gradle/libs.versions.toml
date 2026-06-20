@@ -15,8 +15,8 @@ kover = "0.9.8"
 agp = "9.2.1"
 ksp = "2.3.9"            # KSP version tracks Kotlin version
 java-toolchain = "21"
-android-compile-sdk = "35"
-android-target-sdk = "35"
+android-compile-sdk = "36"      # Android 16: required by newer androidx + koin (checkDebugAarMetadata)
+android-target-sdk = "35"       # targetSdk stays at 35 — bumping opts into Android 16 runtime behavior; defer to a deliberate, device-tested change
 android-min-sdk = "26"          # confirmed 2026-05-13: Android 8.0 baseline (adaptive icons + FGS types)
 
 # --- Compose (Android) ---
