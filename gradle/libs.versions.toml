@@ -32,7 +32,7 @@ androidx-test-core = "1.7.0"
 junit = "4.13.2"               # Robolectric runner (JUnit4)
 
 # --- KMP libraries ---
-koin = "4.0.1"
+koin = "4.2.2"
 sqldelight = "2.3.2"
 kotlinx-coroutines = "1.10.1"
 kotlinx-serialization = "1.7.3"
