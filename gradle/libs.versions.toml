@@ -15,20 +15,20 @@ kover = "0.9.8"
 agp = "9.2.1"
 ksp = "2.3.9"            # KSP version tracks Kotlin version
 java-toolchain = "21"
-android-compile-sdk = "36"      # Android 16: required by newer androidx + koin (checkDebugAarMetadata)
-android-target-sdk = "35"       # targetSdk stays at 35 — bumping opts into Android 16 runtime behavior; defer to a deliberate, device-tested change
+android-compile-sdk = "37"      # Android 17: required by androidx.core 1.19.0 (checkDebugAarMetadata)
+android-target-sdk = "35"       # targetSdk stays at 35 — bumping opts into newer runtime behavior; defer to a deliberate, device-tested change
 android-min-sdk = "26"          # confirmed 2026-05-13: Android 8.0 baseline (adaptive icons + FGS types)
 
 # --- Compose (Android) ---
 compose-bom = "2026.05.01"
-androidx-activity = "1.9.3"
-androidx-navigation = "2.8.5"
+androidx-activity = "1.13.0"
+androidx-navigation = "2.9.8"
 
 # --- AndroidX platform capabilities (Phase 06) ---
-androidx-work = "2.9.1"         # WorkManager — best-effort reminder scheduling (ADR-009a)
-androidx-core = "1.13.1"        # NotificationCompat + notification channel APIs
+androidx-work = "2.11.2"        # WorkManager — best-effort reminder scheduling (ADR-009a)
+androidx-core = "1.19.0"        # NotificationCompat + notification channel APIs
 robolectric = "4.14"           # JVM-host Android unit tests (WorkManager scheduling assertions)
-androidx-test-core = "1.6.1"
+androidx-test-core = "1.7.0"
 junit = "4.13.2"               # Robolectric runner (JUnit4)
 
 # --- KMP libraries ---
