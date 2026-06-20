@@ -31,6 +31,16 @@ updates:
       compose:
         patterns:
           - "androidx.compose*"
+    ignore:
+      # SKIE (iOS Swift bridging, co.touchlab.skie) supports Kotlin only up to
+      # 2.3.10 — see the "must be bumped together" note in gradle/libs.versions.toml
+      # and the #28 toolchain PR. Kotlin 2.4.x cannot be adopted until SKIE ships
+      # 2.4 support, so block it here to stop dependabot re-opening the
+      # un-mergeable bump every week (it already churned via #19 -> #29).
+      # kotlinx.* is intentionally NOT ignored — it isn't gated by SKIE.
+      # ACTION: remove this entry once SKIE supports Kotlin 2.4+.
+      - dependency-name: "org.jetbrains.kotlin:*"
+        versions: [">=2.4.0"]
 
   # GitHub Actions used in .github/workflows/*.yml.
   - package-ecosystem: "github-actions"
