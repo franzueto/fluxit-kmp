@@ -10,7 +10,7 @@
 # --- Language & build ---
 kotlin = "2.3.10"
 kover = "0.9.8"
-agp = "9.2.1"
+agp = "9.3.0"
 ksp = "2.3.9"            # KSP version tracks Kotlin version
 java-toolchain = "21"
 android-compile-sdk = "37"      # Android 17: required by androidx.core 1.19.0 (checkDebugAarMetadata)
