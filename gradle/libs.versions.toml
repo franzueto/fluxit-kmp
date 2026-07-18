@@ -11,7 +11,7 @@
 kotlin = "2.3.10"
 kover = "0.9.8"
 agp = "9.2.1"
-ksp = "2.3.9"            # KSP version tracks Kotlin version
+ksp = "2.3.10"            # KSP version tracks Kotlin version
 java-toolchain = "21"
 android-compile-sdk = "37"      # Android 17: required by androidx.core 1.19.0 (checkDebugAarMetadata)
 android-target-sdk = "35"       # targetSdk stays at 35 — bumping opts into newer runtime behavior; defer to a deliberate, device-tested change
