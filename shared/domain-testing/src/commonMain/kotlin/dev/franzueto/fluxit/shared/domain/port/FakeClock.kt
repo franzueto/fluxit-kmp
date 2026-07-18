@@ -4,16 +4,6 @@ import kotlinx.datetime.Instant
 import kotlin.time.Duration
 
 /**
- * Reusable test fixture for the [Clock] port (Phase 04 §11 fakes
- * inventory). Constructed with an initial [Instant]; advances via
- * [advanceBy]. `now()` returns the current state, never auto-advances
- * — explicit control is the point.
- *
- * Lands here in Slice 8 because `RecurrenceCalculator`'s tests are
- * the first place that needs time-advance semantics; future use-case
- * tests (Phase 04 §7) and the data layer's clock-injection tests
- * will lean on the same fixture.
- *
  * Not thread-safe. Tests that share a single FakeClock across
  * coroutines should serialise their `advanceBy` calls externally
  * — domain tests run on a single coroutine in practice so this is

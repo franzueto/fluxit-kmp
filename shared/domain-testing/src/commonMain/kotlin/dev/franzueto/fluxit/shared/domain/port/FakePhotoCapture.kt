@@ -2,12 +2,6 @@ package dev.franzueto.fluxit.shared.domain.port
 
 import dev.franzueto.fluxit.shared.domain.error.Outcome
 
-/**
- * Reusable test fixture for the [PhotoCapture] port (Phase 04 §11 / Slice 13D).
- * Each method returns its configured [Outcome] and records a call count so
- * tests can assert which source the use case opened and exercise the
- * [CaptureError] branches.
- */
 public class FakePhotoCapture(
     public var captureResult: Outcome<CapturedPhoto, CaptureError> = Outcome.Ok(DEFAULT_PHOTO),
     public var libraryResult: Outcome<CapturedPhoto, CaptureError> = Outcome.Ok(DEFAULT_PHOTO),

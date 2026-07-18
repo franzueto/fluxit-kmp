@@ -17,13 +17,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 
-/**
- * SQLDelight-backed [PhotosRepository] (Phase 03 §5, 4/4). Closes §5
- * and binds the §7 [PhotoStorage] port: file write happens first; if
- * the row insert fails the file is cleaned up before returning so a
- * crash can leak at most one orphan file (the §7 janitor sweeps it
- * after the 24h grace window).
- */
 public class SqlPhotosRepository(
     private val database: FluxItDatabase,
     private val storage: PhotoStorage,
@@ -87,7 +80,6 @@ public class SqlPhotosRepository(
                 if (queries.selectById(photoId.value).executeAsOneOrNull() == null) {
                     return@transactionWithResult Outcome.Err(DataError.NotFound(photoId.value))
                 }
-                // No-op when still referenced — the §7 janitor reruns on
                 // the 24h tick and will reap once references drop.
                 val stillReferenced = queries.selectHasLiveReference(photoId.value).executeAsOneOrNull() != null
                 if (!stillReferenced) {

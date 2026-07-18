@@ -16,13 +16,6 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import java.util.concurrent.TimeUnit
 
-/**
- * The WorkManager worker that posts a reminder notification when its schedule
- * fires (plan/06 §5). For `Monthly` recurrence (which WorkManager can't express as
- * a periodic trigger) it re-arms the *next* one-shot after firing — the one-shot
- * chain described in plan/06 §5. WorkManager persistence survives reboot; if a
- * re-arm is ever dropped, `RehydrateReminders` repairs it on next app start.
- */
 public class ReminderWorker(
     appContext: Context,
     params: WorkerParameters,

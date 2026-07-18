@@ -4,10 +4,8 @@ import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.verify.assertFalse
 import io.kotest.core.spec.style.FunSpec
 
-// FluxIt architecture rules — Phase 01 §8.4.
 //
 // These run as a regular JUnit 5 test in :build-logic. They scan the OUTER
-// repo (parent of build-logic) so feature modules added in phases 07–10 are
 // covered automatically without per-module wiring.
 //
 // Run with: `./gradlew :build-logic:test`.
@@ -18,8 +16,7 @@ class ArchitectureTest : FunSpec({
     // Konsist's scopeFromDirectory treats its argument as relative to the cwd.
     val scope = { Konsist.scopeFromDirectory("..") }
 
-    test("shared:domain has no forbidden imports (Phase 04 §1 + ADR-007 + ADR-007a)") {
-        // Phase 04 §1 exit criteria: :shared:domain stays pure Kotlin —
+    test("shared:domain has no forbidden imports") {
         // no Android/iOS framework, no SQLDelight, no Koin runtime, no
         // designsystem (per ADR-007a — domain owns the tokens, design-
         // system consumes them; the inward arrow stays forbidden), no
@@ -113,9 +110,8 @@ class ArchitectureTest : FunSpec({
             }
     }
 
-    test("feature-* modules do not import :shared:data directly (plan/07 §11)") {
+    test("feature-* modules do not import :shared:data directly") {
         // A feature reaches persistence only through domain interfaces, via use
-        // cases, via its store (plan/07 §11). A direct `dev.franzueto.fluxit.shared.data`
         // import would let the UI bind to SQLDelight-backed types and skip that seam.
         scope()
             .files

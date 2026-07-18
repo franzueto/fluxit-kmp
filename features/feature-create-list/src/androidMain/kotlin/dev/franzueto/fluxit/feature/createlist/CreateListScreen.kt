@@ -31,11 +31,6 @@ import dev.franzueto.fluxit.shared.state.store.CreateListState
 import dev.franzueto.fluxit.shared.state.store.NameValidation
 import dev.franzueto.fluxit.shared.state.store.Submission
 
-/**
- * One-shot-effect chrome for [CreateListScreen] (error banner + §6
- * confirm-discard alert), bundled so the screen signature stays under the
- * detekt parameter cap (cf. `ListDetailChrome`).
- */
 data class CreateListChrome(
     val error: String? = null,
     val onErrorDismiss: () -> Unit = {},
@@ -45,13 +40,6 @@ data class CreateListChrome(
 )
 
 /**
- * Stateless Create/Edit List modal (plan/09 §1/§2): renders [CreateListState]
- * and forwards user actions through [onIntent]. Composed entirely from
- * `core-designsystem` primitives (§13 literal-ban). The top bar's leading text
- * button is Cancel (it dispatches [CreateListIntent.CancelClicked] — the store
- * owns the §6 dirty check); the sticky bottom dock holds the submit button,
- * disabled until the name validates (§4) or while a submit is in flight (§7).
- *
  * One-shot effects are handled in [CreateListRoute] and surfaced back via
  * [chrome], so this composable stays pure state-in → UI-out.
  */
@@ -107,7 +95,6 @@ private fun NameSection(
     onIntent: OnCreateListIntent,
 ) {
     val focusRequester = remember { FocusRequester() }
-    // Track "has been focused" so only a real focus *loss* dispatches NameBlurred (§4).
     val hadFocus = remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(FluxItSpacing.scaleSm)) {
@@ -133,13 +120,11 @@ private fun NameSection(
         }
     }
 
-    // §3: auto-focus in create mode only (no surprise keyboard over prefilled edits).
     LaunchedEffect(state.editing) {
         if (!state.editing) focusRequester.requestFocus()
     }
 }
 
-/** §4 inline error copy — visible only after first blur or a submit attempt. */
 internal fun nameErrorMessage(state: CreateListState): String? {
     if (!state.validationVisible) return null
     return when (state.validation) {
@@ -149,7 +134,6 @@ internal fun nameErrorMessage(state: CreateListState): String? {
     }
 }
 
-/** §2/§7 submit copy: mode + in-flight feedback (DS button has no spinner slot yet). */
 internal fun submitLabel(state: CreateListState): String =
     when {
         state.submission is Submission.Submitting -> if (state.editing) "Saving…" else "Creating…"
@@ -174,7 +158,6 @@ private fun SubmitDock(
                 ),
         verticalArrangement = Arrangement.spacedBy(FluxItSpacing.scaleSm),
     ) {
-        // §7: submission failure keeps the modal open with a banner above the button.
         if (error != null) {
             ErrorBanner(message = error)
         }

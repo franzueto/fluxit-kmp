@@ -16,13 +16,6 @@ import dev.franzueto.fluxit.shared.domain.model.ColorToken
 import dev.franzueto.fluxit.shared.domain.model.FluxItIconRef
 
 /**
- * The design system's resolution of the domain's list-identity enums into
- * concrete Compose values (ADR-005a / ADR-006c: domain owns the *refs*, the
- * design system maps them to `ImageVector`/`Color`). Phase 02 only exercised
- * these mappings inside the debug Theme Gallery; Phase 07 promotes them to
- * public DS API so `:features:feature-lists` can render dashboard rows without
- * a raw `Color(0x…)` or icon lookup of its own (Konsist literal-ban stays green).
- *
  * Both `when`s are exhaustive over the domain enums, so a new `FluxItIconRef` /
  * `ColorToken` value breaks the build here until a swatch/glyph is chosen.
  */

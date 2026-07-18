@@ -5,8 +5,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Host-holder for the current Activity's [ActivityResultRegistry] (plan/06 §7).
- *
  * `PhotoCapture` lives in androidMain but needs an Activity to launch the camera /
  * picker — and the domain port can't carry one. The Activity pushes its registry
  * here on resume and clears it on pause; [AndroidPhotoCapture] waits for a non-null

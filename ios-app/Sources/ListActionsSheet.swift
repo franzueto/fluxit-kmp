@@ -1,12 +1,8 @@
 import SwiftUI
 
-/// The list-actions menu (plan/08 §4), presented as a `.confirmationDialog`.
-/// v1 wires **Edit list details** (Phase 09 — opens the Create/Edit modal) and
-/// **Clear completed** (with a destructive confirmation step, §13). The Star /
 /// Reminders / Delete-list entries depend on stores/use cases that land in later
 /// phases and the shipped `ListDetailStore` exposes no intents for them, so they
 /// are omitted here rather than shown disabled (a confirmationDialog can't render
-/// disabled rows) — documented divergence from §4, matching the Android sheet's
 /// "(coming soon)" rows.
 struct ListActionsSheet: ViewModifier {
     @Binding var isPresented: Bool

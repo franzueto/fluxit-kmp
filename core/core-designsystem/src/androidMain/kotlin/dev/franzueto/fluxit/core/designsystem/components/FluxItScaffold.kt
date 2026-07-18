@@ -5,9 +5,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItColors
 
-// Phase 02 §5: applies background.dark + safe-area handling + optional sticky
 // top/bottom slots. Header/tab-bar blur is layered on by FluxItTopBar /
-// FluxItBottomTabBar themselves (see §7); the Scaffold is just the chrome.
 
 @Composable
 @Suppress("ktlint:standard:function-naming")

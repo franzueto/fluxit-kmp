@@ -1,20 +1,12 @@
 package dev.franzueto.fluxit.shared.state.store
 
 /**
- * The four-way load status used by feature stores for an async collection
- * (`plan/05_STATE_MANAGEMENT.md` §4). State is always sufficient to render the
- * screen without consuming an effect (ADR-014):
- *
  * - [Loading] — first load in flight, nothing to show yet.
  * - [Empty] — the load completed but there is nothing (distinct from [Loading]
  *   so the UI can show an empty-state illustration rather than a spinner).
  * - [Loaded] — data is present.
  * - [Error] — the load failed; [Error.message] is already user-grade
  *   (mapped via `DomainError.userMessage`).
- *
- * Plain `sealed interface` — SKIE 0.10.2 projects sealed hierarchies as Swift
- * enums with exhaustive `switch` (via `onEnum(of:)`) by default; no explicit
- * `@SealedInterface` annotation is needed (verified by the Slice 5 iOS smoke).
  */
 public sealed interface LoadState<out T> {
     public data object Loading : LoadState<Nothing>

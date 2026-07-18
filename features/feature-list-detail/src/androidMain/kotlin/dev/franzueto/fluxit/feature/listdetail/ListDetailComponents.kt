@@ -28,12 +28,6 @@ import dev.franzueto.fluxit.shared.domain.model.Item
 import dev.franzueto.fluxit.shared.domain.model.ItemsSection
 import dev.franzueto.fluxit.shared.state.store.ListDetailIntent
 
-/**
- * Drives the undo snackbar (plan/08 §6): the deleted item's [title] and the window
- * [progress] (1f → 0f over the 5s countdown). Held by [ListDetailRoute] and passed
- * into the stateless [ListDetailScreen]. A module-local twin of the dashboard's
- * type — the §12 Konsist rule forbids importing across feature modules.
- */
 public data class UndoSnackbarState(
     val title: String,
     val progress: Float,
@@ -42,12 +36,6 @@ public data class UndoSnackbarState(
     val listName: String get() = title
 }
 
-/**
- * Effect-driven chrome for the List Detail screen (plan/08 §3/§4/§6): the undo +
- * error snackbars and the list-actions sheet visibility. Bundled so the stateless
- * [ListDetailScreen] stays under the 8-param detekt cap while still being a pure
- * state-in → UI-out function (and snapshot-renderable with synthetic chrome).
- */
 public data class ListDetailChrome(
     val undo: UndoSnackbarState? = null,
     val onUndo: () -> Unit = {},
@@ -110,11 +98,6 @@ internal fun ErrorSnackbar(
     }
 }
 
-/**
- * Completion header (plan/08 §1): "LIST COMPLETION" caption + "{completed}/{total}"
- * + a full-width progress bar. Lives outside the lazy container so a single row's
- * completion flip doesn't recompose the rows (§7).
- */
 @Composable
 internal fun CompletionHeader(
     section: ItemsSection,
@@ -165,7 +148,6 @@ internal fun CompletedRow(
     onIntent: OnListDetailIntent,
 ) {
     FluxItSwipeRow(onDelete = { onIntent(ListDetailIntent.ItemDeleteClicked(item.id)) }, deleteIcon = FluxItIcons.Trash) {
-        // Trash trailing is omitted (§2 — swipe-to-delete handles it); no chevron.
         FluxItCompletedListItem(
             title = item.title,
             checkIcon = FluxItIcons.Check,

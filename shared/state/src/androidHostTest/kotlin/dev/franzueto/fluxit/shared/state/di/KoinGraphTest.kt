@@ -26,19 +26,6 @@ import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
 
-/**
- * JVM graph test for the ADR-015 composition root: starts the full FluxIt Koin
- * graph and resolves every store, proving the `get()` slots across the platform /
- * domain / data / state modules line up. This is the §8 confidence check (the iOS
- * runtime smoke is Slice C).
- *
- * Phase 06 Slice 6: the graph now runs over the **real** common platform modules
- * (`loggingModule`/`configModule`/`analyticsModule`) plus an in-memory driver.
- * The two OS-context-bound capability modules (`remindersModule()`/`photoModule()`
- * android actuals need an `androidContext()` + WorkManager) are substituted with
- * the `:shared:domain-testing` fakes — those actuals are compile-verified by their
- * own modules' builds and exercised by on-device QA (Slice 8), not here.
- */
 class KoinGraphTest {
     @AfterTest
     fun teardown() {

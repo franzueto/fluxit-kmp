@@ -32,8 +32,6 @@ public fun FluxItBottomTabBar(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
 ) {
-    // §7 ships the opaque fallback (surface.card @ 90%) unconditionally on
-    // Android until the Pixel 6a benchmark runs in Phase 14/15. See the
     // matching comment in FluxItTopBar.BarBackground for the migration path.
     Row(
         modifier =

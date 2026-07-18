@@ -7,7 +7,6 @@ public struct FluxItTextField: View {
     private let singleLine: Bool
     private let minLines: Int
     /// Optional external focus binding so callers can drive auto-focus and
-    /// observe focus loss (Phase 09 Create-List name field). Applied directly to
     /// the inner `TextField` so `.focused`/`onChange` track the real focus state;
     /// `nil` for the common case that doesn't care.
     private let focused: FocusState<Bool>.Binding?

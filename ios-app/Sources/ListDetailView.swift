@@ -1,7 +1,6 @@
 import Shared
 import SwiftUI
 
-/// The List Detail screen (plan/08 §1/§3), wired to `ListDetailStore`. Mirrors the
 /// Android `ListDetailScreen`: a `FluxItScaffold` with the variant-B top bar, the
 /// completion header + progress bar above a scrolling `List` of TO BUY / COMPLETED
 /// sections, and a sticky `ComposerDock` in the bottom bar. All from
@@ -9,7 +8,6 @@ import SwiftUI
 ///
 /// One-shot effects (`NavigateBack`, `NavigateToEditItem`, `OpenListMenu`,
 /// `ShowUndoSnackbar`, `ShowError`) drain off the store; the `switch` is exhaustive
-/// so a new effect breaks the build. §5 process-death restore uses `@SceneStorage`
 /// (keyed per list), replayed into the store as intents on first appearance.
 struct ListDetailView: View {
     let onBack: () -> Void
@@ -81,7 +79,6 @@ struct ListDetailView: View {
             onClearCompleted: { store.dispatch(intent: ListDetailIntentClearCompletedClicked()) }
         )
         .fullScreenCover(isPresented: $editPresented) {
-            // Edit mode (plan/09 §9): success dismisses; the detail store re-observes
             // the renamed/recolored list, so no extra refresh is needed here.
             CreateListView(
                 editingId: listId,
@@ -101,14 +98,12 @@ struct ListDetailView: View {
         .onChange(of: state.showCompleted) { showCompletedScene = $0 }
     }
 
-    // MARK: - Lifecycle / persistence (§5)
 
     private func startIfNeeded() {
         guard !didStart else { return }
         didStart = true
         store.dispatch(intent: ListDetailIntentInit(listId: IosEffectIdsKt.listIdOf(value: listId)))
         // Replay the persisted composer text + hide preference as intents — the
-        // store has no `initialState` ctor param (a §5 sketch that never landed).
         if !composerScene.isEmpty {
             store.dispatch(intent: ListDetailIntentComposerTextChanged(text: composerScene))
         }
@@ -241,9 +236,7 @@ struct ListDetailView: View {
 
 // MARK: - Completion header
 
-/// Completion header (plan/08 §1): "LIST COMPLETION" caption + "{completed}/{total}"
 /// + a full-width progress bar. Lives outside the scrolling `List` so a single
-/// row's completion flip doesn't recompose the rows (§7).
 private struct CompletionHeaderView: View {
     let section: ItemsSection
 
@@ -269,7 +262,6 @@ private struct CompletionHeaderView: View {
     }
 }
 
-// MARK: - Undo / error overlays (local twins of the dashboard's, §6)
 
 private struct DetailUndoSnackbar: View {
     let state: UndoSnackbarState

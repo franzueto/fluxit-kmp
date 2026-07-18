@@ -10,9 +10,6 @@ import dev.franzueto.fluxit.shared.domain.repository.PhotosRepository
 import kotlinx.coroutines.flow.first
 
 /**
- * Garbage-collect a single photo if no live item still references it
- * (Phase 04 §7). Returns `true` when the file was actually reclaimed.
- *
  * Flow:
  * 1. Read the photo's `relativePath` via `observe(id).first()` — a photo
  *    that's already gone is a no-op `Ok(false)`.
@@ -21,19 +18,6 @@ import kotlinx.coroutines.flow.first
  * 3. Re-read: if the row is now gone the photo was orphaned, so delete the
  *    backing file via [PhotoStorage.delete] and return `Ok(true)`. If the
  *    row survived it's still referenced — leave the file and return `Ok(false)`.
- *
- * **Spec/reality reconciliation:** the §7 punch list described a batch
- * `selectOrphaned(olderThan = 24h)` sweep, but the shipped `PhotosRepository`
- * exposes no enumeration primitive (only single-photo `observe` + `ingest` +
- * `deleteIfOrphaned`). So this ships as a **per-photo** janitor — the form
- * `DetachPhotoFromItem` needs and the form a future batch sweep would call in
- * a loop. The 24h-grace batch scan is deferred until the data layer surfaces
- * a `selectOrphaned` query.
- *
- *
- * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
- * It suspends only on the injected repository/port, which owns its dispatcher;
- * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class PhotoJanitor(
     private val photos: PhotosRepository,

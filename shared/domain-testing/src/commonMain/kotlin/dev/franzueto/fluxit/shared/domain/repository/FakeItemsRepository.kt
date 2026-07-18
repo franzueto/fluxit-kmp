@@ -18,16 +18,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Instant
 
 /**
- * In-memory [ItemsRepository] for §7 use-case tests (Phase 04 §11).
- * Mirrors [FakeListsRepository]'s pattern (MutableStateFlow backing,
- * tombstone filtering, sort-order minting via [SortOrderArithmetic],
- * `NotFound` returns for missing-or-tombstoned ids).
- *
- * `observeByList` partitions live items into active/completed
- * sections — matches the §3 `ItemsSection` shape the list-detail
- * screen renders. New items default to the active section
- * (`isCompleted = false`).
- *
  * Cascade semantics are application-layer (ADR-006b) — the
  * `DeleteList` use case soft-deletes each item explicitly; this
  * fake exposes the necessary `delete(itemId)` primitive but does not
@@ -54,12 +44,6 @@ public class FakeItemsRepository(
 
     private val state = MutableStateFlow<List<Row>>(emptyList())
 
-    /**
-     * Controllable failure mode (Phase 04 §11). When non-null, [update]
-     * short-circuits with this [DataError] before mutating state — lets
-     * use-case tests drive the repository-failure branch of flows that compose
-     * `update` (e.g. `DetachPhotoFromItem` → `UpdateItemDetails` → `update`).
-     */
     public var failUpdateWith: DataError? = null
 
     // ── reads ────────────────────────────────────────────────────────────

@@ -5,12 +5,6 @@ import dev.franzueto.fluxit.shared.domain.repository.ListsRepository
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Dashboard feed use case (Phase 04 §7): every active list with its derived
- * counters, as a live [Flow]. A trivial delegate to
- * [ListsRepository.observeAll] — it exists so the state layer (Phase 05)
- * depends on a use-case surface rather than reaching into the repository
- * contract directly, keeping the inward arrow intact.
- *
  * Reactive reads return [Flow], not `Outcome` — the typed-error channel
  * (ADR-007) applies to command use cases; a subscription that can re-emit
  * has no single failure to fold. Errors on the read path surface as the
@@ -18,10 +12,6 @@ import kotlinx.coroutines.flow.Flow
  *
  * Shape per ADR-007b: a class with constructor-injected dependencies and a
  * single `operator fun invoke`.
- *
- * **Concurrency (§9):** caller dispatcher — any; returns a cold [Flow]
- * collected on the collector's dispatcher. No `shareIn`/`stateIn` here —
- * conflation/sharing is a state-layer choice (Phase 05).
  */
 public class ObserveLists(
     private val lists: ListsRepository,

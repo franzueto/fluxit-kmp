@@ -32,12 +32,6 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
-/**
- * Drives the undo snackbar (plan/07 §3): the deleted list's [listName] and the
- * window [progress] (1f → 0f over the 5s countdown). Held by [DashboardRoute] and
- * passed into the stateless [DashboardScreen] so the snackbar stays
- * snapshot-renderable.
- */
 public data class UndoSnackbarState(
     val listName: String,
     val progress: Float,
@@ -96,12 +90,6 @@ internal fun ErrorSnackbar(
     }
 }
 
-/**
- * Loading placeholder (plan/07 §3): three muted rows standing in for content
- * while the first feed emission is in flight. A richer shimmer is deferred — the
- * DS exposes no skeleton primitive yet, and the literal-ban forbids raw sizing in
- * feature code, so this reuses [FluxItDashboardListItem] with neutral content.
- */
 @Composable
 internal fun SkeletonList() {
     Column(
@@ -139,12 +127,6 @@ internal fun DashboardListRow(
     }
 }
 
-/**
- * Row subtitle per plan/07 §3 (resolved priority §12): empty list → "No items
- * yet"; otherwise "{n} items · {metadata}" where metadata is a completion percent
- * when partially done, else a relative "Last updated …". ([ListSummary] carries
- * no explicit subtitle field, so that highest-priority branch is a no-op for v1.)
- */
 internal fun subtitleFor(
     summary: ListSummary,
     now: Instant,

@@ -21,35 +21,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
- * Store backing the Edit-Item screen (Phase 10; `plan/05` §4, ADR-014).
- *
  * **Feed.** [ItemDetailIntent.Init] launches [ObserveItem]; a `null` emission
  * (the item was deleted elsewhere) lands as [LoadState.Error]. While the user
  * hasn't started editing ([ItemDetailState.dirty] = false) the working-copy
  * [ItemDetailState.editing] is kept in sync with the observed item, so external
  * updates flow in; once dirty, local edits win until [ItemDetailIntent.SaveClicked].
  *
- * **Photo chain (§14).** [ItemDetailIntent.UpdatePhotoClicked] opens an in-state
- * action sheet ([ItemDetailState.showPhotoSourceSheet], not an effect, per §4);
- * [ItemDetailIntent.PhotoSourceSelected] calls [AttachPhotoToItem] (which
- * orchestrates capture → ingest → attach in one atomic use case). The store
- * surfaces a single **busy** state [PhotoStatus.Capturing] for that span, then
- * resolves the new photo to a uri ([PhotoStatus.Loaded]) once it lands.
- *
- * > **§14 three-state divergence:** [PhotoStatus.Uploading] is part of the
- * > contract but **unreachable today** — `AttachPhotoToItem` performs capture +
- * > ingest + attach as one suspend call, so the store can't observe the
- * > capture→upload boundary from outside. Surfacing `Uploading` separately needs
- * > that use case split into discrete capture + ingest steps; until then the whole
- * > acquire span shows as `Capturing`.
- *
  * A [CaptureError.UserCancelled] is a quiet abort (no error banner); a
  * [CaptureError.PermissionDenied] emits the matching `Request*` effect so the host
  * can prompt + retry.
- *
- * Navigation/permission prompts are one-shot [effects][ItemDetailEffect] (§14
- * default); `BackClicked` with unsaved edits emits [ItemDetailEffect.ConfirmDiscardChanges]
- * rather than navigating, so the host can surface a confirm dialog.
  */
 public class ItemDetailStore(
     private val scope: CoroutineScope,
@@ -128,7 +108,6 @@ public class ItemDetailStore(
     private suspend fun save() {
         val id = itemId ?: return
         val s = currentState
-        // Block re-entry while a save is in flight, and guard the §5 gate server-side:
         // an invalid title never persists even if the host's button-disable lags.
         if (s.submitting || s.titleValidation != NameValidation.Valid) return
         update { copy(submitting = true) }
@@ -225,16 +204,9 @@ public class ItemDetailStore(
     }
 
     private companion object {
-        /**
-         * Presentation-only title cap for live field feedback / the §5 Save gate.
-         * `UpdateItemDetails` itself caps nothing (it validates non-blank only), so
-         * this is a state-layer UX bound — not a domain rule. 120 per `plan/10` §2.
-         */
         const val TITLE_MAX_LEN = 120
     }
 }
-
-// ---- ItemDetailStore contract (§11: lives alongside its store). ----
 
 public data class ItemDetailState(
     val item: LoadState<Item> = LoadState.Loading,
@@ -243,19 +215,11 @@ public data class ItemDetailState(
     val photoStatus: PhotoStatus = PhotoStatus.None,
     val showPhotoSourceSheet: Boolean = false,
     val confirmDelete: Boolean = false,
-    /** §5: a save is in flight — the host disables Save and shows the "Saving…" label. */
     val submitting: Boolean = false,
-    /**
-     * §2/§5 title validity, live from each [ItemDetailIntent.TitleChanged] and from the
-     * prefill sync. The host gates Save on `== NameValidation.Valid`; reuses the
-     * [NameValidation] enum shared with [CreateListStore].
-     */
     val titleValidation: NameValidation = NameValidation.Empty,
 )
 
 /**
- * Photo preview status for the Edit-Item screen (§4/§14).
- *
  * `Capturing` is the single busy state shown for the whole acquire span;
  * `Uploading` is part of the contract but unreachable until `AttachPhotoToItem`
  * is split into discrete capture + ingest steps (see [ItemDetailStore]).

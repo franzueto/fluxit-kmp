@@ -5,7 +5,7 @@
 BuildKonfig, no per-platform code in v1 — the provider serves compile-time
 defaults (remote config is a v2 concern).
 
-## Backup / data residency asymmetry (plan/06 §10, ADR-017)
+## Backup and data residency asymmetry
 
 v1 is **local-only with no sync** (ADR-003). The two platforms deliberately treat
 device backup differently, and it's worth knowing why before it surprises anyone:

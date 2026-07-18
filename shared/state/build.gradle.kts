@@ -13,24 +13,18 @@ kotlin {
     }
 }
 
-// Phase 05 §12 coverage gate: store branch coverage ≥ 90%. Mirrors the
 // :shared:domain ≥95% use-case gate (its build.gradle.kts) — Kover instruments
 // the JVM/Android unit-test run (which JVM-executes commonTest); the iOS Sim
 // target validates the same commonMain sources on Kotlin/Native but isn't
 // measured (Kover is JVM-only).
 //
 // Measured ≈92% branch across the store package. (History: when this gate was
-// first wired in Slice A the Kover plugin wasn't actually applied to
 // :shared:state, so koverVerify never ran and the real number went unmeasured at
-// ≈70%; Slice B applied the plugin + an interim floor, and the close-out
-// follow-up added the feature-store error/edge-branch tests that brought it to
-// the §12 ≥90% target.)
 //
 // Run the report: `./gradlew :shared:state:koverHtmlReport`
 // Enforce the gate: `./gradlew :shared:state:koverVerify`
 kover {
     reports {
-        // Scope to the store package — §12 is about store logic. The di/
         // composition root is wiring (exercised by KoinGraphTest's checkModules,
         // not branch-meaningful) and the contract data classes are generated.
         filters {
@@ -39,7 +33,7 @@ kover {
             }
         }
         verify {
-            rule("Store branch coverage (Phase 05 §12)") {
+            rule("Store branch coverage") {
                 bound {
                     minValue = 90
                     coverageUnits = CoverageUnit.BRANCH
@@ -50,7 +44,6 @@ kover {
     }
 }
 
-// Make the §12 gate part of `check` so the pre-commit gate
 // (`:shared:state:check`) enforces store branch coverage going forward.
 tasks.named("check") {
     dependsOn("koverVerify")
@@ -69,7 +62,6 @@ kotlin {
             // Re-export :shared:domain so the generated Swift framework surfaces
             // domain types (DomainError, use-case result models, the AppLogger
             // port) that appear on store State/Intent/Effect — `export` requires
-            // the matching `api(...)` dependency below. (Phase 05 §3 / ADR-014.)
             export(project(":shared:domain"))
         }
     }
@@ -83,7 +75,6 @@ kotlin {
             implementation(libs.bundles.coroutines)
             implementation(libs.kotlinx.datetime)
             // Kermit: stores log through the AppLogger port; the Kermit-backed
-            // actual lands in :platform:platform-logging (Phase 06). The runtime
             // dep is here so that actual has a home without a later build edit.
             implementation(libs.kermit)
             // Koin composition root (ADR-015): :shared:state hosts the DI graph
@@ -92,9 +83,7 @@ kotlin {
             // use-case-only rule on the stores themselves.
             implementation(libs.koin.core)
             implementation(project(":shared:data"))
-            // Phase 06 Slice 6: the di/ composition root aggregates the five real
             // :platform:* Koin modules (fluxitPlatformModules()), replacing the
-            // interim no-op port bindings. Scoped to di/ — StateLayerArchTest
             // exempts that package from the :platform:* import ban (ADR-015).
             implementation(project(":platform:platform-logging"))
             implementation(project(":platform:platform-config"))
@@ -113,11 +102,8 @@ kotlin {
             implementation(libs.bundles.testing.shared)
             // Shared domain fakes (FakeListsRepository / FakeRemindersRepository /
             // FakeClock / …) so ListsDashboardStore tests drive real use cases over
-            // in-memory repositories instead of bespoke stubs (Phase 05 Slice 4).
             implementation(project(":shared:domain-testing"))
         }
-        // initKoinAndroid (the Android composition-root entry point, Phase 06
-        // Slice 7) installs `androidContext()` into the Koin graph, so androidMain
         // needs koin-android. Mirrors iosMain's reliance on the common koin.core.
         androidMain.dependencies {
             implementation(libs.koin.android)

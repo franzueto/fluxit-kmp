@@ -1,11 +1,9 @@
--- Items.sq — Phase 03 §2 Items table.
 --
 -- FK notes:
 --   list_id  REFERENCES list(id) ON DELETE CASCADE — engine-level cascade is
 --            dead code in v1 (ADR-006b: lists are forever-tombstoned; we never
 --            hard-delete a list). Kept for safety + v2-sync compaction.
 --   photo_id REFERENCES photo(id) ON DELETE SET NULL — fires when the photo
---            janitor (§7) hard-deletes an orphan; engine-level safety net so
 --            no item ever points at a deleted photo row.
 
 import kotlin.Boolean;
@@ -30,7 +28,6 @@ CREATE INDEX item_list_idx ON item (list_id, is_completed, sort_order) WHERE del
 CREATE INDEX item_photo_idx ON item (photo_id);
 
 -- Single result set ordered (is_completed ASC, sort_order ASC) so the UI
--- mapper (Phase 04) can partition into TO BUY / COMPLETED sections without
 -- a second query. Spec's "returns two logical groups" refers to the
 -- mapper's output shape, not the SQL.
 selectByListGroupedByStatus:
@@ -81,9 +78,7 @@ SET deleted_at = :deleted_at,
     updated_at = :deleted_at
 WHERE id = :id AND deleted_at IS NULL;
 
--- Bulk "Clear completed" — backs Phase 08's action button. Spec called for
 -- a RETURNING clause to surface the cleared ids; we don't need it because
--- the resolved §12 row-3 toast-undo flow keeps the cleared ids in state
 -- layer memory during the 5-second window (state already knows what to
 -- undo). RETURNING also needs SQLite >= 3.35 which post-dates ADR-013's
 -- minSdk=26 floor (Android 26 ships SQLite 3.18); avoiding it sidesteps
@@ -104,8 +99,6 @@ SELECT COUNT(*)
 FROM item
 WHERE list_id = :list_id AND is_completed = 1 AND deleted_at IS NULL;
 
--- Phase 03 §5 repository queries. Per-list rebalance scope mirrors the
--- Lists slice's global one — every helper takes :list_id so the §8
 -- fractional-sort path stays bounded to the affected list.
 
 selectMinActiveSortOrderByList:

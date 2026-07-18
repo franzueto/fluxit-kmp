@@ -20,18 +20,10 @@ import kotlinx.datetime.toLocalDateTime
 import java.util.concurrent.TimeUnit
 
 /**
- * WorkManager-backed [ReminderScheduler] (plan/06 §5; ADR-009a — best-effort over
- * exact `AlarmManager`). Each reminder maps to one or more WorkManager requests
- * keyed by a unique work name derived from the reminder id; the [PlatformHandle]
- * is the comma-joined list of those names so [cancel] can address every one.
- *
  *  - `None`    → one [OneTimeWorkRequest][androidx.work.OneTimeWorkRequest] at `firesAt`.
  *  - `Daily`   → one 24h [PeriodicWorkRequest][androidx.work.PeriodicWorkRequest].
  *  - `Weekly`  → one 7-day periodic request **per selected day-of-week**.
  *  - `Monthly` → one one-shot; [ReminderWorker] re-arms the next after firing.
- *
- * POST_NOTIFICATIONS (Android 13+) is checked before enqueuing; denied →
- * `SchedulerError.PermissionDenied` with nothing queued (plan/06 §5).
  */
 public class AndroidReminderScheduler(
     private val workManager: WorkManager,
@@ -87,7 +79,6 @@ public class AndroidReminderScheduler(
 
     override suspend fun rescheduleAll(active: List<Reminder>): Outcome<Unit, SchedulerError> {
         // Unique-work REPLACE/UPDATE means re-scheduling overwrites any stale request,
-        // so a plain re-schedule of every active reminder is the rehydration (plan/06 §5).
         active.forEach { reminder ->
             when (val r = schedule(reminder)) {
                 is Outcome.Err -> return Outcome.Err(r.error)

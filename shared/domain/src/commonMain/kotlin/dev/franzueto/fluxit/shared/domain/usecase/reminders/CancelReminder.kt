@@ -13,10 +13,6 @@ import dev.franzueto.fluxit.shared.domain.repository.RemindersRepository
 import kotlinx.coroutines.flow.first
 
 /**
- * Cancel a reminder (Phase 04 §7): disarm the OS schedule first, then
- * tombstone the row. **Idempotent** — cancelling a reminder that's already
- * gone (or was never scheduled) is a no-op `Ok`.
- *
  * Takes `(owner, id)` rather than a bare [ReminderId] because the shipped
  * [RemindersRepository] exposes no `observe(id)` lookup — only
  * [RemindersRepository.observeForOwner]. The UI already holds the owner from
@@ -28,11 +24,6 @@ import kotlinx.coroutines.flow.first
  * before the DB write (so a retry can re-attempt the platform cancel) and
  * surfaces as [DomainError.SchedulerFailure]. A reminder with no handle
  * (never armed) skips straight to the DB cancel.
- *
- *
- * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
- * It suspends only on the injected repository/port, which owns its dispatcher;
- * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class CancelReminder(
     private val reminders: RemindersRepository,

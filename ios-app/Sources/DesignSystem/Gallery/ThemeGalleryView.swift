@@ -2,8 +2,6 @@
 import SwiftUI
 
 // Debug-only theme gallery. Gated by #if DEBUG so release builds don't include
-// it. See plan/02_DESIGN_SYSTEM.md §9. Snapshot test (one golden per platform)
-// deferred to Phase 14.
 
 public struct ThemeGalleryView: View {
     @State private var search = ""

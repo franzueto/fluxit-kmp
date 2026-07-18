@@ -1,7 +1,6 @@
 import Shared
 import SwiftUI
 
-/// The Account tab (plan/07 §1/§7), mirroring the Android `AccountScreen`. Wired
 /// to `AccountStore`: it shows the app version and routes the Settings row into a
 /// pushed `SettingsView`. In debug builds it also exposes the "Seed sample data"
 /// action; the button is compiled out of release via `#if DEBUG` (the SwiftUI
@@ -49,8 +48,6 @@ struct AccountView: View {
     }
 }
 
-/// The Settings stub (plan/07 §12), mirroring the Android `SettingsScreen`.
-/// Deliberately minimal — full Diagnostics + crash-reporting wiring is Phase 16.
 /// About (version), Privacy (a no-op crash-reports toggle + Privacy Policy / ToS
 /// rows opening the system browser), and the debug seed section.
 struct SettingsView: View {
@@ -123,7 +120,6 @@ struct SettingsView: View {
 }
 
 #if DEBUG
-/// Debug-only "Seed sample data" action (plan/07 §7), resolving the shared
 /// `SeedSampleData` use case. Compiled out of release builds via `#if DEBUG` —
 /// the iOS counterpart of Android's `src/debug` / `src/release` strip.
 private struct DebugSeedSection: View {

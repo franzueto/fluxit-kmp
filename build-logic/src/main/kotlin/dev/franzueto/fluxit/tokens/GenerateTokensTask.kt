@@ -53,7 +53,6 @@ abstract class GenerateTokensTask : DefaultTask() {
         val swiftDir = swiftOutputDir.get().asFile.apply { mkdirs() }
         // Wipe only our known outputs — don't recursively delete since
         // ios-app/Generated/ may pick up other generated content in the future
-        // (Phase 02 §3 fonts land in ios-app/Resources/, but defensive nonetheless).
         SwiftEmitter.emit(doc).forEach { (filename, source) ->
             File(swiftDir, filename).writeText(source)
         }

@@ -117,7 +117,6 @@ class CreateListStoreTest {
             f.store.dispatch(CreateListIntent.NameChanged("   "))
             testScope.runCurrent()
             assertEquals(NameValidation.Empty, f.store.state.value.validation)
-            // §15 boundary cases around the 60-char cap.
             f.store.dispatch(CreateListIntent.NameChanged("x".repeat(60)))
             testScope.runCurrent()
             assertEquals(NameValidation.Valid, f.store.state.value.validation)
@@ -246,8 +245,6 @@ class CreateListStoreTest {
             assertEquals(Submission.Success, f.store.state.value.submission)
         }
 
-    // ---- Phase 09 backfill: validation visibility (§4) ----
-
     @Test
     fun invalid_submit_reveals_validation_instead_of_submitting() =
         runStoreTest {
@@ -267,8 +264,6 @@ class CreateListStoreTest {
             testScope.runCurrent()
             assertTrue(f.store.state.value.validationVisible)
         }
-
-    // ---- Phase 09 backfill: cancel / discard (§6) ----
 
     @Test
     fun cancel_on_dirty_form_asks_for_confirmation_then_discard_dismisses() =
@@ -298,8 +293,6 @@ class CreateListStoreTest {
             }
         }
 
-    // ---- Phase 09 backfill: reminder editor flag (§8) ----
-
     @Test
     fun reminder_editor_flag_defaults_off_and_respects_override() =
         runStoreTest {
@@ -313,8 +306,6 @@ class CreateListStoreTest {
                     .store.state.value.reminderEditorEnabled,
             )
         }
-
-    // ---- Phase 09 backfill: edit mode (§9) ----
 
     @Test
     fun edit_mode_prefills_from_the_list_being_edited() =

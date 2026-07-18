@@ -13,11 +13,6 @@ public value class ReminderId(
 }
 
 /**
- * Typed polymorphic owner — wraps the raw (`owner_type`, `owner_id`) pair
- * from the reminder row. The data layer (anticipated by Phase 04 §3)
- * trades [ReminderOwnerType] + raw String for this sum so use cases work
- * with type-safe ids instead of strings.
- *
  * [type] / [id] are the storage projection helpers used by the data
  * layer to write the row; UI / use-case code should always pattern-match
  * the variant.
@@ -53,12 +48,6 @@ public data class Reminder(
     val updatedAt: Instant,
 )
 
-/**
- * Caller-supplied fields for scheduling a new reminder. The repository
- * mints the id, sets `is_active = true`, and leaves `platformHandle` null
- * until the platform layer (Phase 06) binds the WorkManager / UNUserNotification
- * request id via [dev.franzueto.fluxit.shared.domain.repository.RemindersRepository.rebindPlatformHandle].
- */
 public data class ReminderSpec(
     val owner: ReminderOwner,
     val firesAt: Instant,

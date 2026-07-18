@@ -1,4 +1,3 @@
--- Reminders.sq — Phase 03 §2 Reminders table.
 --
 -- Owner FK is polymorphic (owner_type discriminates between LIST and ITEM
 -- targets). SQLite can't express a discriminated FK; reminder.owner_id has
@@ -10,13 +9,9 @@
 -- cascades to ITEM-owned reminders).
 --
 -- owner_type is stored as 'LIST' | 'ITEM' (uppercase, matching the enum
--- name); §3's OwnerTypeAdapter wraps it as a typed enum.
 --
 -- recurrence is nullable TEXT containing the RecurrenceRule sealed-class
--- JSON (resolved §12 row 1: full v1 set — None / Daily / Weekly / Monthly).
--- §3's RecurrenceRuleAdapter handles the JSON round-trip.
 --
--- platform_handle is nullable until the platform layer (Phase 06) actually
 -- schedules the notification with WorkManager / UNUserNotificationCenter
 -- and writes back the request id via setPlatformHandle.
 
@@ -50,7 +45,6 @@ WHERE owner_type = :owner_type
     AND deleted_at IS NULL
 ORDER BY fires_at ASC;
 
--- Phase 03 §5 repository pre-check (cancel / reschedule / rebindHandle).
 selectById:
 SELECT *
 FROM reminder
@@ -78,7 +72,6 @@ SET fires_at = :fires_at,
     updated_at = :updated_at
 WHERE id = :id AND deleted_at IS NULL;
 
--- Called by the platform layer (Phase 06) after it successfully schedules
 -- with WorkManager / UNUserNotificationCenter and obtains a handle.
 setPlatformHandle:
 UPDATE reminder

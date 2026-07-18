@@ -13,16 +13,12 @@ import dev.franzueto.fluxit.shared.domain.port.PhotoCapture
 import dev.franzueto.fluxit.shared.domain.repository.PhotosRepository
 import dev.franzueto.fluxit.shared.domain.usecase.items.UpdateItemDetails
 
-/** Where an attached photo comes from (Phase 04 §7). */
 public enum class PhotoSource {
     CAMERA,
     LIBRARY,
 }
 
 /**
- * Attach a freshly captured / picked photo to an item (Phase 04 §7):
- * acquire bytes → ingest the row+file → point the item at the new photo.
- *
  * 1. [PhotoCapture] opens the camera or system picker per [PhotoSource]; a
  *    [dev.franzueto.fluxit.shared.domain.port.CaptureError] surfaces as
  *    [DomainError.CaptureFailure] (incl. `UserCancelled`, which the UI
@@ -37,11 +33,6 @@ public enum class PhotoSource {
  * unreferenced; [PhotoJanitor] reclaims it on the next sweep. Accepted over
  * a pre-check race that can't be closed without a transaction spanning two
  * repositories.
- *
- *
- * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
- * It suspends only on the injected repository/port, which owns its dispatcher;
- * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class AttachPhotoToItem(
     private val photos: PhotosRepository,

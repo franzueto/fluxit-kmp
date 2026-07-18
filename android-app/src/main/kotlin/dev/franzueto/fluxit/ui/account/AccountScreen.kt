@@ -26,10 +26,6 @@ import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 
 /**
- * The Account tab (plan/07 §2/§7/§12). Resolves the session [AccountStore] scoped
- * to an [AccountViewModel], shows the app version, a row into the Settings stub,
- * and — in debug builds only — the [DebugActionsSection] ("Seed sample data").
- *
  * It renders inside the shell's tab-host scaffold (which owns the bottom bar +
  * FAB), so like the dashboard it draws its own inline `FluxItTopBarLarge` header
  * rather than nesting a scaffold.

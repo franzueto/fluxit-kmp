@@ -1,8 +1,6 @@
 package dev.franzueto.fluxit.shared.domain.error
 
 /**
- * Typed-error result for repository operations (Phase 03 §5).
- *
  * Distinct from `kotlin.Result` so the failure channel carries a typed
  * [DataError] sum instead of a `Throwable`. Call sites pattern-match on the
  * concrete error variant rather than catching exceptions.
@@ -29,12 +27,6 @@ public inline fun <T, E, R> Outcome<T, E>.flatMap(transform: (T) -> Outcome<R, E
         is Outcome.Err -> this
     }
 
-/**
- * Transform the error channel without touching the success channel.
- * Use-case sites call `repo.create(draft).mapError { it.toDomain(entity = "List") }`
- * to lift a [DataError]-bearing repository result into a [DomainError]-bearing
- * use-case result (Phase 04 §6).
- */
 public inline fun <T, E, F> Outcome<T, E>.mapError(transform: (E) -> F): Outcome<T, F> =
     when (this) {
         is Outcome.Ok -> this

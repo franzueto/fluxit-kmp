@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Phase 01 §7 — iOS smoke build.
 # Assembles the shared XCFramework, regenerates ios-app/FluxIt.xcodeproj from
 # project.yml (via xcodegen), and runs xcodebuild against the iOS Simulator SDK.
 #

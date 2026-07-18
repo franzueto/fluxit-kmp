@@ -16,23 +16,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Instant
 
-/**
- * In-memory [RemindersRepository] for §7 use-case tests (Phase 04 §11).
- * Same MutableStateFlow pattern as the other fakes — tombstone
- * filtering on reads, `NotFound` returns on writes to missing /
- * tombstoned ids.
- *
- * `observeUpcoming(limit)` snapshots `clock.now()` once at
- * subscription time per the §5 spec ("'Now' is captured once at
- * subscription — re-emission is DB-driven, not wall-clock-driven").
- * Subsequent emissions filter against that frozen snapshot, so a
- * reminder whose `firesAt` slips into the past while the collector
- * is active still flows through.
- *
- * `cancel` sets both `isActive = false` AND `deletedAt = now`. The
- * Phase 03 SqlRemindersRepository follows the same shape: cancel
- * tombstones the row + flips the active flag in one write.
- */
 public class FakeRemindersRepository(
     private val ids: IdGenerator,
     private val clock: Clock,
@@ -51,12 +34,6 @@ public class FakeRemindersRepository(
 
     private val state = MutableStateFlow<List<Row>>(emptyList())
 
-    /**
-     * Controllable failure mode (Phase 04 §11). When non-null, [schedule]
-     * short-circuits with this [DataError] before persisting — lets
-     * `ScheduleReminder`'s tests drive the repository-persist-failure branch
-     * (the `mapError { it.toDomain("Reminder") }` lift) without a real DB.
-     */
     public var failScheduleWith: DataError? = null
 
     // ── reads ────────────────────────────────────────────────────────────
@@ -71,7 +48,6 @@ public class FakeRemindersRepository(
 
     override fun observeUpcoming(limit: Int): Flow<List<Reminder>> {
         require(limit > 0) { "limit must be > 0: $limit" }
-        // "Now" snapshot at subscription time (§5 spec). flow { } gives
         // each new collector its own setup block where we freeze `now`
         // before emitting the filtered state — re-subscribing yields a
         // fresh snapshot, which matches what the SQL impl will do via a

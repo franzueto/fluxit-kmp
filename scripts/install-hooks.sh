@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Install FluxIt's repo-tracked git hooks (Phase 01 §8.5).
 #
 # Run once per fresh clone:   scripts/install-hooks.sh
 # Hooks live in .githooks/ and are versioned with the repo. This script

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Auto-backup exclusions for API ≤ 30 (ADR-009b, plan/06 §10).
+  Auto-backup exclusions for API ≤ 30 (ADR-017).
 
   v1 is local-only with no sync (ADR-003): restoring lists/photos onto a new
   device from a cloud backup — with no server to reconcile against — would be
@@ -9,8 +9,8 @@
   sidecars, since write-ahead logging is enabled in DriverFactory) and the photo
   store. Everything else is allowed (there is no other user data today).
 
-  v2 reversal: once sync ships, drop these excludes so an iCloud/Drive restore
-  brings lists back. The iOS side is already backed up (default), per §10.
+  Revisit these exclusions if server-backed sync is introduced. The iOS side is
+  already included in the platform's default backup behavior.
 -->
 <full-backup-content>
     <exclude domain="database" path="fluxit.db" />

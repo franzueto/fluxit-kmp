@@ -11,18 +11,10 @@ import dev.franzueto.fluxit.shared.state.navigation.Tab
 import kotlinx.coroutines.CoroutineScope
 
 /**
- * App-level store backing the splash + tab host (`plan/05` §4, ADR-014).
- *
  * On [RootIntent.AppStarted] it runs the [InitializeApp] composite use case and
  * folds its [InitProgress] stream into [RootState.init]; a startup failure both
  * lands in state (so the splash can show a retry surface) **and** fires a
  * one-shot [RootEffect.ShowFatalError].
- *
- * Unlike per-screen stores (which are `@Factory`-scoped), `RootStore` is meant
- * to live the whole process (`@Single`) — but Koin wiring is Phase 06's job (no
- * DI graph is assembled yet; use cases aren't registered). For now it takes its
- * single use-case dependency by constructor, exactly like the domain use cases
- * (ADR-007b). See `plan/05` §8.
  */
 public class RootStore(
     scope: CoroutineScope,
@@ -37,11 +29,6 @@ public class RootStore(
         }
     }
 
-    /**
-     * Route a `fluxit://` deep link (reminder taps, plan/06 §5) to the matching
-     * detail screen. A malformed / unknown URL is logged and dropped — the user
-     * stays wherever they were rather than being yanked to an error surface.
-     */
     private suspend fun openDeepLink(url: String) {
         when (val link = DeepLink.parse(url)) {
             is DeepLink.List -> emit(RootEffect.NavigateToList(link.id))
@@ -71,8 +58,6 @@ public class RootStore(
     }
 }
 
-// ---- RootStore contract (§11: lives alongside its store). ----
-
 public data class RootState(
     val init: InitState = InitState.Initializing,
     val currentTab: Tab = Tab.Lists,
@@ -97,11 +82,6 @@ public sealed interface RootIntent {
         val tab: Tab,
     ) : RootIntent
 
-    /**
-     * A `fluxit://` deep link arrived (reminder tap; plan/06 §5). The shell
-     * hands the raw URL string straight through — parsing lives in
-     * [DeepLink.parse] so it stays platform-agnostic and unit-tested.
-     */
     public data class OpenDeepLink(
         val url: String,
     ) : RootIntent

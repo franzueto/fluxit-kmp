@@ -4,7 +4,6 @@ import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.verify.assertFalse
 import io.kotest.core.spec.style.FunSpec
 
-// FluxIt platform-layer architecture rule — Phase 06 §0 + Definition-of-Done.
 //
 // The OS-capability SDKs must stay encapsulated inside the :platform:* modules so
 // the rest of the app sees capabilities only through the :shared:domain ports.

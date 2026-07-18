@@ -11,7 +11,6 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 //   - Turbine + coroutines-test in commonTest
 //
 // The Konsist rule that forbids `feature-*` modules from depending on each
-// other lives in build-logic's own test sources (Phase 01 section 8) — it is a
 // graph-wide invariant, not a per-module configuration, so it is not declared
 // here. Modules still apply this plugin to opt into the prewired dependency
 // stack and Konsist will catch violations at build time.

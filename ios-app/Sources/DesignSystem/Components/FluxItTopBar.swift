@@ -99,7 +99,6 @@ public struct FluxItTopBarCentered: View {
 }
 
 // Shared backdrop for top + bottom bars. iOS gets native blur via
-// .ultraThinMaterial; §7 may layer additional treatment.
 struct FluxItBarBackground: View {
     var body: some View {
         Rectangle()

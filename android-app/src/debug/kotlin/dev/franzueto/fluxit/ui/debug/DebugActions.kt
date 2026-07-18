@@ -23,17 +23,6 @@ import dev.franzueto.fluxit.shared.state.debug.SeedSampleData
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-/**
- * Debug-build implementation of the debug-actions section (plan/07 §7/§12). This
- * file lives in `src/debug` only — its `src/release` twin renders nothing, so the
- * seed entry point (and its `SeedSampleData` reference) is stripped from release
- * builds via Gradle source-set selection, mirroring how the design system's Theme
- * Gallery lives in `androidDebug`.
- *
- * "Seed sample data" resolves [SeedSampleData] from Koin and runs it; the result
- * count / error is surfaced inline. "Clear all data" and "Force crash" (plan §12)
- * are deferred to Phase 16 — this stays a focused seed affordance for manual QA.
- */
 @Composable
 fun DebugActionsSection(modifier: Modifier) {
     val seed = koinInject<SeedSampleData>()

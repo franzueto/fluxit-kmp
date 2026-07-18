@@ -10,7 +10,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** Pure-logic coverage for the screen's formatters (plan/09 §15 — snapshot tests deferred to v2). */
 class CreateListFormattersTest {
     @Test
     fun name_error_is_hidden_until_validation_is_visible() {

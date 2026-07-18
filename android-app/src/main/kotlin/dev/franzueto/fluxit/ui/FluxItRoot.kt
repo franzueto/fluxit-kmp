@@ -58,11 +58,6 @@ import dev.franzueto.fluxit.ui.settings.SettingsScreen
 import org.koin.compose.koinInject
 
 /**
- * The Compose composition root (Phase 06 Slice 7; nav graph fleshed out in Phase
- * 07 Slice 4). Resolves the session-scoped [RootStore] from Koin, runs
- * `InitializeApp` once via [RootIntent.AppStarted], and gates the NavHost on the
- * resulting [InitState]:
- *
  * - [InitState.Initializing] → a splash spinner.
  * - [InitState.Failed] → a minimal retry surface (the polished splash/error UX is
  *   a later phase; this only needs the graph reachable).
@@ -108,18 +103,6 @@ private fun StartupError(
     }
 }
 
-/**
- * The app NavHost (plan/07 §1, §6). The start destination [ROUTE_DASHBOARD] is the
- * [TabHost] (tab bar + center FAB driven off [RootStore.currentTab]); the other
- * routes are pushed destinations (list detail, item detail, create-list, settings),
- * each backed by its feature-module Route composable.
- *
- * App-level deep links (reminder taps; plan/06 §5) arrive as
- * [RootEffect.NavigateToList] / [RootEffect.NavigateToItem] one-shots off the
- * [RootStore]; the [LaunchedEffect] below translates them into `navController`
- * pushes. Per-screen navigation (dashboard row taps, FAB → create) is wired in the
- * dashboard slice.
- */
 @Composable
 private fun FluxItNavHost(rootStore: RootStore) {
     val navController = rememberNavController()
@@ -129,7 +112,6 @@ private fun FluxItNavHost(rootStore: RootStore) {
             when (effect) {
                 is RootEffect.NavigateToList -> navController.navigate("list/${effect.id.value}")
                 // A bare item deep link can't build the nested list/{id}/item/{id}
-                // route without a parent-list lookup (a Phase 08 use case); land on
                 // a standalone item placeholder for now.
                 is RootEffect.NavigateToItem -> navController.navigate("item/${effect.id.value}")
                 RootEffect.NavigateToOnboarding -> Unit // v2 placeholder, no consumer in v1.
@@ -169,7 +151,6 @@ private fun FluxItNavHost(rootStore: RootStore) {
             CreateListRoute(
                 editingId = backStackEntry.arguments?.getString(ARG_EDITING_ID),
                 onDismiss = { navController.popBackStack() },
-                // §7: success pops the modal and pushes the new list's detail.
                 onCreated = { id ->
                     navController.navigate("list/${id.value}") {
                         popUpTo(ROUTE_CREATE_LIST) { inclusive = true }
@@ -187,12 +168,6 @@ private fun FluxItNavHost(rootStore: RootStore) {
     }
 }
 
-/**
- * The Edit-Item destinations (plan/10 §8): the nested `list/{listId}/item/{itemId}`
- * route and the bare `item/{itemId}` deep link, both backed by [ItemDetailRoute].
- * Extracted from [FluxItNavHost] to keep that builder under the detekt method-length
- * cap; both register the same Route, differing only in their argument set.
- */
 private fun NavGraphBuilder.itemDetailDestinations(navController: NavHostController) {
     composable(
         route = ROUTE_ITEM_DETAIL,
@@ -218,14 +193,6 @@ private fun NavGraphBuilder.itemDetailDestinations(navController: NavHostControl
     }
 }
 
-/**
- * The bottom-tab host (plan/07 §2). The four tabs render unconditionally to
- * preserve the design; the selected tab is owned by [RootStore.currentTab] and a
- * tap dispatches [RootIntent.TabSelected]. The body swaps on the current tab —
- * Lists is the live [DashboardRoute]; Calendar / Starred / Account show inline
- * placeholders until their slices land (config-gated "Coming soon" routing is a
- * Slice 6 concern). The center-docked FAB overlays the bottom bar.
- */
 @Composable
 private fun TabHost(
     rootStore: RootStore,
@@ -297,7 +264,6 @@ private const val ROUTE_LIST_DETAIL = "list/{$ARG_LIST_ID}"
 private const val ROUTE_ITEM_DETAIL = "list/{$ARG_LIST_ID}/item/{$ARG_ITEM_ID}"
 private const val ROUTE_ITEM_DEEP_LINK = "item/{$ARG_ITEM_ID}"
 
-// Optional editingId → the same modal serves create (absent) and edit (plan/09 §9).
 // Navigate with ROUTE_CREATE_LIST_BASE (create) or `create-list?editingId=<id>` (edit);
 // ROUTE_CREATE_LIST is the destination *pattern* only.
 private const val ROUTE_CREATE_LIST_BASE = "create-list"

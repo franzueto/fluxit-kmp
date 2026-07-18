@@ -12,12 +12,6 @@ public value class ItemId(
     }
 }
 
-/**
- * Photo id lives alongside item entities because Items reference Photos
- * via FK. The Photos repository slice (Phase 03 §5 (4/4)) will reuse this
- * type — declaring it here keeps Items independent of the Photos slice's
- * landing order.
- */
 @JvmInline
 public value class PhotoId(
     public val value: String,

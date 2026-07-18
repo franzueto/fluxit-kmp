@@ -4,8 +4,6 @@ import dev.franzueto.fluxit.shared.domain.port.AppLogger
 import kotlinx.coroutines.CoroutineScope
 
 /**
- * Minimal store backing the Account tab (Phase 07; `plan/05` §4, ADR-004).
- *
  * A v1 placeholder: it exists so the fourth tab routes somewhere real. It holds
  * the app [version][AccountState.version] (supplied by the host) plus a debug
  * [flags][AccountState.flags] map, and turns the two menu taps into navigation
@@ -29,8 +27,6 @@ public class AccountStore(
         }
     }
 }
-
-// ---- AccountStore contract (§11: lives alongside its store). ----
 
 public data class AccountState(
     val version: String = "",

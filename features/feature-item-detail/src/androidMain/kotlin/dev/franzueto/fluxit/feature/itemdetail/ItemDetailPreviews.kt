@@ -15,9 +15,6 @@ import dev.franzueto.fluxit.shared.state.store.NameValidation
 import dev.franzueto.fluxit.shared.state.store.PhotoStatus
 import kotlinx.datetime.Instant
 
-// The §14 snapshot matrix, rendered as previews instead (snapshot infra is
-// deferred to v2 — plan/10 §0 decision e).
-
 private val SAMPLE_ITEM =
     Item(
         id = ItemId("item-1"),

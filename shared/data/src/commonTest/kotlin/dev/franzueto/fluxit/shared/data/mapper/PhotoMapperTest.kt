@@ -13,7 +13,6 @@ class PhotoMapperTest {
     @Test
     fun photoRow_to_domain_round_trips_with_dimension_narrowing() {
         // SQLite stores INTEGER → Long; domain narrows to Int for px
-        // dimensions (no photo dimensions exceed 2^31 — see §12 row 4's
         // re-encode-to-2048-longest-side cap). byte_size stays Long
         // because file sizes routinely exceed Int range for v2.
         val row =

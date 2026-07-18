@@ -52,7 +52,6 @@ class SwiftEmitterTest : FunSpec({
         // displayLg: fontSize 32, weight 700 (.bold), lineHeight 1.2,
         // tracking = -0.02 × 32 = -0.64.
         src shouldContain "displayLg = TypographyStyle("
-        // Phase 02 §3: Inter is now bundled + registered via Info.plist UIAppFonts.
         src shouldContain "font: .custom(\"Inter\", size: 32).weight(.bold)"
         src shouldContain "lineHeight: 1.2"
         src shouldContain "tracking: -0.64"

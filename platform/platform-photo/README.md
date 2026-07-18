@@ -1,9 +1,9 @@
 # :platform:platform-photo
 
 Per-platform implementations of the `PhotoStorage`, `PhotoCapture`, and
-`PhotoEncoder` ports (plan/06 §6/§7). `photoModule()` (expect/actual) binds them.
+`PhotoEncoder` ports. `photoModule()` binds them through expect/actual factories.
 
-## The "I need an Activity / UIViewController" problem (§7 host-holder)
+## The native UI host problem
 
 `PhotoCapture` must present system UI (camera, picker) but the domain port can't
 carry a UI host. The pattern adopted here — reuse it for any future capability that
@@ -32,7 +32,7 @@ returns an absolute **file path** in v1 — a `content://` FileProvider URI for
 *storage* (sharing a photo to an external app) is deferred until sharing lands.
 The capture FileProvider above is a separate, narrower concern (camera temp file).
 
-## Backup asymmetry (§10)
+## Backup asymmetry
 
 Android photos are excluded from auto-backup in v1 (ADR-009b); iOS photos are left
 in the default iCloud backup so an iCloud restore brings them back.

@@ -1,18 +1,6 @@
 package dev.franzueto.fluxit.shared.domain.rule
 
 /**
- * Pure-Kotlin fractional-indexing math for `sort_order REAL` columns
- * (Phase 04 §8). The seed value, midpoint formula, and compaction
- * threshold codified here so use cases can compute new sort orders
- * without touching the data layer.
- *
- * The data layer's `SqlListsRepository.computeTarget` and
- * `SqlItemsRepository.computeTarget` duplicate this math inline today
- * (Phase 03 §5/§8); migrating those impls to consume this helper is a
- * mechanical follow-up that lands when a §7 use case (e.g.
- * `ReorderList` / `ReorderItem`) needs to compute the target in pure
- * code before calling the repo.
- *
  * Constants match `SqlListsRepository`'s companion verbatim — if these
  * ever diverge, the data layer's behavior is the source of truth and
  * this helper must be re-aligned (and the data layer migrated to

@@ -26,8 +26,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Phase 03 §10 row (e) — the Definition-of-Done exit-criteria scenario.
- *
  * End-to-end across all three writable repositories + persistence: create
  * a list, add three items, toggle one complete, schedule a recurring
  * reminder, close the DB, reopen, observe each state matches what was

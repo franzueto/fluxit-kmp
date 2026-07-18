@@ -21,7 +21,7 @@ class OutcomeCombinatorsTest {
 
     @Test
     fun map_error_lifts_data_error_to_domain_error_via_to_domain() {
-        // The headline call-site pattern Slice 6 enables.
+        // A representative call-site pattern for lifting data errors.
         val repoResult: Outcome<String, DataError> = Outcome.Err(DataError.NotFound(id = "x"))
         val useCaseResult: Outcome<String, DomainError> =
             repoResult.mapError { it.toDomain(entity = "List") }

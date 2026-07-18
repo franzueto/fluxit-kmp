@@ -10,12 +10,6 @@ import dev.franzueto.fluxit.shared.domain.repository.FakeItemsRepository
 import dev.franzueto.fluxit.shared.domain.repository.FakeListsRepository
 import kotlinx.datetime.Instant
 
-/**
- * Shared fixtures for the Items CRUD use-case tests (Phase 04 §7 / Slice 12).
- * Each fake gets its own sequential-id generator (distinct prefixes so a
- * `ListId` and an `ItemId` can never collide in an assertion) + a fixed
- * clock, mirroring the §11 fake-test setup.
- */
 internal fun seqIds(prefix: String): IdGenerator {
     var n = 0
     return IdGenerator {

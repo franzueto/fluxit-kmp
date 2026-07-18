@@ -1,11 +1,6 @@
 package dev.franzueto.fluxit.shared.domain.error
 
 /**
- * Closed taxonomy of failures the data layer can surface to use cases
- * (Phase 03 §5). Every repository `suspend` write returns
- * [Outcome]`<T, DataError>`; readers (Flows) never emit errors — DB-level
- * failures propagate as cancellation exceptions, which is intentional.
- *
  * Variants are deliberately coarse: presentation concerns (e.g. "name too
  * long" vs. "name empty") live in the state layer's validators. The data
  * layer only knows that a constraint was violated and which field.

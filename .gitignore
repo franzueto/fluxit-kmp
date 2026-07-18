@@ -55,8 +55,3 @@ GoogleService-Info.plist
 fastlane/.env*
 fastlane/report.xml
 fastlane/Preview.html
-
-# Session-local files (intentionally not tracked)
-restart-prompt.md
-Architect-Prompt.md
-FluxIt_Architect_Prompt.md

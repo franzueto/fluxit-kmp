@@ -15,12 +15,6 @@ import platform.Foundation.dataWithContentsOfFile
 import platform.Foundation.writeToFile
 
 /**
- * `FileManager`-backed [PhotoStorage] rooted at `applicationSupport/photos`
- * (plan/06 §6). Unlike Android (ADR-009b), iOS photos are **left in the default
- * iCloud backup** — an iCloud restore brings the user's pictures back, the only
- * "sync" v1 effectively offers (plan/06 §10). Paths are sandbox-relative
- * (`photos/<uuid>.<ext>`); [resolveAbsolute] returns the absolute file path.
- *
  * Built (not run) by the iOS-Sim gate; round-trip behaviour is verified by the
  * Robolectric Android twin + manual device QA.
  */

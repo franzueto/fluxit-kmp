@@ -1,9 +1,9 @@
 # `:shared:state` — MVI stores
 
-Shared, Flow-based **MVI** stores — one per feature — composing the Phase 04 use
-cases for the UI. Exposed to Compose (Android) as `StateFlow` and to SwiftUI (iOS)
-as native `AsyncSequence`/`@Observable` via SKIE. See `plan/05_STATE_MANAGEMENT.md`
-and **ADR-014** in `plan/00_DECISIONS.md`.
+Shared, Flow-based **MVI** stores compose domain use cases for the native UI.
+Compose observes them as `StateFlow`; SwiftUI consumes native
+`AsyncSequence`/`@Observable` surfaces through SKIE. See ADR-014 in
+[`docs/DECISIONS.md`](../../docs/DECISIONS.md).
 
 ## The contract
 
@@ -23,11 +23,11 @@ and drive state via `update { … }` / effects via `emit(…)`. The public surfa
 `final` — a store adds nothing public beyond the three contract members
 (enforced by `StateLayerArchTest`).
 
-**Navigation is an effect, never observed state** (§14): `emit(NavigateTo…)` is
+**Navigation is an effect, never observed state:** `emit(NavigateTo…)` is
 one-shot, so it can't re-fire on rotation / scene reuse the way replayed state
 would.
 
-## The optimistic-then-reconcile pattern (§5)
+## The optimistic-then-reconcile pattern
 
 Write-on-tap UX flips state immediately, then reconciles with the use-case result:
 
@@ -43,7 +43,7 @@ optimistic(
 - `apply`/`revert` are functions of the **current** state (applied via `update`),
   not a snapshot taken before the op — reverts stay correct even if other intents
   landed in between.
-- `onError` has **no default** (unlike the §5 sketch): `BaseStore` is generic over
+- `onError` has **no default**: `BaseStore` is generic over
   `E` and can't name a concrete `Effect.ShowError`, so each store passes its own
   mapping, typically `{ emit(Effect.ShowError(it.userMessage)) }`.
 - On success the helper returns `Outcome.Ok`; the store does any follow-up
@@ -52,7 +52,7 @@ optimistic(
 Pessimistic ("show spinner, await result") is the opt-in exception for irreversible
 operations (e.g. `CreateList` navigating on success).
 
-## The undo window (§6)
+## The undo window
 
 `DeleteListClicked` → optimistic remove → on success: set
 `pendingDelete(id, expiresAt = now + 5s)`, `emit(ShowUndoSnackbar)`, and launch a
@@ -69,7 +69,7 @@ timer in the store scope that self-dispatches `UndoWindowExpired(id)` after 5s.
 > in `ListsDashboardStore` tied to that data-layer deferral. `DeleteList` already
 > returns the `cancelledReminderIds` so a future restore can reschedule them.
 
-## Search debouncing (§7)
+## Search debouncing
 
 An internal `MutableStateFlow<String>` is updated synchronously on each keystroke
 (so the text field stays responsive), then

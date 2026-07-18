@@ -38,20 +38,6 @@ import org.koin.core.parameter.parametersOf
 private const val PRIVACY_POLICY_URL = "https://fluxit.example/privacy"
 private const val TERMS_URL = "https://fluxit.example/terms"
 
-/**
- * The Settings stub (plan/07 §12). A real destination behind the dashboard /
- * account gear, deliberately minimal — full Diagnostics + crash-reporting wiring
- * is Phase 16. Sections:
- *
- * - **About**: app version (from [AccountStore], interim literal until Phase 16
- *   routes it through config).
- * - **Privacy**: an "Anonymous crash reports" toggle. v1 is a no-op local
- *   toggle (the `platform-config`/Crashlytics binding lands in Phase 16); the
- *   "Takes effect on next launch" note matches the §12 copy. Privacy Policy / ToS
- *   rows open placeholder URLs in the system browser via [onOpenUrl].
- * - **Debug actions** (debug builds only): the [DebugActionsSection] seed button,
- *   stripped from release via source-set selection.
- */
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,

@@ -1,8 +1,7 @@
 # core-designsystem
 
-FluxIt's design system. Owns the design tokens (color, type, shape, spacing,
-elevation) and — starting in Phase 02 §5 — the reusable Compose + SwiftUI
-primitives that every feature module consumes.
+FluxIt's design system owns the design tokens (color, type, shape, spacing, and
+elevation), generated icons, and reusable Compose and SwiftUI primitives.
 
 ## Design tokens (ADR-005)
 
@@ -16,7 +15,7 @@ JSON format.
 1. **Edit `tokens/tokens.json`.** Add or change a token using the existing
    shape. The file groups everything under top-level theme keys (`light` /
    `dark`) with shared `font`, `shape`, and `spacing` at the root. v1 ships
-   dark-only — keep `light` empty until ADR-005b ratifies a light theme.
+   dark-only — keep `light` empty until a light theme is designed and validated.
 2. **Regenerate.** Either run the generator directly or trigger a build
    that depends on it:
 
@@ -61,11 +60,11 @@ JSON format.
 generator and asserts every expected output file is present and
 non-trivial. Run automatically as part of CI's check pipeline.
 
-### Limits of the generator (intentional v1 scope)
+### Generator limits
 
 - DTCG token types supported: `color`, `dimension`, `fontFamily`,
   `typography`, `shadow`. No support for `border`, `gradient`,
-  `transition`, or `strokeStyle` until a feature phase needs them.
+  `transition`, or `strokeStyle`.
 - Aliasing is limited to `fontFamily` references inside typography
   composites (`"fontFamily": "{font.family.inter}"`). Other token types
   must use literal values.
@@ -73,8 +72,5 @@ non-trivial. Run automatically as part of CI's check pipeline.
   resolved value.
 - `$extensions` blocks are silently ignored.
 
-### Pending sub-decisions
-
-- **ADR-005a** — iconography source (vectorized in-repo SVG set vs.
-  Material Symbols Variable font). Resolved in Phase 02 §4.
-- **ADR-005b** — dark-mode-only for v1. Resolved in Phase 02 §6.
+Icon generation and the dark-only policy are documented in ADR-005a and
+ADR-005b in [`docs/DECISIONS.md`](../../docs/DECISIONS.md).

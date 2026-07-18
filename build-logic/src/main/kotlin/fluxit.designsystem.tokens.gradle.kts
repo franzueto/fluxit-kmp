@@ -33,7 +33,6 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 //   - The Swift emissions are invoked from scripts/build-ios.sh (one extra
 //     `./gradlew :core:core-designsystem:generateTokens generateIcons` line
 //     before xcodegen). Adding an Xcode "Run Script" phase is deferred to
-//     Phase 15 (CI/CD).
 
 private val tokensJson = layout.projectDirectory.file("tokens/tokens.json")
 private val composeDir = layout.buildDirectory.dir("generated/source/tokens/androidMain")

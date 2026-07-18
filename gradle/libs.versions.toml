@@ -2,10 +2,8 @@
 #
 # Update policy:
 #   - Bumps in this file go through PR review; CI runs `dependencyUpdates`
-#     weekly (Phase 15) and posts a report.
 #   - Keep groups in this file in sync with the [bundles] section below.
 #   - Kotlin, AGP, Compose Compiler plugin, and SKIE must be bumped together;
-#     each release of one constrains the others (see plan/01_INITIAL_SETUP.md
 #     section 3 and ADR-001).
 
 [versions]
@@ -24,7 +22,6 @@ compose-bom = "2026.06.00"
 androidx-activity = "1.13.0"
 androidx-navigation = "2.9.8"
 
-# --- AndroidX platform capabilities (Phase 06) ---
 androidx-work = "2.11.2"        # WorkManager — best-effort reminder scheduling (ADR-009a)
 androidx-core = "1.19.0"        # NotificationCompat + notification channel APIs
 robolectric = "4.16.1"           # JVM-host Android unit tests (WorkManager scheduling assertions)
@@ -63,7 +60,7 @@ androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "androidx-activity" }
-androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "androidx-activity" }  # ActivityResultRegistry + contracts for platform-photo capture (§7)
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "androidx-activity" }  # ActivityResultRegistry + photo-capture contracts
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "androidx-navigation" }
 
 # --- Koin ---
@@ -88,7 +85,6 @@ kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinx-datetime" }
 
-# --- AndroidX platform capabilities (Phase 06) ---
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "androidx-work" }
 androidx-work-testing = { group = "androidx.work", name = "work-testing", version.ref = "androidx-work" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidx-core" }

@@ -68,8 +68,6 @@ import dev.franzueto.fluxit.core.designsystem.tokens.FluxItSpacing
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItTypography
 
 // Debug-only theme gallery. Lives in the androidDebug source set so release
-// builds don't pull this surface in. See plan/02_DESIGN_SYSTEM.md §9.
-// Snapshot test (one golden per platform) is deferred to Phase 14.
 
 @Composable
 @Suppress("ktlint:standard:function-naming")

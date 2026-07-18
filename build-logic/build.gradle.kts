@@ -19,7 +19,6 @@ dependencies {
     implementation(libs.build.detekt.gradle.plugin)
     implementation(libs.build.spotless.gradle.plugin)
     implementation(libs.build.ktlint.gradle.plugin)
-    // Kover (Phase 04 §13 coverage gate). Loaded on the build-logic classpath
     // — the same classloader that carries the Kotlin Multiplatform plugin — so
     // the Kover plugin and the Kotlin Native toolchain register the
     // `kotlin.native.bundle.type` Gradle attribute exactly once. Applying Kover

@@ -11,18 +11,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
 /**
- * Scopes the [ListDetailStore] to the screen (plan/08 §5, Phase 05 §8) and owns the
- * process-death persistence edge. Like `DashboardViewModel`, it runs the store in
- * [viewModelScope] so the feed subscription + undo timer are cancelled when the
- * screen leaves the back stack.
- *
- * **Process-death restoration (§5).** The composer text and show/hide-completed
- * flag are mirrored into [SavedStateHandle] (keys `composer:{listId}` /
- * `showCompleted:{listId}`). On (re)creation the saved values are replayed into the
- * store as intents — the shipped [ListDetailStore] exposes no `initialState`
- * constructor param (a §5 sketch that never landed), so replaying intents is the
- * restoration path. The pending-delete window is intentionally *not* persisted (§5).
- *
  * [storeFactory] mints the store with [viewModelScope]; [ListDetailRoute] wires it
  * to Koin (`koin.get { parametersOf(scope) }`).
  */
@@ -39,7 +27,6 @@ internal class ListDetailViewModel(
     init {
         store.dispatch(ListDetailIntent.Init(listId))
 
-        // Restore typed-but-unsubmitted text + the show/hide preference (§5).
         savedState.get<String>(composerKey)?.takeIf { it.isNotEmpty() }?.let {
             store.dispatch(ListDetailIntent.ComposerTextChanged(it))
         }

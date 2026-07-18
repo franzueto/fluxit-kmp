@@ -1,12 +1,5 @@
 package dev.franzueto.fluxit.shared.domain.rule
 
-/**
- * Pure rule helper for the "completed / total" rollup that backs the
- * dashboard progress bar and the list-detail `13/20` counter (Phase 04
- * §8). Centralised so Phase 08's UI doesn't reinvent the formula
- * (and doesn't accidentally diverge on the "what does 0/0 look like?"
- * edge case across two surfaces).
- */
 public object CompletionCalculator {
     /**
      * Fraction in `[0f, 1f]`. Empty lists return `0f` (no items

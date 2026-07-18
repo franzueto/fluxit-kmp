@@ -1,7 +1,6 @@
 import Shared
 import SwiftUI
 
-/// The Lists Dashboard (plan/07 §3/§5), wired to `ListsDashboardStore`. Mirrors
 /// the Android `DashboardScreen`: the host owns the scaffold chrome (tab bar +
 /// FAB), this view contributes the sticky "My Lists" header, the search field,
 /// and the `LoadState`-driven list — all from `core-designsystem` primitives.
@@ -20,7 +19,6 @@ struct ListsDashboardView: View {
     @State private var undo: UndoSnackbarState?
     @State private var error: String?
     // Captured once per appearance so relative-time subtitles don't drift while
-    // scrolling (§9). No live ticking in v1.
     @State private var now = Date()
 
     var body: some View {
@@ -217,7 +215,6 @@ private struct ErrorSnackbar: View {
     }
 }
 
-/// Loading placeholder (plan/07 §3): three muted rows standing in for content
 /// while the first feed emission is in flight. Mirrors the Android skeleton —
 /// no DS shimmer primitive yet, so it reuses the dashboard row with neutral
 /// content.
@@ -240,7 +237,6 @@ private struct SkeletonList: View {
 
 // MARK: - Row subtitle + identity mapping
 
-/// Row subtitle per plan/07 §3 (resolved priority §12): empty list → "No items
 /// yet"; otherwise "{n} items · {metadata}" where metadata is a completion
 /// percent when partially done, else a relative "Last updated …". Mirrors the
 /// Android `subtitleFor`. (`ListSummary` carries no explicit subtitle field, so

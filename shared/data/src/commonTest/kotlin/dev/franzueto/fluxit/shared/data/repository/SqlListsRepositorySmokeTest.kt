@@ -21,7 +21,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-// Phase 03 §5 smoke test for SqlListsRepository. Not the full §10 test
 // pyramid — proves the wiring (Flow round-trips, mutations, soft delete,
 // fractional reorder) holds end-to-end on the in-memory driver before the
 // other three repositories build on this same shape.
@@ -189,7 +188,6 @@ class SqlListsRepositorySmokeTest {
             val c = (r.create(draft.copy(name = "C")) as Outcome.Ok).value
             // Repeatedly reorder b between a and c so the midpoint gap
             // halves each time. After enough iterations it must trigger
-            // the §8 rebalance path — the assertion just confirms order
             // is preserved (rebalance is correct when it does fire).
             repeat(100) {
                 r.reorder(b, previous = a, next = c)

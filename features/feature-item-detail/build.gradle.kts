@@ -15,9 +15,7 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             // The edit-item screen is wired to the shared MVI store and built from
-            // design-system primitives only (plan/10 §11). It must NOT reach into
             // :shared:data — only domain models surfaced via the store, and the
-            // photo capture/permission flows go through the Phase 06 ports the store
             // already orchestrates (no androidx.activity.result.* here).
             implementation(project(":shared:state"))
             implementation(project(":shared:domain"))

@@ -8,11 +8,6 @@ import dev.franzueto.fluxit.shared.domain.port.IdGenerator
 import dev.franzueto.fluxit.shared.domain.repository.FakeListsRepository
 import kotlinx.datetime.Instant
 
-/**
- * Shared fixtures for the Lists CRUD use-case tests (Phase 04 §7 / Slice 11A).
- * Mirrors the sequential-id + fixed-clock setup the §11 fake tests use, so
- * minted ids are deterministic and assertions can name them exactly.
- */
 internal fun seqIds(): IdGenerator {
     var n = 0
     return IdGenerator {

@@ -1,4 +1,3 @@
-# FluxIt detekt config — Phase 01 §8.2.
 #
 # fluxit.quality applies detekt with `buildUponDefaultConfig = true`, so this
 # file is an OVERRIDE LAYER on top of detekt's bundled defaults. Anything not
@@ -14,7 +13,6 @@
 #   - style        overlaps ktlint / Spotless; redundant double-enforcement.
 #   - comments     too noisy at this stage; we don't enforce KDoc yet.
 #   - performance  fires on shared-stdlib patterns SKIE / kotlinx already
-#                  flag elsewhere; revisit in Phase 14 once benchmarks land.
 
 build:
   maxIssues: 0

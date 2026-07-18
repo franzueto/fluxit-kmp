@@ -41,13 +41,6 @@ import dev.franzueto.fluxit.shared.state.store.PhotoStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * §1 Item Photo section: a header with an "Update" affordance plus the photo card
- * whose body follows [PhotoStatus] — loaded image (16:9, cropped), empty
- * tap-to-add state, a busy spinner while capturing, or an error with retry. The
- * card itself is tappable (§13 divergence — more discoverable on touch). The
- * source action sheet is state-driven ([ItemDetailState.showPhotoSourceSheet]).
- */
 @Composable
 internal fun PhotoSection(
     state: ItemDetailState,
@@ -137,7 +130,6 @@ private fun ErrorPhoto() {
     }
 }
 
-/** §1/§15 source action sheet — shown while [ItemDetailState.showPhotoSourceSheet]. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PhotoSourceSheet(
@@ -155,7 +147,6 @@ internal fun PhotoSourceSheet(
         ) {
             SheetAction(label = "Take Photo") { onIntent(ItemDetailIntent.PhotoSourceSelected(PhotoPickSource.Camera)) }
             SheetAction(label = "Choose from Library") { onIntent(ItemDetailIntent.PhotoSourceSelected(PhotoPickSource.Library)) }
-            // §15: "Remove Photo" appears only when a photo is attached.
             if (state.photoStatus is PhotoStatus.Loaded) {
                 SheetAction(label = "Remove Photo") { onIntent(ItemDetailIntent.RemovePhotoClicked) }
             }

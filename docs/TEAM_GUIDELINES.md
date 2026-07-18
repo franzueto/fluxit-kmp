@@ -1,116 +1,84 @@
-# FluxIt — Team Guidelines
+# FluxIt team guidelines
 
-> **Placeholder.** Filled in alongside Phase 10 (CI workflows) and Phase 15
-> (CI/CD), once branch protection and the PR template are in place. Until
-> then, treat the conventions below as in-effect-from-day-one defaults.
+These are lightweight working agreements for keeping the repository reviewable.
+They can evolve with the team; they are not a release roadmap.
 
-**Status:** placeholder · last touched 2026-05-15 (Phase 01 §9).
+## Branches
 
----
+- Create a short-lived branch for each focused change.
+- Use a descriptive `<type>/<slug>` name such as `feat/reminder-editor`,
+  `fix/photo-cleanup`, or `docs/architecture-refresh`.
+- Keep the branch current with `main` and remove it after merge.
+- Do not push directly to protected `main`.
 
-## In effect today (interim defaults)
+## Commits
 
-### Commit messages — Conventional Commits
+Use Conventional Commits:
 
-Format: `type(scope): subject`.
-
-- **Type:** `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `ci`, `chore`, `style`, `perf`.
-- **Scope:** module path or area (e.g. `android-app`, `quality`, `arch`,
-  `adr`, `plan`). Use lowercase. For an ADR commit, scope is `adr`; for a
-  plan-file edit, scope is `plan`.
-- **Subject:** imperative, lowercase, ≤ 72 chars, no trailing period.
-- **Body** (optional, separated by a blank line): the *why* — link to the
-  phase checkbox or ADR. Wrap at 72 chars.
-- **Granularity:** one logical change per commit. Don't batch unrelated
-  work; don't queue tech debt.
-
-Examples from the current history:
-
-```
-docs(adr): accept ADR-013 locking Android minSdk=26 + iOS 16
-build(quality): wire Spotless for Kotlin/KTS via ktlint, Markdown at root
-test(arch): enforce domain/feature/coroutine rules via Konsist
-feat(android-app): scaffold Compose shell with Koin init
+```text
+type(scope): imperative subject
 ```
 
-### Branching
+Common types are `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `ci`,
+`chore`, `style`, and `perf`. Use a module or capability as the scope when it adds
+clarity. Keep the subject concise and explain the reason or tradeoff in the body
+when it is not obvious from the diff.
 
-- **One long-lived feature branch per phase**, named
-  `phase/<NN>-<slug>` (e.g. `phase/02-design-system`,
-  `phase/03-data-layer`). Opened at phase start, kept current with
-  `main` via merge or rebase, merged in a single PR at the phase's
-  hand-off gate. Default model until superseded by anticipated
-  ADR-011 (Phase 15).
-- **Rationale:** GitHub Actions minutes are a constrained resource on
-  the current plan. Batching a whole phase into one PR keeps CI to
-  one ramp-up run + a final review run per phase, instead of one run
-  per logical commit. Commits stay granular on the branch (still
-  Conventional Commits per logical change); only the *merge cadence*
-  changes.
-- **Exceptions** (get their own short-lived branch + PR): Dependabot
-  bumps, security hotfixes, urgent production fixes, repo-level
-  chores that block all phases (e.g. CI workflow repair). These
-  branches are named `<type>/<slug>` as before
-  (e.g. `fix/ci-macos-runner`, `chore/p01-handoff`).
-- No long-running release branches in v1 (single trunk → store).
+Keep commits logically focused. Generated build outputs should not be committed;
+commit their token, icon, schema, or project-definition sources instead.
 
-### Pull requests
+## Pull requests
 
-- **One PR per phase** (the merge of its `phase/<NN>-<slug>` branch),
-  except for the exception classes listed under Branching. PRs
-  routinely run >400 lines because they bundle a whole phase — review
-  is structured around the phase's checklist in `plan/NN_*.md`, not
-  the raw diff.
-- PR template (added in Phase 01 §10) covers: Summary, Linked
-  phase/ADR, Screenshots (mobile), Test plan, Risk.
-- Required gates per PR: `spotlessCheck`, `ktlintCheck`, `detekt`,
-  `:build-logic:test --rerun-tasks` (Konsist), `assembleDebug`,
-  `scripts/build-ios.sh`. A red gate blocks merge.
-- Direct pushes to `main` are off once branch protection is enforced
-  in GitHub (currently documented but not yet active — see
-  [`../README.md`](../README.md) "Branch protection on `main`").
+A pull request should give a reviewer enough context to validate the change
+without reconstructing the author's thought process.
 
-### Code review
+- Explain what changed and why.
+- Link the relevant issue or ADR when one exists.
+- Include Android and iOS screenshots for visible UI changes.
+- List the commands and manual scenarios actually verified.
+- Call out migrations, compatibility concerns, or rollback constraints.
+- Keep unrelated cleanup out of a behavior change.
 
-- **SLA target:** first response within one working day for a PR ≤ 400
-  lines; same-day for ≤ 100 lines or a hotfix.
-- **Author responsibility:** PR description must let the reviewer
-  reproduce the change without reading the diff cold. Always link the
-  phase checkbox or ADR being satisfied.
-- **Reviewer responsibility:** explicitly approve, request changes, or
-  comment-only. Don't leave a PR in limbo.
+## Review checklist
 
-### Pre-commit hook
+- The change respects the dependency direction in `docs/ARCHITECTURE.md`.
+- Shared behavior is tested below the native UI where practical.
+- Android and iOS still interpret shared state and effects consistently.
+- New visual values come from the design system.
+- Database changes include the required schema snapshot and migration coverage.
+- Errors, loading states, accessibility labels, and destructive actions are
+  handled deliberately.
+- Comments explain non-obvious constraints or tradeoffs rather than narrating the
+  implementation history.
 
-`scripts/install-hooks.sh` wires `.githooks/pre-commit` (opt-in). The
-hook runs `spotlessApply` + `ktlintFormat` on staged Kotlin / KTS /
-Markdown files and re-stages them. It does **not** run Konsist (slow,
-and a Konsist break is caught in CI via `--rerun-tasks`).
+## Verification
 
----
+Run checks proportional to the change. The broad local suite is:
 
-## TODO (target: Phase 15)
+```bash
+./gradlew check
+./gradlew :build-logic:test --rerun-tasks
+scripts/test-ios.sh
+```
 
-- [ ] **Code review checklist.** Concrete bullet list to paste into a PR
-      review (architecture / tests / accessibility / perf).
-- [ ] **Definition of Done per change type.** What "done" means for a
-      feature PR vs. a bug-fix PR vs. a refactor PR.
-- [ ] **Hotfix process.** Branching, fast-track review, release-tag
-      workflow when the trunk is mid-feature.
-- [ ] **Release cadence.** Internal-track cadence; criteria to promote
-      from internal → closed → open testing.
-- [ ] **On-call / escalation.** Who pages whom when a Crashlytics spike
-      crosses a threshold.
-- [ ] **Coding style notes** beyond ktlint/detekt: naming for use cases,
-      stores, intents/effects; file-per-class vs. grouped exceptions.
-- [ ] **AI-assisted dev.** Conventions for Claude/agent commits
-      (Co-Authored-By trailer; what to disclose in PR body).
+For Android-only iteration, prefer the narrowest affected module checks before a
+final application build. For shared API or state changes, verify both the JVM and
+iOS consumers.
 
----
+## Pre-commit hook
 
-## Cross-references
+`scripts/install-hooks.sh` installs the optional repository hook. It formats
+staged Kotlin, Kotlin DSL, and Markdown and re-stages those files. Architecture
+tests remain an explicit local or CI check because they scan the repository and
+must be forced to rerun.
 
-- Architecture: [`docs/ARCHITECTURE.md`](ARCHITECTURE.md).
-- ADRs: [`docs/DECISIONS.md`](DECISIONS.md) → [`/plan/00_DECISIONS.md`](../plan/00_DECISIONS.md).
-- Active phase: [`/plan/01_INITIAL_SETUP.md`](../plan/01_INITIAL_SETUP.md).
-- Roadmap: [`MASTER_PLAN.md`](../MASTER_PLAN.md).
+## Documentation
+
+- `README.md` explains the product, current scope, setup, and repository map.
+- `docs/ARCHITECTURE.md` describes the current module graph and boundaries.
+- `docs/DECISIONS.md` records durable product and architecture rationale.
+- `DESIGN.md` and `core/core-designsystem` define the visual system.
+
+Update documentation when the current behavior or architecture changes. Do not
+keep implementation diaries or speculative delivery checklists in the product
+repository.

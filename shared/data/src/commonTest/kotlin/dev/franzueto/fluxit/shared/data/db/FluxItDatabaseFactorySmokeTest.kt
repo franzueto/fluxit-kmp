@@ -11,11 +11,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-// Smoke test for Phase 03 §3 (adapters) + §4 (FluxItDatabase factory).
 //
 // Inserts one row in each of the four tables, reads it back, and asserts the
 // adapter round-trips preserve type identity end-to-end. Not a replacement
-// for §10's per-query test suite — just proves the wiring works before §5
 // builds repositories on top of it.
 class FluxItDatabaseFactorySmokeTest {
     private val now = Instant.fromEpochMilliseconds(1_700_000_000_000L)

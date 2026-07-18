@@ -8,11 +8,6 @@ import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/**
- * Unit tests for the pure completion-header formatter in [ListDetailComponents]
- * (`completionFraction`). Covers the empty (divide-by-zero guard), partial, and
- * fully-complete cases that drive the §1 progress bar (plan/08 §11).
- */
 class CompletionFractionTest {
     private val epoch = Instant.fromEpochSeconds(0)
 

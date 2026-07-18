@@ -4,13 +4,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * The single shared MVI abstraction (ADR-014, `plan/05_STATE_MANAGEMENT.md` §2).
- * Intentionally minimal — no MVIKotlin/Orbit dependency for v1.
- *
- * The public surface is exactly three members so platform hosts (Compose,
- * SwiftUI-via-SKIE) have nothing else to reach for, and a Konsist rule (§11) can
- * enforce that no store leaks mutable state:
- *
  *  - [state]   — the current screen state, always sufficient to render the UI
  *                without consuming an effect. Hot, conflated [StateFlow].
  *  - [effects] — one-shot side effects (navigation, toasts, permission prompts).

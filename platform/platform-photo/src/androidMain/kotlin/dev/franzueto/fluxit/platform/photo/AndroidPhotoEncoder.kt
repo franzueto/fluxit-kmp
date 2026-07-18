@@ -7,12 +7,6 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import kotlin.math.max
 
-/**
- * BitmapFactory-backed [PhotoEncoder] (plan/06 §6). Decodes with an `inSampleSize`
- * that gets the bitmap close to [maxDim] without loading the full-resolution image
- * (memory-safe for large captures), then scales exactly to the bound and re-encodes
- * as JPEG. Runs on `Dispatchers.IO`.
- */
 public class AndroidPhotoEncoder : PhotoEncoder {
     override suspend fun reencode(
         bytes: ByteArray,

@@ -1,13 +1,11 @@
 -- dev/franzueto/fluxit/shared/data/db/Items.sq
 
--- Items.sq — Phase 03 §2 Items table.
 --
 -- FK notes:
 --   list_id  REFERENCES list(id) ON DELETE CASCADE — engine-level cascade is
 --            dead code in v1 (ADR-006b: lists are forever-tombstoned; we never
 --            hard-delete a list). Kept for safety + v2-sync compaction.
 --   photo_id REFERENCES photo(id) ON DELETE SET NULL — fires when the photo
---            janitor (§7) hard-deletes an orphan; engine-level safety net so
 --            no item ever points at a deleted photo row.
 
 import kotlin.Boolean;
@@ -32,13 +30,11 @@ CREATE INDEX item_list_idx ON item (list_id, is_completed, sort_order) WHERE del
 CREATE INDEX item_photo_idx ON item (photo_id);
 
 -- Single result set ordered (is_completed ASC, sort_order ASC) so the UI
--- mapper (Phase 04) can partition into TO BUY / COMPLETED sections without
 -- a second query. Spec's "returns two logical groups" refers to the
 -- mapper's output shape, not the SQL.
 
 -- dev/franzueto/fluxit/shared/data/db/Lists.sq
 
--- Lists.sq — Phase 03 §2 Lists table.
 --
 -- Column conventions (uniform across all FluxIt tables; see ADR-006b):
 --   id          TEXT NOT NULL PRIMARY KEY — UUID v4 lowercase (ADR-006a).
@@ -46,8 +42,6 @@ CREATE INDEX item_photo_idx ON item (photo_id);
 --   color       TEXT NOT NULL             — ColorToken enum name (ADR-006c).
 --   sort_order  REAL NOT NULL             — fractional indexing; lower = higher on screen.
 --                                           Newest list at top: new row gets currentMin - 1.0
---                                           (resolved §12 row 5).
---   *_at        INTEGER (epoch ms UTC)    — adapter converts to kotlinx.datetime.Instant in §3.
 --   deleted_at  INTEGER (nullable)        — soft-delete tombstone (ADR-006b); every read
 --                                           query filters WHERE deleted_at IS NULL.
 
@@ -73,18 +67,14 @@ CREATE INDEX list_starred_idx ON list (is_starred) WHERE deleted_at IS NULL;
 
 -- dev/franzueto/fluxit/shared/data/db/Photos.sq
 
--- Photos.sq — Phase 03 §2 Photos table.
 --
 -- Photos have an asymmetric lifecycle vs. lists / items / reminders
 -- (ADR-006b): soft-delete → 24h grace → hard-delete by the photo janitor
--- (§7, scheduled by Phase 04's PhotoJanitor use case). Soft-delete does
 -- NOT cascade from item.softDelete — a photo may be referenced by items
 -- in other live lists; the janitor is the only place that checks live
 -- references and reaps.
 --
 -- No updated_at column: photos are immutable once ingested. The
--- platform-photo layer (Phase 06) re-encodes captures to JPEG q=0.85
--- max-dim 2048 (resolved §12 row 4) before write; the data layer just
 -- records the resulting file's metadata.
 --
 -- relative_path is relative to the app sandbox photo root, never an
@@ -108,7 +98,6 @@ CREATE INDEX photo_orphan_idx ON photo (deleted_at);
 
 -- dev/franzueto/fluxit/shared/data/db/Reminders.sq
 
--- Reminders.sq — Phase 03 §2 Reminders table.
 --
 -- Owner FK is polymorphic (owner_type discriminates between LIST and ITEM
 -- targets). SQLite can't express a discriminated FK; reminder.owner_id has
@@ -120,13 +109,9 @@ CREATE INDEX photo_orphan_idx ON photo (deleted_at);
 -- cascades to ITEM-owned reminders).
 --
 -- owner_type is stored as 'LIST' | 'ITEM' (uppercase, matching the enum
--- name); §3's OwnerTypeAdapter wraps it as a typed enum.
 --
 -- recurrence is nullable TEXT containing the RecurrenceRule sealed-class
--- JSON (resolved §12 row 1: full v1 set — None / Daily / Weekly / Monthly).
--- §3's RecurrenceRuleAdapter handles the JSON round-trip.
 --
--- platform_handle is nullable until the platform layer (Phase 06) actually
 -- schedules the notification with WorkManager / UNUserNotificationCenter
 -- and writes back the request id via setPlatformHandle.
 

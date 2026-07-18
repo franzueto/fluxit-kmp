@@ -177,7 +177,6 @@ internal object SvgPathParser {
             i = parseOneCommand(active, tokens, i, commands, name)
 
             // After an M/m the implicit-continuation command is L/l (per SVG
-            // §9.3.2): "If a moveto is followed by multiple pairs of coordinates,
             // the subsequent pairs are treated as implicit lineto commands."
             if (active == 'M') lastCommand = 'L'
             if (active == 'm') lastCommand = 'l'
@@ -282,7 +281,7 @@ internal object SvgPathParser {
 
     /**
      * Tokenizes a `d=` attribute into command letters and numbers.
-     *
+ *
      * SVG number quirks handled:
      *  - Whitespace and commas are separators (and can be mixed/repeated).
      *  - A `+` or `-` mid-string starts a new number (so `1-2` = `1,-2`, and

@@ -38,7 +38,6 @@ public fun FluxItPrimaryButton(
         Text(
             text = label,
             // FontWeight.Bold (700) is the WCAG 'large-text' threshold at 14pt+,
-            // letting 4.02:1 white-on-primary.blue clear AA-large (3:1) — see §8.
             style = FluxItTypography.bodyMd.copy(fontWeight = FontWeight.Bold),
             color = FluxItColors.textPrimary,
         )

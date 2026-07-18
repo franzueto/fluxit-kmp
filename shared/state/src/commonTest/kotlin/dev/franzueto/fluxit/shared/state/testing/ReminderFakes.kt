@@ -22,7 +22,7 @@ import kotlinx.datetime.Instant
 //
 // These are intentionally local to :shared:state tests. The richer reusable
 // repository fakes already live in :shared:domain commonTest; sharing them
-// cross-module needs a dedicated test-fixtures module, introduced in Slice 4
+// Cross-module reuse belongs in the dedicated test-fixtures module.
 // when ListsDashboardStore needs the full Lists/Items fake surface.
 
 internal class StubRemindersRepository(

@@ -4,8 +4,6 @@ import dev.franzueto.fluxit.shared.domain.model.ItemId
 import dev.franzueto.fluxit.shared.domain.model.ListId
 
 /**
- * A parsed `fluxit://` deep link (plan/06 §5, plan/07 §1).
- *
  * The two shapes match the reminder-notification payloads minted by
  * `platform-reminders` (`ScheduledNotification.deepLink`): `fluxit://list/{id}`
  * and `fluxit://item/{id}`. [parse] is **pure** — no IO, no platform calls — so

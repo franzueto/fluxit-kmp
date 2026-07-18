@@ -32,16 +32,6 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
 /**
- * Stateless Lists Dashboard (plan/07 §3/§4): renders [ListsState] and forwards
- * user actions through [onIntent]. Composed entirely from `core-designsystem`
- * primitives (Konsist literal-ban). The tab bar + FAB are the app shell's chrome
- * (rendered by the host around this screen); the sticky "My Lists" header lives
- * here.
- *
- * One-shot effects are handled in [DashboardRoute] and surfaced back as the
- * [undo] / [error] params, so this composable stays pure state-in → UI-out and
- * snapshot-friendly (Slice 8 renders it directly with synthetic [undo]/[error]).
- *
  * @param undo non-null while a delete's 5s undo window is open — drives the undo
  *   snackbar; [onUndo] dispatches [ListsIntent.UndoDeleteClicked].
  * @param error non-null when a transient error should show; [onErrorDismiss]
@@ -58,7 +48,6 @@ fun DashboardScreen(
     onErrorDismiss: () -> Unit = {},
 ) {
     // Captured once per composition so relative-time subtitles don't recompute /
-    // drift on every scroll frame (§9). Acceptable for v1: no live ticking.
     val now = remember { Clock.System.now() }
 
     Box(modifier = Modifier.fillMaxSize()) {

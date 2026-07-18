@@ -69,7 +69,6 @@ class SeedSampleDataTest {
                 setOf("Supermarket", "Home To-Do", "Trip to Japan", "Gift Ideas", "Work Q4 Goals"),
                 summaries.map { it.name }.toSet(),
             )
-            // Counts live in the items repo (the fakes don't join); verify the §7
             // "3–10 items each" floor by querying each list's section.
             assertTrue(summaries.all { items.observeByList(it.id).first().total >= 3 })
         }

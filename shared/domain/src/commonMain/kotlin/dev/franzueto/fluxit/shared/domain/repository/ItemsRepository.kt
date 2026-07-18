@@ -10,11 +10,6 @@ import dev.franzueto.fluxit.shared.domain.model.ItemsSection
 import dev.franzueto.fluxit.shared.domain.model.ListId
 import kotlinx.coroutines.flow.Flow
 
-/**
- * Persistence contract for items within a list (Phase 03 §5). Same
- * Flow-reads + [Outcome]-writes shape as [ListsRepository]; soft-delete
- * filtering applies — observers never see tombstoned rows.
- */
 public interface ItemsRepository {
     /**
      * Backs the list-detail screen. Single SQL projection partitioned
@@ -53,10 +48,5 @@ public interface ItemsRepository {
 
     public suspend fun delete(itemId: ItemId): Outcome<Unit, DataError>
 
-    /**
-     * Soft-deletes every completed item in [listId]; returns the number
-     * cleared so the state layer can stage a 5-second undo toast per the
-     * §12 row 3 delete-UX resolution.
-     */
     public suspend fun clearCompleted(listId: ListId): Outcome<Int, DataError>
 }

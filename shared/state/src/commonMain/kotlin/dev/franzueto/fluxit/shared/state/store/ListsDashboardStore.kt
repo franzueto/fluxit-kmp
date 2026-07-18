@@ -28,29 +28,11 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Dashboard store backing the Lists tab (Phase 07; `plan/05` §4/§6/§7, ADR-014).
- *
- * Composes three list use cases:
- * - **Feed / search.** An internal query [MutableStateFlow] is debounced 200ms,
- *   deduplicated, and `flatMapLatest`-ed into [SearchLists] (non-blank) or
- *   [ObserveLists] (blank → full feed) — see [search wiring][startFeed]. A blank
- *   query skips the debounce (selector returns [Duration.ZERO]) so the first
- *   load and "clear search" are immediate.
- * - **Optimistic delete + undo (§6).** [ListsIntent.DeleteListClicked] removes
- *   the row from state immediately, calls [DeleteList], and on success opens a 5s
- *   undo window ([ListsState.pendingDelete] + a timer that self-dispatches
- *   [ListsIntent.UndoWindowExpired]). A second delete while a window is open
- *   finalizes the first immediately, then opens a fresh window.
- *
  * **Undo restore is data-layer-blocked.** There is no `UndoDeleteList` use case —
  * the shipped `ListsRepository` exposes no `deleted_at = NULL` restore primitive
  * (see `DeleteList`'s KDoc). [ListsIntent.UndoDeleteClicked] therefore only
  * dismisses the snackbar (cancel timer + clear `pendingDelete`); the soft-delete
  * stands. A real restore is a documented TODO tied to that data-layer deferral.
- *
- * Navigation is expressed as one-shot [effects][ListsEffect] (§14 default), never
- * observed state. Per ADR-004, Calendar/Starred are not built — the host shows a
- * "Coming soon" placeholder when it receives [ListsEffect.NavigateToTab] for them.
  */
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 public class ListsDashboardStore(
@@ -61,7 +43,6 @@ public class ListsDashboardStore(
     private val deleteList: DeleteList,
     private val clock: Clock,
 ) : BaseStore<ListsState, ListsIntent, ListsEffect>(ListsState(), scope, logger) {
-    /** Latest raw query — updated synchronously on keystroke so the field stays responsive (§7). */
     private val queryFlow = MutableStateFlow("")
 
     /** Bumped by [ListsIntent.Refresh] to force the reactive feed to re-subscribe. */
@@ -151,7 +132,6 @@ public class ListsDashboardStore(
 
     private fun expireUndoWindow(id: ListId) {
         // Only clear if the window still belongs to this delete — a re-delete may
-        // have already finalized it and opened a new one. No use-case call (§6):
         // the soft-delete is permanent; we merely retire the snackbar.
         if (currentState.pendingDelete?.id == id) {
             undoTimer?.cancel()
@@ -197,19 +177,12 @@ public class ListsDashboardStore(
     )
 }
 
-// ---- ListsDashboardStore contract (§11: lives alongside its store). ----
-
 public data class ListsState(
     val searchQuery: String = "",
     val lists: LoadState<List<ListSummary>> = LoadState.Loading,
     val pendingDelete: PendingDelete? = null,
 )
 
-/**
- * A soft-deleted list awaiting either undo or the end of its 5s window (§6).
- * Drives the snackbar countdown; the row is already removed from
- * [ListsState.lists] optimistically.
- */
 public data class PendingDelete(
     val id: ListId,
     val expiresAt: Instant,
@@ -235,12 +208,6 @@ public sealed interface ListsIntent {
 
     public data object UndoDeleteClicked : ListsIntent
 
-    /**
-     * Self-dispatched 5s after a delete (§6). Carries the deleted [id] so a
-     * re-delete that opened a fresh window isn't retired by a stale timer.
-     * (Diverges from the §4 sketch's no-arg `UndoWindowExpired` to make that
-     * match precise.)
-     */
     public data class UndoWindowExpired(
         val id: ListId,
     ) : ListsIntent

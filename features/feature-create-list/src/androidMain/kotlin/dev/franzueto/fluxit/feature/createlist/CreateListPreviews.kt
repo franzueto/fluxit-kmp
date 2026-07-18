@@ -11,9 +11,6 @@ import dev.franzueto.fluxit.shared.state.store.CreateListState
 import dev.franzueto.fluxit.shared.state.store.NameValidation
 import dev.franzueto.fluxit.shared.state.store.Submission
 
-// The §15 snapshot matrix, rendered as previews instead (snapshot infra is
-// deferred to v2 — plan/09 §0 decision c).
-
 @Preview(showBackground = true)
 @Composable
 private fun PreviewCreateInitial() {

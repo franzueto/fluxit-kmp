@@ -8,12 +8,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
 import kotlin.time.Duration.Companion.milliseconds
 
-/**
- * A controllable [Clock] for store tests (`plan/05_STATE_MANAGEMENT.md` §12). The
- * returned [Instant] is advanced explicitly by tests so undo-window / debounce
- * logic can be exercised in lockstep with [TestScope.testScheduler] virtual time —
- * no `Thread.sleep`, no wall-clock reads.
- */
 public class FakeClock(
     private var instant: Instant = Instant.fromEpochSeconds(0),
 ) : Clock {

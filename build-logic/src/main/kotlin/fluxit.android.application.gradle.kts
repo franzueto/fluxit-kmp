@@ -6,7 +6,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // Applied to /android-app. Configures the Android application module: app id,
 // SDK levels, Compose, R8 in release, and the FluxIt quality gate suite.
 //
-// Real release signing is wired in Phase 17 (Release Hardening); for now the
 // release build type uses a placeholder signing config that falls back to the
 // debug keystore so `assembleRelease` does not fail during early development.
 
@@ -56,7 +55,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // Placeholder signing — Phase 17 swaps in the real release keystore.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

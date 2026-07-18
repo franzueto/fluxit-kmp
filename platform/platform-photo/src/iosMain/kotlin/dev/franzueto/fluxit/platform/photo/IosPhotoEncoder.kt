@@ -14,10 +14,6 @@ import platform.UIKit.UIImageJPEGRepresentation
 import kotlin.math.max
 
 /**
- * `UIImage`-backed [PhotoEncoder] (plan/06 §6). Decodes the bytes, draws into a
- * downscaled bitmap context so the longest edge is at most `maxDim`, then encodes
- * with `UIImageJPEGRepresentation`. Runs off the main thread.
- *
  * Built (not run) by the iOS-Sim gate; verified by manual device QA.
  */
 @OptIn(ExperimentalForeignApi::class)

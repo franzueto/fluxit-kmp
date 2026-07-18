@@ -11,10 +11,6 @@ import dev.franzueto.fluxit.shared.domain.model.ListSummary
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Persistence contract for FluxIt lists (Phase 03 §5). Reads return Flow so
- * UI can subscribe directly; writes return [Outcome] with typed [DataError]
- * so call sites pattern-match on failure variants rather than catching.
- *
  * Soft-delete semantics: every observer filters out tombstoned rows; the
  * data layer never surfaces a `deleted_at IS NOT NULL` row through this
  * interface.
@@ -26,10 +22,6 @@ public interface ListsRepository {
     /** Single-list header for the list-detail screen; emits null when soft-deleted. */
     public fun observe(id: ListId): Flow<ListDetail?>
 
-    /**
-     * Substring match on `name` (case-insensitive), lists-only per Phase 03
-     * §12 row 2. Debounce/throttle is the state layer's responsibility.
-     */
     public fun search(query: String): Flow<List<ListSummary>>
 
     public suspend fun create(draft: ListDraft): Outcome<ListId, DataError>

@@ -448,7 +448,6 @@ class ItemDetailStoreTest {
             f.store.effects.test {
                 f.store.dispatch(ItemDetailIntent.SaveClicked)
                 testScope.runCurrent()
-                // Blocked by the §5 server-side gate — no navigation, edits stay dirty.
                 expectNoEvents()
             }
             assertTrue(f.store.state.value.dirty)
