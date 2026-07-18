@@ -19,22 +19,6 @@ import kotlinx.coroutines.delay
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 
-/**
- * Koin/ViewModel glue for the List Detail screen (plan/08 §9). Builds a
- * [ListDetailViewModel] (scoping the store to `viewModelScope` + owning the §5
- * SavedStateHandle persistence), collects state, and maps the store's one-shot
- * [ListDetailEffect]s to navigation callbacks + the undo/error snackbar UI state
- * + the list-actions sheet visibility, before handing everything to the stateless
- * [ListDetailScreen].
- *
- * The `when` over [ListDetailEffect] is exhaustive, so a new effect variant breaks
- * the build here (the §11 effect-mapping contract).
- *
- * @param listId the route argument (`list/{listId}`); parsed into a [ListId].
- * @param onBack pop the detail route.
- * @param onOpenEditItem push the edit-item route (Phase 10 destination).
- * @param onOpenEditList push the create-list modal in edit mode (Phase 09 §9).
- */
 @Composable
 fun ListDetailRoute(
     listId: String,

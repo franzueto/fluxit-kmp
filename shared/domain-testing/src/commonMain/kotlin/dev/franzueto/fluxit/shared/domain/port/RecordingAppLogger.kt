@@ -1,14 +1,5 @@
 package dev.franzueto.fluxit.shared.domain.port
 
-/**
- * In-memory [AppLogger] fake (plan/06 §2). Records every log call so tests can
- * assert on what was logged without standing up Kermit. Lives in
- * `:shared:domain-testing` `commonMain` (alongside [FakeClock] etc.) so it is
- * reusable from any module's test source set — `:platform:platform-logging`
- * (the KermitAppLogger mapping test), `:platform:platform-analytics`
- * (`LoggingAnalyticsSink` routes events here), and store tests that want to
- * assert on logging instead of injecting [AppLogger.NoOp].
- */
 public class RecordingAppLogger : AppLogger {
     public data class Entry(
         val level: Level,

@@ -10,11 +10,6 @@ import dev.franzueto.fluxit.shared.domain.repository.FakeRemindersRepository
 import kotlinx.datetime.Instant
 import kotlin.time.Duration.Companion.hours
 
-/**
- * Shared fixtures for the Reminders use-case tests (Phase 04 §7 / Slice 13C).
- * Mirrors the Lists/Items fixtures: a sequential-id generator + a fixed clock
- * so minted ids and the "now" reference are deterministic.
- */
 internal val FIXED_NOW: Instant = Instant.fromEpochSeconds(1_700_000_000)
 
 internal fun seqReminderIds(): IdGenerator {

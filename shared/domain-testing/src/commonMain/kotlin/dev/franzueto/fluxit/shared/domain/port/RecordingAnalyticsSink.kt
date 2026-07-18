@@ -1,11 +1,5 @@
 package dev.franzueto.fluxit.shared.domain.port
 
-/**
- * In-memory [AnalyticsSink] fake (plan/06 §3). Records every tracked event so
- * store/integration tests can assert what was emitted. Lives in
- * `:shared:domain-testing` commonMain (next to the other port fakes) so it is
- * reusable from any module's tests — it is the only non-logging sink in v1.
- */
 public class RecordingAnalyticsSink : AnalyticsSink {
     private val _events = mutableListOf<AnalyticsEvent>()
 

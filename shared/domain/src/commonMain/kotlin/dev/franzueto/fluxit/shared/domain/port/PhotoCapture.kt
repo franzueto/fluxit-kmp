@@ -2,12 +2,6 @@ package dev.franzueto.fluxit.shared.domain.port
 
 import dev.franzueto.fluxit.shared.domain.error.Outcome
 
-/**
- * Raw photo bytes returned from a capture / library pick (Phase 04 §5),
- * before the repository ingests them. Re-encoding to JPEG q=0.85 max-dim
- * 2048 (§12 row 4) happens in the platform impl above this port; the domain
- * sees the final bytes.
- */
 public data class CapturedPhoto(
     val bytes: ByteArray,
     val mime: String,
@@ -33,7 +27,6 @@ public data class CapturedPhoto(
     }
 }
 
-/** Why a capture / library pick failed (Phase 04 §5). */
 public sealed class CaptureError {
     /** The OS denied camera / photo-library permission. UI should prompt + retry. */
     public data object PermissionDenied : CaptureError()
@@ -46,14 +39,6 @@ public sealed class CaptureError {
     ) : CaptureError()
 }
 
-/**
- * Domain port for acquiring a photo from the camera or system library
- * (Phase 04 §5; implemented per-platform in Phase 06's `:platform:platform-photo`
- * over the system camera Intent (`ActivityResultContracts.TakePicture` /
- * `PickVisualMedia`) on Android and `UIImagePickerController` on iOS — no CameraX,
- * no custom capture preview). Returns [Outcome] (not `kotlin.Result`) per
- * ADR-007 — the failure channel carries a typed [CaptureError].
- */
 public interface PhotoCapture {
     /** Opens the camera UI. */
     public suspend fun capture(): Outcome<CapturedPhoto, CaptureError>

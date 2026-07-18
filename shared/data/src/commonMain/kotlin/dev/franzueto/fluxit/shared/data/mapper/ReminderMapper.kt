@@ -14,7 +14,6 @@ internal fun ReminderRow.toDomain(): Reminder =
         id = ReminderId(id),
         owner = ownerOf(owner_type, owner_id),
         firesAt = fires_at,
-        // Storage stores None as NULL (§3 contract: "None ≡ null at the
         // storage edge"). Reinflate to the explicit sentinel so domain
         // code never has to special-case null vs. None.
         recurrence = recurrence ?: RecurrenceRule.None,

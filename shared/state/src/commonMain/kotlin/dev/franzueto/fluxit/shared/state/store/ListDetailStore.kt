@@ -24,25 +24,6 @@ import kotlinx.datetime.Instant
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Store backing the list-detail screen (Phase 08; `plan/05` §4/§5/§6, ADR-014).
- *
- * Composes the items use cases over a single reactive source:
- * - **Feed.** [ListDetailIntent.Init] launches [ObserveListDetail], whose one
- *   combined emission carries both the header ([ListDetail]?) and the partitioned
- *   [ItemsSection]; it is split into [ListDetailState.header] / [sections]. A
- *   `null` header means the list is gone (soft-deleted / never existed) → an
- *   [LoadState.Error] rather than [LoadState.Empty] (Empty reads as "no items",
- *   which is wrong for a vanished list).
- * - **Optimistic completion toggle (§5).** [ListDetailIntent.ItemCompletionToggled]
- *   moves the item between the active/completed partitions in state immediately,
- *   calls [ToggleItemCompleted], and reverts + emits [ListDetailEffect.ShowError]
- *   on failure. The live feed re-emits the authoritative partition shortly after
- *   and supersedes the optimistic bridge.
- * - **Optimistic delete + undo (§6).** [ListDetailIntent.ItemDeleteClicked] removes
- *   the item from state, calls [DeleteItem], and opens a 5s undo window
- *   ([ListDetailState.pendingDelete] + a timer self-dispatching
- *   [ListDetailIntent.UndoWindowExpired]). Same mechanics as `ListsDashboardStore`.
- *
  * **Per-item undo restore is data-layer-blocked.** There is no `UndoDeleteItem`
  * use case — the shipped `ItemsRepository` exposes no `deleted_at = NULL` restore
  * primitive (see `DeleteItem`'s KDoc). [ListDetailIntent.UndoItemDeleteClicked]
@@ -50,13 +31,6 @@ import kotlin.time.Duration.Companion.seconds
  * [ListDetailIntent.ClearCompletedClicked] has no bulk-undo (the `RestoreItems` /
  * `ClearCompletedItems → List<ItemId>` variant is the same deferral) — it relies on
  * the feed to reconcile and surfaces only failures.
- *
- * **Composer-on-failure (§14 default): keep text + inline error.** A failed
- * [ListDetailIntent.ComposerSubmit] leaves [ListDetailState.composerText] intact
- * and sets [ListDetailState.composerError] (an inline field rather than a transient
- * snackbar effect — diverges from §4's state sketch, which omits it).
- *
- * Navigation is expressed as one-shot [effects][ListDetailEffect] (§14 default).
  */
 public class ListDetailStore(
     private val scope: CoroutineScope,
@@ -139,7 +113,6 @@ public class ListDetailStore(
         if (text.isBlank()) return
         when (val result = addItem(id, ItemDraft(title = text))) {
             is Outcome.Ok -> update { copy(composerText = "", composerError = null) }
-            // §14 default: keep the text, surface the error inline (not a snackbar).
             is Outcome.Err -> update { copy(composerError = result.error.userMessage) }
         }
     }
@@ -188,7 +161,6 @@ public class ListDetailStore(
 
     private fun expireUndoWindow(id: ItemId) {
         // Only clear if the window still belongs to this delete — a re-delete may
-        // have already finalized it and opened a new one. No use-case call (§6):
         // the soft-delete is permanent; we merely retire the snackbar.
         if (currentState.pendingDelete?.id == id) {
             undoTimer?.cancel()
@@ -257,8 +229,6 @@ private fun ItemsSection.removing(id: ItemId): ItemsSection {
 /** [ItemsSection] → [LoadState]: a list with no items at all is [LoadState.Empty]. */
 private fun ItemsSection.toLoadState(): LoadState<ItemsSection> = if (total == 0) LoadState.Empty else LoadState.Loaded(this)
 
-// ---- ListDetailStore contract (§11: lives alongside its store). ----
-
 public data class ListDetailState(
     val header: LoadState<ListDetail> = LoadState.Loading,
     val sections: LoadState<ItemsSection> = LoadState.Loading,
@@ -268,11 +238,6 @@ public data class ListDetailState(
     val pendingDelete: PendingItemDelete? = null,
 )
 
-/**
- * A soft-deleted item awaiting either undo or the end of its 5s window (§6).
- * Drives the snackbar countdown; the row is already removed from
- * [ListDetailState.sections] optimistically.
- */
 public data class PendingItemDelete(
     val id: ItemId,
     val expiresAt: Instant,
@@ -303,11 +268,6 @@ public sealed interface ListDetailIntent {
 
     public data object UndoItemDeleteClicked : ListDetailIntent
 
-    /**
-     * Self-dispatched 5s after a delete (§6). Carries the deleted [id] so a
-     * re-delete that opened a fresh window isn't retired by a stale timer
-     * (the Slice-4 `UndoWindowExpired(id)` pattern).
-     */
     public data class UndoWindowExpired(
         val id: ItemId,
     ) : ListDetailIntent

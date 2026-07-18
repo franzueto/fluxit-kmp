@@ -7,19 +7,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
 
-/**
- * App-sandbox [PhotoStorage] over `context.filesDir/photos` (plan/06 §6). Files
- * are app-private (cleared on uninstall) and excluded from auto-backup in v1
- * (ADR-009b). Writes are atomic — bytes land in a `.tmp` sibling first, then
- * `renameTo` the final `<uuid>.<ext>` path so a reader never sees a partial file.
- *
- * Paths handed back are sandbox-**relative** (`photos/<uuid>.<ext>`); [resolveAbsolute]
- * returns the absolute filesystem path for the image loader. **v1 returns a bare
- * file path, not a `content://` FileProvider URI** — that's only needed to hand a
- * photo to an *external* app (share/edit), which v1 doesn't do; Compose's image
- * loaders read the in-app file path directly. FileProvider is a documented
- * follow-up for when sharing lands.
- */
 public class AndroidPhotoStorage(
     context: Context,
 ) : PhotoStorage {

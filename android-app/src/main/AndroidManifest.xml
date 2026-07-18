@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      ADR-009b (plan/06 §10): auto-backup is enabled, but the SQLDelight database
+      ADR-017: auto-backup is enabled, but the SQLDelight database
       and the photo store are excluded via the rules below (v1 is local-only, no
       sync — a cloud/device restore of lists+photos with no server to reconcile
       would confuse, and platform-photo assumes files/photos/ is not backed up).
@@ -27,7 +27,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!--
-              Phase 07 §1 / Phase 06 §5: reminder-tap deep links. The notification
+              Reminder-tap deep links. The notification
               PendingIntent opens fluxit://list/{id} or fluxit://item/{id}; MainActivity
               (singleTop) forwards intent.data to RootStore.OpenDeepLink in onCreate +
               onNewIntent. autoVerify is off — this is a private custom scheme, not https.

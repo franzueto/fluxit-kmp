@@ -15,22 +15,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Base class for every feature store (ADR-014, `plan/05_STATE_MANAGEMENT.md` §2).
- * Subclasses implement [reduce] and drive state via [update] / side effects via
- * [emit]; the public [Store] surface (`state`/`effects`/`dispatch`) is `final` so
- * it can't be widened.
- *
  * **Serial intents.** Every [dispatch] enqueues onto a single unbounded
  * [Channel]; a single consumer coroutine in [scope] runs [reduce] one intent at a
  * time, so reductions inside one store never race. Cross-store concurrency is
  * fine — stores own disjoint state.
- *
- * **Injected scope.** The store never creates its own [CoroutineScope]; cancelling
- * [scope] (Android `viewModelScope`, iOS a SKIE-bridged owner scope) cancels the
- * intent consumer and any in-flight reduction. See §8.
- *
- * @param scope owner-supplied scope the intent consumer and all reductions run in.
- * @param logger structured logger (§10); stores log intent + state delta, never analytics.
  */
 public abstract class BaseStore<S : Any, I : Any, E : Any>(
     initialState: S,
@@ -78,17 +66,9 @@ public abstract class BaseStore<S : Any, I : Any, E : Any>(
     protected abstract suspend fun reduce(intent: I)
 
     /**
-     * The canonical optimistic-then-reconcile helper (§5). Applies [apply]
-     * immediately, runs [op], and on failure applies [revert] + calls [onError].
-     *
      * [apply] and [revert] are functions of the *current* state (evaluated at
      * call time via [update]), so a revert stays correct even if other intents
      * mutated state in between — never snapshot-and-restore.
-     *
-     * Unlike the §5 sketch, [onError] has **no** default: `BaseStore` is generic
-     * over [E] and can't know that a given store's effect type even has a
-     * "show error" variant. Each store passes its own mapping (typically
-     * `{ emit(Effect.ShowError(it.userMessage)) }`). See ADR-014.
      */
     protected suspend fun <T> optimistic(
         apply: S.() -> S,

@@ -11,20 +11,6 @@ import dev.franzueto.fluxit.shared.domain.usecase.items.ToggleItemCompleted
 import dev.franzueto.fluxit.shared.domain.usecase.lists.CreateList
 
 /**
- * Debug-only "seed sample data" action (plan/07 §7). Populates the database with
- * the five mockup lists — each with 3–10 items and a few pre-completed — so manual
- * QA and screenshot tests get a realistic dashboard without a network or fixture
- * file.
- *
- * It is a thin **orchestrator over the existing domain use cases**
- * ([CreateList] → [AddItem] → [ToggleItemCompleted]): it goes through the same
- * seams the production stores use and never touches `:shared:data`. The use case
- * itself is harmless in any build — it is the *invocation* (the Account/Settings
- * "Seed sample data" button) that is stripped from release via Gradle source-set
- * selection on the Android side (plan/07 §7/§12). It lives in `commonMain` rather
- * than `androidDebug` because the iOS seed action (Slice 7) resolves the same
- * type.
- *
  * Seeding is **not transactional** — each list/item is its own write. On the first
  * use-case failure it returns that [DomainError] and stops; any rows written
  * before the failure stay (acceptable for a debug convenience). On success it
@@ -115,11 +101,11 @@ public class SeedSampleData(
                     color = ColorToken.ACCENT_INDIGO,
                     items =
                         listOf(
-                            "Ship Phase 07",
+                            "Ship mobile release",
                             "Write design doc",
                             "Mentor new hire",
                             "Close out tech debt",
-                            "Plan Q1 roadmap",
+                            "Prepare Q1 goals",
                             "Performance reviews",
                         ),
                     completedCount = 1,

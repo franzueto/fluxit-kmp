@@ -29,11 +29,6 @@ import dev.franzueto.fluxit.shared.state.store.ItemDetailIntent
 import dev.franzueto.fluxit.shared.state.store.ItemDetailState
 import dev.franzueto.fluxit.shared.state.store.LoadState
 
-/**
- * One-shot-effect chrome for [ItemDetailScreen] (error banner, §5 confirm-discard
- * alert, §4 permission banner), bundled so the screen signature stays under the
- * detekt parameter cap (cf. `CreateListChrome`).
- */
 data class ItemDetailChrome(
     val error: String? = null,
     val confirmDiscard: Boolean = false,
@@ -43,16 +38,6 @@ data class ItemDetailChrome(
     val onOpenSettings: () -> Unit = {},
 )
 
-/**
- * Stateless Edit-Item screen (plan/10 §1): renders [ItemDetailState] and forwards
- * actions through [onIntent]. Composed from `core-designsystem` primitives only
- * (§11 literal-ban). One-shot effects are handled in [ItemDetailRoute] and surfaced
- * back via [chrome], so this composable stays pure state-in → UI-out.
- *
- * **§1 divergence:** Save lives in the sticky bottom dock (a `FluxItPrimaryButton`),
- * not a top-bar text trailing — the DS centered top bar exposes only an *icon*
- * trailing with no disabled state, so this mirrors Phase 09's `SubmitDock`.
- */
 @Composable
 fun ItemDetailScreen(
     state: ItemDetailState,
@@ -64,7 +49,6 @@ fun ItemDetailScreen(
             FluxItTopBarCentered(
                 title = "Edit Item",
                 backLabel = "Back",
-                // System/UI back routes through the store's dirty check (§5).
                 onBack = { onIntent(ItemDetailIntent.BackClicked) },
             )
         },

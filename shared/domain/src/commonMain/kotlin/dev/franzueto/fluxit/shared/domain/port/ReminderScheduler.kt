@@ -16,10 +16,6 @@ public value class PlatformHandle(
     public val raw: String,
 )
 
-/**
- * Why a platform scheduling operation failed (Phase 04 §5). Surfaced to use
- * cases, which lift it into [dev.franzueto.fluxit.shared.domain.error.DomainError.SchedulerFailure].
- */
 public sealed class SchedulerError {
     /** The OS denied the notifications/exact-alarm permission. UI should prompt + retry. */
     public data object PermissionDenied : SchedulerError()
@@ -33,11 +29,6 @@ public sealed class SchedulerError {
 }
 
 /**
- * Domain port for the OS-level reminder scheduler (Phase 04 §5; implemented
- * per-platform in Phase 06's `:platform:platform-reminders` over WorkManager /
- * `UNUserNotificationCenter`). The data layer only persists the reminder row;
- * this seam arms / disarms the actual OS schedule.
- *
  * Returns [Outcome] (not `kotlin.Result`) per ADR-007 — the failure channel
  * carries a typed [SchedulerError] the use case can pattern-match.
  */

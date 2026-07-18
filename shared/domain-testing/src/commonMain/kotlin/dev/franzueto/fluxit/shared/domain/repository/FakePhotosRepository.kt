@@ -13,24 +13,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Instant
 
 /**
- * In-memory [PhotosRepository] for §7 use-case tests (Phase 04 §11).
- * Honors the §7 file-first-then-row contract: `ingest` writes via the
- * injected [PhotoStorage] first; only on success does the row land in
- * the state flow. The fake doesn't simulate ingest failure (real
- * failures arrive via storage IO), so the cleanup path of "row insert
- * failed → delete file" is exercised at the `SqlPhotosRepository`
- * layer in `:shared:data`'s integration tests, not here.
- *
  * `deleteIfOrphaned` consults the injected [isReferenced] callback to
  * decide whether the photo is still in use by a live item. Default is
  * `{ false }` — treat every photo as orphaned, which is fine for
  * standalone repo tests. Use-case wiring (e.g. `PhotoJanitor`) passes
  * a real check against [FakeItemsRepository]'s state.
- *
- * The method **does not** hard-delete the file. Per the §7 contract
- * (and the spec on `deleteIfOrphaned`), file removal + row hard-delete
- * is the `PhotoJanitor` use case's job; this method only soft-deletes
- * the row.
  */
 public class FakePhotosRepository(
     private val storage: PhotoStorage,
@@ -51,14 +38,6 @@ public class FakePhotosRepository(
 
     private val state = MutableStateFlow<List<Row>>(emptyList())
 
-    /**
-     * Controllable failure modes (Phase 04 §11 "fakes with controllable
-     * failure modes"). When non-null, the corresponding write short-circuits
-     * with the given [DataError] before touching state — used by use-case
-     * tests to drive the `mapError { it.toDomain(...) }` lift branches that a
-     * happy-path fake can't reach (e.g. `AttachPhotoToItem`'s ingest-failure
-     * path, `PhotoJanitor`'s orphan-sweep-failure path).
-     */
     public var failIngestWith: DataError? = null
     public var failDeleteIfOrphanedWith: DataError? = null
 

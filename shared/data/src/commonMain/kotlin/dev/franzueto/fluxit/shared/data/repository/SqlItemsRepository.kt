@@ -21,11 +21,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 
-/**
- * SQLDelight-backed [ItemsRepository] (Phase 03 §5, 2/4). Same shape as
- * [SqlListsRepository]; the §8 sort-order rebalance is scoped to one
- * list at a time rather than the whole table.
- */
 public class SqlItemsRepository(
     private val database: FluxItDatabase,
     private val clock: Clock = Clock.System,

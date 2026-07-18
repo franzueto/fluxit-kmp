@@ -12,7 +12,6 @@ import org.jlleitschuh.gradle.ktlint.KtlintExtension
 // it runs as a regular `test` task in modules that declare Konsist rules.
 // This plugin therefore does not "register a Konsist test source set" in the
 // Kotlin Multiplatform sense; that source set lives in build-logic's own
-// test/ directory (Phase 01 section 8).
 
 plugins {
     id("io.gitlab.arturbosch.detekt")

@@ -18,23 +18,6 @@ import kotlinx.coroutines.delay
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 
-/**
- * Koin/ViewModel glue for the Lists Dashboard (plan/07 §4/§6). Builds a
- * [DashboardViewModel] (scoping the store to `viewModelScope`), collects state,
- * and maps the store's one-shot [ListsEffect]s to navigation callbacks + the
- * undo/error snackbar UI state, before handing everything to the stateless
- * [DashboardScreen].
- *
- * The `when` over [ListsEffect] is exhaustive, so a new effect variant breaks the
- * build here (the §6 effect-mapping contract).
- *
- * @param onOpenList push the list-detail route (Phase 08 destination).
- * @param onCreateList present the create-list modal (Phase 09 destination).
- * @param onComingSoon route a deferred tab to its placeholder. Dead path in the
- *   current shell (the tab bar is owned by `RootStore`, so the dashboard never
- *   dispatches `TabSelected`); handled for exhaustiveness.
- * @param onOpenSettings open the settings screen from the header gear.
- */
 @Composable
 fun DashboardRoute(
     onOpenList: (ListId) -> Unit,

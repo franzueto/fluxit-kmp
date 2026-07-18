@@ -22,27 +22,6 @@ public sealed interface InitProgress {
     ) : InitProgress
 }
 
-/**
- * Composite startup use case (Phase 04 §7), run once on app launch: rehydrate
- * the OS-level reminder schedule, then (eventually) sweep orphaned photos.
- * Emits a [Flow] of [InitProgress] so the caller can render a splash or just
- * await [InitProgress.Completed].
- *
- * **Spec/reality reconciliation:** the §7 row composed `RehydrateReminders`
- * **+ `PhotoJanitor`**, but the batch photo sweep is deferred — the shipped
- * `PhotosRepository` has no `selectOrphaned` enumeration to feed a startup
- * GC pass (only `PhotoJanitor`'s per-photo form ships, driven by
- * `DetachPhotoFromItem`). So this composite currently runs the reminder
- * rehydration only; the janitor step lands here once the data layer surfaces
- * `selectOrphaned`. A rehydration failure terminates the flow with
- * [InitProgress.Failed] (startup continues — the state layer decides whether
- * to surface it).
- *
- *
- * **Concurrency (§9):** caller dispatcher — any; returns a cold [Flow] of
- * progress, collected on the collector's dispatcher. No `shareIn`/`stateIn`
- * here — conflation/sharing is a state-layer choice (Phase 05).
- */
 public class InitializeApp(
     private val rehydrateReminders: RehydrateReminders,
 ) {

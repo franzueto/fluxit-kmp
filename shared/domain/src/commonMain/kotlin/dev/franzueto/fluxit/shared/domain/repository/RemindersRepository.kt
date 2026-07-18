@@ -10,13 +10,6 @@ import dev.franzueto.fluxit.shared.domain.model.ReminderSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.Instant
 
-/**
- * Persistence contract for reminders (Phase 03 §5). The data layer only
- * writes the row; platform scheduling (WorkManager / UNUserNotification)
- * lives in `:platform:platform-reminders` (Phase 06), which observes
- * inserts via [observeForOwner] / startup-time [observeUpcoming] and
- * writes back the platform handle via [rebindPlatformHandle].
- */
 public interface RemindersRepository {
     /** Active reminders for a single owner (list or item); inactive rows excluded. */
     public fun observeForOwner(owner: ReminderOwner): Flow<List<Reminder>>
@@ -37,7 +30,6 @@ public interface RemindersRepository {
         recurrence: RecurrenceRule,
     ): Outcome<Unit, DataError>
 
-    /** Soft-deletes the reminder. Platform-handle cleanup is Phase 06's job. */
     public suspend fun cancel(id: ReminderId): Outcome<Unit, DataError>
 
     /**

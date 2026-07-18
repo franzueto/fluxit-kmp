@@ -25,18 +25,11 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** §5/§2 Save copy: in-flight feedback (the DS button has no spinner slot — Phase 09 debt). */
 internal fun saveLabel(submitting: Boolean): String = if (submitting) "Saving…" else "Save"
 
-/** §5 Save gate: enabled only with a clean, valid edit that isn't already saving. */
 internal fun saveEnabled(state: ItemDetailState): Boolean =
     state.dirty && state.titleValidation == NameValidation.Valid && !state.submitting
 
-/**
- * §2 inline title-error copy. Unlike Create-List there is no `validationVisible`
- * gate (the field is prefilled valid), so an error shows whenever the live title
- * is invalid — i.e. the user cleared it or ran past the 120-char cap.
- */
 internal fun titleErrorMessage(state: ItemDetailState): String? =
     when (state.titleValidation) {
         NameValidation.Valid -> null
@@ -46,7 +39,6 @@ internal fun titleErrorMessage(state: ItemDetailState): String? =
 
 private val LAST_EDITED_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
 
-/** §1 footer copy, e.g. "Last edited on Jun 18, 2026" (local time zone). */
 internal fun lastEditedLabel(updatedAt: Instant): String {
     val date =
         java.time.Instant
@@ -56,7 +48,6 @@ internal fun lastEditedLabel(updatedAt: Instant): String {
     return "Last edited on ${date.format(LAST_EDITED_FORMAT)}"
 }
 
-/** §1 General Info: name (single-line) + description (multi-line) fields. */
 @Composable
 internal fun GeneralInfoSection(
     state: ItemDetailState,
@@ -87,7 +78,6 @@ internal fun GeneralInfoSection(
     }
 }
 
-/** §1 full-width destructive Delete row (rose-tinted DS button). */
 @Composable
 internal fun DeleteSection(onIntent: OnItemDetailIntent) {
     FluxItDestructiveButton(
@@ -97,7 +87,6 @@ internal fun DeleteSection(onIntent: OnItemDetailIntent) {
     )
 }
 
-/** §1 centered "Last edited on …" footer. */
 @Composable
 internal fun LastEditedFooter(updatedAt: Instant) {
     Text(
@@ -109,7 +98,6 @@ internal fun LastEditedFooter(updatedAt: Instant) {
     )
 }
 
-/** §5 submission-failure banner above the Save dock. */
 @Composable
 internal fun ErrorBanner(message: String) {
     Text(

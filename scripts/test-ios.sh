@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Phase 05 §12/§15 — iOS SKIE bridging smoke test.
 # Assembles the shared XCFramework, regenerates ios-app/FluxIt.xcodeproj from
 # project.yml (via xcodegen), and runs the FluxItTests unit-test bundle against
 # the iOS Simulator. Proves the shared MVI store surface bridges into Swift

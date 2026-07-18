@@ -38,8 +38,6 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.bundles.testing.shared)
         }
-        // JVM-side in-memory SQLite driver for the §3/§4 smoke test. iOS-side
-        // NativeSqliteDriver-in-memory wiring lands with the §10 test pyramid.
         val androidHostTest by getting {
             dependencies {
                 implementation(libs.sqldelight.jvm.driver)
@@ -53,7 +51,6 @@ kotlin {
 // authoritative view of the on-disk schema; generateSchemaSql writes it
 // from the .sq DDL portions, verifySchemaInSync re-runs the generator
 // in-memory and fails if the committed file would diverge. Wired into
-// :shared:data:check so CI catches drift PR-time. Mirrors Phase 02's
 // verifyTokensInSync / verifyIconsInSync pattern.
 //
 // Logic is inlined in two doLast blocks (rather than a shared script

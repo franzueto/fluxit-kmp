@@ -9,11 +9,11 @@ See docs/TEAM_GUIDELINES.md for the full convention list.
 <!-- One-paragraph description of *what* changes and *why*. The reviewer
 should be able to understand the change without reading the diff cold. -->
 
-## Linked phase / ADR
+## Linked issue / ADR
 
 <!--
-Cite the checkbox(es) and/or ADR(s) this PR satisfies, e.g.:
-  - Phase 01 §10 (CI smoke build) — checkboxes 1–4
+Cite the issue and/or ADR this PR satisfies, e.g.:
+  - Closes #123
   - ADR-013 (platform minimums)
 If none applies, write "N/A — chore" and explain why this PR exists.
 -->

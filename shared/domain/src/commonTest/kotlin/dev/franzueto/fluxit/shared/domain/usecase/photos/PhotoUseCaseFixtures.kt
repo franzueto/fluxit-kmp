@@ -10,10 +10,6 @@ import dev.franzueto.fluxit.shared.domain.repository.FakeItemsRepository
 import dev.franzueto.fluxit.shared.domain.repository.FakePhotosRepository
 import kotlinx.datetime.Instant
 
-/**
- * Shared fixtures for the Photos use-case tests (Phase 04 §7 / Slice 13D).
- * Distinct id prefixes per repo so ids never collide in an assertion.
- */
 internal fun seqIds(prefix: String): IdGenerator {
     var n = 0
     return IdGenerator {

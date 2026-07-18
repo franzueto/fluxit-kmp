@@ -76,7 +76,6 @@ class SortOrderArithmeticTest {
 
     @Test
     fun property_random_inserts_midpoints_stay_strictly_inside_brackets() {
-        // Phase 04 §8 spec property: 1000 random inserts via between()
         // produce midpoints strictly inside their brackets. With random
         // bracket selection across an initially well-spaced list,
         // gaps stay above REBALANCE_EPSILON, so compaction does not

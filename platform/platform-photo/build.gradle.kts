@@ -19,7 +19,6 @@ kotlin {
         androidMain.dependencies {
             // androidContext() in the android `photoModule()` actual.
             implementation(libs.koin.android)
-            // ActivityResultRegistry + TakePicture/PickVisualMedia contracts (§7) and
             // FileProvider for the camera temp-file URI.
             implementation(libs.androidx.activity)
             implementation(libs.androidx.core.ktx)

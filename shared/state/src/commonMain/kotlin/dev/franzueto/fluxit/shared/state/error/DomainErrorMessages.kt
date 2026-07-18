@@ -6,17 +6,6 @@ import dev.franzueto.fluxit.shared.domain.port.CaptureError
 import dev.franzueto.fluxit.shared.domain.port.SchedulerError
 
 /**
- * Maps a [DomainError] to a user-facing English message (`plan/05` §9, ADR-014).
- *
- * Lives in `:shared:state`, **not** in `:shared:domain`, so the domain layer
- * stays locale-neutral — copy is a presentation concern. These strings are the
- * v1 placeholder; a Phase 02-style i18n token lookup can replace the right-hand
- * sides in v2 without touching call sites.
- *
- * Stores pre-map errors into `State.Error` or an `Effect.ShowError(...)` using
- * this extension, so the SKIE-exposed store surface never leaks `Outcome`/
- * `DomainError` to Swift (§3).
- *
  * Note on the two `PermissionDenied` cases: the message tells the user what to
  * allow, but the *paired* "open settings" effect is the store's responsibility
  * (it knows which effect type it has) — this extension only produces copy.

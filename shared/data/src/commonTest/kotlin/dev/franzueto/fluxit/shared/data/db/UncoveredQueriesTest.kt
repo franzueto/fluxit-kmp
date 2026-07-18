@@ -12,12 +12,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Phase 03 §10 row (a) — direct unit coverage for the queries that no
- * repository code path exercises (and therefore the smoke / integration
- * tests don't reach transitively). The plan literally calls for "one per
- * query in each `.sq` file"; the repository / integration tests already
- * cover the other 37 queries — these eight are the gap.
- *
  * Tested:
  *   Lists.sq   — selectAllActive, updateMetadata, hardDelete, countActive
  *   Items.sq   — countByList
@@ -288,7 +282,7 @@ class UncoveredQueriesTest {
                 .selectOrphaned(cutoff = grace)
                 .executeAsList()
                 .map { it.id }
-        assertEquals(listOf("oldest", "newer"), ids) // ASC by deleted_at — oldest first per §7.
+        assertEquals(listOf("oldest", "newer"), ids) // ASC by deleted_at — oldest first.
 
         // Sanity: the live item's reference really is what blocks "referenced".
         val item = db.itemsQueries.selectById("i").executeAsOneOrNull()

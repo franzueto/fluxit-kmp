@@ -4,15 +4,6 @@ import dev.franzueto.fluxit.shared.domain.error.Outcome
 import dev.franzueto.fluxit.shared.domain.model.Reminder
 
 /**
- * Reusable test fixture for the [ReminderScheduler] port (Phase 04 §11).
- * Records every call so tests can assert the use case armed / disarmed the
- * right schedule, and exposes per-method failure injection so the
- * `SchedulerError` branches (`PermissionDenied`, `SystemBusy`, …) are
- * exercisable.
- *
- * Lands in Slice 13C alongside `ScheduleReminder` / `CancelReminder` /
- * `RehydrateReminders` — the first use cases to consume the port.
- *
  * Not thread-safe; domain tests run on a single coroutine in practice.
  */
 public class FakeReminderScheduler(

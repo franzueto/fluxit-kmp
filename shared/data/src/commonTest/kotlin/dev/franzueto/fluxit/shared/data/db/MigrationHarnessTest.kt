@@ -5,10 +5,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Phase 03 §10 row (d) — migration test harness. v1 ships with **zero**
- * migration files; the harness still exists so that adding migration #1
- * (whenever v2 needs to alter the schema) is mechanical:
- *
  * **Convention for adding migration #N (v2+):**
  * 1. Drop `N.sqm` in `shared/data/src/commonMain/sqldelight/.../migrations/`
  *    containing the `ALTER TABLE` / etc. statements.

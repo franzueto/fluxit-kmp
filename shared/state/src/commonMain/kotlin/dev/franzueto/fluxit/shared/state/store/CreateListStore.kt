@@ -26,50 +26,12 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 
 /**
- * Store backing the Create-List sheet (Phase 09; `plan/05` §4, ADR-014) — and,
- * since the Phase 09 backfill, the **Edit-List** flow over the same screen
- * (`plan/09` §9): construct with a non-null [editingId] and the store prefills
- * name/icon/color from the live list (via [EditListDeps.observeListDetail],
- * first emission only) and submits through [RenameList] + [UpdateListAppearance]
- * instead of [CreateList].
- *
  * **Pessimistic create.** [CreateListIntent.CreateClicked] validates the name,
  * flips [CreateListState.submission] to [Submission.Submitting] (which also
  * blocks re-entry), calls [CreateList], and on success emits
  * [CreateListEffect.NavigateToListDetail] with the freshly-minted id. Unlike the
  * optimistic write-on-tap stores, nothing lands in any feed until the use case
  * confirms — there is no local row to roll back.
- *
- * **Edit submit.** The same [CreateListIntent.CreateClicked] drives edit mode
- * (no `SaveClicked` alias — `plan/09` §3 divergence): rename runs only when the
- * trimmed name changed, appearance only when icon/color changed; a no-change
- * save is an immediate success. Success emits [CreateListEffect.Dismiss] (the
- * user came from the detail screen, which re-observes) — never
- * `NavigateToListDetail`.
- *
- * **Validation visibility (`plan/09` §4).** [CreateListState.validation] is live
- * from the first keystroke, but the UI should render errors only once
- * [CreateListState.validationVisible] is true — set by the first
- * [CreateListIntent.NameBlurred] or by a submit attempt with an invalid name.
- *
- * **Cancel / discard (`plan/09` §6).** [CreateListIntent.CancelClicked] emits
- * [CreateListEffect.Dismiss] when the form is pristine, else
- * [CreateListEffect.ConfirmDiscard]; the UI's "Discard" choice comes back as
- * [CreateListIntent.DiscardConfirmed]. Create-mode dirty = any field moved off
- * its default; edit-mode dirty = differs from the prefilled snapshot.
- *
- * **Reminder (optional).** The reminder-settings sub-screen returns a fire time +
- * recurrence via [CreateListIntent.ReminderConfigured]; it's held as a
- * [PendingReminder] (not a full [ReminderSpec]) because the [ReminderOwner] needs
- * the list id, which doesn't exist until the list is created. On a successful
- * create the reminder is scheduled best-effort against the new list
- * ([ReminderOwner.OfList]); a scheduling failure surfaces a [CreateListEffect.ShowError]
- * but does **not** block navigation — the list itself was created. The editor
- * entry point itself is gated by [ConfigKey.RemindersEditorEnabled] (off in v1
- * until Phase 13 ships the editor), surfaced as
- * [CreateListState.reminderEditorEnabled].
- *
- * Navigation is expressed as one-shot [effects][CreateListEffect] (§14 default).
  */
 public class CreateListStore(
     scope: CoroutineScope,
@@ -87,11 +49,6 @@ public class CreateListStore(
         scope,
         logger,
     ) {
-    /**
-     * Edit-mode snapshot of the list as prefilled — the baseline for the §6
-     * dirty compare and the change-detection in [saveEdits]. Null until the
-     * prefill lands (and always null in create mode).
-     */
     private var original: ListDetail? = null
 
     init {
@@ -163,7 +120,6 @@ public class CreateListStore(
         // Block re-entry: a submit already in flight (or finished) is terminal.
         if (s.submission is Submission.Submitting || s.submission is Submission.Success) return
         if (s.validation != NameValidation.Valid) {
-            // §4: a blocked submit is what reveals the inline error.
             update { copy(validationVisible = true) }
             return
         }
@@ -245,12 +201,6 @@ public class CreateListStore(
     private companion object {
         const val TAG = "CreateListStore"
 
-        /**
-         * Presentation-only name cap for live field feedback. `CreateList` itself
-         * does not cap the name (it validates non-blank only), so this is a
-         * state-layer UX bound — not a domain rule. 60 per the `plan/09` §2/§4
-         * locked cap (the Phase 05 interim value was 100).
-         */
         const val NAME_MAX_LEN = 60
     }
 }
@@ -267,8 +217,6 @@ public data class EditListDeps(
     val updateListAppearance: UpdateListAppearance,
 )
 
-// ---- CreateListStore contract (§11: lives alongside its store). ----
-
 public data class CreateListState(
     val name: String = "",
     val selectedIcon: FluxItIconRef = PaletteCatalog.icons.first(),
@@ -277,11 +225,8 @@ public data class CreateListState(
     val palette: Palette = Palette(),
     val submission: Submission = Submission.Idle,
     val validation: NameValidation = NameValidation.Empty,
-    /** True when the store was constructed with an `editingId` (`plan/09` §9). */
     val editing: Boolean = false,
-    /** §4: render inline name errors only once true (first blur or submit attempt). */
     val validationVisible: Boolean = false,
-    /** [ConfigKey.RemindersEditorEnabled] — the §8 row is disabled while false. */
     val reminderEditorEnabled: Boolean = false,
 )
 
@@ -324,7 +269,6 @@ public sealed interface CreateListIntent {
         val name: String,
     ) : CreateListIntent
 
-    /** First focus-loss on the name field reveals validation (§4). */
     public data object NameBlurred : CreateListIntent
 
     public data class IconSelected(
@@ -344,7 +288,6 @@ public sealed interface CreateListIntent {
 
     public data object CancelClicked : CreateListIntent
 
-    /** The user chose "Discard" in the §6 confirm-discard alert. */
     public data object DiscardConfirmed : CreateListIntent
 
     /** Submit (both modes — labelled "Save" in edit mode, no separate intent). */
@@ -354,7 +297,6 @@ public sealed interface CreateListIntent {
 public sealed interface CreateListEffect {
     public data object Dismiss : CreateListEffect
 
-    /** §6: the form is dirty — UI shows the "Discard changes?" alert. */
     public data object ConfirmDiscard : CreateListEffect
 
     public data object NavigateToReminderSettings : CreateListEffect

@@ -43,12 +43,6 @@ import dev.franzueto.fluxit.shared.state.store.ListDetailState
 import dev.franzueto.fluxit.shared.state.store.LoadState
 
 /**
- * Stateless List Detail screen (plan/08 §1/§3): renders [ListDetailState] and
- * forwards user actions through [onIntent]. Composed entirely from
- * `core-designsystem` primitives (§12 literal-ban). The top bar (variant B) owns
- * the back button + ⋯ menu; the completion header + progress bar live above the
- * lazy sections (§7); the composer docks at the bottom above the keyboard.
- *
  * One-shot effects are handled in [ListDetailRoute] and surfaced back as
  * [undo] / [error] / [showMenu], so this composable stays pure state-in → UI-out.
  */
@@ -201,15 +195,6 @@ private fun ComposerDock(
     }
 }
 
-/**
- * List-actions sheet (plan/08 §4). v1 wires **Clear completed** (with a
- * confirmation alert, §13) and — since Phase 09 — **Edit list details**
- * (a pure navigation hop into the create-list modal's edit mode, no store
- * intent needed); Star / Reminders / Delete-list entries are rendered
- * disabled — their backing intents land in Phase 13 and the shipped
- * [dev.franzueto.fluxit.shared.state.store.ListDetailStore] exposes no intents for
- * them yet (documented divergence from §4).
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ListActionsSheet(

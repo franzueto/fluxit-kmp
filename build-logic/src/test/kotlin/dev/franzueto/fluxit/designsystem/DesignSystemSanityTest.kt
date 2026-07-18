@@ -12,7 +12,6 @@ import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
 import java.io.File
 import kotlin.math.pow
 
-// Phase 02 §12 sanity tests.
 //
 // - Konsist rule (row 3): no Color(0x…), .dp / .sp literals, raw Font(…)
 //   outside core-designsystem.

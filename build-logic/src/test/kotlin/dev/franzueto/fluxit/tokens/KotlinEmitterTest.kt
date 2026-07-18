@@ -53,7 +53,6 @@ class KotlinEmitterTest : FunSpec({
         typo shouldContain "fontWeight = FontWeight(700)"
         typo shouldContain "lineHeight = 1.2.em"
         typo shouldContain "letterSpacing = -0.02.em"
-        // Phase 02 §3: Inter is now bundled; the emitter references the
         // FontFamily.Companion.Inter extension declared in androidMain
         // (see core-designsystem/.../typography/FluxItFonts.kt).
         typo shouldContain "fontFamily = FontFamily.Inter"

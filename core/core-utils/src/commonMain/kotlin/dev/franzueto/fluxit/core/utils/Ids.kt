@@ -1,9 +1,6 @@
 package dev.franzueto.fluxit.core.utils
 
 /**
- * Mints a fresh entity id. Phase 03 §9 + ADR-006a: UUID v4 canonical form —
- * lowercase, hyphenated, 36 chars, no braces, no `urn:uuid:` prefix.
- *
  * The actual on each platform delegates to the platform CSPRNG-backed UUID
  * generator (JVM `java.util.UUID`, Foundation `NSUUID`). Tests inject a fake
  * via [IdGenerator] rather than calling this directly.

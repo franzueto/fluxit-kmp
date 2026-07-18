@@ -4,7 +4,6 @@ import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.verify.assertFalse
 import io.kotest.core.spec.style.FunSpec
 
-// FluxIt data-layer architecture rules — Phase 03 §1 + Definition-of-Done.
 //
 // Two invariants:
 //   1. :shared:data commonMain stays platform-agnostic. androidMain and
@@ -59,7 +58,6 @@ class DataLayerArchTest : FunSpec({
             }
     }
 
-    // Phase 03 §9 + ADR-006a: entity ids must come from newId() / IdGenerator,
     // never from ad-hoc sources that would create collisions or leak creation
     // time. The actual `newId()` impls in :core:core-utils are the only place
     // these primitives are allowed; test source sets are exempt (FakeClock,

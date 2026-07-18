@@ -15,7 +15,6 @@ settings:
     # The Shared framework now embeds SQLDelight's native driver (sqliter) via
     # :shared:state → :shared:data (ADR-015 composition root). sqliter calls
     # libsqlite3 through cinterop, so the app + test bundle must link the
-    # system SQLite. (Phase 06's real composition root keeps this dependency.)
     OTHER_LDFLAGS: "-lsqlite3"
 
 targets:
@@ -47,7 +46,6 @@ targets:
           - UIInterfaceOrientationPortrait
         UIAppFonts:
           - Inter-Variable.ttf
-        # Phase 10 photo capture — UIImagePickerController hard-crashes the app
         # when presented without these privacy strings (camera + photo library).
         NSCameraUsageDescription: FluxIt uses the camera to add a photo to an item.
         NSPhotoLibraryUsageDescription: FluxIt accesses your photo library so you can choose a photo for an item.
@@ -59,7 +57,6 @@ targets:
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         # FluxItIcons.xcassets (ADR-005a) is an icons-only catalog with no
         # AppIcon.appiconset; clear the app-icon name so actool doesn't fail
-        # looking for one. A real AppIcon lands in Phase 17 release hardening.
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
     dependencies:
       - framework: ../shared/state/build/XCFrameworks/release/Shared.xcframework
@@ -69,7 +66,6 @@ targets:
         - FluxItTests
       gatherCoverageData: false
 
-  # Phase 05 §12/§15 — SKIE bridging smoke. A unit-test bundle hosted by the
   # FluxIt app; links the same Shared.xcframework (link-only, the host app
   # already embeds it) and imports `Shared` to exercise the store surface.
   FluxItTests:

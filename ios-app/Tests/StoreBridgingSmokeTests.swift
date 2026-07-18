@@ -3,9 +3,7 @@ import Shared
 import SwiftUI
 import XCTest
 
-// Phase 05 §12 / §15 — iOS SKIE bridging smoke (compile-level + runtime).
 //
-// `testRootStoreReachesReadyAtRuntime` is the §12 RUNTIME smoke (Slice C): it
 // starts the real Koin graph (ADR-015) over a native SQLite driver, resolves
 // `RootStore`, dispatches `AppStarted`, and observes `state` until startup
 // completes — a true dispatch → use case → state round-trip across the SKIE
@@ -19,11 +17,9 @@ import XCTest
 //     `dispatch(intent:)` is callable — verified by the `compileCheck` helper
 //     that type-checks `observe(_:into:)` + `dispatch` against a real store type.
 final class StoreBridgingSmokeTests: XCTestCase {
-    // §12 runtime smoke (Slice C): real graph, real driver, real round-trip.
     // Empty DB → InitializeApp rehydrates zero reminders (real iOS scheduler
     // returns Ok over an empty store) → init transitions Initializing → Ready.
     //
-    // Phase 06 Slice 7: the iOS composition root (`FluxItApp.init`, the test
     // host's `@main App`) now starts Koin at launch and owns it for the process,
     // so the test no longer calls `doInitKoinIos()` / `stopKoinApp()` itself —
     // doing so would throw `KoinApplicationAlreadyStartedException`. It resolves

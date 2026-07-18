@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Backup / device-transfer exclusions for API 31+ (ADR-009b, plan/06 §10).
+  Backup / device-transfer exclusions for API 31+ (ADR-017).
   Mirrors backup_rules.xml (API ≤ 30): exclude the SQLDelight database (+ its
   WAL/shm sidecars) and the photo store from both cloud backup and direct
   device-to-device transfer, for the local-only-no-sync reasons documented there.
-  v2 reversal once sync ships: drop these excludes.
+  Revisit these exclusions if server-backed sync is introduced.
 -->
 <data-extraction-rules>
     <cloud-backup>

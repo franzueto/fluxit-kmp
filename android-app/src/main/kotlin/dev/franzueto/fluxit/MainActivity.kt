@@ -15,24 +15,6 @@ import dev.franzueto.fluxit.shared.state.store.RootStore
 import dev.franzueto.fluxit.ui.FluxItRoot
 import org.koin.android.ext.android.inject
 
-/**
- * The single Activity host (Phase 06 Slice 7; deep links + edge-to-edge in Phase
- * 07 Slice 4). Three jobs:
- *
- * 1. **Host-holder wiring (plan/06 §7).** `AndroidPhotoCapture` launches the
- *    camera / picker through this Activity's [ActivityResultRegistry], which the
- *    domain port can't carry. We push it into the app-scoped
- *    [ActivityResultRegistryProvider] on resume and clear it on pause via a
- *    lifecycle observer — without this, photo capture waits for a registry and
- *    times out.
- * 2. **Compose host.** [FluxItRoot] resolves `RootStore` from Koin and drives the
- *    splash → tab-host NavHost. Edge-to-edge with light system-bar icons on the
- *    dark `#101822` background (plan/07 §1, ADR-005b).
- * 3. **Deep links (plan/06 §5).** Reminder taps deliver a `fluxit://list|item/{id}`
- *    `VIEW` intent; we forward its data string to [RootStore] as
- *    [RootIntent.OpenDeepLink] from both [onCreate] (cold start) and [onNewIntent]
- *    (already-running, `singleTop`). `RootStore` parses + emits the nav effect.
- */
 class MainActivity : ComponentActivity() {
     private val registryProvider: ActivityResultRegistryProvider by inject()
     private val rootStore: RootStore by inject()

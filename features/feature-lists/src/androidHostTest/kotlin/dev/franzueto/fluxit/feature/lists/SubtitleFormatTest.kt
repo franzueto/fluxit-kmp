@@ -12,11 +12,6 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * Unit tests for the pure dashboard-row formatters in [DashboardComponents]
- * (`subtitleFor` / `relativeTime`). Deferred from Slice 5 (plan/07 §4 note);
- * they cover the §3/§12 subtitle priority and the relative-time buckets.
- */
 class SubtitleFormatTest {
     private val now = Instant.parse("2026-06-02T12:00:00Z")
 

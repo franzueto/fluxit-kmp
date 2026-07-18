@@ -25,8 +25,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Phase 03 §10 row (f) — concurrency invariant on the data layer.
- *
  * 50 concurrent `setCompleted` calls on the same item must:
  *   - all return `Outcome.Ok` (no Storage error from driver-level deadlock
  *     or connection contention),

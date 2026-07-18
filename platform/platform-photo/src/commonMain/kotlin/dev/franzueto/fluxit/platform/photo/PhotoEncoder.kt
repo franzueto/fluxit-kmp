@@ -1,12 +1,6 @@
 package dev.franzueto.fluxit.platform.photo
 
 /**
- * Re-encodes captured photo bytes to a bounded JPEG before the repository
- * ingests them (plan/06 §6; Phase 03 open question — re-encode at ingest).
- * Kept out of [PhotoCapture][dev.franzueto.fluxit.shared.domain.port.PhotoCapture]
- * so the capture impl only acquires raw bytes while the encoder owns the
- * downsample + compression policy (defaults: max-dim 2048, q=0.85 per §12 row 4).
- *
  * Per-platform actuals: `AndroidPhotoEncoder` (BitmapFactory + `Bitmap.compress`)
  * and `IosPhotoEncoder` (`UIImage` resize → `jpegData`).
  */

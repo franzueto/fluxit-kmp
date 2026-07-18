@@ -32,15 +32,8 @@ import dev.franzueto.fluxit.shared.domain.model.FluxItIconRef
 import dev.franzueto.fluxit.shared.state.store.CreateListIntent
 import dev.franzueto.fluxit.shared.state.store.CreateListState
 
-/**
- * Icon chips a user can pick (plan/09 §5): the catalog minus the `MORE` glyph —
- * the "show more icons" affordance is dropped in v1 (the catalog has nothing
- * more to show), and `MORE` itself is the ⋯ chrome glyph, not a list identity.
- * v2: bring back the MORE chip when the icon set grows.
- */
 internal fun pickableIcons(icons: List<FluxItIconRef>): List<FluxItIconRef> = icons.filterNot { it == FluxItIconRef.MORE }
 
-/** §12: each chip/swatch is labelled with a human name, not just a visual. */
 internal fun iconLabel(icon: FluxItIconRef): String =
     when (icon) {
         FluxItIconRef.CART -> "Cart"
@@ -63,7 +56,6 @@ internal fun colorLabel(color: ColorToken): String =
         ColorToken.ACCENT_SKY -> "Sky"
     }
 
-/** §2: 4-column icon grid (chunked rows — the form already scrolls as a whole). */
 @Composable
 internal fun IconGridSection(
     state: CreateListState,
@@ -91,7 +83,6 @@ internal fun IconGridSection(
     }
 }
 
-/** §2: single horizontal row of the six swatches (§16 locked layout). */
 @Composable
 internal fun ColorRowSection(
     state: CreateListState,
@@ -115,11 +106,6 @@ internal fun ColorRowSection(
     }
 }
 
-/**
- * §8 Reminder Settings row. Enabled only when `ConfigKey.RemindersEditorEnabled`
- * is on — off in v1 until Phase 13's editor exists, so the row renders muted
- * with a "Coming soon" subtitle (the §8 kill-switch rendering).
- */
 @Composable
 internal fun ReminderSection(
     state: CreateListState,
@@ -170,11 +156,6 @@ internal fun ReminderSection(
     }
 }
 
-/**
- * §8 subtitle: "Coming soon" while the editor flag is off; "None" until a
- * reminder is configured. The "{relative date} · {recurrence}" summary lands
- * with Phase 13's editor (it is unreachable while the flag ships off).
- */
 internal fun reminderSubtitle(state: CreateListState): String =
     when {
         !state.reminderEditorEnabled -> "Coming soon"

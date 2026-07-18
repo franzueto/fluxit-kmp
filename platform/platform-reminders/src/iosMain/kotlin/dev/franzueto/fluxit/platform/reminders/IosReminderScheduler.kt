@@ -28,20 +28,11 @@ import platform.UserNotifications.UNUserNotificationCenter
 import kotlin.coroutines.resume
 
 /**
- * `UNUserNotificationCenter`-backed [ReminderScheduler] (plan/06 §5). Each
- * reminder becomes one (or, for `Weekly`, one-per-day) `UNNotificationRequest`
- * with a `UNCalendarNotificationTrigger`. The [PlatformHandle] is the comma-joined
- * request identifier(s) so [cancel] can remove them all.
- *
  * Recurrence → trigger date components:
  *  - `None`    → year/month/day/hour/minute/second, `repeats = false`.
  *  - `Daily`   → hour/minute, `repeats = true`.
  *  - `Weekly`  → hour/minute + weekday, one request per selected day, `repeats = true`.
  *  - `Monthly` → day/hour/minute, `repeats = true` (iOS clamps invalid days, matching `RecurrenceCalculator`).
- *
- * iOS-side behaviour (background delivery, reboot persistence) is exercised by
- * manual device QA per the Phase 06 scope decision; this file is built (not run)
- * by the iOS-Sim gate.
  */
 @OptIn(ExperimentalForeignApi::class)
 public class IosReminderScheduler(

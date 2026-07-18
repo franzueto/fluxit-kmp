@@ -19,8 +19,6 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 rootProject.name = "fluxit"
 
-// Module graph (Phase 01 §5–§6). `:features:*` modules are intentionally
-// absent — phases 07–10 add them. `:ios-app` lands in §7.
 
 // app
 include(":android-app")

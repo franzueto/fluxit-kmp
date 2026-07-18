@@ -22,20 +22,6 @@ import platform.UIKit.UIViewController
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 
-/**
- * `UIImagePickerController`-backed [PhotoCapture] (plan/06 §6/§7). [capture] presents
- * the camera, [pickFromLibrary] the photo library; the frontmost view controller to
- * present from comes from the §7 [TopViewControllerProvider] host-holder. Each call
- * suspends on a continuation the picker delegate resumes with the picked image bytes,
- * a [CaptureError.UserCancelled] on dismiss, or [CaptureError.Unknown] when no host
- * is available.
- *
- * **Divergence (plan §6):** v1 uses `UIImagePickerController` for *both* sources —
- * one delegate, no extra `PHPickerViewController` plumbing. PHPicker (no library
- * permission prompt) is a documented follow-up. Re-encoding happens above this port.
- *
- * **Manual-QA only** (plan/06 scope): built (not run) by the iOS-Sim gate.
- */
 @OptIn(ExperimentalForeignApi::class)
 public class IosPhotoCapture(
     private val topViewControllerProvider: TopViewControllerProvider = DefaultTopViewControllerProvider,

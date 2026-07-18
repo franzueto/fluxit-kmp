@@ -22,15 +22,6 @@ import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 
 /**
- * Koin/ViewModel glue for the Edit-Item screen (plan/10 §8). Builds an
- * [ItemDetailViewModel] (scoping the store to `viewModelScope`, dispatching
- * `Init`), collects state, and maps the store's one-shot [ItemDetailEffect]s to
- * the back callback + the confirm-discard alert / error banner / §4 permission
- * banner UI state, before handing everything to the stateless [ItemDetailScreen].
- *
- * The `when` over [ItemDetailEffect] is exhaustive, so a new effect variant breaks
- * the build here (the §14 effect-mapping contract).
- *
  * @param itemId the route argument (`item/{itemId}` or `list/{listId}/item/{itemId}`).
  * @param onBack pop the screen.
  */
@@ -65,12 +56,10 @@ fun ItemDetailRoute(
         }
     }
 
-    // System back is BackClicked, not a silent pop — the store owns the dirty check (§5).
     BackHandler { store.dispatch(ItemDetailIntent.BackClicked) }
 
     ItemDetailScreen(
         state = state,
-        // Clear a stale permission banner once the user re-attempts a photo (§4).
         onIntent = { intent ->
             if (intent is ItemDetailIntent.UpdatePhotoClicked) permissionBanner = null
             store.dispatch(intent)
@@ -80,7 +69,6 @@ fun ItemDetailRoute(
                 error = error,
                 confirmDiscard = confirmDiscard,
                 // Store only emits ConfirmDiscardChanges (no DiscardConfirmed intent) —
-                // the host owns the choice, so Discard just pops (§5).
                 onDiscard = {
                     confirmDiscard = false
                     onBack()
@@ -92,7 +80,6 @@ fun ItemDetailRoute(
     )
 }
 
-/** Deep link to this app's system settings page (§4 "Open Settings"). */
 private fun appSettingsIntent(packageName: String): Intent =
     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

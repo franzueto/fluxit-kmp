@@ -1,8 +1,5 @@
 import SwiftUI
 
-// iOS counterpart of the Android `FluxItSwipeRow` primitive (Phase 02 §5,
-// backfilled in Phase 07 Slice 2; the iOS half lands with the dashboard in
-// Slice 7). Where Compose wraps a row in a `SwipeToDismissBox`, SwiftUI's
 // reveal-on-swipe lives on `List` rows via `.swipeActions`, so the DS exposes it
 // as a `View` modifier rather than a wrapper view. The destructive button is
 // rose-tinted to match the Android delete affordance; the store owns the

@@ -23,19 +23,10 @@ import dev.franzueto.fluxit.core.designsystem.tokens.FluxItSpacing
 import dev.franzueto.fluxit.core.designsystem.tokens.FluxItTypography
 
 /**
- * Swipe-to-delete row wrapper (plan/07 §12 — the resolved dashboard delete UX).
- * Wraps [content] in a Material3 [SwipeToDismissBox]; an end-to-start swipe
- * reveals a rose-tinted ([FluxItColors.accentRose]) delete affordance and, once
- * dismissed, invokes [onDelete]. Start-to-end is disabled (delete is the only
- * gesture).
- *
  * The store owns the actual removal + 5s undo window (optimistic delete), so
  * this primitive is pure presentation: it never animates the row back. The host
  * recomposes the list without the removed item, which is what visually "commits"
  * the swipe.
- *
- * Phase 02 §5 backfill (plan/07 §13): this primitive wasn't in the original
- * design-system checklist.
  */
 @Composable
 @Suppress("ktlint:standard:function-naming")

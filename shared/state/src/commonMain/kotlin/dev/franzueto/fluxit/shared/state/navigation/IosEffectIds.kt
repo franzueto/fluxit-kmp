@@ -8,8 +8,6 @@ import dev.franzueto.fluxit.shared.state.store.ListsEffect
 import dev.franzueto.fluxit.shared.state.store.RootEffect
 
 /**
- * Swift-facing string accessors for navigation effects (Phase 07 Slice 7).
- *
  * Kotlin/Native erases the `@JvmInline value class` ids (`ListId`/`ItemId`) to an
  * opaque Obj-C `id` at the framework boundary, with no `.value` getter — so the
  * SwiftUI shell can't read the raw string it needs to build a `NavigationStack`
@@ -33,9 +31,4 @@ public fun CreateListEffect.NavigateToListDetail.listId(): String = newListId.va
  */
 public fun listIdOf(value: String): ListId = ListId(value)
 
-/**
- * Swift-callable [ItemId] factory — the Edit-Item screen (plan/10) builds the id
- * for `ItemDetailIntent.Init` from its route-arg string here, for the same
- * value-class-constructor reason as [listIdOf].
- */
 public fun itemIdOf(value: String): ItemId = ItemId(value)

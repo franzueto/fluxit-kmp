@@ -7,7 +7,6 @@ plugins {
 }
 
 // Repo-wide Markdown formatting via Spotless + flexmark (Java-based, no Node).
-// Picked over prettier — which the original Phase 01 §8.3 spec suggested —
 // because we don't want to require a Node/npm toolchain just to run a
 // quality gate.
 spotless {

@@ -15,7 +15,6 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             // The list-detail screen is wired to the shared MVI store and built
-            // from design-system primitives only (plan/08 §9 / §12). It must NOT
             // reach into :shared:data — only domain models surfaced via the store.
             implementation(project(":shared:state"))
             implementation(project(":shared:domain"))
@@ -27,7 +26,6 @@ kotlin {
             implementation(libs.koin.compose)
         }
         // Pure-logic unit tests for the completion-fraction / row formatters
-        // (plan/08 §11). They exercise androidMain (non-Composable) helpers, so
         // they live in androidHostTest and run on the JVM via `testDebugUnitTest`.
         commonTest.dependencies {
             implementation(kotlin("test"))

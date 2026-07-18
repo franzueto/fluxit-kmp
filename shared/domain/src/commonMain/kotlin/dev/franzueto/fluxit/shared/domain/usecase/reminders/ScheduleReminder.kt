@@ -14,9 +14,6 @@ import dev.franzueto.fluxit.shared.domain.port.ReminderScheduler
 import dev.franzueto.fluxit.shared.domain.repository.RemindersRepository
 
 /**
- * Schedule a reminder (Phase 04 §7): validate, persist the row, arm the
- * OS-level schedule, then write the platform handle back.
- *
  * 1. Edge validation — `firesAt` must be strictly in the future
  *    ([Clock.now]); a past/now value is [DomainError.Validation] with
  *    [ValidationError.NotInFuture], produced directly.
@@ -29,19 +26,6 @@ import dev.franzueto.fluxit.shared.domain.repository.RemindersRepository
  *    [dev.franzueto.fluxit.shared.domain.port.SchedulerError] surfaces as
  *    [DomainError.SchedulerFailure] so the UI can prompt for permission and
  *    retry.
- *
- * **Spec/reality reconciliation:** the §7 punch list said a `PermissionDenied`
- * failure leaves the row at `is_active = 0, platform_handle = NULL` for an
- * in-place retry. The shipped `RemindersRepository` has no "deactivate but
- * keep" primitive distinct from `cancel` (which tombstones + flips active),
- * so the failed row is tombstoned and "retry" means re-invoking this use case
- * (a fresh row) — which is exactly the permission-prompt-then-retry flow the
- * UI runs anyway.
- *
- *
- * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
- * It suspends only on the injected repository/port, which owns its dispatcher;
- * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class ScheduleReminder(
     private val reminders: RemindersRepository,

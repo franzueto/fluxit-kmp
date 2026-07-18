@@ -21,19 +21,11 @@ import java.util.UUID
 import kotlin.coroutines.resume
 
 /**
- * Camera / photo-library [PhotoCapture] over the ActivityResult API + the §7
- * host-holder. Launching needs a live Activity registry, supplied through
- * [ActivityResultRegistryProvider]; [capture]/[pickFromLibrary] suspend until one
- * is present (up to [registryTimeoutMs] → [CaptureError.Unknown]) then drive the
- * system camera / picker via a continuation.
- *
  * The system camera handles its own permission, so no CAMERA runtime grant is
  * needed; the captured full-resolution image is written to a cache temp file
  * exposed through a [FileProvider] (`${packageName}.fileprovider`), read back as
  * bytes, then deleted. Library picks return a `content://` URI read via the
  * `ContentResolver`. Re-encoding happens above this port in the repository.
- *
- * **Manual-QA only** (plan/06 scope): no instrumented test drives the system UI.
  */
 public class AndroidPhotoCapture(
     private val context: Context,

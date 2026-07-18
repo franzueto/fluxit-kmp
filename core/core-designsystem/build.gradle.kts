@@ -3,7 +3,6 @@ plugins {
     id("fluxit.designsystem.tokens")
     // Compose compiler is required for inline Composables (Row, Column, Box).
     // FluxItTheme + FluxItScaffold only used non-inline Composables and got
-    // away without it; §5 primitives use foundation layouts heavily.
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -18,7 +17,6 @@ kotlin {
         androidMain.dependencies {
             // The design system maps the domain's list-identity enums
             // (FluxItIconRef / ColorToken) to ImageVector / Color (ADR-005a,
-            // Phase 04 §2: domain owns the refs, the DS consumes them). The
             // inward arrow (domain → designsystem) stays forbidden via ArchTest.
             implementation(project(":shared:domain"))
             // Generated FluxItColors / FluxItTypography / FluxItShapes /

@@ -4,11 +4,6 @@ import app.cash.sqldelight.db.SqlDriver
 import dev.franzueto.fluxit.shared.data.db.List as ListRow
 
 /**
- * Phase 03 §4. Single shared factory that builds [FluxItDatabase] with every
- * column adapter from [Adapters.kt] wired in. Both platforms call this with
- * a freshly-constructed [SqlDriver] (production: from [DriverFactory]; tests:
- * in-memory via [inMemoryDriver]).
- *
  * Keeping driver creation and database wiring in separate seams (DriverFactory
  * → SqlDriver → FluxItDatabaseFactory → FluxItDatabase) means tests can swap
  * the driver while reusing the production adapter set without subclassing or

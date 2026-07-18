@@ -4,7 +4,6 @@ import Shared
 @main
 struct FluxItApp: App {
     init() {
-        // The iOS composition root (Phase 06 Slice 7, ADR-015). Start the single
         // Koin graph once at process launch over the native SqlDriver + real iOS
         // platform actuals. Kotlin/Native prefixes `init*` top-level funcs with
         // `do` to dodge the Obj-C initializer clash, so `initKoinIos()` surfaces

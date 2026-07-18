@@ -63,8 +63,8 @@ The generator constrains the accepted SVG dialect: single `<path>`, no
 transforms, no gradients, no arcs (`A`/`a` commands). Material Symbols icons
 satisfy these constraints out of the box.
 
-## In-app surfacing
+## Attribution record
 
-A future "Licenses" screen (target: Phase 17 release hardening) will read
-this file and `LICENSE-APACHE-2.0.txt` to surface third-party attributions to
-end users. Until then, this directory itself is the authoritative record.
+This file and `LICENSE-APACHE-2.0.txt` are the authoritative third-party
+attribution record for the icon set. Any in-app licenses surface should source its
+Material Symbols attribution from these files.

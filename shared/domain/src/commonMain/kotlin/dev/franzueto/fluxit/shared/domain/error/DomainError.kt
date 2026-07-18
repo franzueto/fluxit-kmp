@@ -3,22 +3,6 @@ package dev.franzueto.fluxit.shared.domain.error
 import dev.franzueto.fluxit.shared.domain.port.CaptureError
 import dev.franzueto.fluxit.shared.domain.port.SchedulerError
 
-/**
- * The unified failure sum every use case returns through
- * `Outcome<T, DomainError>` (Phase 04 §6). Distinct from [DataError]:
- * domain errors carry use-case-level meaning ("the list named X
- * doesn't exist") rather than storage-level meaning ("a row with
- * that id is gone"). [DataError.toDomain] is the single bridge
- * between the two; use cases call it via `result.mapError { ... }`
- * at the repository → use-case seam.
- *
- * Slice 6 ships the four variants the four shipped Phase 03 data
- * repositories produce today. Two anticipated variants —
- * `SchedulerFailure(reason: SchedulerError)` and
- * `CaptureFailure(reason: CaptureError)` — land with the
- * `ReminderScheduler` and `PhotoCapture` port slices respectively,
- * once the underlying typed sums exist.
- */
 public sealed class DomainError {
     /**
      * Use-case-level input validation failed. [field] names the
@@ -66,36 +50,16 @@ public sealed class DomainError {
         val cause: Throwable?,
     ) : DomainError()
 
-    /**
-     * An OS-level reminder-scheduling operation failed (Phase 04 §5/§7).
-     * [reason] is the typed [SchedulerError] from the
-     * [dev.franzueto.fluxit.shared.domain.port.ReminderScheduler] port — UI
-     * pattern-matches it (e.g. `PermissionDenied` → prompt for permission
-     * and retry). Distinct from [StorageFailure]: the row may have persisted
-     * fine; it's the platform schedule that didn't arm.
-     */
     public data class SchedulerFailure(
         val reason: SchedulerError,
     ) : DomainError()
 
-    /**
-     * A photo capture / library pick failed (Phase 04 §5/§7). [reason] is
-     * the typed [CaptureError] from the
-     * [dev.franzueto.fluxit.shared.domain.port.PhotoCapture] port — UI
-     * pattern-matches it (`PermissionDenied` → prompt; `UserCancelled` →
-     * abort quietly without an error banner).
-     */
     public data class CaptureFailure(
         val reason: CaptureError,
     ) : DomainError()
 }
 
 /**
- * Bridge from the data layer's typed failure sum (Phase 03 §5) to
- * the use-case layer's typed failure sum (Phase 04 §6). Called via
- * `result.mapError { it.toDomain(entity = "List") }` at the
- * repository → use-case seam.
- *
  * @param entity human-readable entity label for `NotFound`s
  *   ("List", "Item", "Reminder", "Photo"). Defaults to `"unknown"`
  *   for call sites where the entity context isn't relevant (e.g.

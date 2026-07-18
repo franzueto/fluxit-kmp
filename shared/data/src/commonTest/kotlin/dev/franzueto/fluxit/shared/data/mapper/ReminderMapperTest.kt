@@ -67,7 +67,6 @@ class ReminderMapperTest {
 
     @Test
     fun null_recurrence_reinflates_to_None_sentinel() {
-        // §3 storage contract: None ≡ NULL on the wire. The mapper must
         // hand back the explicit sentinel so domain code never has to
         // pattern-match null vs. None.
         val row =

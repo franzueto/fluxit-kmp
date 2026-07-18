@@ -8,7 +8,6 @@ kotlin {
     }
 }
 
-// Shared test-fixtures module (Phase 05 Slice 4). Holds the in-memory repository
 // fakes + port fakes (`FakeListsRepository`, `FakeItemsRepository`,
 // `FakeRemindersRepository`, `FakePhotosRepository`, `FakeClock`,
 // `FakeReminderScheduler`, `FakePhotoCapture`, `FakePhotoStorage`) that were

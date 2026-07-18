@@ -19,12 +19,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 
-/**
- * SQLDelight-backed [RemindersRepository] (Phase 03 §5, 3/4). Pure row-
- * writer; no platform scheduling — that ships in Phase 06 and observes
- * this repo's flows. `RecurrenceRule.None` collapses to NULL at the
- * storage edge per the §3 contract.
- */
 public class SqlRemindersRepository(
     private val database: FluxItDatabase,
     private val clock: Clock = Clock.System,
@@ -122,7 +116,6 @@ public class SqlRemindersRepository(
             Outcome.Ok(Unit)
         }
 
-    /** §3 storage contract: None ≡ NULL on the wire; all other variants serialize. */
     private fun RecurrenceRule.toStorage(): RecurrenceRule? = if (this is RecurrenceRule.None) null else this
 
     @Suppress("TooGenericExceptionCaught")

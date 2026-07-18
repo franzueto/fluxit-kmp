@@ -14,10 +14,6 @@ import dev.franzueto.fluxit.shared.domain.usecase.reminders.CancelReminder
 import kotlinx.coroutines.flow.first
 
 /**
- * Soft-delete a list and cancel all of its active reminders (Phase 04 §7),
- * returning a [DeletedListSummary] so the state layer can stage an undo
- * snackbar.
- *
  * Order of operations:
  * 1. Read the list header via `observe(id).first()` — a missing/tombstoned
  *    id is [DomainError.NotFound] (entity "List"), so the summary always
@@ -40,11 +36,6 @@ import kotlinx.coroutines.flow.first
  * (`deleted_at = NULL`) the shipped `ListsRepository` doesn't expose. The
  * returned [DeletedListSummary.cancelledReminderIds] are captured so undo can
  * reschedule once that primitive lands.
- *
- *
- * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
- * It suspends only on the injected repository/port, which owns its dispatcher;
- * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class DeleteList(
     private val lists: ListsRepository,

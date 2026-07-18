@@ -17,25 +17,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Instant
 
 /**
- * In-memory [ListsRepository] for §7 use-case tests (Phase 04 §11).
- * Backed by a `MutableStateFlow<List<Row>>` so observers see live
- * updates. Implements:
- *
  * - Tombstone filtering: reads exclude `deletedAt != null` rows.
  * - Sort-order minting + compaction via [SortOrderArithmetic].
  * - `NotFound` returns on writes to missing-or-tombstoned ids.
- *
- * Counters (`totalItems`, `completedItems`, `lastActivityAt` rollup
- * from items) are NOT computed by this fake — use-case tests combine
- * this fake with [FakeItemsRepository] via `flow.combine` when they
- * need the dashboard projection (matches the Phase 04 §7
- * `ObserveListDetail` shape). Rollups default to zero + the list's
- * own `updatedAt`.
- *
- * Cascade semantics (ADR-006b) are NOT implemented here — per the
- * ADR, application-level cascade across Lists → Items → Reminders is
- * a use-case-layer concern. The `DeleteList` use case (Phase 04 §7)
- * orchestrates by calling each repo's `delete` / `cancel` in turn.
  */
 public class FakeListsRepository(
     private val ids: IdGenerator,
@@ -82,7 +66,6 @@ public class FakeListsRepository(
     override suspend fun create(draft: ListDraft): Outcome<ListId, DataError> {
         val now = clock.now()
         val id = ListId(ids.newId())
-        // New lists land at the top of the dashboard per the §12 row 5
         // resolution (newest-at-top sort_order; see SqlListsRepository).
         val minSort =
             state.value

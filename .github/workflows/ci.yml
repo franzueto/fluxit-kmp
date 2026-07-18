@@ -47,7 +47,6 @@ jobs:
       - name: Konsist (architecture rules)
         # --rerun-tasks: :build-logic:test scans repo source as runtime input,
         # but Gradle doesn't track those files as task inputs. Without this
-        # the test reports UP-TO-DATE on a stale cache. See docs/ARCHITECTURE.md §5.
         run: ./gradlew :build-logic:test --rerun-tasks
 
       - name: Assemble Android debug
@@ -81,7 +80,6 @@ jobs:
         run: scripts/build-ios.sh
 
       - name: iOS SKIE bridging smoke test (FluxItTests)
-        # Phase 05 §12/§15 — runs the Swift unit-test bundle that proves the
         # shared MVI store surface bridges into Swift (sealed -> exhaustive enum,
         # Flow -> AsyncSequence, dispatch callable). Simulator is resolved
         # dynamically inside the script.

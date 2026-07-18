@@ -22,11 +22,6 @@ import org.koin.dsl.KoinAppDeclaration
 import org.koin.mp.KoinPlatform
 
 /**
- * The five real `:platform:*` Koin modules (Phase 06 Slice 6, plan §8), in the
- * §8 order: logging first (so everything downstream can log), then config (clock
- * + ids + flags), then the capability ports (analytics, reminders, photo). A
- * single aggregator keeps the Android and iOS start sites identical.
- *
  * `remindersModule()` / `photoModule()` are `expect`/`actual` — they resolve to
  * the Android (`androidContext()`-backed) or iOS actual at each start site.
  */
@@ -63,77 +58,20 @@ public fun initKoin(
         modules(appModules() + extra)
     }
 
-/**
- * Swift-callable resolver (ADR-015 Slice C). SKIE surfaces this top-level
- * function so the iOS app can pull the session-scoped [RootStore] after
- * [initKoin] without referencing Koin's Swift API directly.
- */
 public fun resolveRootStore(): RootStore = KoinPlatform.getKoin().get()
 
-/**
- * Swift-callable resolver for the Lists tab store. Unlike [RootStore] (a session
- * `single`), [ListsDashboardStore] is a Koin `factory`, so each call returns a
- * fresh store over a fresh `CoroutineScope` — the SwiftUI Lists screen resolves
- * one per appearance and lets it cancel when the view leaves (Phase 06 Slice 7).
- */
 public fun resolveListsDashboardStore(): ListsDashboardStore = KoinPlatform.getKoin().get()
 
-/**
- * Swift-callable resolver for the List Detail store (plan/08 §9). Like
- * [ListsDashboardStore] a Koin `factory` (fresh store + scope per appearance); the
- * SwiftUI `ListDetailView` resolves one per appearance and dispatches
- * `ListDetailIntent.Init(listId)` to bind it to a specific list. The optional
- * `CoroutineScope` factory param is unused from Swift — it resolves over a fresh
- * `SupervisorJob` scope (the iOS view's lifetime owns cancellation via the store's
- * own `scope`).
- */
 public fun resolveListDetailStore(): ListDetailStore = KoinPlatform.getKoin().get()
 
-/**
- * Swift-callable resolver for the Create-List store in **create mode** (plan/09
- * §10). Like [ListsDashboardStore] a Koin `factory` (fresh store + scope per
- * appearance); the SwiftUI `CreateListView` resolves one per presentation. The
- * optional `CoroutineScope`/`ListId` factory params are both omitted, so the
- * store builds over a fresh `SupervisorJob` scope with `editingId = null`.
- */
 public fun resolveCreateListStore(): CreateListStore = KoinPlatform.getKoin().get()
 
-/**
- * Swift-callable resolver for the Create-List store in **edit mode** (plan/09
- * §9). Builds the [ListId] from the route-arg string internally (cf. [listIdOf])
- * and passes it through `parametersOf` so the Koin factory's `getOrNull<ListId>()`
- * flips the store into edit mode — Swift can't supply the boxed value class via
- * the default-arg constructor directly.
- */
 public fun resolveCreateListStore(editingId: String): CreateListStore = KoinPlatform.getKoin().get { parametersOf(ListId(editingId)) }
 
-/**
- * Swift-callable resolver for the Edit-Item store (plan/10 §8). A Koin `factory`
- * (fresh store + scope per appearance); the SwiftUI `ItemDetailView` resolves one
- * per presentation. The target item id is supplied later via
- * `ItemDetailIntent.Init` (built from the route-arg string with [itemIdOf]), not at
- * resolution — so this takes no parameter.
- */
 public fun resolveItemDetailStore(): ItemDetailStore = KoinPlatform.getKoin().get()
 
-/**
- * Swift-callable resolver for the Account tab store. Like [ListsDashboardStore] a
- * Koin `factory` (a fresh store + scope per appearance); the iOS Account screen
- * resolves one per appearance. `version`/`flags` stay the interim literals bound
- * in `stateModule` until a later slice routes them through `ConfigProvider`.
- */
 public fun resolveAccountStore(): AccountStore = KoinPlatform.getKoin().get()
 
-/**
- * Swift-callable resolver for the debug-only [SeedSampleData] use case (plan/07
- * §7). The use case is harmless in any build — the iOS Account screen gates the
- * *button* behind a `#if DEBUG`, mirroring the Android source-set strip.
- */
 public fun resolveSeedSampleData(): SeedSampleData = KoinPlatform.getKoin().get()
 
-/**
- * Tear down the Koin graph. Surfaced for the iOS runtime smoke (Slice C) so a
- * test can start a fresh graph per run; Phase 06's real composition roots own
- * Koin for the whole process and won't call this.
- */
 public fun stopKoinApp(): Unit = stopKoin()

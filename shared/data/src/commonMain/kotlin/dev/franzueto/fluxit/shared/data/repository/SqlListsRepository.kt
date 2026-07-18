@@ -22,16 +22,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 
-/**
- * SQLDelight-backed [ListsRepository] (Phase 03 §5). Pure orchestration:
- * every storage write maps to one `.sq` query; the only Kotlin-side logic
- * is the §8 sort-order minting and rebalance.
- *
- * Dispatcher injection lets tests pin Flow emissions to an unconfined
- * dispatcher; production binds [Dispatchers.Default]. We deliberately do
- * NOT use [Dispatchers.IO] (DoD: §1 — repositories stay off the IO pool;
- * SQLDelight calls are short and synchronous under the driver lock).
- */
 public class SqlListsRepository(
     private val database: FluxItDatabase,
     private val clock: Clock = Clock.System,
@@ -61,7 +51,6 @@ public class SqlListsRepository(
         // membership check and look up counts row-by-row would be N+1 —
         // instead just project the bare rows to summaries with zeroed
         // counters; the dashboard query stays the canonical counts source.
-        // Phase 08's list-detail will swap to a dedicated query if/when
         // search needs counts in-context.
         queries
             .searchByName(query)
@@ -89,7 +78,6 @@ public class SqlListsRepository(
             }
             val now = clock.now()
             val id = ListId(ids.newId())
-            // Newest-at-top (§12 row 5): mint below the current minimum so
             // ORDER BY sort_order ASC surfaces the new row first.
             val minSort = queries.selectMinActiveSortOrder().executeAsOne().min_sort_order
             val sortOrder = minSort?.let { it - 1.0 } ?: SEED_SORT_ORDER

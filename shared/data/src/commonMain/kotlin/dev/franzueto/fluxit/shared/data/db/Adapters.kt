@@ -9,7 +9,6 @@ import dev.franzueto.fluxit.shared.domain.model.ReminderOwnerType
 import kotlinx.datetime.Instant
 import kotlinx.serialization.json.Json
 
-// Phase 03 §3. Column adapters that map domain types to/from SQLite's native
 // storage classes at the SQLDelight boundary. Domain side stays pure; data
 // side encodes/decodes at the table edge.
 //

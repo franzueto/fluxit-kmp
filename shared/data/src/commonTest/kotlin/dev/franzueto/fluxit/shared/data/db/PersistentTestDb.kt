@@ -3,14 +3,6 @@ package dev.franzueto.fluxit.shared.data.db
 import app.cash.sqldelight.db.SqlDriver
 
 /**
- * Per-test **on-disk** SQLite handle for the §10 `IntegrationFlowTest`.
- *
- * Distinct from [inMemoryDriver]: this one persists across [openDriver]
- * calls so a test can write state, close the driver, reopen, and observe
- * the prior writes. The exit-criteria scenario (Phase 03 §10 row e)
- * literally requires "close → reopen → state restored exactly", which
- * in-memory drivers can't satisfy by definition.
- *
  * Lifecycle:
  *   ```
  *   val handle = PersistentTestDb()

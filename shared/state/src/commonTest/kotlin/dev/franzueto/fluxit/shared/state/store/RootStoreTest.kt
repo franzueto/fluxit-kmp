@@ -65,7 +65,6 @@ class RootStoreTest {
                 assertTrue(effect is RootEffect.ShowFatalError)
                 val init = store.state.value.init
                 assertTrue(init is InitState.Failed)
-                // The message is the §9 SchedulerFailure(SystemBusy) mapping, not empty.
                 assertTrue(init.message.isNotBlank())
                 assertEquals(init.message, effect.message)
             }

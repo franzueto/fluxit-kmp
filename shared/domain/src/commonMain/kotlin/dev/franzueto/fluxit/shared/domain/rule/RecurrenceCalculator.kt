@@ -14,12 +14,6 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
 /**
- * Pure rule helper that computes the next fire instant for a
- * recurring reminder, given the last fire instant and the user's
- * time zone (Phase 04 §8). Used by `ReminderScheduler` re-arming
- * logic (Phase 04 §7's `ScheduleReminder` use case + Phase 06's
- * platform reminder ports).
- *
  * Semantics per variant (all use the wall-clock time-of-day from
  * `after` in `tz`):
  *

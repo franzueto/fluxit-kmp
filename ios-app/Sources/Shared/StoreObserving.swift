@@ -1,7 +1,6 @@
 import Shared
 import SwiftUI
 
-// Phase 05 §3 — SwiftUI ↔ MVI store bridging helper.
 //
 // SKIE projects a store's `state: StateFlow<S>` as a Swift `AsyncSequence`, so a
 // view can drive a `@State`/`Binding` straight from the store without scattering

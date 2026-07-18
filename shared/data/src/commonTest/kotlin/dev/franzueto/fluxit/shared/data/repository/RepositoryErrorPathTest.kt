@@ -22,23 +22,10 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * Phase 03 §10 row (c) — repository error paths the existing smoke tests
- * don't cover. Two error categories:
- *
  *   1. **NotFound** on writes targeting an unknown / tombstoned id. The
  *      smoke tests cover this for create/rename/delete/cancel; this file
  *      fills in setStarred, updateAppearance, setCompleted, and the
  *      reorder methods.
- *
- *   2. **FK violation** from `item.photo_id REFERENCES photo(id)` when
- *      the photo doesn't exist. Surfaces as `DataError.Storage` today —
- *      the repository's `guard{}` maps every driver exception to that
- *      variant. Promoting FK-specific exceptions to `DataError.Conflict`
- *      would need a cross-platform exception-type discriminator (the
- *      `DataError` taxonomy has the slot ready); leaving as a follow-up
- *      until SQLDelight surfaces a stable exception hierarchy. Test pins
- *      the current behavior so the upgrade lands with a deliberate
- *      assertion flip.
  *
  * The FK tests rely on `PRAGMA foreign_keys = ON` being set by both
  * `TestDrivers.android.kt` and `TestDrivers.ios.kt` — without that the

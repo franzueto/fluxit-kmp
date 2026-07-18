@@ -1,7 +1,6 @@
 import Shared
 import SwiftUI
 
-/// The Create / Edit List modal (plan/09 §1/§2/§10), wired to `CreateListStore`.
 /// The SwiftUI mirror of the Android `CreateListScreen`: a `FluxItScaffold` with a
 /// centered top bar ("‹ Cancel" leading), a scrolling form (name field, icon grid,
 /// color row, reminder row), and a sticky submit dock in the bottom bar — all from
@@ -10,7 +9,6 @@ import SwiftUI
 /// `editingId == nil` is **create** mode (auto-focuses the name field, submits via
 /// `CreateList`, success pushes the new list's detail); a non-nil id is **edit**
 /// mode (prefilled from the live list, no auto-focus, success just dismisses). The
-/// store owns the §6 dirty check, so both the "‹ Cancel" button and a swipe-down
 /// (blocked via `.interactiveDismissDisabled`) route through `CancelClicked`.
 ///
 /// One-shot `CreateListEffect`s drain off the store; the `switch` is exhaustive so
@@ -91,7 +89,6 @@ struct CreateListView: View {
         }
         .task { await observeEffects(store) { handle($0) } }
         .onChange(of: nameFocused) { focused in
-            // Only a real focus *loss* reveals validation (§4) — ignore the initial gain.
             if !focused, didStart { store.dispatch(intent: CreateListIntentNameBlurred()) }
         }
     }
@@ -101,7 +98,6 @@ struct CreateListView: View {
     private func startIfNeeded() {
         guard !didStart else { return }
         didStart = true
-        // §3: auto-focus only in create mode (no surprise keyboard over prefilled edits).
         if !state.editing { nameFocused = true }
     }
 
@@ -119,7 +115,6 @@ struct CreateListView: View {
             error = e.message
         case .navigateToReminderSettings:
             // Unreachable in v1: the reminder row is disabled while
-            // RemindersEditorEnabled ships off (plan/09 §0 decision b).
             break
         }
     }
@@ -145,7 +140,6 @@ struct CreateListView: View {
         }
     }
 
-    /// §4 inline error copy — visible only after first blur or a submit attempt.
     private var nameErrorMessage: String? {
         guard state.validationVisible else { return nil }
         switch state.validation {
@@ -159,7 +153,6 @@ struct CreateListView: View {
     private var iconGridSection: some View {
         VStack(alignment: .leading, spacing: FluxItTokens.Spacing.scaleSm) {
             FluxItSectionHeader(label: "CHOOSE ICON")
-            // §2: 4-column grid; the catalog minus the ⋯ MORE glyph (mirrors Android).
             ForEach(Array(pickableIcons.chunked(into: iconColumns).enumerated()), id: \.offset) { _, row in
                 HStack(spacing: FluxItTokens.Spacing.scaleSm) {
                     ForEach(Array(row.enumerated()), id: \.offset) { _, icon in
@@ -195,8 +188,6 @@ struct CreateListView: View {
         }
     }
 
-    /// §8 Reminder Settings row — disabled in v1 ("Coming soon"); the editor lands
-    /// with Phase 13 behind `RemindersEditorEnabled`, so the row never dispatches.
     private var reminderSection: some View {
         VStack(alignment: .leading, spacing: FluxItTokens.Spacing.scaleSm) {
             FluxItSectionHeader(label: "REMINDER SETTINGS")
@@ -230,7 +221,6 @@ struct CreateListView: View {
 
     private var submitDock: some View {
         VStack(spacing: FluxItTokens.Spacing.scaleSm) {
-            // §7: submission failure keeps the modal open with a banner above the button.
             if let error {
                 Text(error)
                     .font(FluxItTokens.Typography.labelSm.font)
@@ -247,7 +237,6 @@ struct CreateListView: View {
         .padding(.vertical, FluxItTokens.Spacing.scaleLg)
     }
 
-    /// §2/§7 submit copy: mode + in-flight feedback (DS button has no spinner slot).
     private var submitLabel: String {
         if isSubmitting { return state.editing ? "Saving…" : "Creating…" }
         return state.editing ? "Save" : "Create List"
@@ -260,7 +249,6 @@ struct CreateListView: View {
 
     // MARK: - Picker helpers
 
-    /// Icons offered (plan/09 §5): the catalog minus the `MORE` glyph (the "more"
     /// affordance is dropped in v1; `MORE` is chrome, not a list identity).
     private var pickableIcons: [FluxItIconRef] {
         state.palette.icons.filter { $0 != .more }
@@ -269,7 +257,6 @@ struct CreateListView: View {
     private let iconColumns = 4
 }
 
-/// §12: human-readable names for each chip/swatch (accessibility labels) — the
 /// Swift mirror of the Android `iconLabel`/`colorLabel`. Exhaustive `switch`es so
 /// a new domain value breaks the build until a name is chosen.
 func iconLabel(_ icon: FluxItIconRef) -> String {

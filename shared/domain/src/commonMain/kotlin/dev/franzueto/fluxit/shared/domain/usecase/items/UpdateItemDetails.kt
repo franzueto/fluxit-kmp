@@ -14,16 +14,6 @@ import dev.franzueto.fluxit.shared.domain.repository.ItemsRepository
 import kotlinx.coroutines.flow.first
 
 /**
- * Apply a partial edit to an existing item (Phase 04 §7) — backs the Edit
- * Item screen (title, subtitle, description, photo).
- *
- * This is the use case that **introduces [Optional]** (§6): each editable
- * field is supplied as an [Optional] so the caller distinguishes "leave it
- * alone" ([Optional.Unset]) from "set it" ([Optional.Set], including
- * `Set(null)` to clear a nullable field). The shipped [ItemsRepository.update]
- * contract takes a *full-replacement* [ItemPatch] (every column written
- * atomically), so this use case:
- *
  * 1. reads the current [item][dev.franzueto.fluxit.shared.domain.model.Item]
  *    via `observe(id).first()` — a missing/tombstoned id is
  *    [DomainError.NotFound] (entity "Item"), produced directly,
@@ -33,15 +23,6 @@ import kotlinx.coroutines.flow.first
  * 3. folds each [Optional] over the current value via [orElse] into a
  *    complete [ItemPatch], then lifts the repo write via
  *    `toDomain(entity = "Item")`.
- *
- * Read-then-write isn't atomic; last-writer-wins through the observed flow
- * is acceptable for the single-user local store (§9). `subtitle` /
- * `description` are free-form and not validated.
- *
- *
- * **Concurrency (§9):** caller dispatcher — any; this use case does not block.
- * It suspends only on the injected repository/port, which owns its dispatcher;
- * the domain stays dispatcher-agnostic (no `withContext`/`Dispatchers.*`).
  */
 public class UpdateItemDetails(
     private val items: ItemsRepository,

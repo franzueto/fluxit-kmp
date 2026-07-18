@@ -1,10 +1,8 @@
 import Shared
 import SwiftUI
 
-/// The sticky composer dock (plan/08 §1/§3). Binds the DS `FluxItInlineComposer`
 /// to the store's `composerText`, submits via the button or the keyboard "send"
 /// label, and surfaces a failed add as an inline error pill above the field
-/// (the store keeps the text on failure, §14). Lives in the scaffold's bottom bar
 /// so it docks above the keyboard.
 struct ComposerDock: View {
     let text: String

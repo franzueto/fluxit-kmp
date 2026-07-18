@@ -1,15 +1,12 @@
 import Shared
 import SwiftUI
 
-/// The Edit-Item screen (plan/10 §1), wired to `ItemDetailStore`. The SwiftUI
 /// mirror of the Android `ItemDetailScreen`: a `FluxItScaffold` with a centered top
 /// bar ("‹ Back" leading), a scrolling form (general info, photo, optional
 /// permission banner, delete, last-edited footer), and a sticky Save dock in the
 /// bottom bar — all from `core-designsystem` primitives.
 ///
-/// **§1 divergence (shared with Android):** Save lives in the bottom dock, not a
 /// top-bar text trailing — the DS centered top bar exposes only an icon trailing
-/// with no disabled state. The store owns the §5 dirty check, so the "‹ Back"
 /// button routes through `BackClicked` (→ `ConfirmDiscardChanges` when dirty).
 ///
 /// Photo capture is fully handled by the store + `AttachPhotoToItem` over the Phase
@@ -19,13 +16,10 @@ import SwiftUI
 /// matching the Android v1 simple-decode divergence.
 ///
 /// One-shot `ItemDetailEffect`s drain off the store; the `switch` is exhaustive so
-/// a new effect breaks the build. The §4 permission banner is iOS-camera-only (the
 /// only place `Request*` effects actually fire — Android's system camera owns its
 /// own permission).
 ///
-/// **Divergence from plan/10 §8:** the iOS screen ships as this single file rather
 /// than the listed `ItemDetailView` / `PhotoSection` / `PermissionBanner` /
-/// `ItemDetailFormSections` / `ItemDetailPreviews` split — mirroring the Phase 09
 /// `CreateListView.swift` monolith (Swift `private` is file-scoped, so the Android
 /// internal-helper split buys nothing here; SwiftUI previews are dropped on iOS).
 struct ItemDetailView: View {
@@ -52,7 +46,6 @@ struct ItemDetailView: View {
     )
     @State private var confirmDiscard = false
     @State private var error: String?
-    /// §4 in-section permission affordance — iOS-camera-only. Cleared on the next
     /// photo re-attempt (`UpdatePhotoClicked`).
     @State private var permissionBanner: PermissionTarget?
     @State private var didStart = false
@@ -63,7 +56,6 @@ struct ItemDetailView: View {
                 FluxItTopBarCentered(
                     title: "Edit Item",
                     backLabel: "Back",
-                    // System/UI back routes through the store's dirty check (§5).
                     onBack: { store.dispatch(intent: ItemDetailIntentBackClicked()) }
                 )
             },
@@ -85,7 +77,6 @@ struct ItemDetailView: View {
         }
         .alert("Discard changes?", isPresented: $confirmDiscard) {
             // The store only emits ConfirmDiscardChanges (no DiscardConfirmed intent) —
-            // the host owns the choice, so Discard just pops (§5).
             Button("Discard", role: .destructive) { onBack() }
             Button("Keep editing", role: .cancel) {}
         } message: {
@@ -94,7 +85,6 @@ struct ItemDetailView: View {
         .confirmationDialog("Item Photo", isPresented: photoSheetBinding, titleVisibility: .hidden) {
             Button("Take Photo") { store.dispatch(intent: ItemDetailIntentPhotoSourceSelected(source: .camera)) }
             Button("Choose from Library") { store.dispatch(intent: ItemDetailIntentPhotoSourceSelected(source: .library)) }
-            // §15: "Remove Photo" appears only when a photo is attached.
             if isPhotoLoaded {
                 Button("Remove Photo", role: .destructive) { store.dispatch(intent: ItemDetailIntentRemovePhotoClicked()) }
             }
@@ -160,7 +150,6 @@ struct ItemDetailView: View {
         }
     }
 
-    // MARK: - General info (§1)
 
     private var generalInfoSection: some View {
         VStack(alignment: .leading, spacing: FluxItTokens.Spacing.scaleMd) {
@@ -193,7 +182,6 @@ struct ItemDetailView: View {
         }
     }
 
-    /// §2 inline title-error copy. No `validationVisible` gate (the field is prefilled
     /// valid), so an error shows whenever the live title is invalid.
     private var titleErrorMessage: String? {
         switch state.titleValidation {
@@ -204,7 +192,6 @@ struct ItemDetailView: View {
         }
     }
 
-    // MARK: - Photo (§1/§14)
 
     private var photoSection: some View {
         VStack(alignment: .leading, spacing: FluxItTokens.Spacing.scaleSm) {
@@ -213,7 +200,6 @@ struct ItemDetailView: View {
                 trailingActionLabel: "Update",
                 onTrailingAction: { updatePhoto() }
             )
-            // The card itself is tappable (§13 divergence — more discoverable on touch).
             Button(action: { updatePhoto() }) { photoCard }
                 .buttonStyle(.plain)
         }
@@ -239,7 +225,6 @@ struct ItemDetailView: View {
     }
 
     @ViewBuilder private func loadedPhoto(uri: String) -> some View {
-        // §13: simple-decode from the absolute path, no Coil/Kingfisher (Android parity).
         if let image = UIImage(contentsOfFile: uri) {
             Image(uiImage: image)
                 .resizable()
@@ -274,7 +259,6 @@ struct ItemDetailView: View {
         }
     }
 
-    /// Clear a stale permission banner once the user re-attempts a photo (§4).
     private func updatePhoto() {
         permissionBanner = nil
         store.dispatch(intent: ItemDetailIntentUpdatePhotoClicked())
@@ -285,7 +269,6 @@ struct ItemDetailView: View {
         return false
     }
 
-    // MARK: - Delete + footer (§1)
 
     private var deleteSection: some View {
         FluxItDestructiveButton(
@@ -302,11 +285,9 @@ struct ItemDetailView: View {
             .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    // MARK: - Save dock (§5)
 
     private var saveDock: some View {
         VStack(spacing: FluxItTokens.Spacing.scaleSm) {
-            // §5: submission failure keeps the screen open with a banner above the button.
             if let error {
                 Text(error)
                     .font(FluxItTokens.Typography.labelSm.font)
@@ -346,7 +327,6 @@ struct ItemDetailView: View {
     }
 }
 
-/// §1 footer copy, e.g. "Last edited on Jun 18, 2026" (local time zone). The Swift
 /// mirror of the Android `lastEditedLabel`.
 private func lastEditedLabel(_ updatedAtMillis: Int64) -> String {
     let date = Date(timeIntervalSince1970: Double(updatedAtMillis) / 1000)
@@ -356,17 +336,14 @@ private func lastEditedLabel(_ updatedAtMillis: Int64) -> String {
     return "Last edited on \(formatter.string(from: date))"
 }
 
-/// Which access the in-photo permission banner is asking for (§4). Drives the copy
 /// only; the recovery action is the same "Open Settings" deep link for both.
 ///
-/// **Divergence (plan/10 §0 b):** no soft-vs-hard split — the domain surfaces a flat
 /// `PermissionDenied`. This is where the banner actually fires (iOS-camera-only).
 enum PermissionTarget {
     case camera
     case library
 }
 
-/// §4 in-section permission affordance: contextual card with an Open Settings CTA.
 private struct PermissionBanner: View {
     let target: PermissionTarget
     let onOpenSettings: () -> Void
@@ -393,7 +370,6 @@ private struct PermissionBanner: View {
     }
 }
 
-/// §1 centered load-error / fallback message.
 private struct CenteredMessage: View {
     let message: String
 

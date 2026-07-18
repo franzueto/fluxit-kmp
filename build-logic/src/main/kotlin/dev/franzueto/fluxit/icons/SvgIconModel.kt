@@ -3,7 +3,6 @@ package dev.franzueto.fluxit.icons
 // Strongly-typed model of a single SVG icon source file. The parser
 // (SvgPathParser) reads an `*.svg` file from core/core-designsystem/icons/ and
 // emits an IconSource; the emitters (KotlinIconEmitter / SwiftIconEmitter,
-// added in follow-up commits) consume it. Keeping the model
 // platform-agnostic is what lets us add new emitters later without touching
 // parsing — same shape as the token pipeline (ADR-005, ADR-005a).
 //

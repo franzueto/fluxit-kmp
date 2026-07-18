@@ -1,14 +1,11 @@
 import Shared
 import SwiftUI
 
-/// The iOS composition-root view (Phase 06 Slice 7; tab host + nav graph fleshed
-/// out in Phase 07 Slice 7). Resolves the session-scoped `RootStore`, runs
 /// `InitializeApp` once via `AppStarted`, and gates on the resulting `InitState`:
 ///  - `.initializing` → a splash spinner.
 ///  - `.failed` → a minimal retry surface (polished splash UX is a later phase).
 ///  - `.ready` → the `TabHostView`.
 ///
-/// App-level deep links (reminder taps; plan/06 §5) arrive via `.onOpenURL` →
 /// `RootIntent.OpenDeepLink`, and the resulting `NavigateToList`/`NavigateToItem`
 /// effects are translated into navigation pushes inside `TabHostView`.
 struct ContentView: View {
@@ -40,9 +37,7 @@ struct ContentView: View {
 }
 
 /// Pushed destinations for a tab's `NavigationStack`. Item detail renders the real
-/// Edit-Item screen (Phase 10); Settings is a real stub (Slice 6). Create-List is
 /// **not** a stack route — it's a `.fullScreenCover`
-/// modal owned by `createListPresented` (plan/09 §1). Deep links push
 /// `.listDetail` / `.itemDetail`.
 private enum DashRoute: Hashable {
     case listDetail(String)
@@ -50,7 +45,6 @@ private enum DashRoute: Hashable {
     case settings
 }
 
-/// The bottom-tab host (plan/07 §2). The four tabs render unconditionally; the
 /// selected tab is owned by `RootStore.currentTab` and a tap dispatches
 /// `TabSelected`. Lists + Account each own a `NavigationStack`; Calendar/Starred
 /// render the inline "Coming soon" placeholder (ADR-004). The center FAB overlays
