@@ -200,3 +200,25 @@ Android auto-backup excludes the SQLDelight database and photo directory because
 there is no server reconciliation path. iOS keeps the default iCloud container
 behavior, allowing a normal device restore. This asymmetry is deliberate and must
 be revisited if real sync is introduced.
+
+## ADR-018 — Repository is named and licensed separately from the product
+
+**Status:** Accepted · **Date:** 2026-08-04
+
+Supersedes the repository-naming clause of ADR-002. ADR-002 still holds for the
+application and the user-facing product, which remain FluxIt.
+
+This repository is renamed to `kmp-architecture-reference` and its source code is
+relicensed from All Rights Reserved to Apache-2.0. A code license and brand
+protection are independent axes: licensing this code permissively does not
+license the commercial product's code, and Apache-2.0 §6 withholds trademark
+rights explicitly, which is why it is preferred over MIT here.
+
+The lookalike risk — a UI clone shipped under the same name — is addressed by
+naming the repository descriptively and reserving the brand assets and the
+`design/` mockups in `LICENSE-ASSETS`, rather than by restricting the code.
+
+Package namespaces, `applicationId`, the iOS bundle identifier, and `FluxIt*`
+type prefixes are deliberately unchanged. They are product identifiers, not
+repository identifiers, and changing a published `applicationId` or bundle ID has
+consequences beyond this repository.
