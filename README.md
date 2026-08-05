@@ -1,12 +1,29 @@
-# FluxIt
+# KMP Architecture Reference
 
-FluxIt is an offline-first list-making app for Android and iOS. It uses Kotlin
-Multiplatform to share domain, data, and presentation state while keeping the UI
-native with Jetpack Compose and SwiftUI.
+An offline-first list-making app for Android and iOS, built as a teaching
+reference. It uses Kotlin Multiplatform to share domain, data, and presentation
+state while keeping the UI native with Jetpack Compose and SwiftUI.
 
-The project is intentionally structured like a larger mobile codebase. It is a
-teaching reference for modularization, dependency boundaries, native UI over a
-shared state layer, code generation, and architecture enforcement.
+The project is a worked example of modularization, dependency boundaries, native
+UI over a shared state layer, code generation, and architecture enforcement.
+
+## Relationship to the product
+
+The patterns here are drawn from **FluxIt**, a commercial app I'm building. This
+repository is a teaching reference, not the product — it implements a subset of
+the app's functionality and is deliberately structured to demonstrate more than
+the product needs.
+
+**It is deliberately over-engineered**, to demonstrate patterns you'd only reach
+for at scale. A four-feature list app does not need sixteen Gradle modules,
+generated design tokens, or Konsist architecture tests. The point is to show
+those mechanisms working end to end on a codebase small enough to read in an
+afternoon — not to suggest this is the right amount of structure for an app this
+size.
+
+Source code is licensed under Apache-2.0; the FluxIt brand assets and the
+reference mockups in `design/` are reserved. See
+[`LICENSE`](LICENSE) and [`LICENSE-ASSETS`](LICENSE-ASSETS).
 
 ## Product status
 
@@ -89,7 +106,7 @@ core/                 Design system, generated tokens and shared utilities
 features/             Android feature UI modules
 platform/             Android and iOS capability implementations
 build-logic/          Gradle convention plugins, generators and architecture tests
-design/               Reference mockups for the core product surfaces
+design/               Reference mockups for the core product surfaces (reserved)
 docs/                 Current architecture, decisions and team conventions
 ```
 
@@ -139,4 +156,13 @@ scripts/install-hooks.sh
 
 ## License
 
-All rights reserved. See [`LICENSE`](LICENSE).
+Source code is licensed under the Apache License, Version 2.0 — see
+[`LICENSE`](LICENSE).
+
+The FluxIt name and brand assets, and the reference mockups in `design/`, are
+reserved and not covered by that license — see [`LICENSE-ASSETS`](LICENSE-ASSETS).
+
+Third-party assets keep their own licenses: the Material Symbols icons in
+`core/core-designsystem/icons/` are Apache-2.0 (Copyright 2014 Google LLC, see
+[`ATTRIBUTION.md`](core/core-designsystem/icons/ATTRIBUTION.md)), and the Inter
+font files are under the SIL Open Font License 1.1.

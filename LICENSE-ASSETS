@@ -1,0 +1,25 @@
+All Rights Reserved.
+
+Copyright (c) 2026 FluxIt.
+
+The FluxIt name, logo, app icon, and any product illustrations or product copy
+in this repository are not covered by the Apache License 2.0 that applies to the
+source code. No rights are granted to copy, modify, distribute, or use these
+assets, in whole or in part, without prior written permission from the copyright
+holder.
+
+This reservation specifically includes the contents of the `design/` directory
+(reference mockups of the product's screens, both the rendered images and their
+HTML sources), which depict the user interface of a commercial product.
+
+Source code in this repository is licensed under the Apache License, Version 2.0.
+See LICENSE.
+
+Third-party assets retain their own licenses and are covered by neither of the
+above:
+
+- `core/core-designsystem/icons/*.svg` — Google Material Symbols, Copyright 2014
+  Google LLC, Apache License 2.0. See `core/core-designsystem/icons/ATTRIBUTION.md`.
+- `core/core-designsystem/src/androidMain/res/font/inter_variable.ttf` and
+  `ios-app/Resources/Inter-Variable.ttf` — Inter, Copyright (c) 2016 The Inter
+  Project Authors, SIL Open Font License 1.1. See the accompanying `OFL.txt`.
