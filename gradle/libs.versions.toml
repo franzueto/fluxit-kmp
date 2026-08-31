@@ -20,7 +20,7 @@ android-min-sdk = "26"          # confirmed 2026-05-13: Android 8.0 baseline (ad
 # --- Compose (Android) ---
 compose-bom = "2026.06.00"
 androidx-activity = "1.13.0"
-androidx-navigation = "2.9.8"
+androidx-navigation = "2.10.0"
 
 androidx-work = "2.11.2"        # WorkManager — best-effort reminder scheduling (ADR-009a)
 androidx-core = "1.19.0"        # NotificationCompat + notification channel APIs
