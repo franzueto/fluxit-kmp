@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
 }
@@ -38,13 +39,15 @@ kotlin {
             implementation(libs.material.icons.extended)
             implementation(libs.androidx.lifecycle.viewmodel.compose)
             implementation(libs.androidx.lifecycle.runtime.compose)
-            implementation(libs.navigation.compose)
+            implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+            implementation(libs.navigation3.ui)
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.serialization.core)
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)

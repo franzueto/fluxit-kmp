@@ -51,7 +51,7 @@ import com.fluxit.ui.components.decodeImageFile
 import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -276,9 +276,8 @@ private fun formatDate(epochMillis: Long): String {
         Month.APRIL -> "Apr"; Month.MAY -> "May"; Month.JUNE -> "Jun"
         Month.JULY -> "Jul"; Month.AUGUST -> "Aug"; Month.SEPTEMBER -> "Sep"
         Month.OCTOBER -> "Oct"; Month.NOVEMBER -> "Nov"; Month.DECEMBER -> "Dec"
-        else -> date.month.name.take(3)
     }
-    return "$month ${date.dayOfMonth}, ${date.year}"
+    return "$month ${date.day}, ${date.year}"
 }
 
 @Composable
