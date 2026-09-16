@@ -25,6 +25,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,7 +48,6 @@ import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.ui.components.toImageVector
 import com.fluxit.ui.theme.FluxCardShape
-import com.fluxit.ui.theme.FluxColors
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
 import com.fluxit.ui.theme.toColor
@@ -72,35 +72,39 @@ fun CreateListScreen(
     if (showDiscardDialog) {
         AlertDialog(
             onDismissRequest = { showDiscardDialog = false },
-            containerColor = FluxColors.Surface,
-            title = { Text("Discard changes?", color = FluxColors.TextPrimary) },
-            text = { Text("Your changes will be lost.", color = FluxColors.TextMuted) },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            title = { Text("Discard changes?", color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("Your changes will be lost.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
-                TextButton(onClick = onDismiss) { Text("Discard", color = FluxColors.AccentRose) }
+                TextButton(onClick = onDismiss) { Text("Discard", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = { showDiscardDialog = false }) {
-                    Text("Keep editing", color = FluxColors.PrimaryBlue)
+                    Text("Keep editing", color = MaterialTheme.colorScheme.primary)
                 }
             },
         )
     }
 
     Scaffold(
-        containerColor = FluxColors.Background,
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
-            Box(modifier = Modifier.background(FluxColors.Background).padding(FluxSpacing.ContainerPadding)) {
+            Box(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(FluxSpacing.ContainerPadding),
+            ) {
                 Button(
                     onClick = viewModel::save,
                     enabled = state.isValid && !state.isSaving && (!state.isEditMode || state.isDirty),
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = FluxCardShape,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = FluxColors.PrimaryBlue,
-                        contentColor = Color.White,
-                        disabledContainerColor = FluxColors.Surface,
-                        disabledContentColor = FluxColors.TextMuted,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                 ) {
                     Text(if (state.isEditMode) "Save" else "Create List", style = FluxType.TitleMd)
@@ -118,7 +122,7 @@ fun CreateListScreen(
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Text(
                     "Cancel",
-                    color = FluxColors.PrimaryBlue,
+                    color = MaterialTheme.colorScheme.primary,
                     style = FluxType.BodyMd,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
@@ -128,7 +132,7 @@ fun CreateListScreen(
                 Text(
                     if (state.isEditMode) "Edit List" else "New List",
                     style = FluxType.TitleMd,
-                    color = FluxColors.TextPrimary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.align(Alignment.Center),
                     textAlign = TextAlign.Center,
                 )
@@ -141,24 +145,24 @@ fun CreateListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = FluxSpacing.ContainerPadding),
-                placeholder = { Text("e.g., Summer Trip", color = FluxColors.TextMuted) },
+                placeholder = { Text("e.g., Summer Trip", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 singleLine = true,
                 shape = FluxCardShape,
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = FluxColors.Surface,
-                    unfocusedContainerColor = FluxColors.Surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = FluxColors.PrimaryBlue,
-                    focusedTextColor = FluxColors.TextPrimary,
-                    unfocusedTextColor = FluxColors.TextPrimary,
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                 ),
             )
             if (state.name.length >= MAX_LIST_NAME_LENGTH) {
                 Text(
                     "Maximum $MAX_LIST_NAME_LENGTH characters",
                     style = FluxType.LabelSm,
-                    color = FluxColors.AccentRose,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = FluxSpacing.ContainerPadding, vertical = 4.dp),
                 )
             }
@@ -180,11 +184,12 @@ fun CreateListScreen(
                         modifier = Modifier
                             .height(88.dp)
                             .background(
-                                if (selected) FluxColors.PrimaryBlue.copy(alpha = 0.15f) else FluxColors.Surface,
+                                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                else MaterialTheme.colorScheme.surfaceContainer,
                                 FluxCardShape,
                             )
                             .then(
-                                if (selected) Modifier.border(2.dp, FluxColors.PrimaryBlue, FluxCardShape)
+                                if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, FluxCardShape)
                                 else Modifier
                             )
                             .clickable { viewModel.onIconChange(icon) },
@@ -193,7 +198,7 @@ fun CreateListScreen(
                         Icon(
                             icon.toImageVector(),
                             contentDescription = icon.name,
-                            tint = if (selected) FluxColors.PrimaryBlue else FluxColors.TextPrimary,
+                            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(28.dp),
                         )
                     }
@@ -213,7 +218,7 @@ fun CreateListScreen(
                         modifier = Modifier
                             .size(48.dp)
                             .then(
-                                if (selected) Modifier.border(2.dp, FluxColors.TextPrimary, CircleShape)
+                                if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.onBackground, CircleShape)
                                 else Modifier
                             )
                             .padding(5.dp)
@@ -232,7 +237,7 @@ private fun SectionLabel(text: String) {
     Text(
         text,
         style = FluxType.LabelSm.copy(letterSpacing = 1.5.sp),
-        color = FluxColors.TextMuted,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(
             start = FluxSpacing.ContainerPadding,
             end = FluxSpacing.ContainerPadding,

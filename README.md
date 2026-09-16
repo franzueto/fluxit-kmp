@@ -1,7 +1,7 @@
 # FluxIt
 
-A dark-mode-first, offline-only list-making app built with **Kotlin Multiplatform** and
-**Compose Multiplatform** (shared UI on Android and iOS).
+An offline-only list-making app with system-adaptive light and dark themes, built with
+**Kotlin Multiplatform** and **Compose Multiplatform** (shared UI on Android and iOS).
 
 ## Build & run
 
@@ -37,7 +37,7 @@ composeApp/src/
 │   ├── data/            Room entities, DAOs, database, repository impls, debug seeder,
 │   │                    PhotoPicker/PhotoStorage bridge interfaces
 │   ├── domain/          plain models + repository interfaces (no platform imports)
-│   ├── ui/theme/        design tokens (colors, type, spacing, shapes) — dark-only theme
+│   ├── ui/theme/        design tokens (light/dark colors, type, spacing, shapes)
 │   ├── ui/components/   reusable composables (swipe-to-delete, empty state, icon mapping)
 │   ├── di/              Koin modules
 │   ├── navigation/      routes + NavHost

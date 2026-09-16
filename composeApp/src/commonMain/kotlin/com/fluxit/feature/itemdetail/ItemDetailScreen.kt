@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
@@ -48,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fluxit.ui.components.decodeImageFile
 import com.fluxit.ui.theme.FluxCardShape
-import com.fluxit.ui.theme.FluxColors
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
 import kotlinx.datetime.Instant
@@ -74,25 +74,25 @@ fun ItemDetailScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            containerColor = FluxColors.Surface,
-            title = { Text("Delete item?", color = FluxColors.TextPrimary) },
-            text = { Text("This can't be undone.", color = FluxColors.TextMuted) },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            title = { Text("Delete item?", color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("This can't be undone.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
                     viewModel.deleteItem()
-                }) { Text("Delete", color = FluxColors.AccentRose) }
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = FluxColors.PrimaryBlue)
+                    Text("Cancel", color = MaterialTheme.colorScheme.primary)
                 }
             },
         )
     }
 
     Scaffold(
-        containerColor = FluxColors.Background,
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { padding ->
         Column(
@@ -110,19 +110,32 @@ fun ItemDetailScreen(
                         .padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Outlined.ChevronLeft, contentDescription = "Back", tint = FluxColors.PrimaryBlue)
-                    Text(state.listName, color = FluxColors.PrimaryBlue, style = FluxType.BodyMd, maxLines = 1)
+                    Icon(
+                        Icons.Outlined.ChevronLeft,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        state.listName,
+                        color = MaterialTheme.colorScheme.primary,
+                        style = FluxType.BodyMd,
+                        maxLines = 1,
+                    )
                 }
                 Text(
                     "Edit Item",
                     style = FluxType.TitleMd,
-                    color = FluxColors.TextPrimary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.align(Alignment.Center),
                 )
                 Text(
                     "Save",
                     style = FluxType.BodyMd,
-                    color = if (state.canSave) FluxColors.PrimaryBlue else FluxColors.TextMuted,
+                    color = if (state.canSave) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .clickable(enabled = state.canSave, onClick = viewModel::save)
@@ -133,7 +146,7 @@ fun ItemDetailScreen(
             Text(
                 "General Info",
                 style = FluxType.TitleMd,
-                color = FluxColors.TextPrimary,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
             )
 
@@ -163,7 +176,7 @@ fun ItemDetailScreen(
                 Text(
                     "Item Photo",
                     style = FluxType.TitleMd,
-                    color = FluxColors.TextPrimary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.weight(1f),
                 )
                 Row(
@@ -175,11 +188,11 @@ fun ItemDetailScreen(
                     Icon(
                         Icons.Outlined.PhotoLibrary,
                         contentDescription = null,
-                        tint = FluxColors.PrimaryBlue,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.size(6.dp))
-                    Text("Update", color = FluxColors.PrimaryBlue, style = FluxType.LabelSm)
+                    Text("Update", color = MaterialTheme.colorScheme.primary, style = FluxType.LabelSm)
                 }
             }
 
@@ -189,7 +202,7 @@ fun ItemDetailScreen(
                     .padding(horizontal = FluxSpacing.ContainerPadding)
                     .aspectRatio(16f / 9f)
                     .clip(FluxCardShape)
-                    .background(FluxColors.Surface),
+                    .background(MaterialTheme.colorScheme.surfaceContainer),
                 contentAlignment = Alignment.Center,
             ) {
                 val path = state.photoPath
@@ -202,14 +215,18 @@ fun ItemDetailScreen(
                         contentScale = ContentScale.Crop,
                     )
                 } else {
-                    Text("No photo yet", style = FluxType.BodyMd, color = FluxColors.TextMuted)
+                    Text(
+                        "No photo yet",
+                        style = FluxType.BodyMd,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             if (state.photoPath != null) {
                 Text(
                     "Remove photo",
                     style = FluxType.LabelSm,
-                    color = FluxColors.AccentRose,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .clickable(onClick = viewModel::removePhoto)
@@ -226,8 +243,11 @@ fun ItemDetailScreen(
                     .padding(horizontal = FluxSpacing.ContainerPadding)
                     .height(52.dp),
                 shape = FluxCardShape,
-                border = androidx.compose.foundation.BorderStroke(1.dp, FluxColors.AccentRose.copy(alpha = 0.5f)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = FluxColors.AccentRose),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                ),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) {
                 Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
@@ -238,7 +258,7 @@ fun ItemDetailScreen(
                 Text(
                     "Last edited on ${formatDate(item.updatedAt)}",
                     style = FluxType.LabelSm,
-                    color = FluxColors.TextMuted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
                 )
@@ -266,7 +286,7 @@ private fun SectionLabel(text: String) {
     Text(
         text,
         style = FluxType.LabelSm.copy(letterSpacing = 1.5.sp),
-        color = FluxColors.TextMuted,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(
             start = FluxSpacing.ContainerPadding,
             end = FluxSpacing.ContainerPadding,
@@ -293,13 +313,13 @@ private fun FluxTextField(
         singleLine = singleLine,
         shape = FluxCardShape,
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = FluxColors.Surface,
-            unfocusedContainerColor = FluxColors.Surface,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
-            cursorColor = FluxColors.PrimaryBlue,
-            focusedTextColor = FluxColors.TextPrimary,
-            unfocusedTextColor = FluxColors.TextPrimary,
+            cursorColor = MaterialTheme.colorScheme.primary,
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
         ),
     )
 }

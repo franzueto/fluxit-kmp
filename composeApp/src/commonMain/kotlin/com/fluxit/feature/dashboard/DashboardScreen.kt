@@ -52,7 +52,6 @@ import com.fluxit.ui.components.EmptyState
 import com.fluxit.ui.components.SwipeToDeleteContainer
 import com.fluxit.ui.components.toImageVector
 import com.fluxit.ui.theme.FluxCardShape
-import com.fluxit.ui.theme.FluxColors
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
 import com.fluxit.ui.theme.toColor
@@ -81,18 +80,28 @@ fun DashboardScreen(
     }
 
     Scaffold(
-        containerColor = FluxColors.Background,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             Box(
                 modifier = Modifier
                     .size(64.dp)
-                    .shadow(16.dp, CircleShape, ambientColor = FluxColors.PrimaryBlue, spotColor = FluxColors.PrimaryBlue)
-                    .background(FluxColors.PrimaryBlue, CircleShape)
+                    .shadow(
+                        16.dp,
+                        CircleShape,
+                        ambientColor = MaterialTheme.colorScheme.primary,
+                        spotColor = MaterialTheme.colorScheme.primary,
+                    )
+                    .background(MaterialTheme.colorScheme.primary, CircleShape)
                     .clickable(onClick = onCreateList),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = "Create list", tint = Color.White, modifier = Modifier.size(32.dp))
+                Icon(
+                    Icons.Outlined.Add,
+                    contentDescription = "Create list",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(32.dp),
+                )
             }
         },
         floatingActionButtonPosition = androidx.compose.material3.FabPosition.Center,
@@ -109,26 +118,38 @@ fun DashboardScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier.size(40.dp).background(FluxColors.Surface, CircleShape),
+                    modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Person, contentDescription = "Profile", tint = FluxColors.TextMuted)
+                    Icon(
+                        Icons.Outlined.Person,
+                        contentDescription = "Profile",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Spacer(Modifier.weight(1f))
                 if (DEBUG_SEED_ENABLED) {
                     IconButton(onClick = viewModel::seedSampleData) {
-                        Icon(Icons.Outlined.DataArray, contentDescription = "Seed sample data", tint = FluxColors.TextMuted)
+                        Icon(
+                            Icons.Outlined.DataArray,
+                            contentDescription = "Seed sample data",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
                 IconButton(onClick = {}) {
-                    Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = FluxColors.TextPrimary)
+                    Icon(
+                        Icons.Outlined.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.onBackground,
+                    )
                 }
             }
 
             Text(
                 text = "My Lists",
                 style = FluxType.DisplayLg,
-                color = FluxColors.TextPrimary,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(top = 12.dp, bottom = 16.dp),
             )
 
@@ -136,18 +157,24 @@ fun DashboardScreen(
                 value = state.searchQuery,
                 onValueChange = viewModel::onSearchChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search lists...", color = FluxColors.TextMuted) },
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = FluxColors.TextMuted) },
+                placeholder = { Text("Search lists...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Outlined.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
                 singleLine = true,
                 shape = FluxCardShape,
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = FluxColors.Surface,
-                    unfocusedContainerColor = FluxColors.Surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = FluxColors.PrimaryBlue,
-                    focusedTextColor = FluxColors.TextPrimary,
-                    unfocusedTextColor = FluxColors.TextPrimary,
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                 ),
             )
 
@@ -187,7 +214,7 @@ private fun subtitleFor(summary: FluxListSummary): String {
 private fun ListRow(summary: FluxListSummary, onClick: () -> Unit) {
     val accent = summary.list.color.toColor()
     Surface(
-        color = FluxColors.Surface,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         shape = FluxCardShape,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
@@ -202,14 +229,18 @@ private fun ListRow(summary: FluxListSummary, onClick: () -> Unit) {
                 Icon(summary.list.icon.toImageVector(), contentDescription = null, tint = accent)
             }
             Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                Text(summary.list.name, style = FluxType.TitleMd, color = FluxColors.TextPrimary)
+                Text(summary.list.name, style = FluxType.TitleMd, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(2.dp))
-                Text(subtitleFor(summary), style = FluxType.LabelSm, color = FluxColors.TextMuted)
+                Text(
+                    subtitleFor(summary),
+                    style = FluxType.LabelSm,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = null,
-                tint = FluxColors.TextMuted,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

@@ -33,6 +33,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -61,7 +62,6 @@ import com.fluxit.domain.FluxItem
 import com.fluxit.ui.components.EmptyState
 import com.fluxit.ui.components.SwipeToDeleteContainer
 import com.fluxit.ui.theme.FluxCardShape
-import com.fluxit.ui.theme.FluxColors
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
 import org.koin.compose.viewmodel.koinViewModel
@@ -95,7 +95,7 @@ fun ListDetailScreen(
     }
 
     Scaffold(
-        containerColor = FluxColors.Background,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
@@ -116,20 +116,28 @@ fun ListDetailScreen(
                     modifier = Modifier.clickable(onClick = onBack).padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Outlined.ChevronLeft, contentDescription = "Back", tint = FluxColors.PrimaryBlue)
-                    Text("Lists", color = FluxColors.PrimaryBlue, style = FluxType.BodyMd)
+                    Icon(
+                        Icons.Outlined.ChevronLeft,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text("Lists", color = MaterialTheme.colorScheme.primary, style = FluxType.BodyMd)
                 }
                 Text(
                     text = state.list?.name ?: "",
                     style = FluxType.TitleMd,
-                    color = FluxColors.TextPrimary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Outlined.MoreHoriz, contentDescription = "More", tint = FluxColors.PrimaryBlue)
+                        Icon(
+                            Icons.Outlined.MoreHoriz,
+                            contentDescription = "More",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
                     }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                         DropdownMenuItem(
@@ -147,7 +155,7 @@ fun ListDetailScreen(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Delete list", color = FluxColors.AccentRose) },
+                            text = { Text("Delete list", color = MaterialTheme.colorScheme.error) },
                             onClick = {
                                 menuExpanded = false
                                 viewModel.deleteList()
@@ -163,13 +171,13 @@ fun ListDetailScreen(
                     Text(
                         "LIST COMPLETION",
                         style = FluxType.LabelSm.copy(letterSpacing = 1.5.sp),
-                        color = FluxColors.TextMuted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
                     Text(
                         "${state.completedCount}/${state.totalCount}",
                         style = FluxType.TitleMd,
-                        color = FluxColors.TextPrimary,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
                 }
                 Spacer(Modifier.height(10.dp))
@@ -179,8 +187,8 @@ fun ListDetailScreen(
                         else state.completedCount.toFloat() / state.totalCount
                     },
                     modifier = Modifier.fillMaxWidth().height(8.dp),
-                    color = FluxColors.PrimaryBlue,
-                    trackColor = FluxColors.Surface,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainer,
                     drawStopIndicator = {},
                 )
             }
@@ -221,7 +229,7 @@ fun ListDetailScreen(
                             SectionHeader("COMPLETED", modifier = Modifier.weight(1f))
                             Text(
                                 if (state.showCompleted) "Hide" else "Show",
-                                color = FluxColors.PrimaryBlue,
+                                color = MaterialTheme.colorScheme.primary,
                                 style = FluxType.LabelSm,
                                 modifier = Modifier.clickable { viewModel.toggleShowCompleted() }.padding(8.dp),
                             )
@@ -249,7 +257,7 @@ private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
     Text(
         title,
         style = FluxType.LabelSm.copy(letterSpacing = 1.5.sp),
-        color = FluxColors.TextMuted,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier.padding(vertical = 8.dp),
     )
 }
@@ -258,8 +266,12 @@ private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
 private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
     // Opaque composite so the swipe-to-delete background never bleeds through.
     val rowColor =
-        if (item.isCompleted) FluxColors.Surface.copy(alpha = 0.5f).compositeOver(FluxColors.Background)
-        else FluxColors.Surface
+        if (item.isCompleted) {
+            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
+                .compositeOver(MaterialTheme.colorScheme.background)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        }
     Surface(
         color = rowColor,
         shape = FluxCardShape,
@@ -273,8 +285,8 @@ private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
                 modifier = Modifier
                     .size(28.dp)
                     .then(
-                        if (item.isCompleted) Modifier.background(FluxColors.PrimaryBlue, CircleShape)
-                        else Modifier.border(2.dp, FluxColors.TextMuted, CircleShape)
+                        if (item.isCompleted) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
+                        else Modifier.border(2.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)
                     )
                     .clickable(onClick = onToggle),
                 contentAlignment = Alignment.Center,
@@ -283,7 +295,7 @@ private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
                     Icon(
                         Icons.Outlined.Check,
                         contentDescription = "Completed",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -292,14 +304,18 @@ private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
                 Text(
                     item.title,
                     style = FluxType.BodyMd,
-                    color = if (item.isCompleted) FluxColors.TextMuted else FluxColors.TextPrimary,
+                    color = if (item.isCompleted) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
                     textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
                 )
                 if (!item.isCompleted && !item.description.isNullOrBlank()) {
                     Text(
                         item.description,
                         style = FluxType.LabelSm,
-                        color = FluxColors.TextMuted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                     )
                 }
@@ -308,7 +324,7 @@ private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
                 Icon(
                     Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                     contentDescription = null,
-                    tint = FluxColors.TextMuted,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -320,7 +336,7 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(FluxColors.Background)
+            .background(MaterialTheme.colorScheme.background)
             .imePadding()
             .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -329,19 +345,19 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
             value = text,
             onValueChange = onTextChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("+ Add new item...", color = FluxColors.TextMuted) },
+            placeholder = { Text("+ Add new item...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             singleLine = true,
             shape = CircleShape,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSubmit() }),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = FluxColors.Surface,
-                unfocusedContainerColor = FluxColors.Surface,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = FluxColors.PrimaryBlue,
-                focusedTextColor = FluxColors.TextPrimary,
-                unfocusedTextColor = FluxColors.TextPrimary,
+                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
             ),
         )
         Spacer(Modifier.size(12.dp))
@@ -350,7 +366,7 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
             modifier = Modifier
                 .size(52.dp)
                 .background(
-                    if (enabled) FluxColors.PrimaryBlue else FluxColors.Surface,
+                    if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,
                     CircleShape,
                 )
                 .clickable(enabled = enabled, onClick = onSubmit),
@@ -359,7 +375,11 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
             Icon(
                 Icons.AutoMirrored.Outlined.Send,
                 contentDescription = "Add item",
-                tint = if (enabled) Color.White else FluxColors.TextMuted,
+                tint = if (enabled) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
         }
     }
