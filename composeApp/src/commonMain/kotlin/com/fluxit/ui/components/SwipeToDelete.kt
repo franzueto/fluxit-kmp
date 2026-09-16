@@ -16,6 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.fluxit.ui.theme.FluxCardShape
+import fluxit.composeapp.generated.resources.Res
+import fluxit.composeapp.generated.resources.content_description_delete
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun SwipeToDeleteContainer(
@@ -47,7 +50,7 @@ fun SwipeToDeleteContainer(
             ) {
                 Icon(
                     Icons.Outlined.Delete,
-                    contentDescription = "Delete",
+                    contentDescription = stringResource(Res.string.content_description_delete),
                     tint = MaterialTheme.colorScheme.onError,
                 )
             }

@@ -51,8 +51,10 @@ import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
 import com.fluxit.ui.theme.toColor
+import fluxit.composeapp.generated.resources.*
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun CreateListScreen(
@@ -73,14 +75,16 @@ fun CreateListScreen(
         AlertDialog(
             onDismissRequest = { showDiscardDialog = false },
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            title = { Text("Discard changes?", color = MaterialTheme.colorScheme.onSurface) },
-            text = { Text("Your changes will be lost.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = { Text(stringResource(Res.string.dialog_discard_changes_title), color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text(stringResource(Res.string.dialog_discard_changes_message), color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
-                TextButton(onClick = onDismiss) { Text("Discard", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(Res.string.action_discard), color = MaterialTheme.colorScheme.error)
+                }
             },
             dismissButton = {
                 TextButton(onClick = { showDiscardDialog = false }) {
-                    Text("Keep editing", color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(Res.string.action_keep_editing), color = MaterialTheme.colorScheme.primary)
                 }
             },
         )
@@ -107,7 +111,12 @@ fun CreateListScreen(
                         disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                 ) {
-                    Text(if (state.isEditMode) "Save" else "Create List", style = FluxType.TitleMd)
+                    Text(
+                        stringResource(
+                            if (state.isEditMode) Res.string.action_save else Res.string.action_create_list
+                        ),
+                        style = FluxType.TitleMd,
+                    )
                 }
             }
         },
@@ -121,7 +130,7 @@ fun CreateListScreen(
             // Top bar
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Text(
-                    "Cancel",
+                    stringResource(Res.string.action_cancel),
                     color = MaterialTheme.colorScheme.primary,
                     style = FluxType.BodyMd,
                     modifier = Modifier
@@ -130,7 +139,9 @@ fun CreateListScreen(
                         .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
                 )
                 Text(
-                    if (state.isEditMode) "Edit List" else "New List",
+                    stringResource(
+                        if (state.isEditMode) Res.string.edit_list_title else Res.string.create_list_title
+                    ),
                     style = FluxType.TitleMd,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.align(Alignment.Center),
@@ -138,14 +149,19 @@ fun CreateListScreen(
                 )
             }
 
-            SectionLabel("LIST NAME")
+            SectionLabel(stringResource(Res.string.section_list_name))
             TextField(
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = FluxSpacing.ContainerPadding),
-                placeholder = { Text("e.g., Summer Trip", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                placeholder = {
+                    Text(
+                        stringResource(Res.string.list_name_placeholder),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
                 singleLine = true,
                 shape = FluxCardShape,
                 colors = TextFieldDefaults.colors(
@@ -160,14 +176,14 @@ fun CreateListScreen(
             )
             if (state.name.length >= MAX_LIST_NAME_LENGTH) {
                 Text(
-                    "Maximum $MAX_LIST_NAME_LENGTH characters",
+                    stringResource(Res.string.maximum_characters, MAX_LIST_NAME_LENGTH),
                     style = FluxType.LabelSm,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = FluxSpacing.ContainerPadding, vertical = 4.dp),
                 )
             }
 
-            SectionLabel("CHOOSE ICON")
+            SectionLabel(stringResource(Res.string.section_choose_icon))
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
                 modifier = Modifier
@@ -197,7 +213,7 @@ fun CreateListScreen(
                     ) {
                         Icon(
                             icon.toImageVector(),
-                            contentDescription = icon.name,
+                            contentDescription = icon.localizedName(),
                             tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(28.dp),
                         )
@@ -205,7 +221,7 @@ fun CreateListScreen(
                 }
             }
 
-            SectionLabel("LIST COLOR")
+            SectionLabel(stringResource(Res.string.section_list_color))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -231,6 +247,20 @@ fun CreateListScreen(
         }
     }
 }
+
+@Composable
+private fun ListIcon.localizedName(): String = stringResource(
+    when (this) {
+        ListIcon.CART -> Res.string.icon_cart
+        ListIcon.TRAVEL -> Res.string.icon_travel
+        ListIcon.WORK -> Res.string.icon_work
+        ListIcon.HOME -> Res.string.icon_home
+        ListIcon.GIFT -> Res.string.icon_gift
+        ListIcon.FOOD -> Res.string.icon_food
+        ListIcon.FITNESS -> Res.string.icon_fitness
+        ListIcon.STAR -> Res.string.icon_star
+    }
+)
 
 @Composable
 private fun SectionLabel(text: String) {

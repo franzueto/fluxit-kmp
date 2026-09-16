@@ -55,6 +55,9 @@ import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
 import com.fluxit.ui.theme.toColor
+import fluxit.composeapp.generated.resources.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 const val DEBUG_SEED_ENABLED = true
@@ -68,12 +71,14 @@ fun DashboardScreen(
     val state by viewModel.uiState.collectAsState()
     val undoListId by viewModel.undoListId.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val listDeletedMessage = stringResource(Res.string.message_list_deleted)
+    val undoLabel = stringResource(Res.string.action_undo)
 
-    LaunchedEffect(undoListId) {
+    LaunchedEffect(undoListId, listDeletedMessage, undoLabel) {
         val id = undoListId ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
-            message = "List deleted",
-            actionLabel = "Undo",
+            message = listDeletedMessage,
+            actionLabel = undoLabel,
             duration = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete() else viewModel.dismissUndo()
@@ -98,7 +103,7 @@ fun DashboardScreen(
             ) {
                 Icon(
                     Icons.Outlined.Add,
-                    contentDescription = "Create list",
+                    contentDescription = stringResource(Res.string.content_description_create_list),
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(32.dp),
                 )
@@ -123,7 +128,7 @@ fun DashboardScreen(
                 ) {
                     Icon(
                         Icons.Outlined.Person,
-                        contentDescription = "Profile",
+                        contentDescription = stringResource(Res.string.content_description_profile),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -132,7 +137,7 @@ fun DashboardScreen(
                     IconButton(onClick = viewModel::seedSampleData) {
                         Icon(
                             Icons.Outlined.DataArray,
-                            contentDescription = "Seed sample data",
+                            contentDescription = stringResource(Res.string.content_description_seed_sample_data),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -140,14 +145,14 @@ fun DashboardScreen(
                 IconButton(onClick = {}) {
                     Icon(
                         Icons.Outlined.Settings,
-                        contentDescription = "Settings",
+                        contentDescription = stringResource(Res.string.content_description_settings),
                         tint = MaterialTheme.colorScheme.onBackground,
                     )
                 }
             }
 
             Text(
-                text = "My Lists",
+                text = stringResource(Res.string.dashboard_title),
                 style = FluxType.DisplayLg,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(top = 12.dp, bottom = 16.dp),
@@ -157,7 +162,12 @@ fun DashboardScreen(
                 value = state.searchQuery,
                 onValueChange = viewModel::onSearchChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search lists...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                placeholder = {
+                    Text(
+                        stringResource(Res.string.search_lists_placeholder),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
                 leadingIcon = {
                     Icon(
                         Icons.Outlined.Search,
@@ -180,8 +190,8 @@ fun DashboardScreen(
 
             if (!state.isLoading && state.lists.isEmpty()) {
                 EmptyState(
-                    if (state.searchQuery.isBlank()) "No lists yet — tap + to create one"
-                    else "No lists match \"${state.searchQuery.trim()}\"",
+                    if (state.searchQuery.isBlank()) stringResource(Res.string.empty_lists)
+                    else stringResource(Res.string.empty_search_results, state.searchQuery.trim()),
                 )
             } else {
                 LazyColumn(
@@ -200,13 +210,19 @@ fun DashboardScreen(
     }
 }
 
+@Composable
 private fun subtitleFor(summary: FluxListSummary): String {
     val n = summary.totalItems
     val done = summary.completedItems
     return when {
-        n == 0 -> "No items yet"
-        done in 1 until n -> "$n items · ${done * 100 / n}% completed"
-        else -> "$n items"
+        n == 0 -> stringResource(Res.string.no_items_yet)
+        done in 1 until n -> pluralStringResource(
+            Res.plurals.item_count_with_progress,
+            n,
+            n,
+            done * 100 / n,
+        )
+        else -> pluralStringResource(Res.plurals.item_count, n, n)
     }
 }
 

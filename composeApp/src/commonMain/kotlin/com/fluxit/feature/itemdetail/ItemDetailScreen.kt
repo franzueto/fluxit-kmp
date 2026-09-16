@@ -51,10 +51,12 @@ import com.fluxit.ui.components.decodeImageFile
 import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
+import fluxit.composeapp.generated.resources.*
 import kotlin.time.Instant
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -75,17 +77,29 @@ fun ItemDetailScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            title = { Text("Delete item?", color = MaterialTheme.colorScheme.onSurface) },
-            text = { Text("This can't be undone.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = {
+                Text(
+                    stringResource(Res.string.dialog_delete_item_title),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+            text = {
+                Text(
+                    stringResource(Res.string.dialog_delete_item_message),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
                     viewModel.deleteItem()
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                }) {
+                    Text(stringResource(Res.string.action_delete), color = MaterialTheme.colorScheme.error)
+                }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(Res.string.action_cancel), color = MaterialTheme.colorScheme.primary)
                 }
             },
         )
@@ -112,7 +126,7 @@ fun ItemDetailScreen(
                 ) {
                     Icon(
                         Icons.Outlined.ChevronLeft,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(Res.string.action_back),
                         tint = MaterialTheme.colorScheme.primary,
                     )
                     Text(
@@ -123,13 +137,13 @@ fun ItemDetailScreen(
                     )
                 }
                 Text(
-                    "Edit Item",
+                    stringResource(Res.string.edit_item_title),
                     style = FluxType.TitleMd,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.align(Alignment.Center),
                 )
                 Text(
-                    "Save",
+                    stringResource(Res.string.action_save),
                     style = FluxType.BodyMd,
                     color = if (state.canSave) {
                         MaterialTheme.colorScheme.primary
@@ -144,20 +158,20 @@ fun ItemDetailScreen(
             }
 
             Text(
-                "General Info",
+                stringResource(Res.string.general_info_title),
                 style = FluxType.TitleMd,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
             )
 
-            SectionLabel("ITEM NAME")
+            SectionLabel(stringResource(Res.string.section_item_name))
             FluxTextField(
                 value = state.title,
                 onValueChange = viewModel::onTitleChange,
                 singleLine = true,
             )
 
-            SectionLabel("DESCRIPTION")
+            SectionLabel(stringResource(Res.string.section_description))
             FluxTextField(
                 value = state.description,
                 onValueChange = viewModel::onDescriptionChange,
@@ -174,7 +188,7 @@ fun ItemDetailScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Item Photo",
+                    stringResource(Res.string.item_photo_title),
                     style = FluxType.TitleMd,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.weight(1f),
@@ -192,7 +206,11 @@ fun ItemDetailScreen(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.size(6.dp))
-                    Text("Update", color = MaterialTheme.colorScheme.primary, style = FluxType.LabelSm)
+                    Text(
+                        stringResource(Res.string.action_update),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = FluxType.LabelSm,
+                    )
                 }
             }
 
@@ -210,13 +228,13 @@ fun ItemDetailScreen(
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap,
-                        contentDescription = "Item photo",
+                        contentDescription = stringResource(Res.string.content_description_item_photo),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                     )
                 } else {
                     Text(
-                        "No photo yet",
+                        stringResource(Res.string.no_photo_yet),
                         style = FluxType.BodyMd,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -224,7 +242,7 @@ fun ItemDetailScreen(
             }
             if (state.photoPath != null) {
                 Text(
-                    "Remove photo",
+                    stringResource(Res.string.action_remove_photo),
                     style = FluxType.LabelSm,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
@@ -251,12 +269,12 @@ fun ItemDetailScreen(
             ) {
                 Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
-                Text("Delete Item", style = FluxType.BodyMd)
+                Text(stringResource(Res.string.action_delete_item), style = FluxType.BodyMd)
             }
 
             state.item?.let { item ->
                 Text(
-                    "Last edited on ${formatDate(item.updatedAt)}",
+                    stringResource(Res.string.last_edited_on, formatDate(item.updatedAt)),
                     style = FluxType.LabelSm,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -268,16 +286,30 @@ fun ItemDetailScreen(
     }
 }
 
+@Composable
 private fun formatDate(epochMillis: Long): String {
     val date = Instant.fromEpochMilliseconds(epochMillis)
         .toLocalDateTime(TimeZone.currentSystemDefault()).date
     val month = when (date.month) {
-        Month.JANUARY -> "Jan"; Month.FEBRUARY -> "Feb"; Month.MARCH -> "Mar"
-        Month.APRIL -> "Apr"; Month.MAY -> "May"; Month.JUNE -> "Jun"
-        Month.JULY -> "Jul"; Month.AUGUST -> "Aug"; Month.SEPTEMBER -> "Sep"
-        Month.OCTOBER -> "Oct"; Month.NOVEMBER -> "Nov"; Month.DECEMBER -> "Dec"
+        Month.JANUARY -> Res.string.month_january_short
+        Month.FEBRUARY -> Res.string.month_february_short
+        Month.MARCH -> Res.string.month_march_short
+        Month.APRIL -> Res.string.month_april_short
+        Month.MAY -> Res.string.month_may_short
+        Month.JUNE -> Res.string.month_june_short
+        Month.JULY -> Res.string.month_july_short
+        Month.AUGUST -> Res.string.month_august_short
+        Month.SEPTEMBER -> Res.string.month_september_short
+        Month.OCTOBER -> Res.string.month_october_short
+        Month.NOVEMBER -> Res.string.month_november_short
+        Month.DECEMBER -> Res.string.month_december_short
     }
-    return "$month ${date.day}, ${date.year}"
+    return stringResource(
+        Res.string.date_month_day_year,
+        stringResource(month),
+        date.day,
+        date.year,
+    )
 }
 
 @Composable

@@ -64,6 +64,8 @@ import com.fluxit.ui.components.SwipeToDeleteContainer
 import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
+import fluxit.composeapp.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -79,16 +81,18 @@ fun ListDetailScreen(
     val undoItemId by viewModel.undoItemId.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var menuExpanded by remember { mutableStateOf(false) }
+    val itemDeletedMessage = stringResource(Res.string.message_item_deleted)
+    val undoLabel = stringResource(Res.string.action_undo)
 
     LaunchedEffect(state.listDeleted) {
         if (state.listDeleted) onBack()
     }
 
-    LaunchedEffect(undoItemId) {
+    LaunchedEffect(undoItemId, itemDeletedMessage, undoLabel) {
         val id = undoItemId ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
-            message = "Item deleted",
-            actionLabel = "Undo",
+            message = itemDeletedMessage,
+            actionLabel = undoLabel,
             duration = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete() else viewModel.dismissUndo()
@@ -118,10 +122,14 @@ fun ListDetailScreen(
                 ) {
                     Icon(
                         Icons.Outlined.ChevronLeft,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(Res.string.action_back),
                         tint = MaterialTheme.colorScheme.primary,
                     )
-                    Text("Lists", color = MaterialTheme.colorScheme.primary, style = FluxType.BodyMd)
+                    Text(
+                        stringResource(Res.string.lists_title),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = FluxType.BodyMd,
+                    )
                 }
                 Text(
                     text = state.list?.name ?: "",
@@ -135,27 +143,32 @@ fun ListDetailScreen(
                     IconButton(onClick = { menuExpanded = true }) {
                         Icon(
                             Icons.Outlined.MoreHoriz,
-                            contentDescription = "More",
+                            contentDescription = stringResource(Res.string.action_more),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                         DropdownMenuItem(
-                            text = { Text("Edit list details") },
+                            text = { Text(stringResource(Res.string.action_edit_list_details)) },
                             onClick = {
                                 menuExpanded = false
                                 onEditList(listId)
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Clear completed") },
+                            text = { Text(stringResource(Res.string.action_clear_completed)) },
                             onClick = {
                                 menuExpanded = false
                                 viewModel.clearCompleted()
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Delete list", color = MaterialTheme.colorScheme.error) },
+                            text = {
+                                Text(
+                                    stringResource(Res.string.action_delete_list),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            },
                             onClick = {
                                 menuExpanded = false
                                 viewModel.deleteList()
@@ -169,13 +182,17 @@ fun ListDetailScreen(
             Column(modifier = Modifier.padding(horizontal = FluxSpacing.ContainerPadding, vertical = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "LIST COMPLETION",
+                        stringResource(Res.string.section_list_completion),
                         style = FluxType.LabelSm.copy(letterSpacing = 1.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        "${state.completedCount}/${state.totalCount}",
+                        stringResource(
+                            Res.string.completion_count,
+                            state.completedCount,
+                            state.totalCount,
+                        ),
                         style = FluxType.TitleMd,
                         color = MaterialTheme.colorScheme.onBackground,
                     )
@@ -194,7 +211,7 @@ fun ListDetailScreen(
             }
 
             if (state.list != null && state.totalCount == 0) {
-                EmptyState("No items yet — add one below")
+                EmptyState(stringResource(Res.string.empty_list_items))
             }
 
             LazyColumn(
@@ -208,7 +225,7 @@ fun ListDetailScreen(
             ) {
                 if (state.activeItems.isNotEmpty()) {
                     item(key = "header_active") {
-                        SectionHeader("TO BUY")
+                        SectionHeader(stringResource(Res.string.section_to_buy))
                     }
                     items(state.activeItems, key = { it.id }) { item ->
                         SwipeToDeleteContainer(onDelete = { viewModel.deleteItem(item.id) }) {
@@ -226,9 +243,14 @@ fun ListDetailScreen(
                             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            SectionHeader("COMPLETED", modifier = Modifier.weight(1f))
+                            SectionHeader(
+                                stringResource(Res.string.section_completed),
+                                modifier = Modifier.weight(1f),
+                            )
                             Text(
-                                if (state.showCompleted) "Hide" else "Show",
+                                stringResource(
+                                    if (state.showCompleted) Res.string.action_hide else Res.string.action_show
+                                ),
                                 color = MaterialTheme.colorScheme.primary,
                                 style = FluxType.LabelSm,
                                 modifier = Modifier.clickable { viewModel.toggleShowCompleted() }.padding(8.dp),
@@ -294,7 +316,7 @@ private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
                 if (item.isCompleted) {
                     Icon(
                         Icons.Outlined.Check,
-                        contentDescription = "Completed",
+                        contentDescription = stringResource(Res.string.content_description_completed),
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(16.dp),
                     )
@@ -345,7 +367,12 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
             value = text,
             onValueChange = onTextChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("+ Add new item...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            placeholder = {
+                Text(
+                    stringResource(Res.string.add_item_placeholder),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
             singleLine = true,
             shape = CircleShape,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -374,7 +401,7 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
         ) {
             Icon(
                 Icons.AutoMirrored.Outlined.Send,
-                contentDescription = "Add item",
+                contentDescription = stringResource(Res.string.action_add_item),
                 tint = if (enabled) {
                     MaterialTheme.colorScheme.onPrimary
                 } else {

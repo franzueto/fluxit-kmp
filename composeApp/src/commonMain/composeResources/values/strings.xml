@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FluxIt</string>
+
+    <string name="action_add_item">Add item</string>
+    <string name="action_back">Back</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_clear_completed">Clear completed</string>
+    <string name="action_create_list">Create List</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_delete_item">Delete Item</string>
+    <string name="action_delete_list">Delete list</string>
+    <string name="action_discard">Discard</string>
+    <string name="action_edit_list_details">Edit list details</string>
+    <string name="action_hide">Hide</string>
+    <string name="action_keep_editing">Keep editing</string>
+    <string name="action_more">More</string>
+    <string name="action_remove_photo">Remove photo</string>
+    <string name="action_save">Save</string>
+    <string name="action_show">Show</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_update">Update</string>
+
+    <string name="content_description_completed">Completed</string>
+    <string name="content_description_create_list">Create list</string>
+    <string name="content_description_delete">Delete</string>
+    <string name="content_description_item_photo">Item photo</string>
+    <string name="content_description_profile">Profile</string>
+    <string name="content_description_seed_sample_data">Seed sample data</string>
+    <string name="content_description_settings">Settings</string>
+
+    <string name="dashboard_title">My Lists</string>
+    <string name="search_lists_placeholder">Search lists...</string>
+    <string name="empty_lists">No lists yet — tap + to create one</string>
+    <string name="empty_search_results">No lists match \"%1$s\"</string>
+    <string name="no_items_yet">No items yet</string>
+    <plurals name="item_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
+    <plurals name="item_count_with_progress">
+        <item quantity="one">%1$d item · %2$d% completed</item>
+        <item quantity="other">%1$d items · %2$d% completed</item>
+    </plurals>
+    <string name="message_list_deleted">List deleted</string>
+
+    <string name="dialog_discard_changes_title">Discard changes?</string>
+    <string name="dialog_discard_changes_message">Your changes will be lost.</string>
+    <string name="create_list_title">New List</string>
+    <string name="edit_list_title">Edit List</string>
+    <string name="section_list_name">LIST NAME</string>
+    <string name="list_name_placeholder">e.g., Summer Trip</string>
+    <string name="maximum_characters">Maximum %1$d characters</string>
+    <string name="section_choose_icon">CHOOSE ICON</string>
+    <string name="section_list_color">LIST COLOR</string>
+
+    <string name="icon_cart">Cart</string>
+    <string name="icon_travel">Travel</string>
+    <string name="icon_work">Work</string>
+    <string name="icon_home">Home</string>
+    <string name="icon_gift">Gift</string>
+    <string name="icon_food">Food</string>
+    <string name="icon_fitness">Fitness</string>
+    <string name="icon_star">Star</string>
+
+    <string name="lists_title">Lists</string>
+    <string name="section_list_completion">LIST COMPLETION</string>
+    <string name="completion_count">%1$d/%2$d</string>
+    <string name="empty_list_items">No items yet — add one below</string>
+    <string name="section_to_buy">TO BUY</string>
+    <string name="section_completed">COMPLETED</string>
+    <string name="add_item_placeholder">+ Add new item...</string>
+    <string name="message_item_deleted">Item deleted</string>
+
+    <string name="dialog_delete_item_title">Delete item?</string>
+    <string name="dialog_delete_item_message">This can't be undone.</string>
+    <string name="edit_item_title">Edit Item</string>
+    <string name="general_info_title">General Info</string>
+    <string name="section_item_name">ITEM NAME</string>
+    <string name="section_description">DESCRIPTION</string>
+    <string name="item_photo_title">Item Photo</string>
+    <string name="no_photo_yet">No photo yet</string>
+    <string name="last_edited_on">Last edited on %1$s</string>
+    <string name="date_month_day_year">%1$s %2$d, %3$d</string>
+    <string name="month_january_short">Jan</string>
+    <string name="month_february_short">Feb</string>
+    <string name="month_march_short">Mar</string>
+    <string name="month_april_short">Apr</string>
+    <string name="month_may_short">May</string>
+    <string name="month_june_short">Jun</string>
+    <string name="month_july_short">Jul</string>
+    <string name="month_august_short">Aug</string>
+    <string name="month_september_short">Sep</string>
+    <string name="month_october_short">Oct</string>
+    <string name="month_november_short">Nov</string>
+    <string name="month_december_short">Dec</string>
+
+    <string name="sample_list_supermarket">Supermarket</string>
+    <string name="sample_item_organic_bananas">Organic Bananas</string>
+    <string name="sample_item_whole_milk">Whole Milk (1 gal)</string>
+    <string name="sample_item_sourdough_bread">Sourdough Bread</string>
+    <string name="sample_item_greek_yogurt">Greek Yogurt</string>
+    <string name="sample_item_chicken_breasts">Chicken Breasts</string>
+    <string name="sample_item_olive_oil">Olive Oil</string>
+    <string name="sample_list_home_todo">Home To-Do</string>
+    <string name="sample_item_fix_kitchen_tap">Fix kitchen tap</string>
+    <string name="sample_item_water_plants">Water plants</string>
+    <string name="sample_item_change_air_filter">Change air filter</string>
+    <string name="sample_item_vacuum_living_room">Vacuum living room</string>
+    <string name="sample_list_trip_to_japan">Trip to Japan</string>
+    <string name="sample_item_passport">Passport</string>
+    <string name="sample_item_jr_pass">JR Pass</string>
+    <string name="sample_item_travel_adapter">Travel adapter</string>
+    <string name="sample_item_book_shinkansen_seats">Book Shinkansen seats</string>
+    <string name="sample_list_gift_ideas">Gift Ideas</string>
+    <string name="sample_item_birthday_card">Birthday card</string>
+    <string name="sample_item_headphones_for_sam">Headphones for Sam</string>
+    <string name="sample_list_work_q4_goals">Work Q4 Goals</string>
+</resources>
