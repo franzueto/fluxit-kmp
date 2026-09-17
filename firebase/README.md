@@ -59,6 +59,87 @@ On the Android emulator, a configured host of `127.0.0.1`/`localhost` is
 translated to `10.0.2.2` automatically; a physical device needs the host set to
 the development machine's LAN address explicitly.
 
+### iOS reads the same endpoints, with no host translation (FB-007)
+
+`composeApp/src/iosMain/kotlin/com/fluxit/firebase/IosFirebaseEmulatorSettings.kt`
+re-exposes the same generated `FirebaseEmulatorConfig` constants to Swift through
+the `ComposeApp` framework, and `iosApp/iosApp/FirebaseBootstrap.swift` feeds them
+to `Auth`/`Firestore`/`Storage` `useEmulator(withHost:port:)`. There is no second
+configuration mechanism and no duplicated defaults.
+
+Unlike Android, the host is used **verbatim**. The Android emulator is a separate
+virtual machine and needs the `10.0.2.2` loopback alias; the iOS simulator shares
+the host's network stack, so `127.0.0.1` already means the machine running the
+emulator suite. A physical iOS device does not, so a device developer must set
+`fluxit.firebase.emulator.host` to the machine's LAN address explicitly.
+
+## Firebase Apple SDK integration (FB-007)
+
+**Integration method: Swift Package Manager, declared in the Xcode project.**
+
+| Item | Value |
+|---|---|
+| Package | `https://github.com/firebase/firebase-ios-sdk.git` |
+| Version rule | `exactVersion` **12.19.2** |
+| Products linked | `FirebaseAuth`, `FirebaseFirestore`, `FirebaseStorage` |
+| Transitive pins | see `iosApp/iosApp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` (committed lockfile) |
+| Minimum iOS | 15.0 — the SDK's own `Package.swift` declares `.iOS(.v15)`, so the project's existing `IPHONEOS_DEPLOYMENT_TARGET = 15.0` was **not** raised |
+
+### Why SPM and not the Kotlin CocoaPods plugin
+
+The plan prefers Kotlin CocoaPods *if it gives the cleanest supported interop*. It
+does not here:
+
+- `FirebaseStorage` has no public Objective-C headers at all (pure Swift since the
+  11.x line), and `FirebaseAuth` is Swift-implemented behind a thin ObjC shim.
+  Kotlin/Native cinterop consumes Objective-C/C headers only and cannot import a
+  Swift module, so two of the three required modules are not reliably reachable
+  from `iosMain` regardless of how the pods are wired.
+- `pod` is not installed on this machine and the system Ruby is 2.6, so the plugin
+  would add a Ruby/gem toolchain prerequisite to every developer machine and to CI.
+- The plugin replaces the existing `Compile Kotlin Framework` run-script phase with
+  its own pod-based integration and forces an `.xcworkspace`, which would invalidate
+  the `xcodebuild -project ...` command recorded as baseline evidence in `FB-000`
+  and `FB-012`.
+
+Direct manual linking of the `.xcframework` bundles was also rejected: it requires
+hand-managing ~14 transitive dependencies with no lockfile.
+
+**Consequence to carry into Phase 2:** Firebase types are reachable from Swift, not
+from `iosMain` Kotlin. iOS Firebase repository adapters must therefore be written in
+Swift and injected back across the framework boundary, or reached through a Kotlin
+`expect`/`actual` whose iOS `actual` delegates to a Swift implementation.
+
+### Xcode build-phase, linking and embedding requirements
+
+- **Build phase order matters.** `Compile Kotlin Framework` (the Gradle run script)
+  must stay *first*, before `Sources`, because `FirebaseBootstrap.swift` imports
+  `ComposeApp` and would not compile if the framework had not been rebuilt yet.
+- **Linking is by package product, not `OTHER_LDFLAGS`.** The three Firebase
+  products are `packageProductDependencies` on the `iosApp` target and appear in the
+  `Frameworks` build phase. The pre-existing `OTHER_LDFLAGS = -framework ComposeApp`
+  is unchanged and unrelated.
+- **No embed/sign step is needed.** The SPM products build as static libraries and
+  link into the app binary; only their resource bundles (`Firebase_*.bundle`,
+  `GoogleUtilities_*.bundle`, `gRPC_*.bundle`, `leveldb_*.bundle`, `nanopb_*.bundle`,
+  `abseil_*.bundle`) are copied into the `.app`, automatically.
+- **First build needs network access** to resolve the package graph. Afterwards the
+  clone lives in the derived-data path. CI should either allow that fetch or pass
+  `-clonedSourcePackagesDirPath` at a cached location.
+- **`GoogleService-Info.plist` must be in Copy Bundle Resources.** It is referenced
+  from the project as `iosApp/GoogleService-Info.plist` and is a member of the
+  `Resources` build phase. The **path reference** is tracked in `project.pbxproj`;
+  the **file itself stays gitignored** per `DEC-002b`, so nothing secret is
+  committed. Consequence: a fresh clone without the plist fails the build at the
+  copy step. Fetch it from the Firebase Console before building iOS.
+- **`FirebaseApp.configure()` runs in `AppDelegate.application(_:didFinishLaunching...)`**
+  (`iosApp/iosApp/FirebaseBootstrap.swift`), attached to the SwiftUI `@main` via
+  `@UIApplicationDelegateAdaptor` in `iOSApp.swift`. `iOSApp.swift` had no delegate
+  before. That callback runs strictly before any SwiftUI scene or view body, and
+  therefore before `ContentView` creates the Compose view controller that starts
+  Koin — which is what guarantees `configure()` and the `useEmulator` calls precede
+  the first use of any Firebase service instance.
+
 ## Prerequisites
 
 - Node.js (developed against v24) and a JDK (the Firestore and Storage
