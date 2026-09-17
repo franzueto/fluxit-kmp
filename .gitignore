@@ -8,3 +8,23 @@ local.properties
 .kotlin/
 iosApp/iosApp.xcodeproj/xcuserdata/
 iosApp/iosApp.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Firebase mobile client config (DEC-002b: gitignored in ALL environments).
+# Obtain these from the Firebase Console; never commit them.
+google-services.json
+GoogleService-Info.plist
+
+# Firebase service-account / admin credentials must never be committed.
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+
+# Firebase CLI and emulator local artifacts
+.firebase/
+firebase/node_modules/
+firebase-debug.log*
+firestore-debug.log*
+storage-debug.log*
+database-debug.log*
+pubsub-debug.log*
+dataconnect-debug.log*
+ui-debug.log*

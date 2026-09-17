@@ -1,0 +1,51 @@
+rules_version = '2';
+
+// FluxIt baseline Firestore Security Rules (FB-005, PLAN-002).
+//
+// Security model: deny by default, authenticated, owner-only.
+//   * There is no top-level catch-all `match`, so any path not explicitly
+//     matched below is denied for every caller, authenticated or not.
+//   * Every `allow` below is guarded by `isOwner(uid)`, which requires BOTH a
+//     signed-in caller AND that the caller's uid equals the `{uid}` path
+//     segment. `request.auth != null` alone is never sufficient.
+//   * Rules v2 does not cascade a parent `match` to subcollections unless a
+//     recursive `{document=**}` wildcard is used. Subcollections are therefore
+//     matched explicitly rather than with a recursive wildcard, so a future
+//     sibling subcollection is denied until it is deliberately added here.
+//
+// Scope (PLAN-002): this is the Phase 0 BASELINE. Field-level validation,
+// type/range checks, `totalItems`/`completedItems` counter-integrity rules and
+// immutable-ownership enforcement are Phase 6 (FB-601/FB-602) and are
+// deliberately NOT implemented here. The `read`/`write` allows are kept on
+// separate lines so Phase 6 can split `write` into `create`/`update`/`delete`
+// and attach validation without restructuring this file.
+//
+// Data model per FIREBASE_MIGRATION_PLAN.md "Proposed Firebase model":
+//   users/{uid}
+//   users/{uid}/lists/{listId}
+//   users/{uid}/lists/{listId}/items/{itemId}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Signed in AND the owner of this user-scoped subtree.
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if isOwner(uid);
+
+      match /lists/{listId} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid);
+
+        match /items/{itemId} {
+          allow read: if isOwner(uid);
+          allow write: if isOwner(uid);
+        }
+      }
+    }
+  }
+}
