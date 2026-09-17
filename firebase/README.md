@@ -25,8 +25,39 @@ affect any Android/iOS build command.
 | Emulator hub | 4400 |
 
 The Firestore emulator also opens a UI websocket on 9150 (assigned by the
-emulator, not configurable in `firebase.json`). Ports are pinned so the Rules
-tests and, later, the Android/iOS clients can hard-code emulator endpoints.
+emulator, not configurable in `firebase.json`). Ports are pinned here so the
+Rules tests have a stable target.
+
+### Client-side endpoints are overridable, not hard-coded (FB-006)
+
+`8080` is a collision-prone default (Tomcat, Spring Boot, many local dev
+servers). The Android and iOS clients therefore do **not** hard-code it. They
+read a generated Kotlin constants object produced by the
+`:composeApp:generateFirebaseEmulatorConfig` Gradle task from these
+`gradle.properties` values:
+
+| Gradle property | Default |
+|---|---|
+| `fluxit.firebase.emulator.enabled` | `false` |
+| `fluxit.firebase.emulator.host` | `127.0.0.1` |
+| `fluxit.firebase.emulator.auth.port` | `9099` |
+| `fluxit.firebase.emulator.firestore.port` | `8080` |
+| `fluxit.firebase.emulator.storage.port` | `9199` |
+
+Override them in `~/.gradle/gradle.properties`, via an `ORG_GRADLE_PROJECT_*`
+environment variable, or on the command line:
+
+```sh
+./gradlew :composeApp:assembleDebug \
+  -Pfluxit.firebase.emulator.enabled=true \
+  -Pfluxit.firebase.emulator.firestore.port=8580
+```
+
+The defaults above still match `../firebase.json` and `test/helpers.js`. If the
+default Firestore port is ever moved off `8080`, all three must move together.
+On the Android emulator, a configured host of `127.0.0.1`/`localhost` is
+translated to `10.0.2.2` automatically; a physical device needs the host set to
+the development machine's LAN address explicitly.
 
 ## Prerequisites
 
