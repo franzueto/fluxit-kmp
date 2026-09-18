@@ -8,6 +8,8 @@ import com.fluxit.data.AndroidPhotoStorage
 import com.fluxit.data.FluxItDatabase
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
+import com.fluxit.domain.auth.AuthRepository
+import com.fluxit.firebase.auth.AndroidAuthRepository
 import kotlinx.coroutines.Dispatchers
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
@@ -26,4 +28,11 @@ actual fun platformModule(): Module = module {
     }
     single<PhotoPicker> { AndroidPhotoPicker() }
     single<PhotoStorage> { AndroidPhotoStorage(androidContext()) }
+
+    // FB-102: the Android Firebase Auth adapter. Bound here rather than in the shared
+    // module because the implementation is platform-specific; the iOS binding is
+    // FB-103's. Nothing in `appModule` injects AuthRepository yet (FB-104 adds the
+    // first consumer), so iOS Koin resolution is unaffected by this binding existing
+    // only on Android.
+    single<AuthRepository> { AndroidAuthRepository() }
 }

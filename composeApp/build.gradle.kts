@@ -140,6 +140,15 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
+        // FB-102: instrumented integration checks for the Android Firebase Auth
+        // adapter. They run against the local Auth emulator (see the KDoc on
+        // FirebaseAuthEmulatorIntegrationTest), never against a live project.
+        androidInstrumentedTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.androidx.test.ext.junit)
+            implementation(libs.androidx.test.runner)
+        }
     }
 }
 
@@ -153,6 +162,7 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         release {
