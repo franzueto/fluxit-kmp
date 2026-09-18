@@ -17,13 +17,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.fluxit.domain.auth.AuthError
 import com.fluxit.navigation.AppNavHost
 import com.fluxit.ui.theme.FluxCardShape
@@ -50,32 +53,61 @@ import org.koin.compose.viewmodel.koinViewModel
  * server has not yet validated - see that class's KDoc. Without that sequencing this
  * branch would briefly compose [AppNavHost] for a session that turns out to be invalid.
  *
- * `key(uid)` around [AppNavHost] means a change of user tears down the whole navigation
- * subtree, including its `ViewModelStore`, rather than re-using one user's composition
- * state for the next (groundwork for FB-105's A -> B isolation work).
+ * ## How A -> B isolation is actually enforced (FB-105)
+ *
+ * FB-104 wrapped [AppNavHost] in `key(state.user.uid)` and expected that to tear down the
+ * subtree's `ViewModelStore` along with its composition. It does not: Navigation3 keeps
+ * its per-entry stores in the *enclosing* `ViewModelStoreOwner` (the Activity, or the
+ * root view controller on iOS) and clears them only when an entry leaves the back stack -
+ * see the KDoc on [SessionScopedViewModelStores] for the exact sources. A disposed
+ * composition pops nothing, so user A's `DashboardViewModel` survived to serve user B.
+ *
+ * So the gate now provides a [LocalViewModelStoreOwner] scoped to the current
+ * [SessionScope]. Everything composed below - the auth form in the signed-out branch and,
+ * via Navigation3's decorator, every screen ViewModel in the Ready branch - resolves into
+ * that store, and switching scope destroys the outgoing one. [SessionGateViewModel] and
+ * [SessionScopedViewModelStores] themselves are deliberately resolved *before* the
+ * provider, from the root owner, so they outlive the scopes they manage.
+ *
+ * `key(uid)` is kept, and is still doing real work: it resets the navigation back stack
+ * and other remembered composition state on a user change. It is simply no longer being
+ * asked to do the ViewModel teardown it never did.
  */
 @Composable
-fun SessionGate(viewModel: SessionGateViewModel = koinViewModel()) {
+fun SessionGate(
+    viewModel: SessionGateViewModel = koinViewModel(),
+    scopedStores: SessionScopedViewModelStores = koinViewModel(),
+) {
     val gate by viewModel.gate.collectAsState()
     val isBusy by viewModel.isBusy.collectAsState()
+    val restoreTimedOut by viewModel.restoreTimedOut.collectAsState()
 
-    when (val state = gate) {
-        SessionGateState.Resolving -> SessionResolvingScreen()
+    val scopedOwner = remember(scopedStores, gate.sessionScope()) {
+        scopedStores.ownerFor(gate.sessionScope())
+    }
 
-        SessionGateState.SignedOut -> AuthScreen()
+    CompositionLocalProvider(LocalViewModelStoreOwner provides scopedOwner) {
+        when (val state = gate) {
+            SessionGateState.Resolving -> SessionResolvingScreen()
 
-        is SessionGateState.ResolutionFailed -> SessionResolutionFailedScreen(
-            error = state.error,
-            isBusy = isBusy,
-            onRetry = viewModel::retryResolution,
-            onSignOutAndRetry = viewModel::signOutAndRetry,
-        )
-
-        is SessionGateState.Ready -> key(state.user.uid) {
-            AppNavHost(
-                accountEmail = state.user.email,
-                onSignOut = viewModel::signOut,
+            SessionGateState.SignedOut -> AuthScreen(
+                restoreTimedOut = restoreTimedOut,
+                onRetryRestore = viewModel::retryInitialRestoration,
             )
+
+            is SessionGateState.ResolutionFailed -> SessionResolutionFailedScreen(
+                error = state.error,
+                isBusy = isBusy,
+                onRetry = viewModel::retryResolution,
+                onSignOutAndRetry = viewModel::signOutAndRetry,
+            )
+
+            is SessionGateState.Ready -> key(state.user.uid) {
+                AppNavHost(
+                    accountEmail = state.user.email,
+                    onSignOut = viewModel::signOut,
+                )
+            }
         }
     }
 }

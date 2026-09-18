@@ -52,7 +52,11 @@ import org.koin.compose.viewmodel.koinViewModel
  * [SessionGateState.SignedOut]. It never reads a uid and never starts user-scoped work.
  */
 @Composable
-fun AuthScreen(viewModel: AuthViewModel = koinViewModel()) {
+fun AuthScreen(
+    viewModel: AuthViewModel = koinViewModel(),
+    restoreTimedOut: Boolean = false,
+    onRetryRestore: () -> Unit = {},
+) {
     val state by viewModel.uiState.collectAsState()
     AuthScreenContent(
         state = state,
@@ -61,6 +65,8 @@ fun AuthScreen(viewModel: AuthViewModel = koinViewModel()) {
         onConfirmPasswordChange = viewModel::onConfirmPasswordChange,
         onModeChange = viewModel::onModeChange,
         onSubmit = viewModel::submit,
+        restoreTimedOut = restoreTimedOut,
+        onRetryRestore = onRetryRestore,
     )
 }
 
@@ -81,6 +87,8 @@ fun AuthScreenContent(
     onConfirmPasswordChange: (String) -> Unit,
     onModeChange: (AuthMode) -> Unit,
     onSubmit: () -> Unit,
+    restoreTimedOut: Boolean = false,
+    onRetryRestore: () -> Unit = {},
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -119,6 +127,11 @@ fun AuthScreenContent(
                 style = FluxType.BodyMd,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            if (restoreTimedOut) {
+                Spacer(Modifier.height(FluxSpacing.SectionGap))
+                SessionRestoreTimeoutNotice(onRetryRestore = onRetryRestore)
+            }
 
             Spacer(Modifier.height(32.dp))
             AuthSectionLabel(stringResource(Res.string.section_email))
@@ -326,4 +339,31 @@ private fun AuthTextField(
             unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
         ),
     )
+}
+
+/**
+ * DEC-006's fallback notice: the initial session restoration exceeded
+ * [SessionGateViewModel.InitialRestorationTimeout] and the gate resolved to signed-out.
+ *
+ * Deliberately not an error: nothing has failed as far as the user is concerned, they
+ * are simply signed out and may either sign in normally or ask the app to try restoring
+ * again. It is rendered above the form, in the neutral surface colour rather than the
+ * error colour, for exactly that reason.
+ */
+@Composable
+private fun SessionRestoreTimeoutNotice(onRetryRestore: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            stringResource(Res.string.session_restore_timeout_notice),
+            style = FluxType.BodyMd,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = onRetryRestore) {
+            Text(
+                stringResource(Res.string.action_try_again),
+                style = FluxType.LabelSm,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
 }

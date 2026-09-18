@@ -157,6 +157,7 @@
     <string name="session_resolving">Checking your session…</string>
     <string name="session_failed_title">We could not restore your session</string>
     <string name="session_failed_body">Retry, or sign out to start from a clean session.</string>
+    <string name="session_restore_timeout_notice">We could not restore your session, so you are signed out. Sign in below, or try restoring it again.</string>
     <string name="account_title">Account</string>
     <string name="account_signed_in_as">Signed in as %1$s</string>
     <string name="account_signed_in_no_email">Signed in</string>

@@ -128,9 +128,11 @@ class IosAuthRepository internal constructor(
      * part of it).
      *
      * Scope boundary, deliberate and identical to FB-102's: Firestore's and Storage's
-     * local caches are *not* cleared here. Those SDKs are not wired into the app's data
-     * path yet (Phase 2) and their teardown must be sequenced against live listeners,
-     * which is FB-105's and Phase 4's job.
+     * local caches are *not* cleared here. FB-105's signOut() work is Auth-only; those
+     * SDKs are not wired into the app's data path yet, so `terminate()`/
+     * `clearPersistence()` is **deferred to Phase 2** (Firestore repositories) and
+     * **Phase 3** (Storage photos), whichever first puts a live listener or cached
+     * document on the device, with FB-404 owning the loading-state consequence.
      */
     override suspend fun signOut(): AuthResult {
         val bridge = bridgeProvider()

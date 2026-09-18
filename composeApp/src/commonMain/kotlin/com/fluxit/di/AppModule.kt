@@ -8,6 +8,7 @@ import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
 import com.fluxit.feature.auth.AuthViewModel
 import com.fluxit.feature.auth.SessionGateViewModel
+import com.fluxit.feature.auth.SessionScopedViewModelStores
 import com.fluxit.feature.createlist.CreateListViewModel
 import com.fluxit.feature.dashboard.DashboardViewModel
 import com.fluxit.feature.itemdetail.ItemDetailViewModel
@@ -30,6 +31,11 @@ val appModule = module {
     // the adapter behind the interface is platform-specific.
     viewModel { SessionGateViewModel(get()) }
     viewModel { AuthViewModel(get()) }
+
+    // FB-105: owns the ViewModelStore of the active session scope, so signing out (or
+    // switching user) destroys every user-scoped ViewModel behind it. Resolved by the
+    // gate from the ROOT ViewModelStoreOwner, never from the scope it manages.
+    viewModel { SessionScopedViewModelStores() }
 
     viewModel { DashboardViewModel(get(), get()) }
     viewModel { (listId: String) -> ListDetailViewModel(listId, get(), get()) }
