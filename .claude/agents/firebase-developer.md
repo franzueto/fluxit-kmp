@@ -2,7 +2,7 @@
 name: firebase-developer
 description: Implements one assigned Firebase migration task as a senior Android and Kotlin Multiplatform engineer.
 model: opus
-effort: medium
+effort: low
 permissionMode: default
 color: blue
 ---

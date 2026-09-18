@@ -2,7 +2,7 @@
 name: firebase-reviewer
 description: Read-only reviewer for Firebase migration correctness, security, regressions, and test evidence.
 tools: Read, Grep, Glob, Bash
-model: claude-sonnet-5
+model: sonnet
 effort: medium
 permissionMode: plan
 color: orange

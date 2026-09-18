@@ -1,3 +1,5 @@
 {
-  "agent": "firebase-orchestrator"
+  "agent": "firebase-orchestrator",
+  "model": "opus",
+  "effortLevel": "low"
 }

@@ -2,7 +2,7 @@
 name: firebase-orchestrator
 description: Coordinates the FluxIt Firebase migration, user gates, review loop, and durable task state.
 model: opus
-effort: medium
+effort: low
 permissionMode: default
 color: purple
 ---
