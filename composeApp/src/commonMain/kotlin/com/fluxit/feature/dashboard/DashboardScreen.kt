@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.DataArray
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,13 +36,16 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -66,11 +70,17 @@ const val DEBUG_SEED_ENABLED = true
 fun DashboardScreen(
     onOpenList: (String) -> Unit,
     onCreateList: () -> Unit,
+    // FB-104: supplied by the session gate. This screen never resolves an
+    // AuthRepository itself; it only renders the already-resolved identity and
+    // forwards the sign-out intent back up to the gate.
+    accountEmail: String? = null,
+    onSignOut: () -> Unit = {},
     viewModel: DashboardViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val undoListId by viewModel.undoListId.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showAccountDialog by remember { mutableStateOf(false) }
     val listDeletedMessage = stringResource(Res.string.message_list_deleted)
     val undoLabel = stringResource(Res.string.action_undo)
 
@@ -82,6 +92,50 @@ fun DashboardScreen(
             duration = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete() else viewModel.dismissUndo()
+    }
+
+    if (showAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showAccountDialog = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            title = {
+                Text(
+                    stringResource(Res.string.account_title),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+            text = {
+                Text(
+                    if (accountEmail != null) {
+                        stringResource(Res.string.account_signed_in_as, accountEmail)
+                    } else {
+                        stringResource(Res.string.account_signed_in_no_email)
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showAccountDialog = false
+                        onSignOut()
+                    },
+                ) {
+                    Text(
+                        stringResource(Res.string.action_sign_out),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAccountDialog = false }) {
+                    Text(
+                        stringResource(Res.string.action_cancel),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
+        )
     }
 
     Scaffold(
@@ -123,12 +177,15 @@ fun DashboardScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape)
+                        .clickable { showAccountDialog = true },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Outlined.Person,
-                        contentDescription = stringResource(Res.string.content_description_profile),
+                        contentDescription = stringResource(Res.string.content_description_account),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

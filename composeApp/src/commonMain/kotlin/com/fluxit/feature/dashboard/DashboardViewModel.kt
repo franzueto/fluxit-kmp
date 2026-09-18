@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.fluxit.data.DebugSeeder
 import com.fluxit.domain.FluxListSummary
 import com.fluxit.domain.ListRepository
+import com.fluxit.domain.auth.SessionTrace
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -33,7 +35,15 @@ class DashboardViewModel(
     private var undoJob: Job? = null
 
     val uiState: StateFlow<DashboardUiState> =
-        combine(listRepository.observeListSummaries(), searchQuery) { lists, query ->
+        combine(
+            listRepository.observeListSummaries()
+                // FB-104 evidence hook: this is the first user-scoped data listener the
+                // app starts (Room today, Firestore from Phase 2). Tracing it lets the
+                // manual matrix show, from an ordinary log capture, that it never starts
+                // before the session gate has resolved.
+                .onStart { SessionTrace.event("user-scoped list listener STARTED") },
+            searchQuery,
+        ) { lists, query ->
             DashboardUiState(
                 lists = if (query.isBlank()) lists
                 else lists.filter { it.list.name.contains(query.trim(), ignoreCase = true) },
@@ -43,6 +53,7 @@ class DashboardViewModel(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
     init {
+        SessionTrace.event("DashboardViewModel created (user-scoped consumer)")
         viewModelScope.launch { listRepository.purgeExpired() }
     }
 

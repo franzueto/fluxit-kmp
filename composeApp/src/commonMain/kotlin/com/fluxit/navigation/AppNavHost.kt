@@ -43,8 +43,20 @@ private val navigationSavedStateConfiguration = SavedStateConfiguration {
     }
 }
 
+/**
+ * The authenticated navigation graph.
+ *
+ * FB-104: this is composed only from the `SessionGate`'s `Ready` branch, so every
+ * ViewModel and repository listener reachable from here is created strictly after
+ * session resolution. [accountEmail] and [onSignOut] come from the resolved session;
+ * they are passed down rather than re-resolved so no screen below needs its own
+ * `AuthRepository` handle.
+ */
 @Composable
-fun AppNavHost() {
+fun AppNavHost(
+    accountEmail: String?,
+    onSignOut: () -> Unit,
+) {
     val backStack = rememberNavBackStack(
         navigationSavedStateConfiguration,
         DashboardRoute,
@@ -62,6 +74,8 @@ fun AppNavHost() {
                 DashboardScreen(
                     onOpenList = { backStack.add(ListDetailRoute(it)) },
                     onCreateList = { backStack.add(CreateListRoute()) },
+                    accountEmail = accountEmail,
+                    onSignOut = onSignOut,
                 )
             }
             entry<ListDetailRoute> { route ->
