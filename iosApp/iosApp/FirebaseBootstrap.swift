@@ -79,14 +79,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         FirebaseBootstrap.start()
-        #if DEBUG
-        // FB-008 TEMPORARY (removed by FB-009, together with FirebaseSmokeHarness.swift):
-        // Debug-only, and opt-in even then - it runs only when the process is launched
-        // with `-FluxItFirebaseSmoke`. A normal Debug or Release launch is unaffected.
-        if FirebaseSmokeHarness.isRequested {
-            FirebaseSmokeHarness.runAndExit()
-        }
-        #endif
         return true
     }
 }

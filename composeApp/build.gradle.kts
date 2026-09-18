@@ -140,19 +140,6 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
-        // FB-008 TEMPORARY: the Android leg of the Phase 0 smoke harness. Instrumented
-        // tests are never packaged into the APK, so this adds no production code and
-        // changes no application behavior, while still booting the real
-        // `FluxItApplication` (and therefore `AndroidFirebaseInitializer`) on device.
-        // FB-009 removes this block, the `testInstrumentationRunner` line below, the
-        // three `libs.versions.toml` entries it uses, and
-        // `composeApp/src/androidInstrumentedTest/`.
-        getByName("androidInstrumentedTest").dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.junit4)
-            implementation(libs.androidx.test.runner)
-            implementation(libs.androidx.test.ext.junit)
-        }
     }
 }
 
@@ -166,9 +153,6 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
-        // FB-008 TEMPORARY (removed by FB-009): required to run the Phase 0 smoke
-        // harness in `src/androidInstrumentedTest`. Affects the androidTest APK only.
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         release {
