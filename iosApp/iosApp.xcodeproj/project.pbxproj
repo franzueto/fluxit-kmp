@@ -11,6 +11,7 @@
 		2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* iOSApp.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
 		FB0700000000000000000002 /* FirebaseBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0700000000000000000001 /* FirebaseBootstrap.swift */; };
+		FB0800000000000000000002 /* FirebaseSmokeHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0800000000000000000001 /* FirebaseSmokeHarness.swift */; };
 		FB0700000000000000000004 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FB0700000000000000000003 /* GoogleService-Info.plist */; };
 		FB0700000000000000000021 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FB0700000000000000000011 /* FirebaseAuth */; };
 		FB0700000000000000000022 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FB0700000000000000000012 /* FirebaseFirestore */; };
@@ -25,6 +26,7 @@
 		7555FF8C242A565B00829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AB1DB47929225F7C00F7AF9C /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		FB0700000000000000000001 /* FirebaseBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseBootstrap.swift; sourceTree = "<group>"; };
+		FB0800000000000000000001 /* FirebaseSmokeHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseSmokeHarness.swift; sourceTree = "<group>"; };
 		FB0700000000000000000003 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -73,6 +75,7 @@
 				058557BA273AAA24004C7B11 /* Assets.xcassets */,
 				7555FF82242A565900829871 /* ContentView.swift */,
 				FB0700000000000000000001 /* FirebaseBootstrap.swift */,
+				FB0800000000000000000001 /* FirebaseSmokeHarness.swift */,
 				7555FF8C242A565B00829871 /* Info.plist */,
 				2152FB032600AC8F00CF470E /* iOSApp.swift */,
 				058557D7273AAEEB004C7B11 /* Preview Content */,
@@ -192,6 +195,7 @@
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
 				FB0700000000000000000002 /* FirebaseBootstrap.swift in Sources */,
+				FB0800000000000000000002 /* FirebaseSmokeHarness.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
