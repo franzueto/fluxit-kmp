@@ -20,9 +20,10 @@ import UIKit
 /// `:composeApp:generateFirebaseEmulatorConfig`, surfaced to Swift through
 /// `IosFirebaseEmulatorSettings` in `iosMain`.
 ///
-/// Phase 1 (`FB-102`) replaces the direct SDK access below with the
-/// Firebase-neutral `AuthRepository` adapter; Phase 2 does the same for
-/// Firestore/Storage.
+/// `FB-103` added the second responsibility below: registering the Swift
+/// implementation of the Kotlin `IosAuthBridge` protocol, which is how the
+/// Firebase-neutral `AuthRepository` reaches Auth on iOS (PLAN-008). Phase 2 does
+/// the same for Firestore/Storage.
 enum FirebaseBootstrap {
 
     private static var initialized = false
@@ -52,6 +53,44 @@ enum FirebaseBootstrap {
         if IosFirebaseEmulatorSettings.shared.enabled {
             connectToEmulators()
         }
+
+        // FB-103: hand the Swift Auth implementation to the Kotlin framework. This runs
+        // inside `didFinishLaunchingWithOptions`, strictly before `ContentView` creates
+        // the Compose view controller that starts Koin, so the `single<AuthRepository>`
+        // binding in `platformModule()` can never be resolved before the bridge exists.
+        IosAuthBridgeRegistry.shared.register(bridge: FirebaseAuthBridge())
+    }
+
+    /// FB-103 evidence hook: runs the emulator-backed Auth integration check and prints
+    /// its report, then leaves the app running normally.
+    ///
+    /// Two independent gates keep this out of any ordinary build: the app must be
+    /// launched with `-FluxItAuthSelfCheck`, and the Kotlin check itself refuses to run
+    /// unless the build was configured with `fluxit.firebase.emulator.enabled=true`,
+    /// which is the same flag that points Auth at the local emulator. It therefore
+    /// cannot touch the live development project.
+    static func runAuthSelfCheckIfRequested() {
+        let arguments = ProcessInfo.processInfo.arguments
+        let restorationPhase = arguments.contains("-FluxItAuthRestorePrepare") ? "prepare"
+            : arguments.contains("-FluxItAuthRestoreVerify") ? "verify"
+            : nil
+
+        guard arguments.contains("-FluxItAuthSelfCheck") || restorationPhase != nil else { return }
+
+        Task {
+            do {
+                let report: String
+                if let phase = restorationPhase {
+                    report = try await IosAuthIntegrationCheck.shared.runRestorationPhase(phase: phase)
+                } else {
+                    report = try await IosAuthIntegrationCheck.shared.run()
+                }
+                print(report)
+            } catch {
+                print("FB-103 iOS Auth integration check: THREW \(error)")
+                print("FB-103 END")
+            }
+        }
     }
 
     private static func connectToEmulators() {
@@ -79,6 +118,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         FirebaseBootstrap.start()
+        FirebaseBootstrap.runAuthSelfCheckIfRequested()
         return true
     }
 }

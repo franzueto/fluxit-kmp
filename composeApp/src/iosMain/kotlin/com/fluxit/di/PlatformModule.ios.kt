@@ -7,6 +7,8 @@ import com.fluxit.data.IosPhotoPicker
 import com.fluxit.data.IosPhotoStorage
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
+import com.fluxit.domain.auth.AuthRepository
+import com.fluxit.firebase.auth.IosAuthRepository
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
@@ -36,4 +38,12 @@ actual fun platformModule(): Module = module {
     }
     single<PhotoPicker> { IosPhotoPicker() }
     single<PhotoStorage> { IosPhotoStorage(documentsPath()) }
+
+    // FB-103: the iOS Firebase Auth adapter, mirroring FB-102's Android binding. The
+    // implementation is platform-specific (PLAN-008: it delegates to Swift), so it is
+    // bound here rather than in `appModule`. Nothing in `appModule` injects
+    // AuthRepository yet - FB-104 adds the first consumer - so this binding being a
+    // `single` means the Swift bridge is not looked up until then, well after
+    // `FirebaseBootstrap.start()` has registered it.
+    single<AuthRepository> { IosAuthRepository() }
 }
