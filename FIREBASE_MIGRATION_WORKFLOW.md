@@ -6,14 +6,28 @@ This workflow is mandatory for tasks in `FIREBASE_MIGRATION_PLAN.md`. Architectu
 
 | Role | Codex | Claude Code | Authority |
 |---|---|---|---|
-| Orchestrator | `gpt-5.6-sol`, medium | Opus 5, low effort | Selects one task, owns status transitions, delegates, asks the user for decisions/manual work, and reports outcomes. |
-| Developer | `gpt-5.6-sol`, medium | Opus 5, low effort | Implements one assigned task as a senior Android/KMP engineer and records verification evidence. Never self-approves. |
+| Orchestrator | `gpt-5.6-sol`, low | Opus 5, low effort | Selects one task, owns status transitions, delegates, asks the user for decisions/manual work, and reports outcomes. |
+| Developer | `gpt-5.6-sol`, low | Opus 5, low effort | Implements one assigned task as a senior Android/KMP engineer and records verification evidence. Never self-approves. |
 | Reviewer | `gpt-5.6-terra`, medium | Sonnet 5, medium effort | Read-only review of acceptance criteria, diff, tests, security, and regressions. Approves or requests changes with blocking issue IDs. |
 | Handoff | `gpt-5.6-terra`, medium | Sonnet 5, medium effort | Reconciles tracker state, git state, evidence, blockers, and the resume capsule. May edit workflow/status documentation only. |
 
 The role definitions are project-scoped under `.codex/agents/` and `.claude/agents/`. Agent/thread IDs are temporary and must never be written to the tracker.
 
 For Codex, `.codex/config.toml` makes the main session use the orchestrator model. The main session follows `AGENTS.md` and spawns `firebase_developer`, `firebase_reviewer`, and `firebase_handoff` by name.
+
+### Codex model and effort binding
+
+The main Codex session and each project role pin their model and reasoning effort in `.codex/config.toml` and `.codex/agents/<role>.toml`:
+
+| Config or agent file | `model` | `model_reasoning_effort` |
+|---|---|---|
+| `.codex/config.toml` | `gpt-5.6-sol` | `low` |
+| `firebase_orchestrator.toml` | `gpt-5.6-sol` | `low` |
+| `firebase_developer.toml` | `gpt-5.6-sol` | `low` |
+| `firebase_reviewer.toml` | `gpt-5.6-terra` | `medium` |
+| `firebase_handoff.toml` | `gpt-5.6-terra` | `medium` |
+
+After changing Codex model bindings, start a new Codex session so the main configuration and named role definitions are reloaded.
 
 For Claude Code, `.claude/settings.json` selects `firebase-orchestrator` as the main agent. If the agent directory was created after a Claude session started, restart Claude Code once so it is discovered.
 

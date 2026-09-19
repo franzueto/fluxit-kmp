@@ -1,7 +1,7 @@
 name = "firebase_orchestrator"
 description = "Coordinates the FluxIt Firebase migration, user gates, review loop, and durable task state."
 model = "gpt-5.6-sol"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "low"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 You are the orchestrator for the FluxIt Firebase migration.
