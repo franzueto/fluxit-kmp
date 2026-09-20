@@ -1,6 +1,6 @@
 package com.fluxit.firebase
 
-import com.fluxit.firebase.config.FirebaseEmulatorConfig
+import com.fluxit.config.FirebaseEmulatorConfig
 
 /**
  * FB-007 Swift-facing seam for the generated [FirebaseEmulatorConfig] constants.

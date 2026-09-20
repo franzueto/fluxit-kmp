@@ -14,13 +14,13 @@ interface ListRepository {
 
 interface ItemRepository {
     fun observeItems(listId: String): Flow<List<FluxItem>>
-    fun observeItem(itemId: String): Flow<FluxItem?>
+    fun observeItem(listId: String, itemId: String): Flow<FluxItem?>
     suspend fun addItem(listId: String, title: String)
-    suspend fun updateItem(itemId: String, title: String, description: String?)
-    suspend fun setCompleted(itemId: String, completed: Boolean)
-    suspend fun setPhotoPath(itemId: String, photoPath: String?)
-    suspend fun softDeleteItem(itemId: String)
-    suspend fun restoreItem(itemId: String)
-    suspend fun deleteItem(itemId: String)
+    suspend fun updateItem(listId: String, itemId: String, title: String, description: String?)
+    suspend fun setCompleted(listId: String, itemId: String, completed: Boolean)
+    suspend fun setPhotoPath(listId: String, itemId: String, photoPath: String?)
+    suspend fun softDeleteItem(listId: String, itemId: String)
+    suspend fun restoreItem(listId: String, itemId: String)
+    suspend fun deleteItem(listId: String, itemId: String)
     suspend fun clearCompleted(listId: String)
 }

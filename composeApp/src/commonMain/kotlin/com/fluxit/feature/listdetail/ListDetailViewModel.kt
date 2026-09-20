@@ -71,7 +71,7 @@ class ListDetailViewModel(
     }
 
     fun toggleCompleted(item: FluxItem) {
-        viewModelScope.launch { itemRepository.setCompleted(item.id, !item.isCompleted) }
+        viewModelScope.launch { itemRepository.setCompleted(listId, item.id, !item.isCompleted) }
     }
 
     fun toggleShowCompleted() {
@@ -80,7 +80,7 @@ class ListDetailViewModel(
 
     fun deleteItem(itemId: String) {
         undoJob?.cancel()
-        viewModelScope.launch { itemRepository.softDeleteItem(itemId) }
+        viewModelScope.launch { itemRepository.softDeleteItem(listId, itemId) }
         pendingUndo.value = itemId
         undoJob = viewModelScope.launch {
             delay(5_000)
@@ -92,7 +92,7 @@ class ListDetailViewModel(
         val id = pendingUndo.value ?: return
         undoJob?.cancel()
         pendingUndo.value = null
-        viewModelScope.launch { itemRepository.restoreItem(id) }
+        viewModelScope.launch { itemRepository.restoreItem(listId, id) }
     }
 
     fun dismissUndo() {

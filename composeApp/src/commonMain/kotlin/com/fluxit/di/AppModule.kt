@@ -40,5 +40,5 @@ val appModule = module {
     viewModel { DashboardViewModel(get(), get()) }
     viewModel { (listId: String) -> ListDetailViewModel(listId, get(), get()) }
     viewModel { (editingId: String?) -> CreateListViewModel(editingId, get()) }
-    viewModel { (itemId: String) -> ItemDetailViewModel(itemId, get(), get(), get(), get()) }
+    viewModel { (listId: String, itemId: String) -> ItemDetailViewModel(listId, itemId, get(), get(), get(), get()) }
 }

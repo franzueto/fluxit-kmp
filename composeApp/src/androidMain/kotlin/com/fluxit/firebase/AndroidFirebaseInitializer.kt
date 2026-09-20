@@ -1,7 +1,7 @@
 package com.fluxit.firebase
 
 import android.content.Context
-import com.fluxit.firebase.config.FirebaseEmulatorConfig
+import com.fluxit.config.FirebaseEmulatorConfig
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore

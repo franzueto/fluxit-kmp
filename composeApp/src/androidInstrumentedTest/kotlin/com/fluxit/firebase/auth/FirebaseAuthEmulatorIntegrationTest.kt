@@ -9,7 +9,7 @@ import com.fluxit.domain.auth.AuthSession
 import com.fluxit.domain.auth.errorOrNull
 import com.fluxit.domain.auth.isSuccess
 import com.fluxit.domain.auth.uidOrNull
-import com.fluxit.firebase.config.FirebaseEmulatorConfig
+import com.fluxit.config.FirebaseEmulatorConfig
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth

@@ -161,7 +161,7 @@ class ListDetailViewModelTest {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")
         items.addItem(listId, "Bread")
-        items.setCompleted(items.observeItems(listId).first().first().id, true)
+        items.setCompleted(listId, items.observeItems(listId).first().first().id, true)
         val vm = ListDetailViewModel(listId, lists, items)
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()

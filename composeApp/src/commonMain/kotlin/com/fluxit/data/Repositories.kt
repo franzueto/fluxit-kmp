@@ -107,8 +107,8 @@ class RoomItemRepository(private val db: FluxItDatabase) : ItemRepository {
     override fun observeItems(listId: String): Flow<List<FluxItem>> =
         dao.observeItems(listId).map { items -> items.map { it.toDomain() } }
 
-    override fun observeItem(itemId: String): Flow<FluxItem?> =
-        dao.observeItem(itemId).map { it?.toDomain() }
+    override fun observeItem(listId: String, itemId: String): Flow<FluxItem?> =
+        dao.observeItem(listId, itemId).map { it?.toDomain() }
 
     override suspend fun addItem(listId: String, title: String) {
         val now = nowMillis()
@@ -128,20 +128,20 @@ class RoomItemRepository(private val db: FluxItDatabase) : ItemRepository {
         )
     }
 
-    override suspend fun updateItem(itemId: String, title: String, description: String?) =
-        dao.updateContent(itemId, title, description, nowMillis())
+    override suspend fun updateItem(listId: String, itemId: String, title: String, description: String?) =
+        dao.updateContent(listId, itemId, title, description, nowMillis())
 
-    override suspend fun setCompleted(itemId: String, completed: Boolean) =
-        dao.setCompleted(itemId, completed, nowMillis())
+    override suspend fun setCompleted(listId: String, itemId: String, completed: Boolean) =
+        dao.setCompleted(listId, itemId, completed, nowMillis())
 
-    override suspend fun setPhotoPath(itemId: String, photoPath: String?) =
-        dao.setPhotoPath(itemId, photoPath, nowMillis())
+    override suspend fun setPhotoPath(listId: String, itemId: String, photoPath: String?) =
+        dao.setPhotoPath(listId, itemId, photoPath, nowMillis())
 
-    override suspend fun softDeleteItem(itemId: String) = dao.setDeletedAt(itemId, nowMillis())
+    override suspend fun softDeleteItem(listId: String, itemId: String) = dao.setDeletedAt(listId, itemId, nowMillis())
 
-    override suspend fun restoreItem(itemId: String) = dao.setDeletedAt(itemId, null)
+    override suspend fun restoreItem(listId: String, itemId: String) = dao.setDeletedAt(listId, itemId, null)
 
-    override suspend fun deleteItem(itemId: String) = dao.delete(itemId)
+    override suspend fun deleteItem(listId: String, itemId: String) = dao.delete(listId, itemId)
 
     override suspend fun clearCompleted(listId: String) = dao.softDeleteCompleted(listId, nowMillis())
 }

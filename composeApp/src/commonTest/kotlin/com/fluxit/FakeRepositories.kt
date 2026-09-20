@@ -58,36 +58,36 @@ class FakeItemRepository : ItemRepository {
     override fun observeItems(listId: String): Flow<List<FluxItem>> =
         rows.map { all -> all.filter { it.item.listId == listId && !it.deleted }.map { it.item } }
 
-    override fun observeItem(itemId: String): Flow<FluxItem?> =
-        rows.map { all -> all.firstOrNull { it.item.id == itemId && !it.deleted }?.item }
+    override fun observeItem(listId: String, itemId: String): Flow<FluxItem?> =
+        rows.map { all -> all.firstOrNull { it.item.listId == listId && it.item.id == itemId && !it.deleted }?.item }
 
     override suspend fun addItem(listId: String, title: String) {
         val id = "item-${counter++}"
         rows.value += Row(FluxItem(id, listId, title, null, false, null, counter.toDouble(), 0, 0))
     }
 
-    override suspend fun updateItem(itemId: String, title: String, description: String?) {
-        mutate(itemId) { it.copy(title = title, description = description) }
+    override suspend fun updateItem(listId: String, itemId: String, title: String, description: String?) {
+        mutate(listId, itemId) { it.copy(title = title, description = description) }
     }
 
-    override suspend fun setCompleted(itemId: String, completed: Boolean) {
-        mutate(itemId) { it.copy(isCompleted = completed) }
+    override suspend fun setCompleted(listId: String, itemId: String, completed: Boolean) {
+        mutate(listId, itemId) { it.copy(isCompleted = completed) }
     }
 
-    override suspend fun setPhotoPath(itemId: String, photoPath: String?) {
-        mutate(itemId) { it.copy(photoPath = photoPath) }
+    override suspend fun setPhotoPath(listId: String, itemId: String, photoPath: String?) {
+        mutate(listId, itemId) { it.copy(photoPath = photoPath) }
     }
 
-    override suspend fun softDeleteItem(itemId: String) {
-        rows.value = rows.value.map { if (it.item.id == itemId) it.copy(deleted = true) else it }
+    override suspend fun softDeleteItem(listId: String, itemId: String) {
+        rows.value = rows.value.map { if (it.item.listId == listId && it.item.id == itemId) it.copy(deleted = true) else it }
     }
 
-    override suspend fun restoreItem(itemId: String) {
-        rows.value = rows.value.map { if (it.item.id == itemId) it.copy(deleted = false) else it }
+    override suspend fun restoreItem(listId: String, itemId: String) {
+        rows.value = rows.value.map { if (it.item.listId == listId && it.item.id == itemId) it.copy(deleted = false) else it }
     }
 
-    override suspend fun deleteItem(itemId: String) {
-        rows.value = rows.value.filter { it.item.id != itemId }
+    override suspend fun deleteItem(listId: String, itemId: String) {
+        rows.value = rows.value.filter { it.item.listId != listId || it.item.id != itemId }
     }
 
     override suspend fun clearCompleted(listId: String) {
@@ -96,9 +96,9 @@ class FakeItemRepository : ItemRepository {
         }
     }
 
-    private fun mutate(itemId: String, transform: (FluxItem) -> FluxItem) {
+    private fun mutate(listId: String, itemId: String, transform: (FluxItem) -> FluxItem) {
         rows.value = rows.value.map {
-            if (it.item.id == itemId) it.copy(item = transform(it.item)) else it
+            if (it.item.listId == listId && it.item.id == itemId) it.copy(item = transform(it.item)) else it
         }
     }
 }

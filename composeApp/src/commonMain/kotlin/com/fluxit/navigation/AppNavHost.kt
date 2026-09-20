@@ -30,7 +30,7 @@ data class ListDetailRoute(val listId: String) : AppRoute
 data class CreateListRoute(val editingId: String? = null) : AppRoute
 
 @Serializable
-data class ItemDetailRoute(val itemId: String) : AppRoute
+data class ItemDetailRoute(val listId: String, val itemId: String) : AppRoute
 
 private val navigationSavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
@@ -83,7 +83,7 @@ fun AppNavHost(
                     listId = route.listId,
                     onBack = { backStack.removeLastOrNull() },
                     onEditList = { backStack.add(CreateListRoute(it)) },
-                    onOpenItem = { backStack.add(ItemDetailRoute(it)) },
+                    onOpenItem = { backStack.add(ItemDetailRoute(route.listId, it)) },
                 )
             }
             entry<CreateListRoute> { route ->
@@ -98,6 +98,7 @@ fun AppNavHost(
             }
             entry<ItemDetailRoute> { route ->
                 ItemDetailScreen(
+                    listId = route.listId,
                     itemId = route.itemId,
                     onBack = { backStack.removeLastOrNull() },
                 )

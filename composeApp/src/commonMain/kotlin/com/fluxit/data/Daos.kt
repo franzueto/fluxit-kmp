@@ -47,8 +47,8 @@ interface ItemDao {
     @Query("SELECT * FROM item_table WHERE listId = :listId AND deletedAt IS NULL ORDER BY sortOrder ASC")
     fun observeItems(listId: String): Flow<List<ItemEntity>>
 
-    @Query("SELECT * FROM item_table WHERE id = :id AND deletedAt IS NULL")
-    fun observeItem(id: String): Flow<ItemEntity?>
+    @Query("SELECT * FROM item_table WHERE listId = :listId AND id = :id AND deletedAt IS NULL")
+    fun observeItem(listId: String, id: String): Flow<ItemEntity?>
 
     @Insert
     suspend fun insert(item: ItemEntity)
@@ -59,20 +59,20 @@ interface ItemDao {
     @Query("SELECT COALESCE(MAX(sortOrder), 0) FROM item_table WHERE listId = :listId")
     suspend fun maxSortOrder(listId: String): Double
 
-    @Query("UPDATE item_table SET title = :title, description = :description, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun updateContent(id: String, title: String, description: String?, updatedAt: Long)
+    @Query("UPDATE item_table SET title = :title, description = :description, updatedAt = :updatedAt WHERE listId = :listId AND id = :id")
+    suspend fun updateContent(listId: String, id: String, title: String, description: String?, updatedAt: Long)
 
-    @Query("UPDATE item_table SET isCompleted = :completed, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun setCompleted(id: String, completed: Boolean, updatedAt: Long)
+    @Query("UPDATE item_table SET isCompleted = :completed, updatedAt = :updatedAt WHERE listId = :listId AND id = :id")
+    suspend fun setCompleted(listId: String, id: String, completed: Boolean, updatedAt: Long)
 
-    @Query("UPDATE item_table SET photoPath = :photoPath, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun setPhotoPath(id: String, photoPath: String?, updatedAt: Long)
+    @Query("UPDATE item_table SET photoPath = :photoPath, updatedAt = :updatedAt WHERE listId = :listId AND id = :id")
+    suspend fun setPhotoPath(listId: String, id: String, photoPath: String?, updatedAt: Long)
 
-    @Query("UPDATE item_table SET deletedAt = :deletedAt WHERE id = :id")
-    suspend fun setDeletedAt(id: String, deletedAt: Long?)
+    @Query("UPDATE item_table SET deletedAt = :deletedAt WHERE listId = :listId AND id = :id")
+    suspend fun setDeletedAt(listId: String, id: String, deletedAt: Long?)
 
-    @Query("DELETE FROM item_table WHERE id = :id")
-    suspend fun delete(id: String)
+    @Query("DELETE FROM item_table WHERE listId = :listId AND id = :id")
+    suspend fun delete(listId: String, id: String)
 
     @Query("UPDATE item_table SET deletedAt = :deletedAt WHERE listId = :listId AND isCompleted AND deletedAt IS NULL")
     suspend fun softDeleteCompleted(listId: String, deletedAt: Long)

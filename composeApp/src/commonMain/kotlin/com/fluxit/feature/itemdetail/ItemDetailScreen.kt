@@ -62,9 +62,10 @@ import org.koin.core.parameter.parametersOf
 
 @Composable
 fun ItemDetailScreen(
+    listId: String,
     itemId: String,
     onBack: () -> Unit,
-    viewModel: ItemDetailViewModel = koinViewModel { parametersOf(itemId) },
+    viewModel: ItemDetailViewModel = koinViewModel { parametersOf(listId, itemId) },
 ) {
     val state by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
