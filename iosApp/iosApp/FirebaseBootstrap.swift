@@ -23,8 +23,8 @@ import UIKit
 /// `FB-103` added the second responsibility below: registering the Swift
 /// implementation of the Kotlin `IosAuthBridge` protocol, which is how the
 /// Firebase-neutral `AuthRepository` reaches Auth on iOS (PLAN-008). `FB-203` does the
-/// same for `ListRepository`/Firestore lists; item repositories (`FB-205`) and Storage
-/// photos (Phase 3) still need their own bridges registered here.
+/// same for `ListRepository`/Firestore lists, and `FB-205` for `ItemRepository`/Firestore
+/// items; Storage photos (Phase 3) still need their own bridge registered here.
 enum FirebaseBootstrap {
 
     private static var initialized = false
@@ -61,9 +61,11 @@ enum FirebaseBootstrap {
         // binding in `platformModule()` can never be resolved before the bridge exists.
         IosAuthBridgeRegistry.shared.register(bridge: FirebaseAuthBridge())
 
-        // FB-203: same hand-off, for the Firestore list bridge. Phase 2's item
-        // repositories (FB-205) register the same way once they exist.
+        // FB-203: same hand-off, for the Firestore list bridge.
         IosFirestoreListBridgeRegistry.shared.register(bridge: FirebaseListBridge())
+
+        // FB-205: same hand-off, for the Firestore item bridge.
+        IosFirestoreItemBridgeRegistry.shared.register(bridge: FirebaseItemBridge())
     }
 
     /// FB-103 evidence hook: runs the emulator-backed Auth integration check and prints
@@ -115,6 +117,23 @@ enum FirebaseBootstrap {
         }
     }
 
+    /// FB-205 evidence hook: same shape as [runFirestoreListSelfCheckIfRequested], for
+    /// the Firestore item adapter. Guarded the same way: `-FluxItFirestoreItemSelfCheck`
+    /// on the launch arguments, plus the Kotlin check's own emulator-enabled refusal.
+    static func runFirestoreItemSelfCheckIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-FluxItFirestoreItemSelfCheck") else { return }
+
+        Task {
+            do {
+                let report = try await IosFirestoreItemIntegrationCheck.shared.run()
+                print(report)
+            } catch {
+                print("FB-205 iOS Firestore item integration check: THREW \(error)")
+                print("FB-205 END")
+            }
+        }
+    }
+
     private static func connectToEmulators() {
         // Passed through verbatim: the iOS simulator shares the host network stack,
         // so no Android-style 10.0.2.2 loopback translation applies here.
@@ -157,6 +176,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseBootstrap.start()
         FirebaseBootstrap.runAuthSelfCheckIfRequested()
         FirebaseBootstrap.runFirestoreListSelfCheckIfRequested()
+        FirebaseBootstrap.runFirestoreItemSelfCheckIfRequested()
         return true
     }
 }
