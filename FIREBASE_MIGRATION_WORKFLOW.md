@@ -4,12 +4,12 @@ This workflow is mandatory for tasks in `FIREBASE_MIGRATION_PLAN.md`. Architectu
 
 ## Agent roster
 
-| Role | Codex | Claude Code | Authority |
-|---|---|---|---|
-| Orchestrator | `gpt-5.6-sol`, low | Opus 5, low effort | Selects one task, owns status transitions, delegates, asks the user for decisions/manual work, and reports outcomes. |
-| Developer | `gpt-5.6-sol`, low | Opus 5, low effort | Implements one assigned task as a senior Android/KMP engineer and records verification evidence. Never self-approves. |
+| Role | Codex | Claude Code             | Authority |
+|---|---|-------------------------|---|
+| Orchestrator | `gpt-5.6-sol`, low | Sonnet 5, high effort   | Selects one task, owns status transitions, delegates, asks the user for decisions/manual work, and reports outcomes. |
+| Developer | `gpt-5.6-sol`, low | Sonnet 5, high effort   | Implements one assigned task as a senior Android/KMP engineer and records verification evidence. Never self-approves. |
 | Reviewer | `gpt-5.6-terra`, medium | Sonnet 5, medium effort | Read-only review of acceptance criteria, diff, tests, security, and regressions. Approves or requests changes with blocking issue IDs. |
-| Handoff | `gpt-5.6-terra`, medium | Sonnet 5, medium effort | Reconciles tracker state, git state, evidence, blockers, and the resume capsule. May edit workflow/status documentation only. |
+| Handoff | `gpt-5.6-terra`, medium | Sonnet 5, low effort    | Reconciles tracker state, git state, evidence, blockers, and the resume capsule. May edit workflow/status documentation only. |
 
 The role definitions are project-scoped under `.codex/agents/` and `.claude/agents/`. Agent/thread IDs are temporary and must never be written to the tracker.
 
@@ -36,18 +36,18 @@ For Claude Code, `.claude/settings.json` selects `firebase-orchestrator` as the 
 Each Claude Code role pins its own model and reasoning effort in its `.claude/agents/<role>.md` YAML frontmatter:
 
 | Agent file | `model` | `effort` |
-|---|---|---|
-| `firebase-orchestrator.md` | `opus` | `low` |
-| `firebase-developer.md` | `opus` | `low` |
+|---|---|----------|
+| `firebase-orchestrator.md` | `sonnet` | `high`   |
+| `firebase-developer.md` | `sonnet` | `high`   |
 | `firebase-reviewer.md` | `sonnet` | `medium` |
-| `firebase-handoff.md` | `sonnet` | `medium` |
+| `firebase-handoff.md` | `sonnet` | `low`    |
 
 Rules:
 
 - Use the aliases `opus` and `sonnet`, not pinned dated model IDs, so the roles track the current Opus 5 / Sonnet 5 releases.
 - The orchestrator must spawn `firebase-developer`, `firebase-reviewer`, and `firebase-handoff` by `subagent_type` **without** passing any per-invocation `model` override. A per-invocation override outranks the frontmatter and would silently run the role on the orchestrator's model.
 - Never spawn these roles as a `fork`; a fork always inherits the parent model and effort and ignores the role frontmatter.
-- `.claude/settings.json` pins the main session to `"model": "opus"` with `"effortLevel": "low"` so the orchestrator itself matches the table even before its frontmatter applies.
+- `.claude/settings.json` pins the main session to the default model and effort so the orchestrator itself matches the table even before its frontmatter applies.
 - Resolution order for a subagent's model is: per-invocation parameter, then agent frontmatter, then `CLAUDE_CODE_SUBAGENT_MODEL`, then the main conversation's model. Leave `CLAUDE_CODE_SUBAGENT_MODEL` unset so the frontmatter decides.
 - After editing any agent frontmatter, restart Claude Code once; agent definitions are read at session start.
 

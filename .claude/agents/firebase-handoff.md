@@ -3,7 +3,7 @@ name: firebase-handoff
 description: Reconciles Firebase migration status and writes a complete resume capsule after review.
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: sonnet
-effort: medium
+effort: low
 permissionMode: default
 color: green
 ---
