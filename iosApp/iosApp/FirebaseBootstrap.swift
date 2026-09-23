@@ -134,6 +134,24 @@ enum FirebaseBootstrap {
         }
     }
 
+    /// FB-206 evidence hook: same shape as [runFirestoreItemSelfCheckIfRequested], for
+    /// the cross-client counter-consistency/conflict/malformed-document/reconnect
+    /// checks. Guarded the same way: `-FluxItCrossClientSelfCheck` on the launch
+    /// arguments, plus the Kotlin check's own emulator-enabled refusal.
+    static func runCrossClientSelfCheckIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-FluxItCrossClientSelfCheck") else { return }
+
+        Task {
+            do {
+                let report = try await IosFirestoreCrossClientIntegrationCheck.shared.run()
+                print(report)
+            } catch {
+                print("FB-206 iOS cross-client integration check: THREW \(error)")
+                print("FB-206 END")
+            }
+        }
+    }
+
     private static func connectToEmulators() {
         // Passed through verbatim: the iOS simulator shares the host network stack,
         // so no Android-style 10.0.2.2 loopback translation applies here.
@@ -177,6 +195,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseBootstrap.runAuthSelfCheckIfRequested()
         FirebaseBootstrap.runFirestoreListSelfCheckIfRequested()
         FirebaseBootstrap.runFirestoreItemSelfCheckIfRequested()
+        FirebaseBootstrap.runCrossClientSelfCheckIfRequested()
         return true
     }
 }
