@@ -2,13 +2,20 @@ package com.fluxit.di
 
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.fluxit.config.FirebaseDevFlags
 import com.fluxit.data.FluxItDatabase
 import com.fluxit.data.IosPhotoPicker
 import com.fluxit.data.IosPhotoStorage
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
+import com.fluxit.data.RoomItemRepository
+import com.fluxit.data.RoomListRepository
+import com.fluxit.domain.ItemRepository
+import com.fluxit.domain.ListRepository
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.firebase.auth.IosAuthRepository
+import com.fluxit.firebase.item.IosFirebaseItemRepository
+import com.fluxit.firebase.list.IosFirebaseListRepository
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
@@ -46,4 +53,25 @@ actual fun platformModule(): Module = module {
     // `single` means the Swift bridge is not looked up until then, well after
     // `FirebaseBootstrap.start()` has registered it.
     single<AuthRepository> { IosAuthRepository() }
+
+    // FB-207: moved out of the common `appModule`, mirroring the Android binding above -
+    // see its KDoc for the full rationale (`FirebaseDevFlags.USE_FIREBASE_REPOSITORIES`
+    // default false, lazy uid/listener resolution, no pre-auth access). The no-arg
+    // `IosFirebaseListRepository()`/`IosFirebaseItemRepository()` constructors resolve
+    // their Swift bridge and uid provider lazily per call, exactly like the Android
+    // Firestore handles do.
+    single<ListRepository> {
+        selectRepositoryBinding(
+            useFirebaseRepositories = FirebaseDevFlags.USE_FIREBASE_REPOSITORIES,
+            firebase = { IosFirebaseListRepository() },
+            room = { RoomListRepository(get()) },
+        )
+    }
+    single<ItemRepository> {
+        selectRepositoryBinding(
+            useFirebaseRepositories = FirebaseDevFlags.USE_FIREBASE_REPOSITORIES,
+            firebase = { IosFirebaseItemRepository() },
+            room = { RoomItemRepository(get()) },
+        )
+    }
 }

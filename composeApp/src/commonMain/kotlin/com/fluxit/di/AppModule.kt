@@ -1,11 +1,6 @@
 package com.fluxit.di
 
 import com.fluxit.data.DebugSeeder
-import com.fluxit.data.FluxItDatabase
-import com.fluxit.data.RoomItemRepository
-import com.fluxit.data.RoomListRepository
-import com.fluxit.domain.ItemRepository
-import com.fluxit.domain.ListRepository
 import com.fluxit.feature.auth.AuthViewModel
 import com.fluxit.feature.auth.SessionGateViewModel
 import com.fluxit.feature.auth.SessionScopedViewModelStores
@@ -17,12 +12,20 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
-/** Platform module providing FluxItDatabase, PhotoPicker, and PhotoStorage. */
+/**
+ * Platform module providing FluxItDatabase, PhotoPicker, PhotoStorage, AuthRepository, and
+ * (FB-207) the `ListRepository`/`ItemRepository` bindings.
+ *
+ * `ListRepository`/`ItemRepository` moved here from [appModule] as part of FB-207: each
+ * `actual platformModule()` now constructs either the Room or the Firebase implementation,
+ * behind `com.fluxit.config.FirebaseDevFlags.USE_FIREBASE_REPOSITORIES` (see
+ * [selectRepositoryBinding]), because only the platform module has both implementations
+ * available (Room's `FluxItDatabase` binding and the platform-specific Firebase
+ * repositories both already live there).
+ */
 expect fun platformModule(): Module
 
 val appModule = module {
-    single<ListRepository> { RoomListRepository(get<FluxItDatabase>()) }
-    single<ItemRepository> { RoomItemRepository(get<FluxItDatabase>()) }
     single { DebugSeeder(get(), get()) }
 
     // FB-104: the first consumers of AuthRepository, which each `platformModule()`
