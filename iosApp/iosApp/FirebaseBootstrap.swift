@@ -22,8 +22,9 @@ import UIKit
 ///
 /// `FB-103` added the second responsibility below: registering the Swift
 /// implementation of the Kotlin `IosAuthBridge` protocol, which is how the
-/// Firebase-neutral `AuthRepository` reaches Auth on iOS (PLAN-008). Phase 2 does
-/// the same for Firestore/Storage.
+/// Firebase-neutral `AuthRepository` reaches Auth on iOS (PLAN-008). `FB-203` does the
+/// same for `ListRepository`/Firestore lists; item repositories (`FB-205`) and Storage
+/// photos (Phase 3) still need their own bridges registered here.
 enum FirebaseBootstrap {
 
     private static var initialized = false
@@ -59,6 +60,10 @@ enum FirebaseBootstrap {
         // the Compose view controller that starts Koin, so the `single<AuthRepository>`
         // binding in `platformModule()` can never be resolved before the bridge exists.
         IosAuthBridgeRegistry.shared.register(bridge: FirebaseAuthBridge())
+
+        // FB-203: same hand-off, for the Firestore list bridge. Phase 2's item
+        // repositories (FB-205) register the same way once they exist.
+        IosFirestoreListBridgeRegistry.shared.register(bridge: FirebaseListBridge())
     }
 
     /// FB-103 evidence hook: runs the emulator-backed Auth integration check and prints
@@ -93,6 +98,23 @@ enum FirebaseBootstrap {
         }
     }
 
+    /// FB-203 evidence hook: same shape as [runAuthSelfCheckIfRequested], for the
+    /// Firestore list adapter. Guarded the same way: `-FluxItFirestoreListSelfCheck` on
+    /// the launch arguments, plus the Kotlin check's own emulator-enabled refusal.
+    static func runFirestoreListSelfCheckIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-FluxItFirestoreListSelfCheck") else { return }
+
+        Task {
+            do {
+                let report = try await IosFirestoreListIntegrationCheck.shared.run()
+                print(report)
+            } catch {
+                print("FB-203 iOS Firestore list integration check: THREW \(error)")
+                print("FB-203 END")
+            }
+        }
+    }
+
     private static func connectToEmulators() {
         // Passed through verbatim: the iOS simulator shares the host network stack,
         // so no Android-style 10.0.2.2 loopback translation applies here.
@@ -100,9 +122,24 @@ enum FirebaseBootstrap {
         let host = settings.host
 
         Auth.auth().useEmulator(withHost: host, port: Int(settings.authPort))
-        // `useEmulator` also disables TLS on the Firestore client; it must be called
-        // before the first `Firestore` operation or the SDK throws.
-        Firestore.firestore().useEmulator(withHost: host, port: Int(settings.firestorePort))
+
+        // FB-203: `useEmulator(withHost:port:)` alone was empirically found NOT to
+        // disable TLS reliably for this SDK version's gRPC transport when first
+        // genuinely exercised (Firestore emulator work was unexercised on iOS through
+        // FB-007/FB-008/FB-202) - the client kept attempting a TLS handshake against the
+        // plaintext local emulator (`SSL_ERROR_SSL ... WRONG_VERSION_NUMBER`, confirmed
+        // against a real emulator that answers plain HTTP on the same port). Setting
+        // `isSSLEnabled = false` explicitly on the `FirestoreSettings` - the older,
+        // lower-level documented pattern `useEmulator` is meant to be sugar for - is a
+        // deliberate belt-and-suspenders fix, not a style preference. `useEmulator` is
+        // still called first so a future SDK fix keeps working the documented way; must
+        // still run before the first `Firestore` operation or the SDK throws.
+        let firestore = Firestore.firestore()
+        firestore.useEmulator(withHost: host, port: Int(settings.firestorePort))
+        let firestoreSettings = firestore.settings
+        firestoreSettings.isSSLEnabled = false
+        firestore.settings = firestoreSettings
+
         Storage.storage().useEmulator(withHost: host, port: Int(settings.storagePort))
     }
 }
@@ -119,6 +156,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         FirebaseBootstrap.start()
         FirebaseBootstrap.runAuthSelfCheckIfRequested()
+        FirebaseBootstrap.runFirestoreListSelfCheckIfRequested()
         return true
     }
 }
