@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.fluxit.data.PhotoContent
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
+import com.fluxit.data.preparePhotoForUpload
 import com.fluxit.data.replacePhoto
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.ItemRepository
@@ -45,6 +46,17 @@ class ItemDetailViewModel(
     private val listRepository: ListRepository,
     private val photoPicker: PhotoPicker,
     private val photoStorage: PhotoStorage,
+    /**
+     * `FB-303`: validates and, if needed, resizes/recompresses freshly picked bytes before
+     * [pickPhoto] ever calls [uploadPhoto]/[replacePhoto] - see `PhotoPolicy.kt`'s
+     * [preparePhotoForUpload] for the enforced size/type limits and resize decision logic.
+     * Defaults to the real [preparePhotoForUpload] (itself backed by the real platform
+     * [com.fluxit.data.readImageDimensions]/[com.fluxit.data.resizeImage] expect/actual pair)
+     * for production/Koin wiring; tests inject a fake so `commonTest` never has to exercise a
+     * real platform image decoder (Android's `testDebugUnitTest` has no Robolectric and would
+     * fail on a real `BitmapFactory` call).
+     */
+    private val photoPreparer: (ByteArray) -> ByteArray = ::preparePhotoForUpload,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ItemDetailUiState())
@@ -95,21 +107,27 @@ class ItemDetailViewModel(
     }
 
     /**
-     * Picks a new photo and replaces the current one, if any, following the safe-replace
-     * ordering [replacePhoto] documents (upload, then persist the reference, then
-     * best-effort delete the old object - see `PhotoStorage`'s KDoc). If [replacePhoto]
-     * throws (upload or document-write failure), this coroutine's exception propagates
-     * uncaught and [_uiState] is left exactly as it was before the call - the old, still
-     * valid [ItemDetailUiState.photoRef]/[ItemDetailUiState.photoPreview] are never
-     * overwritten with a half-completed result. Retry/error UI affordances for that failure
-     * are `FB-306`/`FB-403`'s scope, not this one's.
+     * Picks a new photo, validates/prepares it via [photoPreparer] (`FB-303`: size/type limits
+     * and resize/compression - see `PhotoPolicy.kt`), and replaces the current photo, if any,
+     * following the safe-replace ordering [replacePhoto] documents (upload, then persist the
+     * reference, then best-effort delete the old object - see `PhotoStorage`'s KDoc). The
+     * prepared (not the raw picked) bytes are what get uploaded and shown as
+     * [ItemDetailUiState.photoPreview].
+     *
+     * If [photoPreparer] rejects the picked bytes (a typed `PhotoRejected` from `PhotoPolicy.kt`)
+     * or [replacePhoto] throws (upload or document-write failure), this coroutine's exception
+     * propagates uncaught and [_uiState] is left exactly as it was before the call - the old,
+     * still valid [ItemDetailUiState.photoRef]/[ItemDetailUiState.photoPreview] are never
+     * overwritten with a half-completed result. Retry/error UI affordances for either failure
+     * are `FB-306`/`FB-403`'s scope, not this one's (mirrors `FB-302-NB3`, not re-litigated here).
      */
     fun pickPhoto() {
         if (_uiState.value.isPickingPhoto) return
         _uiState.value = _uiState.value.copy(isPickingPhoto = true)
         viewModelScope.launch {
             try {
-                val bytes = photoPicker.pickPhoto() ?: return@launch
+                val pickedBytes = photoPicker.pickPhoto() ?: return@launch
+                val bytes = photoPreparer(pickedBytes)
                 val oldRef = _uiState.value.photoRef
                 val newRef = replacePhoto(
                     storage = photoStorage,

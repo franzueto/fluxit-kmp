@@ -278,7 +278,16 @@ class ItemDetailViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = ItemDetailViewModel(listId, itemId, items, lists, photoPicker, photoStorage)
+    /**
+     * `FB-303`: `photoPreparer` defaults to the real, platform-decoding [preparePhotoForUpload]
+     * in production; tests use an identity passthrough so existing fake picked-bytes (e.g.
+     * `byteArrayOf(2)`) keep working without exercising a real image decoder (Android's
+     * `testDebugUnitTest` has no Robolectric and would fail on a real `BitmapFactory` call -
+     * see the KDoc on `ImageTransform.android.kt`). [pickPhotoRunsBytesThroughThePhotoPreparerBeforeUploading]
+     * below is the dedicated test for the preparer actually being consulted.
+     */
+    private fun viewModel(photoPreparer: (ByteArray) -> ByteArray = { it }) =
+        ItemDetailViewModel(listId, itemId, items, lists, photoPicker, photoStorage, photoPreparer)
 
     /** Creates a list+item and gives the item an already-uploaded photo, mirroring what a
      * real prior session would have persisted. */
@@ -330,6 +339,28 @@ class ItemDetailViewModelTest {
         assertEquals(newRef, items.observeItem(listId, itemId).first()?.photoRef)
         assertNull(photoStorage.objects[oldRef], "old object must be deleted once the replace commits")
         assertFalse(vm.uiState.value.isPickingPhoto)
+    }
+
+    @Test
+    fun pickPhotoRunsBytesThroughThePhotoPreparerBeforeUploading() = runTest(dispatcher) {
+        // FB-303: proves pickPhoto() actually composes photoPreparer ahead of uploadPhoto -
+        // the storage object and the preview must reflect the *prepared* bytes, not the raw
+        // ones the picker returned.
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        itemId = items.observeItems(listId).first().first().id
+        val vm = viewModel(photoPreparer = { raw -> raw.map { byte -> (byte + 1).toByte() }.toByteArray() })
+        dispatcher.scheduler.advanceUntilIdle()
+
+        photoPicker.nextPick = byteArrayOf(2)
+        vm.pickPhoto()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val ref = vm.uiState.value.photoRef
+        assertNotNull(ref)
+        assertEquals(listOf<Byte>(3), photoStorage.objects[ref]?.toList(), "the prepared bytes, not the raw picked bytes, must be uploaded")
+        val preview = assertIs<PhotoContent.Bytes>(vm.uiState.value.photoPreview)
+        assertEquals(listOf<Byte>(3), preview.bytes.toList())
     }
 
     @Test
