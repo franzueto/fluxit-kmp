@@ -2,8 +2,10 @@ package com.fluxit.feature.itemdetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fluxit.data.PhotoContent
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
+import com.fluxit.data.replacePhoto
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
@@ -22,6 +24,10 @@ data class ItemDetailUiState(
     val title: String = "",
     val description: String = "",
     val photoRef: String? = null,
+    /** Renderable form of [photoRef], resolved via [PhotoStorage.loadPhoto] (or set directly
+     * from freshly picked bytes on a successful upload). Null whenever [photoRef] is null,
+     * or while it has not been resolved/is unresolvable. */
+    val photoPreview: PhotoContent? = null,
     val isSaving: Boolean = false,
     val isPickingPhoto: Boolean = false,
     val closed: Boolean = false,
@@ -55,6 +61,11 @@ class ItemDetailViewModel(
                 description = item.description ?: "",
                 photoRef = item.photoRef,
             )
+            val ref = item.photoRef
+            if (ref != null) {
+                val preview = runCatching { photoStorage.loadPhoto(ref) }.getOrNull()
+                _uiState.value = _uiState.value.copy(photoPreview = preview)
+            }
         }
     }
 
@@ -83,35 +94,60 @@ class ItemDetailViewModel(
         }
     }
 
+    /**
+     * Picks a new photo and replaces the current one, if any, following the safe-replace
+     * ordering [replacePhoto] documents (upload, then persist the reference, then
+     * best-effort delete the old object - see `PhotoStorage`'s KDoc). If [replacePhoto]
+     * throws (upload or document-write failure), this coroutine's exception propagates
+     * uncaught and [_uiState] is left exactly as it was before the call - the old, still
+     * valid [ItemDetailUiState.photoRef]/[ItemDetailUiState.photoPreview] are never
+     * overwritten with a half-completed result. Retry/error UI affordances for that failure
+     * are `FB-306`/`FB-403`'s scope, not this one's.
+     */
     fun pickPhoto() {
         if (_uiState.value.isPickingPhoto) return
         _uiState.value = _uiState.value.copy(isPickingPhoto = true)
         viewModelScope.launch {
             try {
                 val bytes = photoPicker.pickPhoto() ?: return@launch
-                val oldPath = _uiState.value.photoRef
-                val path = photoStorage.savePhoto(bytes)
-                itemRepository.setPhotoRef(listId, itemId, path)
-                if (oldPath != null) photoStorage.deletePhoto(oldPath)
-                _uiState.value = _uiState.value.copy(photoRef = path)
+                val oldRef = _uiState.value.photoRef
+                val newRef = replacePhoto(
+                    storage = photoStorage,
+                    itemId = itemId,
+                    oldPhotoRef = oldRef,
+                    newBytes = bytes,
+                    updateRef = { ref -> itemRepository.setPhotoRef(listId, itemId, ref) },
+                )
+                _uiState.value = _uiState.value.copy(
+                    photoRef = newRef,
+                    photoPreview = PhotoContent.Bytes(bytes),
+                )
             } finally {
                 _uiState.value = _uiState.value.copy(isPickingPhoto = false)
             }
         }
     }
 
+    /**
+     * Clears the item's photo reference first, then best-effort deletes the now-unreferenced
+     * object - mirroring [replacePhoto]'s delete-last, swallow-delete-failure policy. If
+     * clearing the reference itself fails, this throws before any delete is attempted and
+     * the old photo remains fully referenced and loadable.
+     */
     fun removePhoto() {
-        val path = _uiState.value.photoRef ?: return
+        val ref = _uiState.value.photoRef ?: return
         viewModelScope.launch {
             itemRepository.setPhotoRef(listId, itemId, null)
-            photoStorage.deletePhoto(path)
-            _uiState.value = _uiState.value.copy(photoRef = null)
+            runCatching { photoStorage.deletePhoto(ref) }
+            _uiState.value = _uiState.value.copy(photoRef = null, photoPreview = null)
         }
     }
 
     fun deleteItem() {
         viewModelScope.launch {
-            _uiState.value.photoRef?.let { photoStorage.deletePhoto(it) }
+            // Best-effort cleanup: a Storage hiccup must not block deleting the item itself.
+            // Reliable cascade cleanup on item deletion is FB-502/FB-503's job, not this one's.
+            _uiState.value.photoRef?.let { ref -> runCatching { photoStorage.deletePhoto(ref) } }
             itemRepository.deleteItem(listId, itemId)
             _uiState.value = _uiState.value.copy(closed = true)
         }

@@ -1,17 +1,21 @@
 package com.fluxit
 
 import com.fluxit.data.DebugSeeder
+import com.fluxit.data.PhotoContent
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.feature.createlist.CreateListViewModel
 import com.fluxit.feature.dashboard.DashboardViewModel
+import com.fluxit.feature.itemdetail.ItemDetailViewModel
 import com.fluxit.feature.listdetail.ListDetailViewModel
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -239,5 +243,121 @@ class CreateListViewModelTest {
         assertFalse(vm.uiState.value.isDirty)
         vm.onNameChange("Trip to Japan")
         assertTrue(vm.uiState.value.isDirty)
+    }
+}
+
+/**
+ * FB-301-NB2 pickup: the `photoRef`/`setPhotoRef` path had zero direct `commonTest`
+ * coverage. These exercise [ItemDetailViewModel]'s happy-path wiring to the FB-302-redesigned
+ * [com.fluxit.data.PhotoStorage] contract (`replacePhoto`'s ordering itself is proven
+ * exhaustively, including every failure branch, by `PhotoReplaceContractTest` - these tests
+ * only need to prove the ViewModel is wired to it correctly).
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class ItemDetailViewModelTest {
+
+    private val dispatcher = StandardTestDispatcher()
+    private lateinit var lists: FakeListRepository
+    private lateinit var items: FakeItemRepository
+    private lateinit var photoStorage: FakePhotoStorage
+    private lateinit var photoPicker: FakePhotoPicker
+    private lateinit var listId: String
+    private lateinit var itemId: String
+
+    @BeforeTest
+    fun setUp() {
+        Dispatchers.setMain(dispatcher)
+        lists = FakeListRepository()
+        items = FakeItemRepository()
+        photoStorage = FakePhotoStorage()
+        photoPicker = FakePhotoPicker()
+    }
+
+    @AfterTest
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    private fun viewModel() = ItemDetailViewModel(listId, itemId, items, lists, photoPicker, photoStorage)
+
+    /** Creates a list+item and gives the item an already-uploaded photo, mirroring what a
+     * real prior session would have persisted. */
+    private suspend fun seedItemWithPhoto(): String {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        itemId = items.observeItems(listId).first().first().id
+        val ref = photoStorage.uploadPhoto(itemId, byteArrayOf(7))
+        items.setPhotoRef(listId, itemId, ref)
+        return ref
+    }
+
+    @Test
+    fun initExposesExistingPhotoRefAndResolvesAPreview() = runTest(dispatcher) {
+        val ref = seedItemWithPhoto()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(ref, vm.uiState.value.photoRef)
+        val preview = assertIs<PhotoContent.Bytes>(vm.uiState.value.photoPreview)
+        assertEquals(listOf<Byte>(7), preview.bytes.toList())
+    }
+
+    @Test
+    fun itemWithNoPhotoHasNoPreview() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        itemId = items.observeItems(listId).first().first().id
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(vm.uiState.value.photoRef)
+        assertNull(vm.uiState.value.photoPreview)
+    }
+
+    @Test
+    fun pickPhotoReplacesTheOldPhotoAndResetsThePickingFlag() = runTest(dispatcher) {
+        val oldRef = seedItemWithPhoto()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        photoPicker.nextPick = byteArrayOf(2)
+        vm.pickPhoto()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val newRef = vm.uiState.value.photoRef
+        assertNotNull(newRef)
+        assertTrue(newRef != oldRef)
+        assertEquals(newRef, items.observeItem(listId, itemId).first()?.photoRef)
+        assertNull(photoStorage.objects[oldRef], "old object must be deleted once the replace commits")
+        assertFalse(vm.uiState.value.isPickingPhoto)
+    }
+
+    @Test
+    fun removePhotoClearsReferenceAndDeletesTheObject() = runTest(dispatcher) {
+        val ref = seedItemWithPhoto()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.removePhoto()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(vm.uiState.value.photoRef)
+        assertNull(vm.uiState.value.photoPreview)
+        assertNull(items.observeItem(listId, itemId).first()?.photoRef)
+        assertNull(photoStorage.objects[ref])
+    }
+
+    @Test
+    fun deleteItemRemovesTheItemAndBestEffortDeletesItsPhoto() = runTest(dispatcher) {
+        val ref = seedItemWithPhoto()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.deleteItem()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.closed)
+        assertNull(items.observeItem(listId, itemId).first())
+        assertNull(photoStorage.objects[ref])
     }
 }

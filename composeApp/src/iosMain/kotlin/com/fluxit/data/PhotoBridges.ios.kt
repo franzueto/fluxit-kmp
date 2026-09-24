@@ -2,6 +2,9 @@
 
 package com.fluxit.data
 
+import com.fluxit.data.remote.FirebaseSchema
+import com.fluxit.firebase.list.CurrentUidProvider
+import com.fluxit.firebase.list.IosAuthBridgeCurrentUidProvider
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
@@ -85,7 +88,20 @@ class IosPhotoPicker : PhotoPicker {
     }
 }
 
-class IosPhotoStorage(private val baseDir: String) : PhotoStorage {
+/**
+ * Interim local-file [PhotoStorage] stub (`FB-302`). It produces/consumes correctly-shaped
+ * `photoRef` strings (PLAN-006/PLAN-007, via [FirebaseSchema.photoRef]) using the real
+ * signed-in uid ([CurrentUidProvider] - the same Swift-bridge-backed seam
+ * `IosFirebaseItemRepository` already uses for Firestore paths, per PLAN-008 - so a
+ * `photoRef` minted here is already exactly the string a real Cloud Storage adapter would
+ * need), but it still stores bytes on local disk rather than in Cloud Storage. Real
+ * upload/download/delete against Firebase Storage is `FB-305`, deliberately out of this
+ * task's scope.
+ */
+class IosPhotoStorage(
+    private val baseDir: String,
+    private val currentUid: CurrentUidProvider = IosAuthBridgeCurrentUidProvider(),
+) : PhotoStorage {
 
     private val photosDir: String
         get() = "$baseDir/photos".also {
@@ -95,18 +111,30 @@ class IosPhotoStorage(private val baseDir: String) : PhotoStorage {
         }
 
     @OptIn(ExperimentalForeignApi::class)
-    override suspend fun savePhoto(bytes: ByteArray): String = withContext(Dispatchers.Default) {
-        val path = "$photosDir/${newId()}.jpg"
+    override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String = withContext(Dispatchers.Default) {
+        val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, newPhotoId())
         val data = bytes.usePinned { pinned ->
             NSData.dataWithBytes(pinned.addressOf(0), bytes.size.toULong())
         }
-        data.writeToFile(path, atomically = true)
-        path
+        data.writeToFile(localPath(photoRef), atomically = true)
+        photoRef
     }
 
-    override suspend fun deletePhoto(path: String) {
+    override suspend fun loadPhoto(photoRef: String): PhotoContent? = withContext(Dispatchers.Default) {
+        val path = localPath(photoRef)
+        if (NSFileManager.defaultManager.fileExistsAtPath(path)) PhotoContent.Loadable(path) else null
+    }
+
+    override suspend fun deletePhoto(photoRef: String) {
         withContext(Dispatchers.Default) {
-            NSFileManager.defaultManager.removeItemAtPath(path, error = null)
+            NSFileManager.defaultManager.removeItemAtPath(localPath(photoRef), error = null)
         }
     }
+
+    /**
+     * Maps a `photoRef` 1:1 onto a local cache path by flattening its path separators.
+     * `FB-305` replaces this whole class with a real Cloud Storage object addressed by the
+     * same `photoRef`; nothing else needs to change when it does.
+     */
+    private fun localPath(photoRef: String): String = "$photosDir/${photoRef.replace('/', '_')}"
 }

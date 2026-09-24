@@ -35,9 +35,36 @@ object FirebaseSchema {
     fun itemPath(uid: String, listId: String, itemId: String) =
         "users/$uid/lists/$listId/items/$itemId"
 
-    /** PLAN-005 deliberately has no list segment. */
-    fun photoRef(uid: String, itemId: String, photoId: String) =
-        "users/$uid/items/$itemId/$photoId"
+    /**
+     * PLAN-005 chose this shape (deliberately no `listId` segment); PLAN-006 makes it
+     * load-bearing: the deployed Storage Rules match this exact depth with no recursive
+     * wildcard, so every segment - especially `photoId` - must never contain `/`, or it
+     * would silently address a different object depth instead of being rejected. `FB-302`'s
+     * `com.fluxit.data.PhotoStorage` is the sole intended caller; its `photoId` values come
+     * from `com.fluxit.data.newPhotoId`.
+     *
+     * @throws IllegalArgumentException if any segment is blank or contains `/`.
+     */
+    fun photoRef(uid: String, itemId: String, photoId: String): String {
+        require(uid.isNotBlank() && '/' !in uid) { "uid must be a single non-empty path segment" }
+        require(itemId.isNotBlank() && '/' !in itemId) { "itemId must be a single non-empty path segment" }
+        require(photoId.isNotBlank() && '/' !in photoId) {
+            "photoId must be a single non-empty path segment - the deployed Storage Rules deny a '/' here (PLAN-006)"
+        }
+        return "users/$uid/items/$itemId/$photoId"
+    }
+
+    /**
+     * Parses a `photoRef` back to the `itemId` that owns it. PLAN-007: Storage photo paths
+     * carry no `listId` segment, so `itemId` is the only key the future orphan-reconciliation
+     * sweep (`FB-502`/`FB-503`) can use. Returns `null` for anything that does not match
+     * [photoRef]'s exact five-segment shape (`users/{uid}/items/{itemId}/{photoId}`), rather
+     * than guessing at a malformed or foreign value.
+     */
+    fun itemIdFromPhotoRef(photoRef: String): String? {
+        val parts = photoRef.split('/')
+        return parts.takeIf { it.size == 5 && it[0] == USERS && it[2] == ITEMS }?.get(3)
+    }
 }
 
 sealed interface FirebaseValue {

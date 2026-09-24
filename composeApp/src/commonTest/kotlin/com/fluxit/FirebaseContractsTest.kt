@@ -135,6 +135,52 @@ class FirebaseContractsTest {
         assertEquals("users/u/items/i/p", FirebaseSchema.photoRef("u", "i", "p"))
     }
 
+    // FB-302: PLAN-006 makes the photoRef shape load-bearing (deployed Storage Rules match
+    // this exact depth, no recursive wildcard) - these tests prove FirebaseSchema.photoRef
+    // enforces it rather than merely documenting it.
+
+    @Test
+    fun photoRefIsExactlyFiveSegmentsWithTheFixedLiterals() {
+        val ref = FirebaseSchema.photoRef("uid-1", "item-1", "photo-1")
+        val segments = ref.split('/')
+        assertEquals(listOf("users", "uid-1", "items", "item-1", "photo-1"), segments)
+    }
+
+    @Test
+    fun photoRefRejectsASlashInPhotoId() {
+        assertFailsWith<IllegalArgumentException> {
+            FirebaseSchema.photoRef("uid-1", "item-1", "sneaky/photo-1")
+        }
+    }
+
+    @Test
+    fun photoRefRejectsASlashInUidOrItemId() {
+        assertFailsWith<IllegalArgumentException> { FirebaseSchema.photoRef("u/id", "item-1", "photo-1") }
+        assertFailsWith<IllegalArgumentException> { FirebaseSchema.photoRef("uid-1", "it/em", "photo-1") }
+    }
+
+    @Test
+    fun photoRefRejectsBlankSegments() {
+        assertFailsWith<IllegalArgumentException> { FirebaseSchema.photoRef("", "item-1", "photo-1") }
+        assertFailsWith<IllegalArgumentException> { FirebaseSchema.photoRef("uid-1", "", "photo-1") }
+        assertFailsWith<IllegalArgumentException> { FirebaseSchema.photoRef("uid-1", "item-1", "") }
+    }
+
+    @Test
+    fun itemIdFromPhotoRefKeysOnItemIdOnlyPerPlan007() {
+        // PLAN-007: no listId segment exists anywhere in a photoRef, so the future orphan
+        // sweep (FB-502/FB-503) can only recover the itemId - never a listId - from the ref.
+        val ref = FirebaseSchema.photoRef("uid-1", "item-42", "photo-1")
+        assertEquals("item-42", FirebaseSchema.itemIdFromPhotoRef(ref))
+    }
+
+    @Test
+    fun itemIdFromPhotoRefRejectsMalformedInput() {
+        assertEquals(null, FirebaseSchema.itemIdFromPhotoRef("not/a/photo/ref"))
+        assertEquals(null, FirebaseSchema.itemIdFromPhotoRef("users/u/lists/l/items/i"))
+        assertEquals(null, FirebaseSchema.itemIdFromPhotoRef(""))
+    }
+
     @Test
     fun backendErrorsMapWithoutSdkTypes() {
         val expected = mapOf(
