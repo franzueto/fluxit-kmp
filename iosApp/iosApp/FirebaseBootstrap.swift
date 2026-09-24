@@ -172,6 +172,60 @@ enum FirebaseBootstrap {
         }
     }
 
+    /// `FB-307` evidence hook: interrupted-replace/orphan-detection/retry-recovery check.
+    /// Guarded the same way: `-FluxItPhotoStorageInterruptedReplaceCheck` on the launch
+    /// arguments, plus the Kotlin check's own emulator-enabled refusal.
+    static func runPhotoStorageInterruptedReplaceCheckIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-FluxItPhotoStorageInterruptedReplaceCheck") else { return }
+
+        Task {
+            do {
+                let report = try await IosPhotoStorageIntegrationCheck.shared.runInterruptedReplaceCheck()
+                print(report)
+            } catch {
+                print("FB-307 iOS Storage interrupted-replace check: THREW \(error)")
+                print("FB-307 END")
+            }
+        }
+    }
+
+    /// `FB-307` evidence hook: the publish half of the cross-device/reinstall check pair.
+    /// Guarded by `-FluxItPhotoStorageCrossDevicePublish` on the launch arguments, plus
+    /// the Kotlin check's own emulator-enabled refusal. See
+    /// `IosPhotoStorageIntegrationCheck`'s class KDoc for how to combine this with
+    /// `runPhotoStorageCrossDeviceSubscribeIfRequested` for either a cross-device or a
+    /// literal-reinstall run.
+    static func runPhotoStorageCrossDevicePublishIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-FluxItPhotoStorageCrossDevicePublish") else { return }
+
+        Task {
+            do {
+                let report = try await IosPhotoStorageIntegrationCheck.shared.runCrossDevicePublish()
+                print(report)
+            } catch {
+                print("FB-307 iOS Storage cross-device publish check: THREW \(error)")
+                print("FB-307 END")
+            }
+        }
+    }
+
+    /// `FB-307` evidence hook: the subscribe half of the cross-device/reinstall check
+    /// pair. Guarded by `-FluxItPhotoStorageCrossDeviceSubscribe` on the launch
+    /// arguments, plus the Kotlin check's own emulator-enabled refusal.
+    static func runPhotoStorageCrossDeviceSubscribeIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-FluxItPhotoStorageCrossDeviceSubscribe") else { return }
+
+        Task {
+            do {
+                let report = try await IosPhotoStorageIntegrationCheck.shared.runCrossDeviceSubscribe()
+                print(report)
+            } catch {
+                print("FB-307 iOS Storage cross-device subscribe check: THREW \(error)")
+                print("FB-307 END")
+            }
+        }
+    }
+
     private static func connectToEmulators() {
         // Passed through verbatim: the iOS simulator shares the host network stack,
         // so no Android-style 10.0.2.2 loopback translation applies here.
@@ -217,6 +271,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseBootstrap.runFirestoreItemSelfCheckIfRequested()
         FirebaseBootstrap.runCrossClientSelfCheckIfRequested()
         FirebaseBootstrap.runPhotoStorageSelfCheckIfRequested()
+        FirebaseBootstrap.runPhotoStorageInterruptedReplaceCheckIfRequested()
+        FirebaseBootstrap.runPhotoStorageCrossDevicePublishIfRequested()
+        FirebaseBootstrap.runPhotoStorageCrossDeviceSubscribeIfRequested()
         return true
     }
 }

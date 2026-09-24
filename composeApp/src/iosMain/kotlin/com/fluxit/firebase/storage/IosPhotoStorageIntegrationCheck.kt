@@ -2,6 +2,7 @@ package com.fluxit.firebase.storage
 
 import com.fluxit.data.IosPhotoStorage
 import com.fluxit.data.PhotoContent
+import com.fluxit.data.PhotoStorage
 import com.fluxit.data.newPhotoId
 import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.replacePhoto
@@ -14,6 +15,7 @@ import com.fluxit.firebase.auth.IosAuthBridgeRegistry
 import com.fluxit.firebase.auth.IosAuthRepository
 import com.fluxit.firebase.item.IosFirebaseItemRepository
 import com.fluxit.firebase.list.IosFirebaseListRepository
+import com.fluxit.firebase.list.ListRepositoryException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.io.encoding.Base64
@@ -21,6 +23,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import platform.Foundation.NSUUID
 
 /**
@@ -64,11 +67,35 @@ import platform.Foundation.NSUUID
  * happy path genuinely commits through both real backends together; the failure/preservation
  * semantics themselves are already exhaustively proven by `PhotoReplaceContractTest` and, at
  * the UI layer, `ItemDetailViewModelTest` (`FB-306`).
+ *
+ * `FB-307` added three more entry points below, gated by their own separate launch
+ * arguments in `FirebaseBootstrap.swift` (not folded into [run], so each can be driven
+ * independently from `xcrun simctl`):
+ *  - [runInterruptedReplaceCheck]: a single-process check proving old-photo preservation,
+ *    orphan detection, and retry recovery for an interrupted/failed `replacePhoto()`, the
+ *    same failure-injection shape `PhotoStorageEmulatorIntegrationTest`'s Android FB-307
+ *    sibling test uses.
+ *  - [runCrossDevicePublish] / [runCrossDeviceSubscribe]: a **two-process** pair sharing
+ *    one fixed account/list/item identity, coordinated only through the real Auth/
+ *    Firestore/Storage emulator backends (this app registers exactly one Swift bridge
+ *    instance per process - PLAN-008/FB-206's already-documented constraint - so genuine
+ *    simultaneous cross-device evidence on iOS requires two separate simulator
+ *    *processes*, not two in-process connections the way the Android suite achieves it).
+ *    Run publish then subscribe on two independently booted simulators for cross-device
+ *    evidence, or run publish, perform a literal `xcrun simctl uninstall`+`install` on the
+ *    *same* simulator, then run subscribe, for a literal (not simulated) reinstall check -
+ *    both reuse this same pair rather than needing separate harnesses.
  */
 object IosPhotoStorageIntegrationCheck {
 
     private const val PASSWORD = "fb305-emulator-only"
     private const val SETTLE_MS = 400L
+
+    // --- FB-307 cross-device/reinstall publish-subscribe pair: fixed shared identity ---
+    private const val CROSS_DEVICE_EMAIL = "fb307-crossdevice@example.com"
+    private const val CROSS_DEVICE_LIST_NAME = "FB-307 cross-device check"
+    private const val CROSS_DEVICE_ITEM_TITLE = "FB-307 cross-device photo"
+    private const val SUBSCRIBE_TIMEOUT_MS = 20_000L
 
     // A minimal, valid, hand-verifiable 1x1 transparent PNG - the same fixture
     // `ImageTransformIosTest` (FB-303, iosTest source set) uses, duplicated here rather
@@ -89,6 +116,357 @@ object IosPhotoStorageIntegrationCheck {
     } catch (throwable: Throwable) {
         "FB-305 iOS Storage integration check: THREW ${throwable::class.simpleName}: " +
             "${throwable.message}\nFB-305 END"
+    }
+
+    /**
+     * `FB-307` property 3/4: single-process check proving old-photo preservation, orphan
+     * detection, and retry recovery for an interrupted/failed `replacePhoto()`. See this
+     * object's class KDoc for how it complements [runCrossDevicePublish]/
+     * [runCrossDeviceSubscribe].
+     */
+    suspend fun runInterruptedReplaceCheck(): String = try {
+        runInterruptedReplaceChecked()
+    } catch (throwable: Throwable) {
+        "FB-307 iOS Storage interrupted-replace check: THREW ${throwable::class.simpleName}: " +
+            "${throwable.diagnosticDetail()}\nFB-307 END"
+    }
+
+    /**
+     * `FB-307` property 2 (and, combined with a literal `xcrun simctl uninstall`+`install`
+     * between the two runs, property 1): the publish half of a two-process pair. Uploads a
+     * photo under a **fixed** shared account/list/item identity and leaves everything
+     * signed in and undeleted so a later [runCrossDeviceSubscribe] run - on this same
+     * simulator after a literal reinstall, or on an independently booted second simulator
+     * - can find it through the real Firestore/Storage emulator backends alone.
+     * Idempotent: safe to re-run (signs in instead of signing up if the account already
+     * exists; clears any leftover item from an earlier publish run first).
+     */
+    suspend fun runCrossDevicePublish(): String = try {
+        runCrossDevicePublishChecked()
+    } catch (throwable: Throwable) {
+        "FB-307 iOS Storage cross-device PUBLISH: THREW ${throwable::class.simpleName}: " +
+            "${throwable.diagnosticDetail()}\nFB-307 END"
+    }
+
+    /** `FB-307` property 2/1: the subscribe half of [runCrossDevicePublish]'s pair. Signs
+     * in as the same fixed account and proves the photo `runCrossDevicePublish` uploaded
+     * is visible and loadable, discovered entirely through Firestore/Storage - never any
+     * state shared in-process with the publish run, which by construction cannot be the
+     * same process. */
+    suspend fun runCrossDeviceSubscribe(): String = try {
+        runCrossDeviceSubscribeChecked()
+    } catch (throwable: Throwable) {
+        "FB-307 iOS Storage cross-device SUBSCRIBE: THREW ${throwable::class.simpleName}: " +
+            "${throwable.diagnosticDetail()}\nFB-307 END"
+    }
+
+    private suspend fun runInterruptedReplaceChecked(): String {
+        val report = Report(label = "FB-307 iOS Storage interrupted-replace check")
+        if (!IosFirebaseEmulatorSettings.enabled) {
+            report.fail("preconditions", "emulator mode is disabled; refusing to run against a live project")
+            return report.render()
+        }
+        val auth = IosAuthRepository()
+        val storage = RecordingIosPhotoStorage(IosPhotoStorage())
+        val lists = IosFirebaseListRepository()
+        val items = IosFirebaseItemRepository()
+        val suffix = NSUUID().UUIDString().lowercase()
+        val email = "fb307-interrupted-$suffix@example.com"
+
+        report.expectSuccess("sign up a fresh account for this check", auth.signUp(email, PASSWORD))
+        delay(SETTLE_MS)
+        val listId = lists.createList("FB-307 interrupted replace check", ListIcon.CART, ListColor.PRIMARY_BLUE)
+        delay(SETTLE_MS)
+        items.addItem(listId, "Interrupted replace item")
+        delay(SETTLE_MS)
+        val itemId = items.observeItems(listId).first().firstOrNull { it.title == "Interrupted replace item" }?.id
+        if (itemId == null) {
+            report.fail("preconditions", "addItem's item never appeared")
+            return report.render()
+        }
+
+        // Baseline: an old, referenced photo (P1), exactly as a normal successful
+        // replace would leave.
+        val oldBytes = onePixelPng
+        val p1 = replacePhoto(
+            storage = storage,
+            itemId = itemId,
+            oldPhotoRef = null,
+            newBytes = oldBytes,
+            updateRef = { ref -> items.setPhotoRef(listId, itemId, ref) },
+        )
+        delay(SETTLE_MS)
+
+        // Interrupted replace: the new object genuinely uploads to the real Storage
+        // emulator (step 1 completes for real), then a single throw injected exactly at
+        // step 2 simulates the process being killed before the new photoRef is ever
+        // persisted to Firestore - one of the task brief's explicitly sanctioned
+        // interruption methods.
+        val newBytes = onePixelPng + onePixelPng
+        var failNextPersist = true
+        val interruptingUpdateRef: suspend (String) -> Unit = { ref ->
+            if (failNextPersist) {
+                failNextPersist = false
+                throw IllegalStateException("FB-307 simulated interruption: killed after Storage upload, before Firestore persist")
+            }
+            items.setPhotoRef(listId, itemId, ref)
+        }
+        val interrupted = runCatching {
+            replacePhoto(storage = storage, itemId = itemId, oldPhotoRef = p1, newBytes = newBytes, updateRef = interruptingUpdateRef)
+        }
+        report.check("the interrupted replace call itself fails/propagates", interrupted.isFailure, "$interrupted")
+        val orphanRef = storage.lastUploadedRef
+        report.check(
+            "the interrupted attempt still uploaded a real (now orphaned) object",
+            orphanRef != null && orphanRef != p1,
+            "orphanRef=$orphanRef",
+        )
+        delay(SETTLE_MS)
+
+        // --- property 3: old photo preserved, not lost/corrupted -----------------------
+        val afterInterruption = items.observeItem(listId, itemId).first()
+        report.check(
+            "the item still points at the old photo after the interruption",
+            afterInterruption?.photoRef == p1,
+            "photoRef=${afterInterruption?.photoRef}",
+        )
+        val oldStillLoaded = storage.loadPhoto(p1)
+        report.check(
+            "the old photo is still loadable and byte-identical after the interruption",
+            oldStillLoaded is PhotoContent.Bytes && oldStillLoaded.bytes.contentEquals(oldBytes),
+            "loaded=$oldStillLoaded",
+        )
+
+        // --- property 4 (part 1): the orphan is real, present, and reclaimable ----------
+        if (orphanRef != null) {
+            val orphanLoaded = storage.loadPhoto(orphanRef)
+            report.check(
+                "the orphaned object is real, intact Storage content (sweep-reclaimable, not a silent leak)",
+                orphanLoaded is PhotoContent.Bytes && orphanLoaded.bytes.contentEquals(newBytes),
+                "loaded=$orphanLoaded",
+            )
+        }
+
+        // --- property 3 (continued): retry (FB-306's retryPhotoOperation, reproduced ----
+        // exactly - one more replacePhoto() call with the same cached bytes) recovers ----
+        val p3 = replacePhoto(
+            storage = storage,
+            itemId = itemId,
+            oldPhotoRef = p1,
+            newBytes = newBytes,
+            updateRef = { ref -> items.setPhotoRef(listId, itemId, ref) },
+        )
+        delay(SETTLE_MS)
+        report.check(
+            "retry mints a brand-new object, not reusing the earlier orphan",
+            orphanRef != null && p3 != orphanRef,
+            "p3=$p3 orphanRef=$orphanRef",
+        )
+        val afterRetry = items.observeItem(listId, itemId).first()
+        report.check("after a successful retry the item points at exactly the new photo", afterRetry?.photoRef == p3, "photoRef=${afterRetry?.photoRef}")
+        val newLoaded = storage.loadPhoto(p3)
+        report.check(
+            "the new photo loads byte-identical after retry",
+            newLoaded is PhotoContent.Bytes && newLoaded.bytes.contentEquals(newBytes),
+            "loaded=$newLoaded",
+        )
+        report.check("the old photo (P1) is deleted after a successful retry's step 3", storage.loadPhoto(p1) == null, "")
+
+        // --- property 4 (part 2): no duplicate/stale photo shown; the orphan remains ----
+        // untouched by the retry -----------------------------------------------------------
+        if (orphanRef != null) {
+            val orphanStillThere = storage.loadPhoto(orphanRef)
+            report.check(
+                "the orphan from the interrupted attempt remains intact and untouched by the retry",
+                orphanStillThere is PhotoContent.Bytes && orphanStillThere.bytes.contentEquals(newBytes),
+                "loaded=$orphanStillThere",
+            )
+        }
+        report.check(
+            "the item references exactly one photo, never a duplicate/stale one",
+            items.observeItem(listId, itemId).first()?.photoRef == p3,
+            "",
+        )
+
+        storage.deletePhoto(p3)
+        orphanRef?.let { runCatching { storage.deletePhoto(it) } }
+        items.deleteItem(listId, itemId)
+        auth.signOut()
+
+        return report.render()
+    }
+
+    private suspend fun runCrossDevicePublishChecked(): String {
+        val report = Report(label = "FB-307 iOS Storage cross-device PUBLISH")
+        if (!IosFirebaseEmulatorSettings.enabled) {
+            report.fail("preconditions", "emulator mode is disabled; refusing to run against a live project")
+            return report.render()
+        }
+        val auth = IosAuthRepository()
+        val storage = IosPhotoStorage()
+        val lists = IosFirebaseListRepository()
+        val items = IosFirebaseItemRepository()
+
+        // Idempotent identity: sign up on the very first publish run; every later run
+        // (including one after a literal reinstall of this same app) signs in instead.
+        val signUp = auth.signUp(CROSS_DEVICE_EMAIL, PASSWORD)
+        if (signUp is AuthResult.Success) {
+            report.pass("publish: signed up the fixed cross-device account for the first time")
+        } else {
+            report.expectSuccess(
+                "publish: sign in as the fixed cross-device account (already exists from a prior run)",
+                auth.signIn(CROSS_DEVICE_EMAIL, PASSWORD),
+            )
+        }
+        delay(SETTLE_MS)
+
+        val existingListId = lists.observeListSummaries().first().firstOrNull { it.list.name == CROSS_DEVICE_LIST_NAME }?.list?.id
+        val listId = existingListId ?: lists.createList(CROSS_DEVICE_LIST_NAME, ListIcon.CART, ListColor.PRIMARY_BLUE)
+        delay(SETTLE_MS)
+        report.pass("publish: resolved a listId", "listId=$listId existedAlready=${existingListId != null}")
+
+        // Always create a brand-new item rather than trying to find-and-reuse one left
+        // by an earlier run. Reusing was tried first and found genuinely unsafe: this
+        // simulator's own Firestore client can carry a locally-persisted cache from a
+        // *previous* launch that still shows an item a *different* device (a separate
+        // simulator process, or a subscribe run's own cleanup) already deleted server-
+        // side - a single `.first()` read can return that stale local snapshot rather
+        // than waiting for a fresh one, so `setPhotoRef`'s bare `update()` genuinely
+        // NOT_FOUNDs against a document the server no longer has. That is correct,
+        // documented Firestore/`ItemRepository` behavior (see
+        // `AndroidFirebaseItemRepository`'s KDoc on `updateItem`/`setPhotoRef`'s bare-
+        // `update()`-throws-NOT_FOUND asymmetry) surfacing through a genuinely stale
+        // local read in this test harness - not a `PhotoStorage`/`replacePhoto()` defect,
+        // so the fix belongs here, not in production code. A fresh item per run sidesteps
+        // the staleness question entirely; any duplicate/stale items left by an earlier
+        // run's incomplete attempt are swept up below so `runCrossDeviceSubscribe`'s
+        // exact-title match stays unambiguous.
+        val addItemResult = runCatching { items.addItem(listId, CROSS_DEVICE_ITEM_TITLE) }
+        if (addItemResult.isFailure) {
+            report.fail("publish: addItem", "listId=$listId threw ${addItemResult.exceptionOrNull()}")
+            return report.render()
+        }
+        val itemId = withTimeoutOrNull(SUBSCRIBE_TIMEOUT_MS) {
+            var found = items.observeItems(listId).first().filter { it.title == CROSS_DEVICE_ITEM_TITLE }.maxByOrNull { it.id }?.id
+            while (found == null) {
+                delay(SETTLE_MS)
+                found = items.observeItems(listId).first().filter { it.title == CROSS_DEVICE_ITEM_TITLE }.maxByOrNull { it.id }?.id
+            }
+            found
+        }
+        if (itemId == null) {
+            report.fail("publish preconditions", "addItem's item never appeared under listId=$listId")
+            return report.render()
+        }
+        report.pass("publish: resolved a fresh itemId", "itemId=$itemId")
+
+        val replaceResult = runCatching {
+            replacePhoto(
+                storage = storage,
+                itemId = itemId,
+                oldPhotoRef = null,
+                newBytes = onePixelPng,
+                updateRef = { r -> items.setPhotoRef(listId, itemId, r) },
+            )
+        }
+        if (replaceResult.isFailure) {
+            report.fail(
+                "publish: replacePhoto",
+                "listId=$listId itemId=$itemId threw ${replaceResult.exceptionOrNull()}",
+            )
+            return report.render()
+        }
+        val ref = replaceResult.getOrThrow()
+        delay(SETTLE_MS)
+        report.check(
+            "publish: the photo is real, loadable Storage bytes right after upload",
+            (storage.loadPhoto(ref) as? PhotoContent.Bytes)?.bytes?.contentEquals(onePixelPng) == true,
+            "ref=$ref",
+        )
+
+        // Sweep any other same-titled item left by an earlier run's incomplete attempt,
+        // so `runCrossDeviceSubscribe`'s exact-title match finds exactly one candidate.
+        // `deleteItem` is safe/idempotent against an already-gone document (transactional
+        // read-first, mirrors the Android repository's documented no-op-on-missing
+        // behavior), so this is safe even against further staleness.
+        items.observeItems(listId).first()
+            .filter { it.title == CROSS_DEVICE_ITEM_TITLE && it.id != itemId }
+            .forEach { stale ->
+                stale.photoRef?.let { staleRef -> runCatching { storage.deletePhoto(staleRef) } }
+                runCatching { items.deleteItem(listId, stale.id) }
+            }
+
+        report.pass(
+            "publish: left signed in with data ready for a subscribe run to find",
+            "listId=$listId itemId=$itemId photoRef=$ref",
+        )
+        // Deliberately does NOT sign out or delete anything - a subsequent subscribe run
+        // (on this same simulator after a literal reinstall, or on an independently
+        // booted second simulator) must find this state through the real Firestore/
+        // Storage emulator backends alone, not through any leftover in-process state.
+        return report.render()
+    }
+
+    private suspend fun runCrossDeviceSubscribeChecked(): String {
+        val report = Report(label = "FB-307 iOS Storage cross-device SUBSCRIBE")
+        if (!IosFirebaseEmulatorSettings.enabled) {
+            report.fail("preconditions", "emulator mode is disabled; refusing to run against a live project")
+            return report.render()
+        }
+        val auth = IosAuthRepository()
+        val storage = IosPhotoStorage()
+        val lists = IosFirebaseListRepository()
+        val items = IosFirebaseItemRepository()
+
+        // A genuinely independent run (this process knows nothing a publish run did,
+        // except the fixed shared credentials) signing in as the same account a publish
+        // run already used - exactly what a second device, or a reinstalled app signing
+        // back in, does.
+        report.expectSuccess("subscribe: sign in as the fixed cross-device account", auth.signIn(CROSS_DEVICE_EMAIL, PASSWORD))
+        delay(SETTLE_MS)
+
+        val listId = withTimeoutOrNull(SUBSCRIBE_TIMEOUT_MS) {
+            var found = lists.observeListSummaries().first().firstOrNull { it.list.name == CROSS_DEVICE_LIST_NAME }?.list?.id
+            while (found == null) {
+                delay(SETTLE_MS)
+                found = lists.observeListSummaries().first().firstOrNull { it.list.name == CROSS_DEVICE_LIST_NAME }?.list?.id
+            }
+            found
+        }
+        if (listId == null) {
+            report.fail("subscribe", "no list named '$CROSS_DEVICE_LIST_NAME' was found - did a publish run happen first?")
+            return report.render()
+        }
+        report.pass("subscribe: found the list a publish run created", "listId=$listId")
+
+        val item = withTimeoutOrNull(SUBSCRIBE_TIMEOUT_MS) {
+            var found = items.observeItems(listId).first().firstOrNull { it.title == CROSS_DEVICE_ITEM_TITLE }
+            while (found?.photoRef == null) {
+                delay(SETTLE_MS)
+                found = items.observeItems(listId).first().firstOrNull { it.title == CROSS_DEVICE_ITEM_TITLE }
+            }
+            found
+        }
+        if (item?.photoRef == null) {
+            report.fail("subscribe", "no item with a photoRef was found under listId=$listId")
+            return report.render()
+        }
+        report.pass("subscribe: found the item and its photoRef via Firestore alone", "itemId=${item.id} photoRef=${item.photoRef}")
+
+        val photoRef = item.photoRef
+        val loaded = storage.loadPhoto(photoRef)
+        report.check(
+            "subscribe: the photo bytes load via Storage and are byte-identical to what publish uploaded",
+            loaded is PhotoContent.Bytes && loaded.bytes.contentEquals(onePixelPng),
+            "loaded=$loaded",
+        )
+
+        // Clean up so the next publish/subscribe pair starts from a clean, known state.
+        runCatching { storage.deletePhoto(photoRef) }
+        items.deleteItem(listId, item.id)
+        auth.signOut()
+
+        return report.render()
     }
 
     private suspend fun runChecked(): String {
@@ -321,7 +699,38 @@ object IosPhotoStorageIntegrationCheck {
         return !error.isStorageObjectNotFound() && error.isStorageUnauthorized()
     }
 
-    private class Report {
+    /** `FB-307` diagnostic-only helper: [ListRepositoryException] never carries a
+     * [Throwable.message] (it wraps a neutral [com.fluxit.data.remote.ApplicationError]
+     * in its own `error` field instead), so the bare `THREW ...: null` a plain
+     * `.message` read produces on these three new entry points' catch blocks is
+     * uninformative - this surfaces the actual error code/detail instead. */
+    private fun Throwable.diagnosticDetail(): String =
+        if (this is ListRepositoryException) "error=$error" else "$message"
+
+    /** `FB-307`: records the most recent `photoRef` [PhotoStorage.uploadPhoto] minted, so
+     * [runInterruptedReplaceChecked] can find/verify an orphan object left behind by an
+     * interrupted [replacePhoto] call whose `updateRef` step threw before returning that
+     * ref to the caller - the iOS analogue of the Android suite's `RecordingPhotoStorage`. */
+    private class RecordingIosPhotoStorage(private val delegate: PhotoStorage) : PhotoStorage {
+        var lastUploadedRef: String? = null
+            private set
+
+        override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String {
+            val ref = delegate.uploadPhoto(itemId, bytes)
+            lastUploadedRef = ref
+            return ref
+        }
+
+        override suspend fun loadPhoto(photoRef: String): PhotoContent? = delegate.loadPhoto(photoRef)
+
+        override suspend fun deletePhoto(photoRef: String) = delegate.deletePhoto(photoRef)
+    }
+
+    /** `FB-307`: [label] defaults to the original `FB-305` text so [run]'s already-verified
+     * output is unchanged byte-for-byte; the three new `FB-307` entry points pass their own
+     * distinct label so their console output is identifiable instead of misleadingly
+     * reusing the `FB-305` header. */
+    private class Report(private val label: String = "FB-305 iOS Storage integration check") {
         private val lines = mutableListOf<String>()
         private var failures = 0
 
@@ -344,11 +753,11 @@ object IosPhotoStorageIntegrationCheck {
 
         fun render(): String {
             val header = if (failures == 0) {
-                "FB-305 iOS Storage integration check: ALL CHECKS PASSED"
+                "$label: ALL CHECKS PASSED"
             } else {
-                "FB-305 iOS Storage integration check: $failures CHECK(S) FAILED"
+                "$label: $failures CHECK(S) FAILED"
             }
-            return (listOf(header) + lines + listOf("FB-305 END")).joinToString("\n")
+            return (listOf(header) + lines + listOf("${label.substringBefore(' ')} END")).joinToString("\n")
         }
     }
 }
