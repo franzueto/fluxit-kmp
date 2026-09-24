@@ -14,6 +14,7 @@
 		FB1030000000000000000002 /* FirebaseAuthBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1030000000000000000001 /* FirebaseAuthBridge.swift */; };
 		FB2030000000000000000002 /* FirebaseListBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2030000000000000000001 /* FirebaseListBridge.swift */; };
 		FB2050000000000000000002 /* FirebaseItemBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2050000000000000000001 /* FirebaseItemBridge.swift */; };
+		FB3050000000000000000002 /* FirebaseStorageBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3050000000000000000001 /* FirebaseStorageBridge.swift */; };
 		FB0700000000000000000004 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FB0700000000000000000003 /* GoogleService-Info.plist */; };
 		FB0700000000000000000021 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FB0700000000000000000011 /* FirebaseAuth */; };
 		FB0700000000000000000022 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FB0700000000000000000012 /* FirebaseFirestore */; };
@@ -31,6 +32,7 @@
 		FB1030000000000000000001 /* FirebaseAuthBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseAuthBridge.swift; sourceTree = "<group>"; };
 		FB2030000000000000000001 /* FirebaseListBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseListBridge.swift; sourceTree = "<group>"; };
 		FB2050000000000000000001 /* FirebaseItemBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseItemBridge.swift; sourceTree = "<group>"; };
+		FB3050000000000000000001 /* FirebaseStorageBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseStorageBridge.swift; sourceTree = "<group>"; };
 		FB0700000000000000000003 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -82,6 +84,7 @@
 				FB1030000000000000000001 /* FirebaseAuthBridge.swift */,
 				FB2030000000000000000001 /* FirebaseListBridge.swift */,
 				FB2050000000000000000001 /* FirebaseItemBridge.swift */,
+				FB3050000000000000000001 /* FirebaseStorageBridge.swift */,
 				7555FF8C242A565B00829871 /* Info.plist */,
 				2152FB032600AC8F00CF470E /* iOSApp.swift */,
 				058557D7273AAEEB004C7B11 /* Preview Content */,
@@ -204,6 +207,7 @@
 				FB1030000000000000000002 /* FirebaseAuthBridge.swift in Sources */,
 				FB2030000000000000000002 /* FirebaseListBridge.swift in Sources */,
 				FB2050000000000000000002 /* FirebaseItemBridge.swift in Sources */,
+				FB3050000000000000000002 /* FirebaseStorageBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

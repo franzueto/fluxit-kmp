@@ -23,8 +23,8 @@ import UIKit
 /// `FB-103` added the second responsibility below: registering the Swift
 /// implementation of the Kotlin `IosAuthBridge` protocol, which is how the
 /// Firebase-neutral `AuthRepository` reaches Auth on iOS (PLAN-008). `FB-203` does the
-/// same for `ListRepository`/Firestore lists, and `FB-205` for `ItemRepository`/Firestore
-/// items; Storage photos (Phase 3) still need their own bridge registered here.
+/// same for `ListRepository`/Firestore lists, `FB-205` for `ItemRepository`/Firestore
+/// items, and `FB-305` for `PhotoStorage`/Storage photos.
 enum FirebaseBootstrap {
 
     private static var initialized = false
@@ -66,6 +66,9 @@ enum FirebaseBootstrap {
 
         // FB-205: same hand-off, for the Firestore item bridge.
         IosFirestoreItemBridgeRegistry.shared.register(bridge: FirebaseItemBridge())
+
+        // FB-305: same hand-off, for the Storage photo bridge.
+        IosFirebaseStorageBridgeRegistry.shared.register(bridge: FirebaseStorageBridge())
     }
 
     /// FB-103 evidence hook: runs the emulator-backed Auth integration check and prints
@@ -152,6 +155,23 @@ enum FirebaseBootstrap {
         }
     }
 
+    /// FB-305 evidence hook: same shape as [runFirestoreItemSelfCheckIfRequested], for the
+    /// Storage photo adapter. Guarded the same way: `-FluxItPhotoStorageSelfCheck` on the
+    /// launch arguments, plus the Kotlin check's own emulator-enabled refusal.
+    static func runPhotoStorageSelfCheckIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-FluxItPhotoStorageSelfCheck") else { return }
+
+        Task {
+            do {
+                let report = try await IosPhotoStorageIntegrationCheck.shared.run()
+                print(report)
+            } catch {
+                print("FB-305 iOS Storage integration check: THREW \(error)")
+                print("FB-305 END")
+            }
+        }
+    }
+
     private static func connectToEmulators() {
         // Passed through verbatim: the iOS simulator shares the host network stack,
         // so no Android-style 10.0.2.2 loopback translation applies here.
@@ -196,6 +216,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseBootstrap.runFirestoreListSelfCheckIfRequested()
         FirebaseBootstrap.runFirestoreItemSelfCheckIfRequested()
         FirebaseBootstrap.runCrossClientSelfCheckIfRequested()
+        FirebaseBootstrap.runPhotoStorageSelfCheckIfRequested()
         return true
     }
 }

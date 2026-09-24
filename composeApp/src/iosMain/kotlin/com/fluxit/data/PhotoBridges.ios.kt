@@ -5,16 +5,21 @@ package com.fluxit.data
 import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.IosAuthBridgeCurrentUidProvider
+import com.fluxit.firebase.storage.IosFirebaseStorageBridge
+import com.fluxit.firebase.storage.IosFirebaseStorageBridgeRegistry
+import com.fluxit.firebase.storage.PhotoStorageIosException
+import com.fluxit.firebase.storage.isStorageObjectNotFound
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import platform.Foundation.NSData
-import platform.Foundation.NSFileManager
 import platform.Foundation.dataWithBytes
-import platform.Foundation.writeToFile
 import platform.PhotosUI.PHPickerConfiguration
 import platform.PhotosUI.PHPickerFilter
 import platform.PhotosUI.PHPickerResult
@@ -24,7 +29,6 @@ import platform.UIKit.UIApplication
 import platform.UIKit.UIWindow
 import platform.darwin.NSObject
 import platform.posix.memcpy
-import kotlin.coroutines.resume
 
 @OptIn(ExperimentalForeignApi::class)
 internal fun NSData.toByteArray(): ByteArray {
@@ -89,52 +93,126 @@ class IosPhotoPicker : PhotoPicker {
 }
 
 /**
- * Interim local-file [PhotoStorage] stub (`FB-302`). It produces/consumes correctly-shaped
- * `photoRef` strings (PLAN-006/PLAN-007, via [FirebaseSchema.photoRef]) using the real
- * signed-in uid ([CurrentUidProvider] - the same Swift-bridge-backed seam
- * `IosFirebaseItemRepository` already uses for Firestore paths, per PLAN-008 - so a
- * `photoRef` minted here is already exactly the string a real Cloud Storage adapter would
- * need), but it still stores bytes on local disk rather than in Cloud Storage. Real
- * upload/download/delete against Firebase Storage is `FB-305`, deliberately out of this
- * task's scope.
+ * Real Cloud Storage-backed [PhotoStorage] (`FB-305`), replacing `FB-302`'s interim
+ * local-file stub. Every object is addressed by the exact `photoRef` string
+ * [FirebaseSchema.photoRef] already produces (`users/{uid}/items/{itemId}/{photoId}`) -
+ * this class never constructs or parses that shape itself, matching the contract's
+ * documented boundary. The deployed owner-only `storage.rules` (`FB-005`) gate every call
+ * below; this class does not, and must not, work around them.
+ *
+ * Uid resolution reuses [CurrentUidProvider]/[IosAuthBridgeCurrentUidProvider] exactly as
+ * `IosFirebaseItemRepository` does for Firestore paths - resolved fresh per call, never
+ * cached, same Phase 1 constraint. The Firebase call itself never reaches this file: per
+ * PLAN-008 the `FirebaseStorage` SPM target is not cinterop-reachable from `iosMain` (see
+ * `FirebaseBootstrap.swift`'s KDoc), so every actual SDK call lives in
+ * `iosApp/iosApp/FirebaseStorageBridge.swift` behind [IosFirebaseStorageBridge] - mirroring
+ * exactly how `IosFirebaseItemRepository`/`IosFirebaseListRepository`/`IosAuthRepository`
+ * each reach their own SDK surface through a Swift-implemented Kotlin protocol.
+ *
+ * ### Remote-rendering design choice (judgment call, flagged for the reviewer)
+ * [loadPhoto] returns [PhotoContent.Bytes] (a direct download), not [PhotoContent.Loadable]
+ * - the same choice `AndroidPhotoStorage` (`FB-304`) made, for the same underlying reason,
+ * confirmed to apply identically on this platform rather than merely assumed: iOS's own
+ * [PhotoContent.Loadable] renderer, `com.fluxit.ui.components.decodeImageFile`, has an
+ * `actual` (`ImageDecoder.ios.kt`) that calls `NSData.dataWithContentsOfFile` - a **local
+ * filesystem path** decoder, exactly as local-file-only as Android's
+ * `BitmapFactory.decodeFile`. It cannot load an `https://` download URL, so wiring a
+ * `Loadable(downloadUrl)` here would silently fail to render on the existing
+ * `ItemDetailScreen` code path without also changing that screen (out of this task's
+ * explicit scope) to fetch the URL itself. `PhotoContent.Bytes` is instead rendered by
+ * `decodeImageBytes` (`Image.makeFromEncoded`), which already handles raw bytes correctly -
+ * so this choice needs **zero** changes to `ItemDetailScreen`/`ItemDetailViewModel` (neither
+ * file appears in this task's diff), and composes directly with `FB-303`'s already-enforced
+ * [PhotoPolicy.MAX_UPLOAD_BYTES] upload-size ceiling to bound the download, reused rather
+ * than a second independent size constant - same as `AndroidPhotoStorage`'s
+ * `MAX_DOWNLOAD_BYTES`.
+ *
+ * ### Idempotent delete / missing-object semantics
+ * [loadPhoto] and [deletePhoto] both treat Storage's own "object does not exist" outcome
+ * ([com.fluxit.firebase.storage.isStorageObjectNotFound]) as the documented "missing
+ * object" case ([PhotoStorage.loadPhoto] returns `null`; [PhotoStorage.deletePhoto] is a
+ * silent no-op) rather than letting it escape as a thrown exception - any other failure
+ * (e.g. a genuine Rules denial) still propagates, wrapped in
+ * [com.fluxit.firebase.storage.PhotoStorageIosException] so no raw Firebase-SDK-originated
+ * type crosses out of `iosMain` (the [NSError] itself is a Foundation type, not an SDK type,
+ * but is still never exposed to `commonMain` here). [uploadPhoto] deliberately swallows
+ * nothing: a failed upload must propagate so `replacePhoto`'s safe-replace ordering
+ * (`PhotoBridges.kt`, unmodified by this task) leaves the old photo untouched, per its
+ * documented failure semantics - mirrors `AndroidPhotoStorage.uploadPhoto` exactly.
  */
 class IosPhotoStorage(
-    private val baseDir: String,
+    private val bridgeProvider: () -> IosFirebaseStorageBridge = IosFirebaseStorageBridgeRegistry::requireBridge,
     private val currentUid: CurrentUidProvider = IosAuthBridgeCurrentUidProvider(),
 ) : PhotoStorage {
 
-    private val photosDir: String
-        get() = "$baseDir/photos".also {
-            NSFileManager.defaultManager.createDirectoryAtPath(
-                it, withIntermediateDirectories = true, attributes = null, error = null,
-            )
-        }
-
     @OptIn(ExperimentalForeignApi::class)
-    override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String = withContext(Dispatchers.Default) {
+    override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String {
         val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, newPhotoId())
-        val data = bytes.usePinned { pinned ->
-            NSData.dataWithBytes(pinned.addressOf(0), bytes.size.toULong())
+        val data = bytes.toNSData()
+        suspendCancellableCoroutine<Unit> { continuation ->
+            bridgeProvider().uploadData(photoRef, data) { error ->
+                if (error != null) {
+                    continuation.resumeWithException(PhotoStorageIosException(error))
+                } else {
+                    continuation.resume(Unit)
+                }
+            }
         }
-        data.writeToFile(localPath(photoRef), atomically = true)
-        photoRef
+        return photoRef
     }
 
-    override suspend fun loadPhoto(photoRef: String): PhotoContent? = withContext(Dispatchers.Default) {
-        val path = localPath(photoRef)
-        if (NSFileManager.defaultManager.fileExistsAtPath(path)) PhotoContent.Loadable(path) else null
+    override suspend fun loadPhoto(photoRef: String): PhotoContent? = try {
+        val data = suspendCancellableCoroutine<NSData> { continuation ->
+            bridgeProvider().downloadData(photoRef, MAX_DOWNLOAD_BYTES) { data, error ->
+                when {
+                    error != null -> continuation.resumeWithException(PhotoStorageIosException(error))
+                    data != null -> continuation.resume(data)
+                    else -> continuation.resumeWithException(
+                        IllegalStateException("Storage download for $photoRef completed with neither data nor error"),
+                    )
+                }
+            }
+        }
+        PhotoContent.Bytes(data.toByteArray())
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (missing: PhotoStorageIosException) {
+        if (missing.error.isStorageObjectNotFound()) null else throw missing
     }
 
     override suspend fun deletePhoto(photoRef: String) {
-        withContext(Dispatchers.Default) {
-            NSFileManager.defaultManager.removeItemAtPath(localPath(photoRef), error = null)
+        try {
+            suspendCancellableCoroutine<Unit> { continuation ->
+                bridgeProvider().deleteObject(photoRef) { error ->
+                    if (error != null) {
+                        continuation.resumeWithException(PhotoStorageIosException(error))
+                    } else {
+                        continuation.resume(Unit)
+                    }
+                }
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (missing: PhotoStorageIosException) {
+            if (!missing.error.isStorageObjectNotFound()) throw missing
         }
     }
 
-    /**
-     * Maps a `photoRef` 1:1 onto a local cache path by flattening its path separators.
-     * `FB-305` replaces this whole class with a real Cloud Storage object addressed by the
-     * same `photoRef`; nothing else needs to change when it does.
-     */
-    private fun localPath(photoRef: String): String = "$photosDir/${photoRef.replace('/', '_')}"
+    private companion object {
+        /** Same reuse rationale as `AndroidPhotoStorage.MAX_DOWNLOAD_BYTES`'s KDoc. */
+        val MAX_DOWNLOAD_BYTES: Long = PhotoPolicy.MAX_UPLOAD_BYTES.toLong()
+    }
+}
+
+/**
+ * Builds an [NSData] view over [this] array's bytes, the same conversion the `FB-302` local-
+ * file stub used to persist bytes to disk - reused unmodified as the wire type
+ * [IosFirebaseStorageBridge.uploadData] crosses to Swift. `internal` (not `private`) so
+ * [com.fluxit.firebase.storage.IosPhotoStorageIntegrationCheck] can reuse it for its raw,
+ * [IosPhotoStorage]-bypassing cross-user write-denial check, rather than duplicating this
+ * cinterop conversion a third time.
+ */
+@OptIn(ExperimentalForeignApi::class)
+internal fun ByteArray.toNSData(): NSData = usePinned { pinned ->
+    NSData.dataWithBytes(pinned.addressOf(0), size.toULong())
 }

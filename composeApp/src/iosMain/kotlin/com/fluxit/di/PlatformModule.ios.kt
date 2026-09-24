@@ -44,7 +44,9 @@ actual fun platformModule(): Module = module {
             .build()
     }
     single<PhotoPicker> { IosPhotoPicker() }
-    single<PhotoStorage> { IosPhotoStorage(documentsPath()) }
+    // FB-305: real Cloud Storage-backed, no longer needs a local `documentsPath()` base
+    // directory - see IosPhotoStorage's KDoc.
+    single<PhotoStorage> { IosPhotoStorage() }
 
     // FB-103: the iOS Firebase Auth adapter, mirroring FB-102's Android binding. The
     // implementation is platform-specific (PLAN-008: it delegates to Swift), so it is
