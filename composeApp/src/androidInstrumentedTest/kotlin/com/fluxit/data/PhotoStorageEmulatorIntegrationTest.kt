@@ -8,7 +8,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.fluxit.config.FirebaseEmulatorConfig
 import com.fluxit.data.remote.FirebaseSchema
+import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.firebase.list.CurrentUidProvider
+import com.fluxit.firebase.list.FirebaseAuthCurrentUidProvider
+import com.fluxit.firebase.list.ListRepositoryException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -70,6 +73,9 @@ import org.junit.runner.RunWith
  * Run with: `./gradlew :composeApp:connectedDebugAndroidTest`, or non-interactively via
  * `firebase/node_modules/.bin/firebase --project demo-fluxit emulators:exec --only auth,storage
  * "./gradlew :composeApp:connectedDebugAndroidTest"` from the repository root.
+ *
+ * `FB-306` added [uploadPhotoWhileSignedOutThrowsAndCreatesNoObject], discharging
+ * `FB-302-NB1` (no test anywhere exercised `uploadPhoto` while signed out).
  */
 @RunWith(AndroidJUnit4::class)
 class PhotoStorageEmulatorIntegrationTest {
@@ -80,6 +86,7 @@ class PhotoStorageEmulatorIntegrationTest {
     private lateinit var storageB: FirebaseStorage
     private lateinit var uidA: String
     private lateinit var uidB: String
+    private lateinit var emailA: String
     private lateinit var clientA: AndroidPhotoStorage
     private lateinit var clientB: AndroidPhotoStorage
 
@@ -93,7 +100,8 @@ class PhotoStorageEmulatorIntegrationTest {
         storageA = builtStorageA
         storageB = builtStorageB
 
-        authA.createUserWithEmailAndPassword(uniqueEmail("a"), PASSWORD).awaitResult()
+        emailA = uniqueEmail("a")
+        authA.createUserWithEmailAndPassword(emailA, PASSWORD).awaitResult()
         uidA = requireNotNull(authA.currentUser?.uid) { "client A sign-up did not resolve a uid" }
         authB.createUserWithEmailAndPassword(uniqueEmail("b"), PASSWORD).awaitResult()
         uidB = requireNotNull(authB.currentUser?.uid) { "client B sign-up did not resolve a uid" }
@@ -210,6 +218,42 @@ class PhotoStorageEmulatorIntegrationTest {
 
         // The owner's object must be provably untouched by either denied attempt.
         assertIs<PhotoContent.Bytes>(clientA.loadPhoto(ownerRef))
+    }
+
+    // --- FB-306 (discharging FB-302-NB1): signed-out uploadPhoto must fail safely -------
+
+    /**
+     * `FB-302-NB1`: no test exercised `uploadPhoto` while signed out - `FakePhotoStorage`
+     * (the `commonTest` double) never throws for this case, so the authenticated-uid
+     * requirement [AndroidPhotoStorage.uploadPhoto] added (`FB-302`, via [CurrentUidProvider])
+     * was unverified by any test. Uses the real production [FirebaseAuthCurrentUidProvider]
+     * (not the fixed-uid `CurrentUidProvider { uidA }` the rest of this suite uses) wired to
+     * the real, now-signed-out `authA`, so this proves the real production wiring - not just
+     * the interface contract - fails safely: [CurrentUidProvider.currentUid] is resolved and
+     * thrown *before* [AndroidPhotoStorage.uploadPhoto] ever builds a `photoRef` or reaches
+     * `storage.reference.child(...)` (see its source), so a signed-out call cannot possibly
+     * create an object - this test proves that holds against the real SDK, not just by
+     * reading the code.
+     */
+    @Test
+    fun uploadPhotoWhileSignedOutThrowsAndCreatesNoObject(): Unit = runBlocking {
+        authA.signOut()
+        val signedOutClient = AndroidPhotoStorage(storageA, FirebaseAuthCurrentUidProvider(authA))
+        val itemId = UUID.randomUUID().toString()
+
+        val failure = assertFailsWith<ListRepositoryException>(
+            "uploadPhoto must fail fast, before ever reaching Storage, when nobody is signed in",
+        ) {
+            signedOutClient.uploadPhoto(itemId, samplePngBytes())
+        }
+        assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)
+
+        // Sign back in as the same already-signed-up account (client A's credentials are
+        // still valid; only the local session was cleared by signOut() above) and confirm no
+        // object exists at any ref this itemId could plausibly have produced.
+        authA.signInWithEmailAndPassword(emailA, PASSWORD).awaitResult()
+        val neverUploadedRef = FirebaseSchema.photoRef(uidA, itemId, newPhotoId())
+        assertNull(clientA.loadPhoto(neverUploadedRef), "a signed-out uploadPhoto call must never create an object")
     }
 
     // --- helpers ------------------------------------------------------------------------

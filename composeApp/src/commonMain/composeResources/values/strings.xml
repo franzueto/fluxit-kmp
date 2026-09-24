@@ -80,6 +80,10 @@
     <string name="section_description">DESCRIPTION</string>
     <string name="item_photo_title">Item Photo</string>
     <string name="no_photo_yet">No photo yet</string>
+    <!-- FB-306: item-detail photo progress/retry/failure states. -->
+    <string name="photo_replace_failed_message">We couldn\'t update this photo. Your previous photo is still here.</string>
+    <string name="photo_remove_failed_message">We couldn\'t remove this photo. It\'s still saved.</string>
+    <string name="action_dismiss">Dismiss</string>
     <string name="last_edited_on">Last edited on %1$s</string>
     <string name="date_month_day_year">%1$s %2$d, %3$d</string>
     <string name="month_january_short">Jan</string>

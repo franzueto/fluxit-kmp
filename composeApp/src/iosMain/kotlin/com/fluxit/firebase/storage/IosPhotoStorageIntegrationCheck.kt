@@ -4,16 +4,22 @@ import com.fluxit.data.IosPhotoStorage
 import com.fluxit.data.PhotoContent
 import com.fluxit.data.newPhotoId
 import com.fluxit.data.remote.FirebaseSchema
+import com.fluxit.data.replacePhoto
 import com.fluxit.data.toNSData
+import com.fluxit.domain.ListColor
+import com.fluxit.domain.ListIcon
 import com.fluxit.domain.auth.AuthResult
 import com.fluxit.firebase.IosFirebaseEmulatorSettings
 import com.fluxit.firebase.auth.IosAuthBridgeRegistry
 import com.fluxit.firebase.auth.IosAuthRepository
+import com.fluxit.firebase.item.IosFirebaseItemRepository
+import com.fluxit.firebase.list.IosFirebaseListRepository
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSUUID
 
@@ -46,6 +52,18 @@ import platform.Foundation.NSUUID
  * access - the same class of narrow, disclosed gap FB-206 already accepted for the
  * equivalent Firestore check. Adding a network-toggle-equivalent multi-app bridge is a
  * production bridge-protocol change, out of this task's scope.
+ *
+ * `FB-306` (discharging `FB-305-NB1`) added the final section below: [replacePhoto] driven
+ * against a real [IosFirebaseItemRepository] (Firestore) *and* this file's real
+ * [IosPhotoStorage] (Storage) together, proving the documented safe-replace ordering commits
+ * correctly end to end on real infrastructure, not just against `PhotoReplaceContractTest`'s
+ * `commonTest` fake. Genuine mid-operation failure injection against a *real* Firestore/
+ * Storage backend is not available here - `IosFirestoreItemBridge`/[IosPhotoStorage] expose
+ * no network-toggle surface (`FB-206-NB1`'s already-accepted, still-open constraint; adding
+ * one is a production bridge-protocol change, out of scope) - so this section proves the
+ * happy path genuinely commits through both real backends together; the failure/preservation
+ * semantics themselves are already exhaustively proven by `PhotoReplaceContractTest` and, at
+ * the UI layer, `ItemDetailViewModelTest` (`FB-306`).
  */
 object IosPhotoStorageIntegrationCheck {
 
@@ -203,6 +221,71 @@ object IosPhotoStorageIntegrationCheck {
             "reload=$ownerReload",
         )
         storage.deletePhoto(ownerRef)
+
+        // --- FB-306/FB-305-NB1: replacePhoto()'s full ordering against real Firestore + ----
+        // --- real Storage together, still signed in as client A from the reload above -----
+        val lists = IosFirebaseListRepository()
+        val items = IosFirebaseItemRepository()
+        val combinedListId = lists.createList("FB-306 combined replace check", ListIcon.CART, ListColor.PRIMARY_BLUE)
+        delay(SETTLE_MS)
+        items.addItem(combinedListId, "Combined replace check")
+        delay(SETTLE_MS)
+        val combinedItemId = items.observeItems(combinedListId).first().firstOrNull { it.title == "Combined replace check" }?.id
+        if (combinedItemId == null) {
+            report.fail("combined replacePhoto preconditions", "addItem's item never appeared")
+            return report.render()
+        }
+
+        val firstRef = replacePhoto(
+            storage = storage,
+            itemId = combinedItemId,
+            oldPhotoRef = null,
+            newBytes = onePixelPng,
+            updateRef = { ref -> items.setPhotoRef(combinedListId, combinedItemId, ref) },
+        )
+        delay(SETTLE_MS)
+        report.check(
+            "replacePhoto's first upload persists photoRef to real Firestore",
+            items.observeItem(combinedListId, combinedItemId).first()?.photoRef == firstRef,
+            "photoRef=${items.observeItem(combinedListId, combinedItemId).first()?.photoRef} expected=$firstRef",
+        )
+        val firstLoaded = storage.loadPhoto(firstRef)
+        report.check(
+            "the first uploaded object is real, loadable Storage bytes",
+            firstLoaded is PhotoContent.Bytes && firstLoaded.bytes.contentEquals(onePixelPng),
+            "loaded=$firstLoaded",
+        )
+
+        // A distinguishable second payload so a byte-content check can tell first and
+        // second objects apart, not just their refs.
+        val secondBytes = onePixelPng + onePixelPng
+        val secondRef = replacePhoto(
+            storage = storage,
+            itemId = combinedItemId,
+            oldPhotoRef = firstRef,
+            newBytes = secondBytes,
+            updateRef = { ref -> items.setPhotoRef(combinedListId, combinedItemId, ref) },
+        )
+        delay(SETTLE_MS)
+        report.check(
+            "replacePhoto's second call persists the new photoRef to real Firestore",
+            items.observeItem(combinedListId, combinedItemId).first()?.photoRef == secondRef,
+            "expected=$secondRef",
+        )
+        report.check(
+            "replacePhoto deletes the old real Storage object only after Firestore is updated",
+            storage.loadPhoto(firstRef) == null,
+            "",
+        )
+        val secondLoaded = storage.loadPhoto(secondRef)
+        report.check(
+            "the second uploaded object is real, loadable, and distinct from the first",
+            secondLoaded is PhotoContent.Bytes && secondLoaded.bytes.contentEquals(secondBytes),
+            "loaded=$secondLoaded",
+        )
+
+        storage.deletePhoto(secondRef)
+        items.deleteItem(combinedListId, combinedItemId)
         auth.signOut()
 
         return report.render()

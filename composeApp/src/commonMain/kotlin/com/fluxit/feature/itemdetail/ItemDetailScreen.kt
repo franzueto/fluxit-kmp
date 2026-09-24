@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -198,7 +200,7 @@ fun ItemDetailScreen(
                 )
                 Row(
                     modifier = Modifier
-                        .clickable(enabled = !state.isPickingPhoto, onClick = viewModel::pickPhoto)
+                        .clickable(enabled = !state.isPhotoBusy, onClick = viewModel::pickPhoto)
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -241,22 +243,42 @@ fun ItemDetailScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                     )
-                } else {
+                } else if (!state.isPhotoBusy) {
                     Text(
                         stringResource(Res.string.no_photo_yet),
                         style = FluxType.BodyMd,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                // FB-306: loading/progress state, shown for both a replace (isPickingPhoto)
+                // and a remove (isRemovingPhoto) - overlaid on top of whatever preview (old
+                // photo, if any) is currently showing, so the old photo stays visible while
+                // its replacement/removal is in flight rather than flashing to a blank state.
+                if (state.isPhotoBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 3.dp,
+                    )
+                }
             }
-            if (state.photoRef != null) {
+
+            val photoError = state.photoOperationFailed
+            if (photoError != null) {
+                PhotoErrorRow(
+                    kind = photoError,
+                    enabled = !state.isPhotoBusy,
+                    onRetry = viewModel::retryPhotoOperation,
+                    onDismiss = viewModel::dismissPhotoError,
+                )
+            } else if (state.photoRef != null) {
                 Text(
                     stringResource(Res.string.action_remove_photo),
                     style = FluxType.LabelSm,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
-                        .clickable(onClick = viewModel::removePhoto)
+                        .clickable(enabled = !state.isPhotoBusy, onClick = viewModel::removePhoto)
                         .padding(8.dp),
                 )
             }
@@ -293,6 +315,63 @@ fun ItemDetailScreen(
             Spacer(Modifier.height(16.dp))
         }
     }
+}
+
+/**
+ * `FB-306`: shown in place of the "Remove photo" affordance whenever
+ * [ItemDetailUiState.photoOperationFailed] is non-null - a failed replace or remove, with a
+ * message scoped to which operation failed (see [PhotoOperationKind]) and Retry/Dismiss
+ * actions wired to [ItemDetailViewModel.retryPhotoOperation]/
+ * [ItemDetailViewModel.dismissPhotoError]. Both actions are disabled while [enabled] is false
+ * (i.e. while a retry is already in flight), mirroring `SessionGate`'s established
+ * busy-disables-actions pattern for its own retry row.
+ */
+@Composable
+private fun PhotoErrorRow(
+    kind: PhotoOperationKind,
+    enabled: Boolean,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
+    ) {
+        Text(
+            stringResource(kind.messageResource()),
+            style = FluxType.LabelSm,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                stringResource(Res.string.action_try_again),
+                style = FluxType.LabelSm,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable(enabled = enabled, onClick = onRetry)
+                    .padding(8.dp),
+            )
+            Text(
+                stringResource(Res.string.action_dismiss),
+                style = FluxType.LabelSm,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clickable(enabled = enabled, onClick = onDismiss)
+                    .padding(8.dp),
+            )
+        }
+    }
+}
+
+private fun PhotoOperationKind.messageResource() = when (this) {
+    PhotoOperationKind.REPLACE -> Res.string.photo_replace_failed_message
+    PhotoOperationKind.REMOVE -> Res.string.photo_remove_failed_message
 }
 
 @Composable

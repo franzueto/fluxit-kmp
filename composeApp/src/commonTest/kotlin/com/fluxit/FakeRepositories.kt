@@ -59,6 +59,15 @@ class FakeItemRepository : ItemRepository {
     val rows = MutableStateFlow<List<Row>>(emptyList())
     private var counter = 0
 
+    /**
+     * `FB-306`: when non-null, every [setPhotoRef] call throws this instead of mutating
+     * anything - lets `ItemDetailViewModelTest` inject a document-write failure partway
+     * through a replace/remove without touching `FakePhotoStorage`, mirroring
+     * [FakePhotoStorage.failUpload]/[FakePhotoStorage.failDelete]'s shape (also not
+     * single-shot: a test sets it back to `null` itself before asserting a retry succeeds).
+     */
+    var failSetPhotoRef: Throwable? = null
+
     override fun observeItems(listId: String): Flow<List<FluxItem>> =
         rows.map { all -> all.filter { it.item.listId == listId && !it.deleted }.map { it.item } }
 
@@ -79,6 +88,7 @@ class FakeItemRepository : ItemRepository {
     }
 
     override suspend fun setPhotoRef(listId: String, itemId: String, photoRef: String?) {
+        failSetPhotoRef?.let { throw it }
         mutate(listId, itemId) { it.copy(photoRef = photoRef) }
     }
 
