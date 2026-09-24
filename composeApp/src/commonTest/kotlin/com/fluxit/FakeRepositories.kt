@@ -21,6 +21,27 @@ class FakeListRepository : ListRepository {
     val rows = MutableStateFlow<List<Row>>(emptyList())
     private var counter = 0
 
+    /**
+     * `FB-402`: failure injection so `DashboardViewModelTest`/`CreateListViewModelTest` can
+     * exercise the try/finally-reset flags and retryable error states without a real Firebase
+     * adapter - not single-shot: a test resets a `fail*` field back to `null` itself before
+     * asserting a retry succeeds, mirroring [FakeItemRepository.failSetPhotoRef].
+     */
+    var failCreateList: Throwable? = null
+    var failUpdateList: Throwable? = null
+    var failSoftDeleteList: Throwable? = null
+    var failRestoreList: Throwable? = null
+
+    /** `FB-402`: lets a test assert a duplicate-submit guard prevented a second real call. */
+    var createListCallCount = 0
+        private set
+    var updateListCallCount = 0
+        private set
+    var softDeleteListCallCount = 0
+        private set
+    var restoreListCallCount = 0
+        private set
+
     override fun observeListSummaries(): Flow<List<FluxListSummary>> =
         rows.map { all ->
             all.filter { !it.deleted }.map { FluxListSummary(it.list, 0, 0) }
@@ -30,12 +51,16 @@ class FakeListRepository : ListRepository {
         rows.map { all -> all.firstOrNull { it.list.id == listId && !it.deleted }?.list }
 
     override suspend fun createList(name: String, icon: ListIcon, color: ListColor): String {
+        createListCallCount++
+        failCreateList?.let { throw it }
         val id = "list-${counter++}"
         rows.value += Row(FluxList(id, name, icon, color, counter.toDouble(), 0, 0))
         return id
     }
 
     override suspend fun updateList(listId: String, name: String, icon: ListIcon, color: ListColor) {
+        updateListCallCount++
+        failUpdateList?.let { throw it }
         rows.value = rows.value.map {
             if (it.list.id == listId) it.copy(list = it.list.copy(name = name, icon = icon, color = color))
             else it
@@ -43,10 +68,14 @@ class FakeListRepository : ListRepository {
     }
 
     override suspend fun softDeleteList(listId: String) {
+        softDeleteListCallCount++
+        failSoftDeleteList?.let { throw it }
         rows.value = rows.value.map { if (it.list.id == listId) it.copy(deleted = true) else it }
     }
 
     override suspend fun restoreList(listId: String) {
+        restoreListCallCount++
+        failRestoreList?.let { throw it }
         rows.value = rows.value.map { if (it.list.id == listId) it.copy(deleted = false) else it }
     }
 

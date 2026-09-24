@@ -3,9 +3,11 @@ package com.fluxit
 import com.fluxit.data.DebugSeeder
 import com.fluxit.data.PhotoContent
 import com.fluxit.data.PhotoRejected
+import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.feature.createlist.CreateListViewModel
+import com.fluxit.feature.dashboard.DashboardOperation
 import com.fluxit.feature.dashboard.DashboardViewModel
 import com.fluxit.feature.itemdetail.ItemDetailViewModel
 import com.fluxit.feature.itemdetail.PhotoOperationKind
@@ -95,6 +97,104 @@ class DashboardViewModelTest {
         dispatcher.scheduler.advanceTimeBy(5_100)
         dispatcher.scheduler.runCurrent()
         assertEquals(null, vm.undoListId.value)
+    }
+
+    // --- FB-402: try/finally flag resets, retryable errors, duplicate-submit guards ---
+
+    @Test
+    fun deleteListFailureResetsPendingFlagAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
+        val id = lists.createList("Supermarket", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        lists.failSoftDeleteList = IllegalStateException("boom")
+        vm.deleteList(id)
+        // `runCurrent()`, not `advanceUntilIdle()`: the failure path never suspends on `delay`,
+        // and using `advanceUntilIdle()` here would also fast-forward past the 5s undo window
+        // started by any *later* successful delete before this test gets to observe it.
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue(vm.uiState.value.lists.isNotEmpty(), "a failed delete must not remove the list from the UI")
+        assertTrue(vm.uiState.value.pendingListIds.isEmpty(), "the in-flight flag must reset on failure (finally)")
+        assertNull(vm.undoListId.value, "a failed delete must never show an undo affordance")
+        val error = assertNotNull(vm.uiState.value.operationError)
+        assertEquals(DashboardOperation.DELETE_LIST, error.operation)
+        assertTrue(error.error.canRetry)
+        assertEquals(RepositoryErrorCode.UNKNOWN, error.error.code)
+
+        lists.failSoftDeleteList = null
+        vm.retryFailedOperation()
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue(vm.uiState.value.lists.isEmpty(), "the retried delete must succeed")
+        assertNull(vm.uiState.value.operationError)
+        assertNotNull(vm.undoListId.value, "the retried delete must start the undo window like any other successful delete")
+        collectJob.cancel()
+    }
+
+    @Test
+    fun duplicateDeleteCallsWhileInFlightDoNotTriggerASecondSoftDelete() = runTest(dispatcher) {
+        val id = lists.createList("Supermarket", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+
+        vm.deleteList(id) // synchronously marks the list id pending before any suspension point
+        vm.deleteList(id) // must be a no-op: a delete for this same id is already in flight
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, lists.softDeleteListCallCount)
+    }
+
+    @Test
+    fun undoDeleteFailureSurfacesARetryableRestoreErrorThenRetrySucceeds() = runTest(dispatcher) {
+        val id = lists.createList("Supermarket", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        vm.deleteList(id)
+        // `runCurrent()`: keep the 5s undo window alive so `undoDelete()` below actually has a
+        // pending id to act on, instead of `advanceUntilIdle()` fast-forwarding past it first.
+        dispatcher.scheduler.runCurrent()
+
+        lists.failRestoreList = IllegalStateException("boom")
+        vm.undoDelete()
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue(vm.uiState.value.lists.isEmpty(), "a failed restore must leave the list deleted")
+        assertTrue(vm.uiState.value.pendingListIds.isEmpty(), "the in-flight flag must reset on failure (finally)")
+        val error = assertNotNull(vm.uiState.value.operationError)
+        assertEquals(DashboardOperation.RESTORE_LIST, error.operation)
+        assertTrue(error.error.canRetry)
+
+        lists.failRestoreList = null
+        vm.retryFailedOperation()
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(1, vm.uiState.value.lists.size, "the retried restore must succeed")
+        assertNull(vm.uiState.value.operationError)
+        collectJob.cancel()
+    }
+
+    /** The same duplicate-submit guard must also protect a retry: two rapid-fire
+     * [DashboardViewModel.retryFailedOperation] calls for the same failed delete must not
+     * re-drive [FakeListRepository.softDeleteList] twice. */
+    @Test
+    fun duplicateRetryCallsWhileInFlightDoNotTriggerASecondSoftDelete() = runTest(dispatcher) {
+        val id = lists.createList("Supermarket", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        lists.failSoftDeleteList = IllegalStateException("boom")
+        vm.deleteList(id)
+        dispatcher.scheduler.runCurrent()
+        assertNotNull(vm.uiState.value.operationError)
+        assertEquals(1, lists.softDeleteListCallCount)
+
+        lists.failSoftDeleteList = null
+        vm.retryFailedOperation() // synchronously marks the list id pending before any suspension point
+        vm.retryFailedOperation() // must be a no-op: a retry for this same id is already in flight
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(2, lists.softDeleteListCallCount, "exactly one retry attempt must have gone through")
+        collectJob.cancel()
     }
 }
 
@@ -245,6 +345,69 @@ class CreateListViewModelTest {
         assertFalse(vm.uiState.value.isDirty)
         vm.onNameChange("Trip to Japan")
         assertTrue(vm.uiState.value.isDirty)
+    }
+
+    // --- FB-402: try/finally flag reset, retryable error, duplicate-submit guard ---
+
+    @Test
+    fun saveFailureResetsIsSavingAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
+        val vm = CreateListViewModel(null, lists)
+        vm.onNameChange("Trip")
+
+        lists.failCreateList = IllegalStateException("boom")
+        vm.save()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isSaving, "isSaving must reset on failure (finally), not stay stuck true")
+        assertNull(vm.uiState.value.savedListId)
+        val error = assertNotNull(vm.uiState.value.error)
+        assertTrue(error.canRetry)
+        assertEquals(RepositoryErrorCode.UNKNOWN, error.code)
+
+        lists.failCreateList = null
+        vm.retrySave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isSaving)
+        assertNull(vm.uiState.value.error)
+        assertNotNull(vm.uiState.value.savedListId, "the retried save must succeed")
+    }
+
+    @Test
+    fun saveFailureInEditModeResetsIsSavingAndSurfacesARetryableError() = runTest(dispatcher) {
+        val id = lists.createList("Trip", ListIcon.TRAVEL, ListColor.SKY)
+        val vm = CreateListViewModel(id, lists)
+        dispatcher.scheduler.advanceUntilIdle()
+        vm.onNameChange("Trip to Japan")
+
+        lists.failUpdateList = IllegalStateException("boom")
+        vm.save()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isSaving)
+        assertNull(vm.uiState.value.savedListId)
+        assertNotNull(vm.uiState.value.error)
+        assertEquals("Trip", lists.observeList(id).first()?.name, "a failed update must not change the stored list")
+
+        lists.failUpdateList = null
+        vm.retrySave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(vm.uiState.value.error)
+        assertEquals("", vm.uiState.value.savedListId)
+        assertEquals("Trip to Japan", lists.observeList(id).first()?.name)
+    }
+
+    @Test
+    fun duplicateSaveCallsWhileInFlightDoNotTriggerASecondCreate() = runTest(dispatcher) {
+        val vm = CreateListViewModel(null, lists)
+        vm.onNameChange("Trip")
+
+        vm.save() // synchronously marks isSaving = true before any suspension point
+        vm.save() // must be a no-op: a save is already in flight
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, lists.createListCallCount)
     }
 }
 
