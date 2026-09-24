@@ -261,3 +261,21 @@ fun BackendErrorCode.toRepositoryError(): RepositoryErrorCode = when (this) {
     BackendErrorCode.RESOURCE_EXHAUSTED -> RepositoryErrorCode.QUOTA
     BackendErrorCode.UNKNOWN -> RepositoryErrorCode.UNKNOWN
 }
+
+/**
+ * `FB-401`: maps a [ContractErrorCode] - a Firestore *document-shape* parsing failure
+ * ([FirebaseDocumentMapper]'s "serialization" category, distinct from a [BackendErrorCode]
+ * SDK/transport failure) - onto the same neutral [RepositoryErrorCode] taxonomy backend
+ * errors already funnel through. All four variants collapse to
+ * [RepositoryErrorCode.INVALID_DATA]: from the caller's perspective a
+ * [ContractResult.Malformed] document is indistinguishable from the server having accepted
+ * data this client cannot make sense of - a missing field, a wrong-typed field, an
+ * out-of-range value, and a cross-document reference mismatch ([ContractErrorCode.PATH_MISMATCH])
+ * are all "this specific document cannot be used as-is", not something a bare retry fixes and
+ * not a session/permission problem - exactly [RepositoryErrorCode.INVALID_DATA]'s existing
+ * `canRetry = false` semantics (see [toApplicationError]).
+ */
+fun ContractErrorCode.toRepositoryError(): RepositoryErrorCode = RepositoryErrorCode.INVALID_DATA
+
+/** Maps a [ContractError] (the payload of [ContractResult.Malformed]) to FB-201's neutral [ApplicationError]. */
+fun ContractError.toApplicationError(): ApplicationError = code.toRepositoryError().toApplicationError()

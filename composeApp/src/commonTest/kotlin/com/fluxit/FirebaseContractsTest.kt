@@ -3,6 +3,7 @@ package com.fluxit
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.data.remote.BackendErrorCode
+import com.fluxit.data.remote.ContractError
 import com.fluxit.data.remote.ContractErrorCode
 import com.fluxit.data.remote.ContractResult
 import com.fluxit.data.remote.FieldPatch
@@ -197,6 +198,37 @@ class FirebaseContractsTest {
         assertEquals(expected, BackendErrorCode.entries.associateWith { it.toRepositoryError() })
         assertEquals(true, RepositoryErrorCode.OFFLINE.toApplicationError().canRetry)
         assertEquals(true, RepositoryErrorCode.SESSION_REQUIRED.toApplicationError().requiresFreshSession)
+    }
+
+    // --- FB-401: serialization/document-shape failures map onto the same neutral taxonomy ---
+
+    @Test
+    fun everyContractErrorCodeMapsToInvalidDataWithoutThrowing() {
+        val expected = ContractErrorCode.entries.associateWith { RepositoryErrorCode.INVALID_DATA }
+        assertEquals(expected, ContractErrorCode.entries.associateWith { it.toRepositoryError() })
+    }
+
+    @Test
+    fun contractErrorBecomesANonRetryableSessionNeutralApplicationError() {
+        val mapped = ContractError(ContractErrorCode.WRONG_TYPE, FirebaseSchema.Fields.TITLE).toApplicationError()
+
+        assertEquals(RepositoryErrorCode.INVALID_DATA, mapped.code)
+        assertEquals(false, mapped.canRetry)
+        assertEquals(false, mapped.requiresFreshSession)
+    }
+
+    @Test
+    fun aRealMalformedDocumentMapsEndToEndToApplicationError() {
+        // End-to-end: a genuine FirebaseDocumentMapper.item() failure (not a hand-built
+        // ContractError) still funnels through the same mapping.
+        val result = FirebaseDocumentMapper.item(
+            "list-1",
+            itemDocument(fields = validItemFields + (FirebaseSchema.Fields.TITLE to FirebaseValue.Number(4))),
+        )
+
+        val mapped = assertIs<ContractResult.Malformed>(result).error.toApplicationError()
+        assertEquals(RepositoryErrorCode.INVALID_DATA, mapped.code)
+        assertEquals(false, mapped.canRetry)
     }
 
     @Test
