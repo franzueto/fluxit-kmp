@@ -34,7 +34,7 @@ private fun ItemEntity.toDomain() = FluxItem(
     title = title,
     description = description,
     isCompleted = isCompleted,
-    photoPath = photoPath,
+    photoRef = photoRef,
     sortOrder = sortOrder,
     createdAt = createdAt,
     updatedAt = updatedAt,
@@ -119,7 +119,7 @@ class RoomItemRepository(private val db: FluxItDatabase) : ItemRepository {
                 title = title,
                 description = null,
                 isCompleted = false,
-                photoPath = null,
+                photoRef = null,
                 sortOrder = dao.maxSortOrder(listId) + 1.0,
                 createdAt = now,
                 updatedAt = now,
@@ -134,8 +134,8 @@ class RoomItemRepository(private val db: FluxItDatabase) : ItemRepository {
     override suspend fun setCompleted(listId: String, itemId: String, completed: Boolean) =
         dao.setCompleted(listId, itemId, completed, nowMillis())
 
-    override suspend fun setPhotoPath(listId: String, itemId: String, photoPath: String?) =
-        dao.setPhotoPath(listId, itemId, photoPath, nowMillis())
+    override suspend fun setPhotoRef(listId: String, itemId: String, photoRef: String?) =
+        dao.setPhotoRef(listId, itemId, photoRef, nowMillis())
 
     override suspend fun softDeleteItem(listId: String, itemId: String) = dao.setDeletedAt(listId, itemId, nowMillis())
 

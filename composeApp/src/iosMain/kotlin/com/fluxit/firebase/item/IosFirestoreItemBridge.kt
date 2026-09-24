@@ -112,7 +112,7 @@ interface IosFirestoreItemBridge {
 
     /**
      * Applies a field-scoped patch to an existing item document via `updateData(_:)` -
-     * never `setData(_:)`, never touching counters. Backs `updateItem`/`setPhotoPath`,
+     * never `setData(_:)`, never touching counters. Backs `updateItem`/`setPhotoRef`,
      * which - matching `AndroidFirebaseItemRepository`'s and
      * `AndroidFirebaseListRepository`'s bare-`update()` precedent - throw `NOT_FOUND`
      * when the item document does not exist, by Firestore's own default `updateData(_:)`

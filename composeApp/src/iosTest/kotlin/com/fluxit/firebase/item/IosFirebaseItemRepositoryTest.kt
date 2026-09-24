@@ -259,7 +259,7 @@ class IosFirebaseItemRepositoryTest {
         assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)
     }
 
-    // --- updateItem/setPhotoPath: DEC-003d field-scoped patches only, no counters ----------
+    // --- updateItem/setPhotoRef: DEC-003d field-scoped patches only, no counters ----------
 
     @Test
     fun updateItemSendsOnlyTheChangedFieldsNeverCounters() = runTest {
@@ -280,17 +280,17 @@ class IosFirebaseItemRepositoryTest {
     }
 
     @Test
-    fun setPhotoPathTouchesOnlyPhotoRefAndCanClearItToNull() = runTest {
+    fun setPhotoRefTouchesOnlyPhotoRefAndCanClearItToNull() = runTest {
         val bridge = RecordingItemBridge()
         val repository = repositoryFor(bridge)
 
-        repository.setPhotoPath("list-1", "item-1", "users/uid/items/item-1/photo-1")
+        repository.setPhotoRef("list-1", "item-1", "users/uid/items/item-1/photo-1")
         assertEquals(
             FirebaseValue.Text("users/uid/items/item-1/photo-1"),
             bridge.updateCalls.single().fields[FirebaseSchema.Fields.PHOTO_REF],
         )
 
-        repository.setPhotoPath("list-1", "item-1", null)
+        repository.setPhotoRef("list-1", "item-1", null)
         assertEquals(FirebaseValue.Null, bridge.updateCalls.last().fields[FirebaseSchema.Fields.PHOTO_REF])
         assertEquals(setOf(FirebaseSchema.Fields.PHOTO_REF, FirebaseSchema.Fields.UPDATED_AT), bridge.updateCalls.last().fields.keys)
     }

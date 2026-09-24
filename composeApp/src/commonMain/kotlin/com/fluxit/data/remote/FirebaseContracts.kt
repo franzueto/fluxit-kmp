@@ -107,7 +107,7 @@ object FirebaseDocumentMapper {
                 title = title,
                 description = document.optionalText(FirebaseSchema.Fields.DESCRIPTION),
                 isCompleted = completed,
-                photoPath = document.optionalText(FirebaseSchema.Fields.PHOTO_REF),
+                photoRef = document.optionalText(FirebaseSchema.Fields.PHOTO_REF),
                 sortOrder = createdAt.toDouble(),
                 createdAt = createdAt,
                 updatedAt = updatedAt,

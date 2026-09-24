@@ -30,7 +30,7 @@ data class FluxItem(
     val title: String,
     val description: String?,
     val isCompleted: Boolean,
-    val photoPath: String?,
+    val photoRef: String?,
     val sortOrder: Double,
     val createdAt: Long,
     val updatedAt: Long,

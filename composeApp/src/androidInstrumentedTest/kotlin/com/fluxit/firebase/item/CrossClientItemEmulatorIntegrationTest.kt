@@ -136,7 +136,7 @@ class CrossClientItemEmulatorIntegrationTest {
 
     // --- conflict: DEC-003d field-level LWW, counters explicitly exempt ---------------
 
-    /** `updateItem` (title+description) and `setPhotoPath` (photoRef) are disjoint field-scoped patches. */
+    /** `updateItem` (title+description) and `setPhotoRef` (photoRef) are disjoint field-scoped patches. */
     @Test
     fun conflictDifferentFieldEditsFromTwoClientsMergeTitleAndPhotoRef(): Unit = runBlocking {
         val listId = bootstrapList()
@@ -145,7 +145,7 @@ class CrossClientItemEmulatorIntegrationTest {
 
         coroutineScope {
             launch { clientA.updateItem(listId, itemId, "Whole Milk", "2%") }
-            launch { clientB.setPhotoPath(listId, itemId, "users/$uid/items/$itemId/photo-1") }
+            launch { clientB.setPhotoRef(listId, itemId, "users/$uid/items/$itemId/photo-1") }
         }
 
         val raw = itemsCollectionOn(firestoreA, listId).document(itemId).get().awaitResult()

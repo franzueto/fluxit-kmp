@@ -224,7 +224,7 @@ fun ItemDetailScreen(
                     .background(MaterialTheme.colorScheme.surfaceContainer),
                 contentAlignment = Alignment.Center,
             ) {
-                val path = state.photoPath
+                val path = state.photoRef
                 val bitmap = remember(path) { path?.let(::decodeImageFile) }
                 if (bitmap != null) {
                     Image(
@@ -241,7 +241,7 @@ fun ItemDetailScreen(
                     )
                 }
             }
-            if (state.photoPath != null) {
+            if (state.photoRef != null) {
                 Text(
                     stringResource(Res.string.action_remove_photo),
                     style = FluxType.LabelSm,

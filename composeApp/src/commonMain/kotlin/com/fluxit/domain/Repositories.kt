@@ -18,7 +18,7 @@ interface ItemRepository {
     suspend fun addItem(listId: String, title: String)
     suspend fun updateItem(listId: String, itemId: String, title: String, description: String?)
     suspend fun setCompleted(listId: String, itemId: String, completed: Boolean)
-    suspend fun setPhotoPath(listId: String, itemId: String, photoPath: String?)
+    suspend fun setPhotoRef(listId: String, itemId: String, photoRef: String?)
     suspend fun softDeleteItem(listId: String, itemId: String)
     suspend fun restoreItem(listId: String, itemId: String)
     suspend fun deleteItem(listId: String, itemId: String)

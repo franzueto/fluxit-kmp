@@ -156,12 +156,12 @@ object IosFirestoreCrossClientIntegrationCheck {
             // --- conflict: DEC-003d field-level LWW ---------------------------------
             coroutineScope {
                 launch { clientAItems.updateItem(listId, itemId, "Whole Milk", "2%") }
-                launch { clientBItems.setPhotoPath(listId, itemId, "users/$uid/items/$itemId/photo-1") }
+                launch { clientBItems.setPhotoRef(listId, itemId, "users/$uid/items/$itemId/photo-1") }
             }
             val afterMerge = withTimeoutObserveFirst(clientAItems, listId) { items -> items.firstOrNull { it.id == itemId } }
             report.check(
                 "different-field concurrent patches (title+description vs photoRef) merge, neither clobbers the other",
-                afterMerge?.title == "Whole Milk" && afterMerge.description == "2%" && afterMerge.photoPath == "users/$uid/items/$itemId/photo-1",
+                afterMerge?.title == "Whole Milk" && afterMerge.description == "2%" && afterMerge.photoRef == "users/$uid/items/$itemId/photo-1",
                 "item=$afterMerge",
             )
 

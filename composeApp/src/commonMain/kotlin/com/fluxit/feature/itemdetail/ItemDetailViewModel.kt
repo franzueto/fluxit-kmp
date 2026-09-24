@@ -21,7 +21,7 @@ data class ItemDetailUiState(
     val listName: String = "",
     val title: String = "",
     val description: String = "",
-    val photoPath: String? = null,
+    val photoRef: String? = null,
     val isSaving: Boolean = false,
     val isPickingPhoto: Boolean = false,
     val closed: Boolean = false,
@@ -53,7 +53,7 @@ class ItemDetailViewModel(
                 listName = listName,
                 title = item.title,
                 description = item.description ?: "",
-                photoPath = item.photoPath,
+                photoRef = item.photoRef,
             )
         }
     }
@@ -89,11 +89,11 @@ class ItemDetailViewModel(
         viewModelScope.launch {
             try {
                 val bytes = photoPicker.pickPhoto() ?: return@launch
-                val oldPath = _uiState.value.photoPath
+                val oldPath = _uiState.value.photoRef
                 val path = photoStorage.savePhoto(bytes)
-                itemRepository.setPhotoPath(listId, itemId, path)
+                itemRepository.setPhotoRef(listId, itemId, path)
                 if (oldPath != null) photoStorage.deletePhoto(oldPath)
-                _uiState.value = _uiState.value.copy(photoPath = path)
+                _uiState.value = _uiState.value.copy(photoRef = path)
             } finally {
                 _uiState.value = _uiState.value.copy(isPickingPhoto = false)
             }
@@ -101,17 +101,17 @@ class ItemDetailViewModel(
     }
 
     fun removePhoto() {
-        val path = _uiState.value.photoPath ?: return
+        val path = _uiState.value.photoRef ?: return
         viewModelScope.launch {
-            itemRepository.setPhotoPath(listId, itemId, null)
+            itemRepository.setPhotoRef(listId, itemId, null)
             photoStorage.deletePhoto(path)
-            _uiState.value = _uiState.value.copy(photoPath = null)
+            _uiState.value = _uiState.value.copy(photoRef = null)
         }
     }
 
     fun deleteItem() {
         viewModelScope.launch {
-            _uiState.value.photoPath?.let { photoStorage.deletePhoto(it) }
+            _uiState.value.photoRef?.let { photoStorage.deletePhoto(it) }
             itemRepository.deleteItem(listId, itemId)
             _uiState.value = _uiState.value.copy(closed = true)
         }

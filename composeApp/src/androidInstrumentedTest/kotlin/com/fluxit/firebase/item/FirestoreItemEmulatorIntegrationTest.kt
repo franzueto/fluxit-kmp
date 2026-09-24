@@ -201,15 +201,15 @@ class FirestoreItemEmulatorIntegrationTest {
     }
 
     @Test
-    fun setPhotoPathPatchesOnlyThatFieldAndClearsBackToNull(): Unit = runBlocking {
+    fun setPhotoRefPatchesOnlyThatFieldAndClearsBackToNull(): Unit = runBlocking {
         val listId = bootstrapList()
         repository.addItem(listId, "Milk")
         val itemId = waitForItems(listId, 1).single().id
 
-        repository.setPhotoPath(listId, itemId, "users/$uid/items/$itemId/photo-1")
+        repository.setPhotoRef(listId, itemId, "users/$uid/items/$itemId/photo-1")
         assertEquals("users/$uid/items/$itemId/photo-1", itemsCollection(listId).document(itemId).get().awaitResult().getString("photoRef"))
 
-        repository.setPhotoPath(listId, itemId, null)
+        repository.setPhotoRef(listId, itemId, null)
         val raw = itemsCollection(listId).document(itemId).get().awaitResult()
         assertTrue(raw.contains("photoRef"))
         assertNull(raw.get("photoRef"))

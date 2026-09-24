@@ -74,7 +74,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * [deleteItem]): the transaction reads the item first and silently does nothing if it no
  * longer exists, rather than surfacing a `NOT_FOUND` [com.fluxit.data.remote.ApplicationError].
  * This is also what makes retrying any of these calls after a concurrent hard delete safe.
- * [updateItem]/[setPhotoPath] do **not** get this treatment - they are plain field-scoped
+ * [updateItem]/[setPhotoRef] do **not** get this treatment - they are plain field-scoped
  * `update()` calls (no transaction, no counters, DEC-003d), and Firestore's bare
  * `DocumentReference.update()` throws `NOT_FOUND` on a missing document by design. This
  * mirrors [com.fluxit.firebase.list.AndroidFirebaseListRepository]'s `updateList`/
@@ -189,13 +189,13 @@ class AndroidFirebaseItemRepository(
         )
     }
 
-    override suspend fun setPhotoPath(listId: String, itemId: String, photoPath: String?) {
+    override suspend fun setPhotoRef(listId: String, itemId: String, photoRef: String?) {
         applyPatch(
             listId,
             itemId,
             FieldPatch(
                 mapOf(
-                    FirebaseSchema.Fields.PHOTO_REF to (photoPath?.let { FirebaseValue.Text(it) } ?: FirebaseValue.Null),
+                    FirebaseSchema.Fields.PHOTO_REF to (photoRef?.let { FirebaseValue.Text(it) } ?: FirebaseValue.Null),
                     FirebaseSchema.Fields.UPDATED_AT to FirebaseValue.PendingServerTimestamp,
                 )
             ),

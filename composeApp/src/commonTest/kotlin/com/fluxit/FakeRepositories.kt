@@ -74,8 +74,8 @@ class FakeItemRepository : ItemRepository {
         mutate(listId, itemId) { it.copy(isCompleted = completed) }
     }
 
-    override suspend fun setPhotoPath(listId: String, itemId: String, photoPath: String?) {
-        mutate(listId, itemId) { it.copy(photoPath = photoPath) }
+    override suspend fun setPhotoRef(listId: String, itemId: String, photoRef: String?) {
+        mutate(listId, itemId) { it.copy(photoRef = photoRef) }
     }
 
     override suspend fun softDeleteItem(listId: String, itemId: String) {

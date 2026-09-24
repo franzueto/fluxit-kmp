@@ -161,13 +161,13 @@ class IosFirebaseItemRepository internal constructor(
         )
     }
 
-    override suspend fun setPhotoPath(listId: String, itemId: String, photoPath: String?) {
+    override suspend fun setPhotoRef(listId: String, itemId: String, photoRef: String?) {
         applyPatch(
             listId,
             itemId,
             FieldPatch(
                 mapOf(
-                    FirebaseSchema.Fields.PHOTO_REF to (photoPath?.let { FirebaseValue.Text(it) } ?: FirebaseValue.Null),
+                    FirebaseSchema.Fields.PHOTO_REF to (photoRef?.let { FirebaseValue.Text(it) } ?: FirebaseValue.Null),
                     FirebaseSchema.Fields.UPDATED_AT to FirebaseValue.PendingServerTimestamp,
                 )
             ),

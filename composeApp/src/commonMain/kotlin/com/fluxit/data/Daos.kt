@@ -65,8 +65,8 @@ interface ItemDao {
     @Query("UPDATE item_table SET isCompleted = :completed, updatedAt = :updatedAt WHERE listId = :listId AND id = :id")
     suspend fun setCompleted(listId: String, id: String, completed: Boolean, updatedAt: Long)
 
-    @Query("UPDATE item_table SET photoPath = :photoPath, updatedAt = :updatedAt WHERE listId = :listId AND id = :id")
-    suspend fun setPhotoPath(listId: String, id: String, photoPath: String?, updatedAt: Long)
+    @Query("UPDATE item_table SET photoPath = :photoRef, updatedAt = :updatedAt WHERE listId = :listId AND id = :id")
+    suspend fun setPhotoRef(listId: String, id: String, photoRef: String?, updatedAt: Long)
 
     @Query("UPDATE item_table SET deletedAt = :deletedAt WHERE listId = :listId AND id = :id")
     suspend fun setDeletedAt(listId: String, id: String, deletedAt: Long?)

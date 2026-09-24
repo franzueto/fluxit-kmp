@@ -36,7 +36,11 @@ data class ItemEntity(
     val title: String,
     val description: String?,
     val isCompleted: Boolean,
-    val photoPath: String?,
+    // Kotlin-side name follows the domain rename (FB-301: photoPath -> photoRef); the on-disk
+    // column name is pinned to avoid a Room schema-version bump/migration for this legacy,
+    // soon-to-be-removed local persistence layer (Room bindings are already behind a dev flag
+    // per FB-207 and are being replaced by Firebase repositories).
+    @ColumnInfo(name = "photoPath") val photoRef: String?,
     val sortOrder: Double,
     val createdAt: Long,
     val updatedAt: Long,
