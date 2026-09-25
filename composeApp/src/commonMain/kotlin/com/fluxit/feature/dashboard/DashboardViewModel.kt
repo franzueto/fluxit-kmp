@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -151,6 +152,45 @@ class DashboardViewModel(
                 ScreenLoadState.Loaded(snapshot.value, snapshot.isFromCache, snapshot.hasPendingWrites)
             }
         }
+            /**
+             * `FB-408`: `observeListSummariesSnapshot()`'s `callbackFlow` calls
+             * `close(exception)` on a terminal listener error (e.g. a real `PERMISSION_DENIED`
+             * once the backing auth token is invalidated - sign-out, a revoked/expired token, or
+             * a stale persisted session found invalid on cold launch). Per `callbackFlow`'s
+             * contract that exception would otherwise rethrow uncaught through
+             * [androidx.lifecycle.viewModelScope]'s `Dispatchers.Main.immediate` and crash the
+             * app process instead of surfacing a recoverable state - `FB-405`'s headline finding
+             * (reproduced live 4x on iOS, once via a test-harness artifact on Android).
+             * [kotlinx.coroutines.flow.Flow.catch] never intercepts `CancellationException` (it
+             * is always rethrown unchanged, per its own contract), so ordinary
+             * ViewModel-cleared/collector-cancelled cases are unaffected by this handler.
+             *
+             * **Judgment call, disclosed (not decided silently):** mapped to the existing
+             * [ScreenLoadState.FatalSession] case rather than a new sealed case. This app's data
+             * model scopes every collection strictly under `users/{uid}/...`
+             * (`com.fluxit.data.remote.FirebaseSchema`) and the deployed Firestore Rules deny
+             * access exactly when the request's auth uid stops matching that path's uid - so a
+             * terminal listener error on this collection is, in this app's shape, always
+             * functionally a session-validity problem, never a per-document access change a
+             * still-genuinely-authenticated user could recover from by simply retrying the same
+             * read. Reusing [ScreenLoadState.FatalSession] also keeps this the smallest complete
+             * fix: no new UI state/copy is required, and it composes with the pre-existing
+             * `authRepository.session`-driven fatal-session branch above with identical
+             * semantics from the UI's perspective (empty, non-loading, defense-in-depth
+             * rendering - see [ScreenLoadState]'s KDoc - until `SessionGate`'s own, separate
+             * `authRepository.session` observation independently reacts and tears the screen
+             * down). The one caveat, disclosed rather than silently accepted: if the backing
+             * auth token is invalid enough to trip a Firestore listener but
+             * `authRepository.session` itself has not (yet, or ever) independently reflected
+             * that invalidity, this screen can remain in `FatalSession` with no further listener
+             * re-attempt, relying on the user manually navigating away/back, backgrounding, or a
+             * fresh app launch to recover - the same accepted bound this case already carried
+             * before this task for its original (session-driven) trigger.
+             */
+            .catch { _ ->
+                SessionTrace.event("user-scoped list listener TERMINATED (mapped to FatalSession, FB-408)")
+                emit(ScreenLoadState.FatalSession)
+            }
 
     val uiState: StateFlow<DashboardUiState> =
         combine(

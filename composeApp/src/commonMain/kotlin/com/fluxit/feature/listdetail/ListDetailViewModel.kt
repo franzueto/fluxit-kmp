@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -155,6 +156,17 @@ class ListDetailViewModel(
             ScreenLoadState.Loaded(snapshot.value, snapshot.isFromCache, snapshot.hasPendingWrites)
         }
     }
+        /**
+         * `FB-408`: identical defect and fix as `DashboardViewModel.listLoadState`'s
+         * identically-purposed `.catch` - see that KDoc for the full rationale, including the
+         * disclosed judgment call to reuse [ScreenLoadState.FatalSession] rather than a new
+         * sealed case. `itemRepository.observeItemsSnapshot(listId)`'s `callbackFlow` calls
+         * `close(exception)` on a terminal listener error the same way
+         * `observeListSummariesSnapshot()` does; the `FB-405` reviewer independently found this
+         * identical unguarded shape here (the original `FB-405` developer report only covered
+         * `DashboardViewModel`).
+         */
+        .catch { _ -> emit(ScreenLoadState.FatalSession) }
 
     val uiState: StateFlow<ListDetailUiState> = combine(
         listRepository.observeList(listId),

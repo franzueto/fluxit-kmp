@@ -226,6 +226,27 @@ enum FirebaseBootstrap {
         }
     }
 
+    /// `FB-408` evidence hook: live pre-fix/post-fix reproduction of `FB-405`'s headline
+    /// finding (a terminal Firestore listener error crashing the app process). Guarded the
+    /// same way: `-FluxItDashboardListenerCrashSelfCheck` on the launch arguments, plus the
+    /// Kotlin check's own emulator-enabled refusal. See
+    /// `IosDashboardListenerCrashSelfCheck`'s KDoc for why this check's own try/catch here
+    /// cannot mask the crash it exists to reproduce - that crash happens on a separate,
+    /// unstructured `viewModelScope` coroutine, not on this `Task`'s own call stack.
+    static func runDashboardListenerCrashSelfCheckIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-FluxItDashboardListenerCrashSelfCheck") else { return }
+
+        Task {
+            do {
+                let report = try await IosDashboardListenerCrashSelfCheck.shared.run()
+                print(report)
+            } catch {
+                print("FB-408 iOS listener-crash self-check: THREW \(error)")
+                print("FB-408 END")
+            }
+        }
+    }
+
     private static func connectToEmulators() {
         // Passed through verbatim: the iOS simulator shares the host network stack,
         // so no Android-style 10.0.2.2 loopback translation applies here.
@@ -274,6 +295,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseBootstrap.runPhotoStorageInterruptedReplaceCheckIfRequested()
         FirebaseBootstrap.runPhotoStorageCrossDevicePublishIfRequested()
         FirebaseBootstrap.runPhotoStorageCrossDeviceSubscribeIfRequested()
+        FirebaseBootstrap.runDashboardListenerCrashSelfCheckIfRequested()
         return true
     }
 }

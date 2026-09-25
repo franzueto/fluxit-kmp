@@ -31,6 +31,18 @@ package com.fluxit.domain
  * rendering - it exists so a `combine`d `uiState` never briefly keeps showing stale list/item
  * data during that teardown window, not because the gate itself is expected to fail to
  * react.
+ *
+ * **`FB-408` widened trigger, disclosed judgment call:** every ViewModel-side consumer
+ * ([com.fluxit.feature.dashboard.DashboardViewModel], [com.fluxit.feature.listdetail.ListDetailViewModel],
+ * [com.fluxit.feature.itemdetail.ItemDetailViewModel]) now also reports [FatalSession] when its
+ * repository observation itself terminates with an error (a `callbackFlow` closed via
+ * `close(exception)` on a real Firestore listener failure, e.g. `PERMISSION_DENIED` once the
+ * backing auth token is invalidated), not only when [com.fluxit.domain.auth.AuthRepository.session]
+ * itself reports a non-`Authenticated` value. Reused rather than split into a new sealed case
+ * because, in this app's `users/{uid}/...`-scoped data model, a terminal listener error is in
+ * practice always a session-validity problem - see the `.catch`/`try`-`catch` call sites'
+ * own KDoc for the full rationale and the one disclosed caveat (this case can now be reached
+ * without [com.fluxit.domain.auth.AuthRepository.session] itself having caught up yet).
  */
 sealed interface ScreenLoadState<out T> {
 

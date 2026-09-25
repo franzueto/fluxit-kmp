@@ -182,6 +182,24 @@ class ItemDetailViewModel(
      * is left `true` (its default) on every path until this block reaches a terminal outcome -
      * fatal session, not-found, or a populated item - so a caller can never observe a state that
      * is neither loading nor resolved.
+     *
+     * `FB-408`: `itemRepository.observeItem(listId, itemId).first()`/
+     * `listRepository.observeList(item.listId).first()` below collect a `callbackFlow`-backed
+     * repository observation exactly like `DashboardViewModel`/`ListDetailViewModel`'s
+     * `combine(...).stateIn(...)` chains, and are equally subject to `FB-405`'s headline
+     * finding: a terminal listener error (`close(exception)`) rethrows uncaught through
+     * `viewModelScope` and crashes the app process, rather than through `Flow.catch` (that
+     * operator does not apply here since these are one-shot `.first()` suspend calls, not a
+     * continuously-collected `stateIn` flow) - so the fix is a plain `try`/`catch` around the
+     * whole post-session-check load, mirroring this same file's [save]/[performReplace]/
+     * [deleteItem] try/catch shape rather than inventing a new pattern. The `FB-405` reviewer
+     * flagged this ViewModel as worth re-auditing but had not confirmed either way; this
+     * re-audit (`FB-408`) confirms the same defect *was* present here, in this different but
+     * equally uncaught-listener-error shape, and fixes it. Mapped to the pre-existing
+     * [ItemDetailUiState.isFatalSession] flag for the same reasons `DashboardViewModel`'s
+     * `.catch` KDoc discloses for [ScreenLoadState.FatalSession] - this screen's own
+     * [ItemDetailUiState.isFatalSession] already exists for exactly this "session/access is not
+     * currently viable" presentation, so no new field is introduced.
      */
     init {
         viewModelScope.launch {
@@ -190,24 +208,30 @@ class ItemDetailViewModel(
                 _uiState.value = _uiState.value.copy(isLoading = false, isFatalSession = true)
                 return@launch
             }
-            val item = itemRepository.observeItem(listId, itemId).first()
-            if (item == null) {
-                _uiState.value = _uiState.value.copy(isLoading = false, notFound = true)
-                return@launch
-            }
-            val listName = listRepository.observeList(item.listId).first()?.name ?: ""
-            _uiState.value = ItemDetailUiState(
-                isLoading = false,
-                item = item,
-                listName = listName,
-                title = item.title,
-                description = item.description ?: "",
-                photoRef = item.photoRef,
-            )
-            val ref = item.photoRef
-            if (ref != null) {
-                val preview = runCatching { photoStorage.loadPhoto(ref) }.getOrNull()
-                _uiState.value = _uiState.value.copy(photoPreview = preview)
+            try {
+                val item = itemRepository.observeItem(listId, itemId).first()
+                if (item == null) {
+                    _uiState.value = _uiState.value.copy(isLoading = false, notFound = true)
+                    return@launch
+                }
+                val listName = listRepository.observeList(item.listId).first()?.name ?: ""
+                _uiState.value = ItemDetailUiState(
+                    isLoading = false,
+                    item = item,
+                    listName = listName,
+                    title = item.title,
+                    description = item.description ?: "",
+                    photoRef = item.photoRef,
+                )
+                val ref = item.photoRef
+                if (ref != null) {
+                    val preview = runCatching { photoStorage.loadPhoto(ref) }.getOrNull()
+                    _uiState.value = _uiState.value.copy(photoPreview = preview)
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Throwable) {
+                _uiState.value = _uiState.value.copy(isLoading = false, isFatalSession = true)
             }
         }
     }

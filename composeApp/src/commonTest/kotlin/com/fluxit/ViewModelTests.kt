@@ -301,6 +301,55 @@ class DashboardViewModelTest {
         assertIs<ScreenLoadState.FatalSession>(state.loadState)
         collectJob.cancel()
     }
+
+    // --- FB-408: a terminal listener error must never crash - it must map to FatalSession ---
+
+    /**
+     * `FB-408`: reproduces `FB-405`'s headline finding at the ViewModel layer - before this
+     * task's fix, `listLoadState`'s `combine(...)` had no `.catch`, so
+     * [FakeListRepository.observeListSummariesSnapshot]'s `callbackFlow` closing with an
+     * exception (exactly `AndroidFirebaseListRepository`/`IosFirebaseListRepository`'s real
+     * `close(exception)` on a terminal Firestore listener error, e.g. `PERMISSION_DENIED` once
+     * the backing auth token is invalidated) would rethrow uncaught through `viewModelScope`'s
+     * `Dispatchers.Main.immediate` and fail this coroutine test with that exact exception
+     * instead of ever reaching `uiState` - a real (JVM-level) reproduction of the crash
+     * mechanism, not merely an assertion that it should be caught. With the fix, the same
+     * trigger now surfaces as a recoverable [ScreenLoadState.FatalSession] and the collector
+     * coroutine survives.
+     */
+    @Test
+    fun terminalListenerErrorSurfacesFatalSessionInsteadOfCrashing() = runTest(dispatcher) {
+        lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.value.isFatalSession, "must start Loaded, not fatal, before the listener errors")
+
+        lists.failListenerWith(IllegalStateException("PERMISSION_DENIED (fake terminal listener error)"))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.isFatalSession, "a terminal listener error must surface as FatalSession, not crash")
+        assertIs<ScreenLoadState.FatalSession>(state.loadState)
+        assertTrue(collectJob.isActive, "the uiState collector coroutine must survive the listener error")
+        collectJob.cancel()
+    }
+
+    /** `FB-408`: a terminal listener error observed *before* the very first emission (the
+     * stale-persisted-session-at-cold-launch trigger `FB-405` documented on iOS) must resolve
+     * straight to [ScreenLoadState.FatalSession], never leave `isLoading` stuck `true` forever. */
+    @Test
+    fun terminalListenerErrorBeforeFirstEmissionResolvesToFatalSessionNotStuckLoading() = runTest(dispatcher) {
+        lists.failListenerWith(IllegalStateException("PERMISSION_DENIED (fake terminal listener error)"))
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isLoading, "must resolve, not stay stuck Loading forever")
+        assertTrue(state.isFatalSession)
+        collectJob.cancel()
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -696,6 +745,31 @@ class ListDetailViewModelTest {
         val state = vm.uiState.value
         assertTrue(state.isFatalSession)
         assertIs<ScreenLoadState.FatalSession>(state.itemsLoadState)
+        collectJob.cancel()
+    }
+
+    // --- FB-408: a terminal listener error must never crash - it must map to FatalSession ---
+
+    /** `FB-408`: exact counterpart of `DashboardViewModelTest`'s identically-named test - the
+     * `FB-405` reviewer independently found this ViewModel had the same unguarded shape
+     * (the original `FB-405` developer report only covered `DashboardViewModel`). See that
+     * test's KDoc for the full rationale. */
+    @Test
+    fun terminalListenerErrorSurfacesFatalSessionInsteadOfCrashing() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.value.isFatalSession, "must start Loaded, not fatal, before the listener errors")
+
+        items.failListenerWith(IllegalStateException("PERMISSION_DENIED (fake terminal listener error)"))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.isFatalSession, "a terminal listener error must surface as FatalSession, not crash")
+        assertIs<ScreenLoadState.FatalSession>(state.itemsLoadState)
+        assertTrue(collectJob.isActive, "the uiState collector coroutine must survive the listener error")
         collectJob.cancel()
     }
 }
@@ -1406,6 +1480,38 @@ class ItemDetailViewModelTest {
         val state = vm.uiState.value
         assertFalse(state.isLoading)
         assertTrue(state.isFatalSession)
+        assertFalse(state.notFound)
+        assertNull(state.item)
+    }
+
+    // --- FB-408: a terminal listener error during the initial load must never crash ---
+
+    /**
+     * `FB-408` re-audit finding: unlike `DashboardViewModel`/`ListDetailViewModel`, this
+     * ViewModel has no `combine(...).stateIn(...)` chain - its `init` block does a one-shot
+     * `itemRepository.observeItem(listId, itemId).first()` instead. But the same root cause
+     * applies: before this task's fix, that `.first()` call had no `try`/`catch` around it, so
+     * [FakeItemRepository.observeItem]'s `callbackFlow` closing with an exception (exactly
+     * `AndroidFirebaseItemRepository`/`IosFirebaseItemRepository`'s real `close(exception)` on
+     * a terminal Firestore listener error) would rethrow uncaught through `viewModelScope`'s
+     * `Dispatchers.Main.immediate` and fail this coroutine test with that exact exception
+     * instead of ever reaching `uiState` - confirming the `FB-405` reviewer's flagged-but-
+     * unconfirmed concern was a real, present defect here too. With the fix, the same trigger
+     * now surfaces as a recoverable `isFatalSession` state and the `init` coroutine survives.
+     */
+    @Test
+    fun terminalListenerErrorDuringInitialLoadSurfacesFatalSessionInsteadOfCrashing() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        itemId = items.observeItems(listId).first().first().id
+        items.failListenerWith(IllegalStateException("PERMISSION_DENIED (fake terminal listener error)"))
+
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isLoading, "must resolve, not stay stuck Loading forever")
+        assertTrue(state.isFatalSession, "a terminal listener error must surface as FatalSession, not crash")
         assertFalse(state.notFound)
         assertNull(state.item)
     }

@@ -12,9 +12,12 @@ import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.domain.ListRepository
 import com.fluxit.domain.RepositorySnapshot
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 class FakeListRepository : ListRepository {
     data class Row(val list: FluxList, val deleted: Boolean = false)
@@ -53,13 +56,44 @@ class FakeListRepository : ListRepository {
     var isFromCache: Boolean = false
     var hasPendingWrites: Boolean = false
 
+    /**
+     * `FB-408`: settable terminal-listener-error trigger, mirroring the real `callbackFlow`'s
+     * `close(exception)` contract that `AndroidFirebaseListRepository`/`IosFirebaseListRepository`
+     * exercise on a genuine Firestore listener failure (`observeListSummariesSnapshot()` - see
+     * those classes' KDoc). Unlike the `fail*` fields above (which fail a single `suspend`
+     * call), this is a *flow itself* terminating with an exception rather than ever emitting
+     * again - exactly the shape `DashboardViewModel.listLoadState`'s `.catch` (`FB-408`) exists
+     * to guard against. `null` (the default) means the listener behaves normally.
+     */
+    var listenerFailure: Throwable? = null
+    private val listenerFailureSignal = MutableStateFlow<Throwable?>(null)
+
+    /** `FB-408`: sets [listenerFailure] and pushes it to any live [observeListSummariesSnapshot]
+     * collector immediately, without requiring a new [rows] emission - reproduces a listener
+     * that errors with no prior successful emission at all (the stale-persisted-session-at-
+     * cold-launch trigger `FB-405` documented). */
+    fun failListenerWith(throwable: Throwable) {
+        listenerFailure = throwable
+        listenerFailureSignal.value = throwable
+    }
+
     override fun observeListSummaries(): Flow<List<FluxListSummary>> =
         rows.map { all ->
             all.filter { !it.deleted }.map { FluxListSummary(it.list, 0, 0) }
         }
 
-    override fun observeListSummariesSnapshot(): Flow<RepositorySnapshot<List<FluxListSummary>>> =
-        observeListSummaries().map { RepositorySnapshot(it, isFromCache, hasPendingWrites) }
+    override fun observeListSummariesSnapshot(): Flow<RepositorySnapshot<List<FluxListSummary>>> = callbackFlow {
+        val failureJob = launch {
+            listenerFailureSignal.collect { failure -> if (failure != null) close(failure) }
+        }
+        val dataJob = launch {
+            observeListSummaries().collect { data -> trySend(RepositorySnapshot(data, isFromCache, hasPendingWrites)) }
+        }
+        awaitClose {
+            failureJob.cancel()
+            dataJob.cancel()
+        }
+    }
 
     override fun observeList(listId: String): Flow<FluxList?> =
         rows.map { all -> all.firstOrNull { it.list.id == listId && !it.deleted }?.list }
@@ -146,14 +180,48 @@ class FakeItemRepository : ItemRepository {
     var isFromCache: Boolean = false
     var hasPendingWrites: Boolean = false
 
+    /** `FB-408`: see [FakeListRepository.listenerFailure]/[FakeListRepository.failListenerWith]'s
+     * identically-purposed KDoc - same mechanism, applied to [observeItemsSnapshot] and
+     * [observeItem] (the latter is [com.fluxit.feature.itemdetail.ItemDetailViewModel]'s
+     * one-shot `.first()` repository observation, the other confirmed-present `FB-408` shape). */
+    var listenerFailure: Throwable? = null
+    private val listenerFailureSignal = MutableStateFlow<Throwable?>(null)
+
+    fun failListenerWith(throwable: Throwable) {
+        listenerFailure = throwable
+        listenerFailureSignal.value = throwable
+    }
+
     override fun observeItems(listId: String): Flow<List<FluxItem>> =
         rows.map { all -> all.filter { it.item.listId == listId && !it.deleted }.map { it.item } }
 
-    override fun observeItemsSnapshot(listId: String): Flow<RepositorySnapshot<List<FluxItem>>> =
-        observeItems(listId).map { RepositorySnapshot(it, isFromCache, hasPendingWrites) }
+    override fun observeItemsSnapshot(listId: String): Flow<RepositorySnapshot<List<FluxItem>>> = callbackFlow {
+        val failureJob = launch {
+            listenerFailureSignal.collect { failure -> if (failure != null) close(failure) }
+        }
+        val dataJob = launch {
+            observeItems(listId).collect { data -> trySend(RepositorySnapshot(data, isFromCache, hasPendingWrites)) }
+        }
+        awaitClose {
+            failureJob.cancel()
+            dataJob.cancel()
+        }
+    }
 
-    override fun observeItem(listId: String, itemId: String): Flow<FluxItem?> =
-        rows.map { all -> all.firstOrNull { it.item.listId == listId && it.item.id == itemId && !it.deleted }?.item }
+    override fun observeItem(listId: String, itemId: String): Flow<FluxItem?> = callbackFlow {
+        val failureJob = launch {
+            listenerFailureSignal.collect { failure -> if (failure != null) close(failure) }
+        }
+        val dataJob = launch {
+            rows.collect { all ->
+                trySend(all.firstOrNull { it.item.listId == listId && it.item.id == itemId && !it.deleted }?.item)
+            }
+        }
+        awaitClose {
+            failureJob.cancel()
+            dataJob.cancel()
+        }
+    }
 
     override suspend fun addItem(listId: String, title: String) {
         addItemCallCount++
