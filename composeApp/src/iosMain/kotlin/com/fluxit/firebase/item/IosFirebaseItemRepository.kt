@@ -10,6 +10,7 @@ import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.ItemRepository
+import com.fluxit.domain.RepositorySnapshot
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.IosAuthBridgeCurrentUidProvider
 import com.fluxit.firebase.list.toListRepositoryException
@@ -93,6 +94,31 @@ class IosFirebaseItemRepository internal constructor(
                     .mapNotNull { dto -> (FirebaseDocumentMapper.item(listId, dto) as? ContractResult.Value)?.value }
                     .sortedWith(FirebaseDocumentMapper.itemOrdering)
                 trySend(items)
+            },
+            onError = { error -> close(error.toListRepositoryException()) },
+        )
+        awaitClose { handle.remove() }
+    }
+
+    /**
+     * `FB-407`: real `isFromCache`/`hasPendingWrites` from the Swift-side
+     * `includeMetadataChanges: true` listener behind
+     * [IosFirestoreItemBridge.observeItemsSnapshot] - see
+     * [com.fluxit.firebase.list.IosFirestoreListBridge.observeListSummariesSnapshot]'s
+     * KDoc for why this is a separate registration from [observeItems].
+     */
+    override fun observeItemsSnapshot(listId: String): Flow<RepositorySnapshot<List<FluxItem>>> = callbackFlow {
+        val uid = currentUid.currentUid()
+        val handle = bridgeProvider().observeItemsSnapshot(
+            uid = uid,
+            listId = listId,
+            onSnapshot = { snapshot ->
+                val now = nowMillis()
+                val items = snapshot.documents
+                    .map { it.toDto(now) }
+                    .mapNotNull { dto -> (FirebaseDocumentMapper.item(listId, dto) as? ContractResult.Value)?.value }
+                    .sortedWith(FirebaseDocumentMapper.itemOrdering)
+                trySend(RepositorySnapshot(items, snapshot.isFromCache, snapshot.hasPendingWrites))
             },
             onError = { error -> close(error.toListRepositoryException()) },
         )

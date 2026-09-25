@@ -215,6 +215,74 @@ class IosFirebaseItemRepositoryTest {
         job.cancelAndJoin()
     }
 
+    // --- FB-407: observeItemsSnapshot - real isFromCache/hasPendingWrites --------------
+    //
+    // Same rationale as IosFirebaseListRepositoryTest's parallel block: proves
+    // IosFirebaseItemRepository.observeItemsSnapshot correctly maps whatever
+    // IosFirestoreItemSnapshot the bridge hands it into RepositorySnapshot, on its own
+    // listener registration, independent of observeItems. Does NOT prove the real Swift
+    // FirebaseItemBridge.observeItemsSnapshot receives real metadata from a live SDK -
+    // that is the emulator-backed integration check's job.
+
+    @Test
+    fun observeItemsSnapshotRegistersItsOwnListenerIndependentOfObserveItems() = runTest {
+        val bridge = RecordingItemBridge()
+        val repository = repositoryFor(bridge)
+
+        val job = collect(repository.observeItemsSnapshot("list-1"), mutableListOf())
+
+        assertEquals(1, bridge.itemsSnapshotAddCount)
+        assertTrue(bridge.hasLiveItemsSnapshotListener)
+        assertEquals(0, bridge.itemsAddCount, "must not also register the plain observeItems listener")
+
+        job.cancelAndJoin()
+
+        assertEquals(1, bridge.itemsSnapshotRemoveCount)
+        assertFalse(bridge.hasLiveItemsSnapshotListener, "the Firestore listener must be released")
+    }
+
+    @Test
+    fun observeItemsSnapshotCarriesTheRealIsFromCacheAndHasPendingWritesFlags() = runTest {
+        val bridge = RecordingItemBridge()
+        val repository = repositoryFor(bridge)
+        val emissions = mutableListOf<com.fluxit.domain.RepositorySnapshot<List<com.fluxit.domain.FluxItem>>>()
+
+        val job = collect(repository.observeItemsSnapshot("list-1"), emissions)
+
+        bridge.emitItemsSnapshot(listOf(activeDocument("item-1")), isFromCache = true, hasPendingWrites = true)
+        val cached = emissions.last()
+        assertTrue(cached.isFromCache)
+        assertTrue(cached.hasPendingWrites)
+        assertEquals(listOf("item-1"), cached.value.map { it.id })
+
+        bridge.emitItemsSnapshot(listOf(activeDocument("item-1")), isFromCache = false, hasPendingWrites = false)
+        val fresh = emissions.last()
+        assertFalse(fresh.isFromCache)
+        assertFalse(fresh.hasPendingWrites)
+
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun aSnapshotErrorClosesTheItemsSnapshotFlowWithAMappedException() = runTest {
+        val bridge = RecordingItemBridge()
+        val repository = repositoryFor(bridge)
+        var caught: Throwable? = null
+
+        val job = (this as CoroutineScope).launch(UnconfinedTestDispatcher(testScheduler)) {
+            try {
+                repository.observeItemsSnapshot("list-1").toList(mutableListOf())
+            } catch (throwable: Throwable) {
+                caught = throwable
+            }
+        }
+        bridge.emitItemsSnapshotError(firestoreError(7L)) // permissionDenied
+        job.join()
+
+        val failure = assertIs<ListRepositoryException>(caught)
+        assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
+    }
+
     // --- addItem: DEC-003d-1 whole-document write on a brand-new document -----------------
 
     @Test

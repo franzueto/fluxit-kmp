@@ -10,9 +10,12 @@ import com.fluxit.domain.FluxListSummary
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.domain.ListRepository
+import com.fluxit.domain.RepositorySnapshot
 import com.google.android.gms.tasks.Task
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.MetadataChanges
+import com.google.firebase.firestore.QuerySnapshot
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
@@ -72,16 +75,56 @@ class AndroidFirebaseListRepository(
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
-            val now = System.currentTimeMillis()
-            val summaries = snapshot.documents
-                .mapNotNull { doc ->
-                    val dto = FirestoreValueCodec.decode(doc.id, doc.data, now)
-                    (FirebaseDocumentMapper.list(dto) as? ContractResult.Value)?.value
-                }
-                .sortedWith(FirebaseDocumentMapper.listOrdering)
-            trySend(summaries)
+            trySend(mapSummaries(snapshot))
         }
         awaitClose { registration.remove() }
+    }
+
+    /**
+     * `FB-407`: same query as [observeListSummaries], but registered with
+     * [MetadataChanges.INCLUDE] and additionally reporting [RepositorySnapshot]'s real
+     * `isFromCache`/`hasPendingWrites` metadata from [QuerySnapshot.getMetadata]. This is
+     * a genuinely separate listener registration, not a shared one with
+     * [observeListSummaries]: the default [MetadataChanges.EXCLUDE] that
+     * [observeListSummaries] keeps never re-fires for a metadata-only transition (e.g. a
+     * locally-cached write finally getting server-acked with no field change), which is
+     * exactly the transition this method exists to surface - sharing one registration
+     * would force [observeListSummaries] to either adopt `INCLUDE` too (an observable
+     * behavior change to a method this task must not change) or filter metadata-only
+     * emissions back out downstream (equivalent complexity for no benefit, since nothing
+     * else consumes [observeListSummaries] in production - see `Repositories.kt`/
+     * `DashboardViewModel.kt`). Two live listeners only actually coexist if some caller
+     * collects both flows for the same collection concurrently, which no production call
+     * site does today (`DashboardViewModel` calls only [observeListSummariesSnapshot]).
+     */
+    override fun observeListSummariesSnapshot(): Flow<RepositorySnapshot<List<FluxListSummary>>> = callbackFlow {
+        val uid = currentUid.currentUid()
+        val registration = listsCollection(uid).addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
+            if (error != null) {
+                close(error.toListRepositoryException())
+                return@addSnapshotListener
+            }
+            if (snapshot == null) return@addSnapshotListener
+            trySend(
+                RepositorySnapshot(
+                    value = mapSummaries(snapshot),
+                    isFromCache = snapshot.metadata.isFromCache,
+                    hasPendingWrites = snapshot.metadata.hasPendingWrites(),
+                ),
+            )
+        }
+        awaitClose { registration.remove() }
+    }
+
+    /** FB-201 mapping/ordering, shared by [observeListSummaries] and [observeListSummariesSnapshot]. */
+    private fun mapSummaries(snapshot: QuerySnapshot): List<FluxListSummary> {
+        val now = System.currentTimeMillis()
+        return snapshot.documents
+            .mapNotNull { doc ->
+                val dto = FirestoreValueCodec.decode(doc.id, doc.data, now)
+                (FirebaseDocumentMapper.list(dto) as? ContractResult.Value)?.value
+            }
+            .sortedWith(FirebaseDocumentMapper.listOrdering)
     }
 
     override fun observeList(listId: String): Flow<FluxList?> = callbackFlow {

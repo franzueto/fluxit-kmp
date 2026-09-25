@@ -4,6 +4,7 @@ import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
+import com.fluxit.domain.RepositorySnapshot
 import com.fluxit.firebase.IosFirebaseEmulatorSettings
 import com.fluxit.firebase.auth.IosAuthBridgeRegistry
 import com.fluxit.firebase.auth.IosAuthRepository
@@ -233,6 +234,42 @@ object IosFirestoreItemIntegrationCheck {
                 observed.size == afterCancellation,
                 "emissions before=$afterCancellation after=${observed.size}",
             )
+
+            // --- FB-407: observeItemsSnapshot - real isFromCache/hasPendingWrites -------
+            // Same rationale and same disclosed no-network-toggle scope boundary as
+            // `IosFirestoreListIntegrationCheck`'s identically-named section - see that
+            // file's KDoc comment for the full explanation, identical here for items.
+            val itemSnapshotEmissions = mutableListOf<RepositorySnapshot<List<FluxItem>>>()
+            val itemSnapshotJob = launch { items.observeItemsSnapshot(listId).collect { itemSnapshotEmissions += it } }
+            val initialItemSnapshotSeen = awaitCondition { itemSnapshotEmissions.isNotEmpty() }
+            report.check(
+                "observeItemsSnapshot delivers an initial real snapshot",
+                initialItemSnapshotSeen,
+                "emissions=${itemSnapshotEmissions.size}",
+            )
+            delay(SETTLE_MS)
+            val itemSettledBeforeWrite = itemSnapshotEmissions.lastOrNull()
+            report.check(
+                "once settled online, the real snapshot reports isFromCache=false/hasPendingWrites=false",
+                itemSettledBeforeWrite?.isFromCache == false && itemSettledBeforeWrite.hasPendingWrites == false,
+                "settledBeforeWrite=$itemSettledBeforeWrite",
+            )
+
+            val pendingItemWriteJob = launch { items.addItem(listId, "FB-407 Snapshot Metadata Item") }
+            val pendingItemWriteObserved = awaitCondition { itemSnapshotEmissions.any { it.hasPendingWrites } }
+            report.check(
+                "a local item write is observed with hasPendingWrites=true before the server acknowledges it",
+                pendingItemWriteObserved,
+                "sawPendingWrites=${itemSnapshotEmissions.any { it.hasPendingWrites }} total emissions=${itemSnapshotEmissions.size}",
+            )
+            pendingItemWriteJob.join()
+            val itemClearedAfterAck = awaitCondition { itemSnapshotEmissions.lastOrNull()?.hasPendingWrites == false }
+            report.check(
+                "hasPendingWrites clears once the server acknowledges the item write",
+                itemClearedAfterAck,
+                "last=${itemSnapshotEmissions.lastOrNull()}",
+            )
+            itemSnapshotJob.cancel()
 
             // --- cross-user denial under the REAL firestore.rules -----------------------
             report.expectSuccess("signUp userB", auth.signUp(emailB, PASSWORD))

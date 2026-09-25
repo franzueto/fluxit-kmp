@@ -30,6 +30,14 @@ internal class RecordingItemBridge : IosFirestoreItemBridge {
     private var itemsListener: ((List<IosFirestoreItemDocument>) -> Unit)? = null
     private var itemsErrorListener: ((NSError) -> Unit)? = null
 
+    /** `FB-407`: same recording shape as [itemsListener], for [observeItemsSnapshot]. */
+    var itemsSnapshotAddCount: Int = 0
+        private set
+    var itemsSnapshotRemoveCount: Int = 0
+        private set
+    private var itemsSnapshotListener: ((IosFirestoreItemSnapshot) -> Unit)? = null
+    private var itemsSnapshotErrorListener: ((NSError) -> Unit)? = null
+
     var itemAddCount: Int = 0
         private set
     var itemRemoveCount: Int = 0
@@ -76,6 +84,28 @@ internal class RecordingItemBridge : IosFirestoreItemBridge {
                 itemsRemoveCount++
                 itemsListener = null
                 itemsErrorListener = null
+            }
+        }
+    }
+
+    /** `FB-407`: mirrors [observeItems]'s recording shape for the new snapshot-aware method. */
+    override fun observeItemsSnapshot(
+        uid: String,
+        listId: String,
+        onSnapshot: (IosFirestoreItemSnapshot) -> Unit,
+        onError: (NSError) -> Unit,
+    ): IosFirestoreListenerHandle {
+        itemsSnapshotAddCount++
+        itemsSnapshotListener = onSnapshot
+        itemsSnapshotErrorListener = onError
+        return object : IosFirestoreListenerHandle {
+            private var removed = false
+            override fun remove() {
+                if (removed) return
+                removed = true
+                itemsSnapshotRemoveCount++
+                itemsSnapshotListener = null
+                itemsSnapshotErrorListener = null
             }
         }
     }
@@ -165,6 +195,15 @@ internal class RecordingItemBridge : IosFirestoreItemBridge {
         itemsErrorListener?.invoke(error)
     }
 
+    /** `FB-407`: simulates the SDK delivering a fresh, metadata-carrying snapshot to a live `observeItemsSnapshot` listener. */
+    fun emitItemsSnapshot(documents: List<IosFirestoreItemDocument>, isFromCache: Boolean = false, hasPendingWrites: Boolean = false) {
+        itemsSnapshotListener?.invoke(IosFirestoreItemSnapshot(documents, isFromCache, hasPendingWrites))
+    }
+
+    fun emitItemsSnapshotError(error: NSError) {
+        itemsSnapshotErrorListener?.invoke(error)
+    }
+
     /** Simulates the SDK delivering a fresh snapshot to a live [observeItem] listener. */
     fun emitItem(document: IosFirestoreItemDocument?) {
         itemListener?.invoke(document)
@@ -175,5 +214,6 @@ internal class RecordingItemBridge : IosFirestoreItemBridge {
     }
 
     val hasLiveItemsListener: Boolean get() = itemsListener != null
+    val hasLiveItemsSnapshotListener: Boolean get() = itemsSnapshotListener != null
     val hasLiveItemListener: Boolean get() = itemListener != null
 }

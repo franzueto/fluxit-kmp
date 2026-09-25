@@ -216,6 +216,98 @@ class IosFirebaseListRepositoryTest {
         job.cancelAndJoin()
     }
 
+    // --- FB-407: observeListSummariesSnapshot - real isFromCache/hasPendingWrites -------
+    //
+    // What this proves: IosFirebaseListRepository.observeListSummariesSnapshot correctly
+    // maps whatever IosFirestoreListSnapshot the bridge hands it (mapping/ordering
+    // included) into RepositorySnapshot, uses a listener registration independent of
+    // observeListSummaries, and releases it on cancellation - exactly like
+    // observeListSummaries's own coverage above. What this does NOT prove: that the real
+    // Swift FirebaseListBridge.observeListSummariesSnapshot actually receives real
+    // isFromCache/hasPendingWrites values from a live Firestore SDK - that is the
+    // emulator-backed integration check's job (see this task's handoff report for
+    // whether that check was actually run).
+
+    @Test
+    fun observeListSummariesSnapshotRegistersItsOwnListenerIndependentOfObserveListSummaries() = runTest {
+        val bridge = RecordingListBridge()
+        val repository = repositoryFor(bridge)
+
+        val job = collect(repository.observeListSummariesSnapshot(), mutableListOf())
+
+        assertEquals(1, bridge.summariesSnapshotAddCount)
+        assertTrue(bridge.hasLiveSummariesSnapshotListener)
+        assertEquals(0, bridge.summariesAddCount, "must not also register the plain observeListSummaries listener")
+
+        job.cancelAndJoin()
+
+        assertEquals(1, bridge.summariesSnapshotRemoveCount)
+        assertFalse(bridge.hasLiveSummariesSnapshotListener, "the Firestore listener must be released")
+    }
+
+    @Test
+    fun observeListSummariesSnapshotCarriesTheRealIsFromCacheAndHasPendingWritesFlags() = runTest {
+        val bridge = RecordingListBridge()
+        val repository = repositoryFor(bridge)
+        val emissions = mutableListOf<com.fluxit.domain.RepositorySnapshot<List<com.fluxit.domain.FluxListSummary>>>()
+
+        val job = collect(repository.observeListSummariesSnapshot(), emissions)
+
+        bridge.emitSummariesSnapshot(listOf(activeDocument("list-1")), isFromCache = true, hasPendingWrites = true)
+        val cached = emissions.last()
+        assertTrue(cached.isFromCache)
+        assertTrue(cached.hasPendingWrites)
+        assertEquals(listOf("list-1"), cached.value.map { it.list.id })
+
+        bridge.emitSummariesSnapshot(listOf(activeDocument("list-1")), isFromCache = false, hasPendingWrites = false)
+        val fresh = emissions.last()
+        assertFalse(fresh.isFromCache)
+        assertFalse(fresh.hasPendingWrites)
+
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun observeListSummariesSnapshotAlsoFiltersTombstonesAndOrders() = runTest {
+        val bridge = RecordingListBridge()
+        val repository = repositoryFor(bridge)
+        val emissions = mutableListOf<com.fluxit.domain.RepositorySnapshot<List<com.fluxit.domain.FluxListSummary>>>()
+
+        val job = collect(repository.observeListSummariesSnapshot(), emissions)
+        bridge.emitSummariesSnapshot(
+            listOf(
+                activeDocument("list-b", createdAt = 2_000L),
+                tombstonedDocument("list-deleted", createdAt = 500L),
+                activeDocument("list-a", createdAt = 1_000L),
+            ),
+        )
+
+        val visible = emissions.last().value.map { it.list.id }
+        assertEquals(listOf("list-a", "list-b"), visible, "tombstoned entries filtered, survivors ordered by createdAt")
+
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun aSnapshotErrorClosesTheSummariesSnapshotFlowWithAMappedException() = runTest {
+        val bridge = RecordingListBridge()
+        val repository = repositoryFor(bridge)
+        var caught: Throwable? = null
+
+        val job = (this as CoroutineScope).launch(UnconfinedTestDispatcher(testScheduler)) {
+            try {
+                repository.observeListSummariesSnapshot().toList(mutableListOf())
+            } catch (throwable: Throwable) {
+                caught = throwable
+            }
+        }
+        bridge.emitSummariesSnapshotError(firestoreError(7L)) // permissionDenied
+        job.join()
+
+        val failure = assertIs<ListRepositoryException>(caught)
+        assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
+    }
+
     // --- createList: DEC-003d-1 whole-document set on a brand-new document -------------
 
     @Test

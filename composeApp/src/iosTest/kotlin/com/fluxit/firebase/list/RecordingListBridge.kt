@@ -28,6 +28,14 @@ internal class RecordingListBridge : IosFirestoreListBridge {
     private var summariesListener: ((List<IosFirestoreListDocument>) -> Unit)? = null
     private var summariesErrorListener: ((NSError) -> Unit)? = null
 
+    /** `FB-407`: same recording shape as [summariesListener], for [observeListSummariesSnapshot]. */
+    var summariesSnapshotAddCount: Int = 0
+        private set
+    var summariesSnapshotRemoveCount: Int = 0
+        private set
+    private var summariesSnapshotListener: ((IosFirestoreListSnapshot) -> Unit)? = null
+    private var summariesSnapshotErrorListener: ((NSError) -> Unit)? = null
+
     var documentAddCount: Int = 0
         private set
     var documentRemoveCount: Int = 0
@@ -61,6 +69,27 @@ internal class RecordingListBridge : IosFirestoreListBridge {
                 summariesRemoveCount++
                 summariesListener = null
                 summariesErrorListener = null
+            }
+        }
+    }
+
+    /** `FB-407`: mirrors [observeListSummaries]'s recording shape for the new snapshot-aware method. */
+    override fun observeListSummariesSnapshot(
+        uid: String,
+        onSnapshot: (IosFirestoreListSnapshot) -> Unit,
+        onError: (NSError) -> Unit,
+    ): IosFirestoreListenerHandle {
+        summariesSnapshotAddCount++
+        summariesSnapshotListener = onSnapshot
+        summariesSnapshotErrorListener = onError
+        return object : IosFirestoreListenerHandle {
+            private var removed = false
+            override fun remove() {
+                if (removed) return
+                removed = true
+                summariesSnapshotRemoveCount++
+                summariesSnapshotListener = null
+                summariesSnapshotErrorListener = null
             }
         }
     }
@@ -119,6 +148,15 @@ internal class RecordingListBridge : IosFirestoreListBridge {
         summariesErrorListener?.invoke(error)
     }
 
+    /** `FB-407`: simulates the SDK delivering a fresh, metadata-carrying snapshot to a live `observeListSummariesSnapshot` listener. */
+    fun emitSummariesSnapshot(documents: List<IosFirestoreListDocument>, isFromCache: Boolean = false, hasPendingWrites: Boolean = false) {
+        summariesSnapshotListener?.invoke(IosFirestoreListSnapshot(documents, isFromCache, hasPendingWrites))
+    }
+
+    fun emitSummariesSnapshotError(error: NSError) {
+        summariesSnapshotErrorListener?.invoke(error)
+    }
+
     /** Simulates the SDK delivering a fresh snapshot to a live `observeList` listener. */
     fun emitDocument(document: IosFirestoreListDocument?) {
         documentListener?.invoke(document)
@@ -129,6 +167,7 @@ internal class RecordingListBridge : IosFirestoreListBridge {
     }
 
     val hasLiveSummariesListener: Boolean get() = summariesListener != null
+    val hasLiveSummariesSnapshotListener: Boolean get() = summariesSnapshotListener != null
     val hasLiveDocumentListener: Boolean get() = documentListener != null
 }
 

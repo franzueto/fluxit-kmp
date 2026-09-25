@@ -4,6 +4,7 @@ import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.domain.FluxListSummary
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
+import com.fluxit.domain.RepositorySnapshot
 import com.fluxit.firebase.IosFirebaseEmulatorSettings
 import com.fluxit.firebase.auth.IosAuthBridgeRegistry
 import com.fluxit.firebase.auth.IosAuthRepository
@@ -206,6 +207,62 @@ object IosFirestoreListIntegrationCheck {
                 summaries.size == afterCancellation,
                 "emissions before=$afterCancellation after=${summaries.size}",
             )
+
+            // --- FB-407: observeListSummariesSnapshot - real isFromCache/hasPendingWrites --
+            //
+            // What this proves that IosFirebaseListRepositoryTest (a fake-bridge unit test)
+            // cannot: that the real Swift FirebaseListBridge.observeListSummariesSnapshot
+            // genuinely registers an `includeMetadataChanges: true` listener against a live
+            // Firestore SDK instance, and that its `snapshot.metadata.isFromCache`/
+            // `.hasPendingWrites` cross the Kotlin/Swift boundary into RepositorySnapshot
+            // correctly - the same production gap DEC-007/FB-407 exists to close, proven
+            // here on iOS the way FirestoreListSnapshotEmulatorIntegrationTest proves it on
+            // Android.
+            //
+            // Disclosed scope boundary (judgment call, not an oversight): unlike the Android
+            // instrumented test, this does NOT force offline via a network toggle. Per
+            // PLAN-008 and the precedent already accepted for FB-206 (no network-toggle
+            // surface was added to the iOS bridge protocols, since that would be a
+            // production capability addition purely for test purposes), no
+            // `disableNetwork`/`enableNetwork`-equivalent bridge method exists or is added
+            // here. Instead this races the SDK's own guaranteed, documented behavior: a
+            // local write is always applied to the client-side cache - and therefore
+            // notified to local listeners - synchronously, strictly before the network round
+            // trip to the (real, live) emulator resolves and the completion handler fires;
+            // that window is what this check observes, not a network-outage simulation.
+            val snapshotEmissions = mutableListOf<RepositorySnapshot<List<FluxListSummary>>>()
+            val snapshotJob = launch { repository.observeListSummariesSnapshot().collect { snapshotEmissions += it } }
+            val initialSnapshotSeen = awaitCondition { snapshotEmissions.isNotEmpty() }
+            report.check(
+                "observeListSummariesSnapshot delivers an initial real snapshot",
+                initialSnapshotSeen,
+                "emissions=${snapshotEmissions.size}",
+            )
+            delay(SETTLE_MS)
+            val settledBeforeWrite = snapshotEmissions.lastOrNull()
+            report.check(
+                "once settled online, the real snapshot reports isFromCache=false/hasPendingWrites=false (not the interface's default-body constant - a real SDK-reported steady state)",
+                settledBeforeWrite?.isFromCache == false && settledBeforeWrite.hasPendingWrites == false,
+                "settledBeforeWrite=$settledBeforeWrite",
+            )
+
+            val pendingWriteCreateJob = launch {
+                repository.createList("FB-407 Snapshot Metadata", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            }
+            val pendingWriteObserved = awaitCondition { snapshotEmissions.any { it.hasPendingWrites } }
+            report.check(
+                "a local write is observed with hasPendingWrites=true before the server acknowledges it (real SnapshotMetadata, not a fake bridge)",
+                pendingWriteObserved,
+                "sawPendingWrites=${snapshotEmissions.any { it.hasPendingWrites }} total emissions=${snapshotEmissions.size}",
+            )
+            pendingWriteCreateJob.join()
+            val clearedAfterAck = awaitCondition { snapshotEmissions.lastOrNull()?.hasPendingWrites == false }
+            report.check(
+                "hasPendingWrites clears once the server acknowledges the write",
+                clearedAfterAck,
+                "last=${snapshotEmissions.lastOrNull()}",
+            )
+            snapshotJob.cancel()
 
             // --- cross-user denial under the REAL firestore.rules ---------------------
             report.expectSuccess("signUp userB", auth.signUp(emailB, PASSWORD))

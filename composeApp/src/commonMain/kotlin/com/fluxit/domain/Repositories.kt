@@ -32,17 +32,20 @@ import kotlinx.coroutines.flow.map
  * [com.fluxit.feature.listdetail.ListDetailViewModel]'s consumption of it, and full
  * fake-repository-driven test coverage of every resulting UI state (the task's stated
  * acceptance criterion). It deliberately does **not** wire the real Android/iOS Firestore
- * adapters to report the real SDK signal in this pass: on Android that would touch
- * `AndroidFirebaseListRepository`/`AndroidFirebaseItemRepository` with no unit-test surface
- * to prove it against (a real `QuerySnapshot.metadata` needs a live Firestore
- * emulator/instrumented test, not a JVM `testDebugUnitTest`); on iOS it would additionally
- * require changing the Swift-implemented `IosFirestoreListBridge`/`IosFirestoreItemBridge`
- * protocols and their real Swift implementations, which this Gradle-only acceptance
- * criterion cannot exercise either way. Both platforms' real repositories therefore keep
- * reporting `isFromCache = false`/`hasPendingWrites = false` unconditionally in production
- * after this task - functionally unchanged from before it, not a regression, but not yet the
- * real signal the plan asks for. Flagged for the reviewer with a suggested follow-up task
- * scoped to exactly that wiring (see this task's handoff report).
+ * adapters to report the real SDK signal in this pass - see `FB-407` below for that.
+ *
+ * **`FB-407` update:** all four real adapters now override the `*Snapshot()` methods
+ * with the genuine SDK signal instead of inheriting this default - `AndroidFirebaseListRepository`/
+ * `AndroidFirebaseItemRepository` via a second `MetadataChanges.INCLUDE`-registered
+ * listener reading `QuerySnapshot.metadata`, and `IosFirebaseListRepository`/
+ * `IosFirebaseItemRepository` via the Swift-implemented `IosFirestoreListBridge.
+ * observeListSummariesSnapshot`/`IosFirestoreItemBridge.observeItemsSnapshot` (backed by
+ * `addSnapshotListener(includeMetadataChanges: true)` reading `snapshot.metadata` in
+ * `FirebaseListBridge.swift`/`FirebaseItemBridge.swift`). The default body documented
+ * above (`isFromCache = false`, `hasPendingWrites = false`) remains live for
+ * `RoomListRepository`/`RoomItemRepository` and any other future implementer that does
+ * not override it - it was never removed, only overridden by the four production
+ * Firestore adapters.
  */
 data class RepositorySnapshot<out T>(
     val value: T,

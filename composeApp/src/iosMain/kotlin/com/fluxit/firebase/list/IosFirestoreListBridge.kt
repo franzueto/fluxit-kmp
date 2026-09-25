@@ -36,6 +36,26 @@ data class IosFirestoreListDocument(
 )
 
 /**
+ * `FB-407`: the [observeListSummariesSnapshot] counterpart of [IosFirestoreListDocument]'s
+ * plain list - carries the real Firestore `SnapshotMetadata.isFromCache`/
+ * `.hasPendingWrites` read from Swift, mapped into
+ * [com.fluxit.domain.RepositorySnapshot] by [IosFirebaseListRepository]. A dedicated data
+ * class rather than two extra `Boolean` parameters on the `onSnapshot` callback itself:
+ * `FirebaseItemBridge.clearCompletedChunk`'s KDoc documents that a Kotlin primitive
+ * crossing as a parameter *of an exported closure type* boxes to `KotlinBoolean`/
+ * `KotlinInt` on the Swift side, whereas a primitive `val` on an ordinary exported data
+ * class crosses as a plain `Bool`/`Int64` property - this keeps the Swift call site
+ * (`snapshot.isFromCache`) unboxed and readable instead of needing
+ * `KotlinBoolean(bool:)`/`.boolValue` at every call site. Disclosed as a judgment call for
+ * the reviewer.
+ */
+data class IosFirestoreListSnapshot(
+    val documents: List<IosFirestoreListDocument>,
+    val isFromCache: Boolean,
+    val hasPendingWrites: Boolean,
+)
+
+/**
  * The Swift-implemented seam through which FB-203's iOS list adapter reaches Cloud
  * Firestore's `users/{uid}/lists/{listId}` collection (PLAN-008: the `FirebaseFirestore`
  * SPM target is not cinterop-reachable from `iosMain`, exactly like `FirebaseAuth` was
@@ -71,6 +91,26 @@ interface IosFirestoreListBridge {
     fun observeListSummaries(
         uid: String,
         onSnapshot: (List<IosFirestoreListDocument>) -> Unit,
+        onError: (NSError) -> Unit,
+    ): IosFirestoreListenerHandle
+
+    /**
+     * `FB-407`: same query as [observeListSummaries], backing
+     * [IosFirebaseListRepository.observeListSummariesSnapshot] - a genuinely separate
+     * listener registered by the Swift implementation with `includeMetadataChanges:
+     * true`, not a shared one with [observeListSummaries]. The default
+     * (`includeMetadataChanges: false`) registration [observeListSummaries] keeps never
+     * re-fires for a metadata-only transition (e.g. a locally-cached write finally
+     * getting server-acked with no field change), which is exactly the transition this
+     * method exists to surface; sharing one registration would force [observeListSummaries]
+     * to adopt `includeMetadataChanges: true` too, an observable behavior change to a
+     * method this task must not change (mirrors `AndroidFirebaseListRepository.
+     * observeListSummariesSnapshot`'s identical `MetadataChanges.INCLUDE`-vs-`EXCLUDE`
+     * reasoning on the other platform).
+     */
+    fun observeListSummariesSnapshot(
+        uid: String,
+        onSnapshot: (IosFirestoreListSnapshot) -> Unit,
         onError: (NSError) -> Unit,
     ): IosFirestoreListenerHandle
 

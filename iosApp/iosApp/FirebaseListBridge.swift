@@ -52,6 +52,35 @@ final class FirebaseListBridge: NSObject, IosFirestoreListBridge {
         return FirestoreListenerHandle(registration: registration)
     }
 
+    /// `FB-407`: genuinely separate listener registration from `observeListSummaries`,
+    /// with `includeMetadataChanges: true` so a metadata-only transition (a locally
+    /// cached write finally getting server-acknowledged, with no field change) re-fires
+    /// this listener - the default `includeMetadataChanges: false` `observeListSummaries`
+    /// registration never does, by Firestore's own documented behavior, which is exactly
+    /// why this is not shared with it. See `IosFirestoreListBridge.
+    /// observeListSummariesSnapshot`'s KDoc for the full rationale.
+    func observeListSummariesSnapshot(
+        uid: String,
+        onSnapshot: @escaping (IosFirestoreListSnapshot) -> Void,
+        onError: @escaping (Error) -> Void
+    ) -> any IosFirestoreListenerHandle {
+        let registration = listsCollection(uid: uid).addSnapshotListener(includeMetadataChanges: true) { snapshot, error in
+            if let error {
+                onError(error)
+                return
+            }
+            guard let snapshot else { return }
+            onSnapshot(
+                IosFirestoreListSnapshot(
+                    documents: snapshot.documents.map(FirebaseListBridge.toDocument),
+                    isFromCache: snapshot.metadata.isFromCache,
+                    hasPendingWrites: snapshot.metadata.hasPendingWrites
+                )
+            )
+        }
+        return FirestoreListenerHandle(registration: registration)
+    }
+
     func observeList(
         uid: String,
         listId: String,

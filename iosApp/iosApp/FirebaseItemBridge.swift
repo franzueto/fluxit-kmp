@@ -55,6 +55,32 @@ final class FirebaseItemBridge: NSObject, IosFirestoreItemBridge {
         return FirestoreListenerHandle(registration: registration)
     }
 
+    /// `FB-407`: genuinely separate listener registration from `observeItems`, with
+    /// `includeMetadataChanges: true` - see `FirebaseListBridge.
+    /// observeListSummariesSnapshot`'s doc comment for the full rationale, identical here.
+    func observeItemsSnapshot(
+        uid: String,
+        listId: String,
+        onSnapshot: @escaping (IosFirestoreItemSnapshot) -> Void,
+        onError: @escaping (Error) -> Void
+    ) -> any IosFirestoreListenerHandle {
+        let registration = itemsCollection(uid: uid, listId: listId).addSnapshotListener(includeMetadataChanges: true) { snapshot, error in
+            if let error {
+                onError(error)
+                return
+            }
+            guard let snapshot else { return }
+            onSnapshot(
+                IosFirestoreItemSnapshot(
+                    documents: snapshot.documents.map(FirebaseItemBridge.toDocument),
+                    isFromCache: snapshot.metadata.isFromCache,
+                    hasPendingWrites: snapshot.metadata.hasPendingWrites
+                )
+            )
+        }
+        return FirestoreListenerHandle(registration: registration)
+    }
+
     func observeItem(
         uid: String,
         listId: String,

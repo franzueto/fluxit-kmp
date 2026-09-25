@@ -15,6 +15,7 @@ import com.fluxit.domain.FluxListSummary
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.domain.ListRepository
+import com.fluxit.domain.RepositorySnapshot
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.channels.awaitClose
@@ -82,6 +83,29 @@ class IosFirebaseListRepository internal constructor(
                     .mapNotNull { dto -> (FirebaseDocumentMapper.list(dto) as? ContractResult.Value)?.value }
                     .sortedWith(FirebaseDocumentMapper.listOrdering)
                 trySend(summaries)
+            },
+            onError = { error -> close(error.toListRepositoryException()) },
+        )
+        awaitClose { handle.remove() }
+    }
+
+    /**
+     * `FB-407`: real `isFromCache`/`hasPendingWrites` from the Swift-side
+     * `includeMetadataChanges: true` listener behind
+     * [IosFirestoreListBridge.observeListSummariesSnapshot] - see that method's KDoc for
+     * why this is a separate registration from [observeListSummaries].
+     */
+    override fun observeListSummariesSnapshot(): Flow<RepositorySnapshot<List<FluxListSummary>>> = callbackFlow {
+        val uid = currentUid.currentUid()
+        val handle = bridgeProvider().observeListSummariesSnapshot(
+            uid = uid,
+            onSnapshot = { snapshot ->
+                val now = nowMillis()
+                val summaries = snapshot.documents
+                    .map { it.toDto(now) }
+                    .mapNotNull { dto -> (FirebaseDocumentMapper.list(dto) as? ContractResult.Value)?.value }
+                    .sortedWith(FirebaseDocumentMapper.listOrdering)
+                trySend(RepositorySnapshot(summaries, snapshot.isFromCache, snapshot.hasPendingWrites))
             },
             onError = { error -> close(error.toListRepositoryException()) },
         )

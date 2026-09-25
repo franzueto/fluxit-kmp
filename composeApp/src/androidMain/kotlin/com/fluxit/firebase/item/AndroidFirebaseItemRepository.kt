@@ -7,6 +7,7 @@ import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.ItemRepository
+import com.fluxit.domain.RepositorySnapshot
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.FirebaseAuthCurrentUidProvider
 import com.fluxit.firebase.list.FirestoreValueCodec
@@ -16,6 +17,7 @@ import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.Transaction
 import kotlin.coroutines.resume
@@ -116,16 +118,46 @@ class AndroidFirebaseItemRepository(
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
-            val now = System.currentTimeMillis()
-            val items = snapshot.documents
-                .mapNotNull { doc ->
-                    val dto = FirestoreValueCodec.decode(doc.id, doc.data, now)
-                    (FirebaseDocumentMapper.item(listId, dto) as? ContractResult.Value)?.value
-                }
-                .sortedWith(FirebaseDocumentMapper.itemOrdering)
-            trySend(items)
+            trySend(mapItems(listId, snapshot))
         }
         awaitClose { registration.remove() }
+    }
+
+    /**
+     * `FB-407`: same shape as `AndroidFirebaseListRepository.observeListSummariesSnapshot`
+     * - a genuinely separate listener registered with [MetadataChanges.INCLUDE], reporting
+     * the real [QuerySnapshot.getMetadata] `isFromCache`/`hasPendingWrites` into
+     * [RepositorySnapshot], while [observeItems] keeps its own unmodified default-metadata
+     * registration/behavior. See that method's KDoc for why this is not a shared listener.
+     */
+    override fun observeItemsSnapshot(listId: String): Flow<RepositorySnapshot<List<FluxItem>>> = callbackFlow {
+        val uid = currentUid.currentUid()
+        val registration = itemsCollection(uid, listId).addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
+            if (error != null) {
+                close(error.toListRepositoryException())
+                return@addSnapshotListener
+            }
+            if (snapshot == null) return@addSnapshotListener
+            trySend(
+                RepositorySnapshot(
+                    value = mapItems(listId, snapshot),
+                    isFromCache = snapshot.metadata.isFromCache,
+                    hasPendingWrites = snapshot.metadata.hasPendingWrites(),
+                ),
+            )
+        }
+        awaitClose { registration.remove() }
+    }
+
+    /** FB-201 mapping/ordering, shared by [observeItems] and [observeItemsSnapshot]. */
+    private fun mapItems(listId: String, snapshot: QuerySnapshot): List<FluxItem> {
+        val now = System.currentTimeMillis()
+        return snapshot.documents
+            .mapNotNull { doc ->
+                val dto = FirestoreValueCodec.decode(doc.id, doc.data, now)
+                (FirebaseDocumentMapper.item(listId, dto) as? ContractResult.Value)?.value
+            }
+            .sortedWith(FirebaseDocumentMapper.itemOrdering)
     }
 
     override fun observeItem(listId: String, itemId: String): Flow<FluxItem?> = callbackFlow {

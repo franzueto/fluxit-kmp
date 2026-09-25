@@ -19,6 +19,22 @@ import platform.Foundation.NSError
 typealias IosFirestoreItemDocument = IosFirestoreListDocument
 
 /**
+ * `FB-407`: item-scoped counterpart of [com.fluxit.firebase.list.IosFirestoreListSnapshot]
+ * - see that type's KDoc for the full rationale (a dedicated data class, not two extra
+ * `Boolean` closure parameters, to avoid `KotlinBoolean` boxing at the Swift call site).
+ * Not reused as a second typealias of the list type: unlike [IosFirestoreItemDocument]
+ * (identical shape to its list counterpart with no divergence expected), a future
+ * item-specific field on this snapshot type (e.g. a per-item sync-conflict flag) is at
+ * least plausible, whereas [IosFirestoreItemDocument]'s reuse rationale explicitly rests
+ * on the shape never diverging.
+ */
+data class IosFirestoreItemSnapshot(
+    val documents: List<IosFirestoreItemDocument>,
+    val isFromCache: Boolean,
+    val hasPendingWrites: Boolean,
+)
+
+/**
  * Outcome of the pure, synchronous read-then-decide policy for a counter-affecting item
  * mutation (`AndroidFirebaseItemRepository`'s FB-204 transaction body - read live
  * `isCompleted`/`deletedAt` first, then decide - expressed as data here rather than as
@@ -79,6 +95,19 @@ interface IosFirestoreItemBridge {
         uid: String,
         listId: String,
         onSnapshot: (List<IosFirestoreItemDocument>) -> Unit,
+        onError: (NSError) -> Unit,
+    ): IosFirestoreListenerHandle
+
+    /**
+     * `FB-407`: same shape as
+     * [com.fluxit.firebase.list.IosFirestoreListBridge.observeListSummariesSnapshot] -
+     * see that method's KDoc for why this is a genuinely separate `includeMetadataChanges:
+     * true` listener registration, not a shared one with [observeItems].
+     */
+    fun observeItemsSnapshot(
+        uid: String,
+        listId: String,
+        onSnapshot: (IosFirestoreItemSnapshot) -> Unit,
         onError: (NSError) -> Unit,
     ): IosFirestoreListenerHandle
 
