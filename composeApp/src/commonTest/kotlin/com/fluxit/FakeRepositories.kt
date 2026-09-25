@@ -11,6 +11,7 @@ import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.domain.ListRepository
+import com.fluxit.domain.RepositorySnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -42,10 +43,23 @@ class FakeListRepository : ListRepository {
     var restoreListCallCount = 0
         private set
 
+    /**
+     * `FB-404`: settable cache/pending-write metadata this fake reports on every
+     * [observeListSummariesSnapshot] emission (not single-shot - mirrors the `fail*` fields'
+     * "a test resets it back itself" convention) - lets `DashboardViewModelTest` assert
+     * `DashboardUiState.isFromCache`/`hasPendingWrites` without a real Firestore snapshot. See
+     * `RepositorySnapshot`'s KDoc for why the real Android/iOS adapters do not yet set these.
+     */
+    var isFromCache: Boolean = false
+    var hasPendingWrites: Boolean = false
+
     override fun observeListSummaries(): Flow<List<FluxListSummary>> =
         rows.map { all ->
             all.filter { !it.deleted }.map { FluxListSummary(it.list, 0, 0) }
         }
+
+    override fun observeListSummariesSnapshot(): Flow<RepositorySnapshot<List<FluxListSummary>>> =
+        observeListSummaries().map { RepositorySnapshot(it, isFromCache, hasPendingWrites) }
 
     override fun observeList(listId: String): Flow<FluxList?> =
         rows.map { all -> all.firstOrNull { it.list.id == listId && !it.deleted }?.list }
@@ -127,8 +141,16 @@ class FakeItemRepository : ItemRepository {
     var clearCompletedCallCount = 0
         private set
 
+    /** `FB-404`: see [FakeListRepository]'s identically-shaped fields' KDoc - same purpose,
+     * scoped to items instead of lists. */
+    var isFromCache: Boolean = false
+    var hasPendingWrites: Boolean = false
+
     override fun observeItems(listId: String): Flow<List<FluxItem>> =
         rows.map { all -> all.filter { it.item.listId == listId && !it.deleted }.map { it.item } }
+
+    override fun observeItemsSnapshot(listId: String): Flow<RepositorySnapshot<List<FluxItem>>> =
+        observeItems(listId).map { RepositorySnapshot(it, isFromCache, hasPendingWrites) }
 
     override fun observeItem(listId: String, itemId: String): Flow<FluxItem?> =
         rows.map { all -> all.firstOrNull { it.item.listId == listId && it.item.id == itemId && !it.deleted }?.item }

@@ -8,6 +8,7 @@ import com.fluxit.data.remote.ApplicationError
 import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
+import com.fluxit.domain.ScreenLoadState
 import com.fluxit.feature.createlist.CreateListViewModel
 import com.fluxit.feature.dashboard.DashboardOperation
 import com.fluxit.feature.dashboard.DashboardViewModel
@@ -28,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -39,12 +41,19 @@ class DashboardViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private lateinit var lists: FakeListRepository
     private lateinit var items: FakeItemRepository
+    private lateinit var auth: FakeAuthRepository
 
     @BeforeTest
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         lists = FakeListRepository()
         items = FakeItemRepository()
+        // FB-404: authenticated up front - this ViewModel is only ever constructed once
+        // SessionGate has already reached Ready in production, so every pre-existing test
+        // (which exercises the already-Authenticated steady state) needs this, and the new
+        // fatal-session tests below start from here and move away from it explicitly.
+        auth = FakeAuthRepository()
+        runBlocking { auth.signUp("dashboard-test@example.com", "password123") }
     }
 
     @AfterTest
@@ -52,7 +61,7 @@ class DashboardViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = DashboardViewModel(lists, DebugSeeder(lists, items))
+    private fun viewModel() = DashboardViewModel(lists, DebugSeeder(lists, items), auth)
 
     @Test
     fun searchFiltersListsCaseInsensitively() = runTest(dispatcher) {
@@ -199,6 +208,99 @@ class DashboardViewModelTest {
         assertEquals(2, lists.softDeleteListCallCount, "exactly one retry attempt must have gone through")
         collectJob.cancel()
     }
+
+    // --- FB-404: loading/empty/loaded/cached/pending-writes/fatal-session state machine ---
+
+    @Test
+    fun initialStateIsLoadingBeforeAnyEmission() {
+        // Deliberately no `launch { collect }`/`advanceUntilIdle()`: `uiState` is a `stateIn`
+        // hot flow seeded with `DashboardUiState()` (`loadState = ScreenLoadState.Loading`), so
+        // reading `.value` synchronously right after construction - before the upstream
+        // `combine` has ever run - proves the seed value itself is the "never loaded yet" state,
+        // not merely that the ViewModel reaches it eventually.
+        val vm = viewModel()
+
+        assertTrue(vm.uiState.value.isLoading)
+        assertFalse(vm.uiState.value.isFatalSession)
+        assertTrue(vm.uiState.value.lists.isEmpty())
+    }
+
+    @Test
+    fun emptyEmissionIsLoadedAndEmptyNotLoading() = runTest(dispatcher) {
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isLoading)
+        assertFalse(state.isFatalSession)
+        assertTrue(state.isEmpty)
+        assertTrue(state.lists.isEmpty())
+        assertIs<ScreenLoadState.Loaded<*>>(state.loadState)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun nonEmptyEmissionIsLoadedAndNotEmpty() = runTest(dispatcher) {
+        lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isLoading)
+        assertFalse(state.isEmpty)
+        assertEquals(1, state.lists.size)
+        assertFalse(state.isFromCache)
+        assertFalse(state.hasPendingWrites)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun cachedEmissionSetsIsFromCache() = runTest(dispatcher) {
+        lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        lists.isFromCache = true
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.isFromCache)
+        assertFalse(state.hasPendingWrites)
+        assertFalse(state.isLoading, "cached data is still loaded data, not a loading state")
+        collectJob.cancel()
+    }
+
+    @Test
+    fun pendingWritesEmissionSetsHasPendingWrites() = runTest(dispatcher) {
+        lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        lists.hasPendingWrites = true
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.hasPendingWrites)
+        assertFalse(state.isFromCache)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun sessionNoLongerAuthenticatedShowsFatalSession() = runTest(dispatcher) {
+        lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.value.isFatalSession, "must start Loaded, not fatal, while authenticated")
+
+        auth.signOut()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.isFatalSession)
+        assertIs<ScreenLoadState.FatalSession>(state.loadState)
+        collectJob.cancel()
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -207,6 +309,7 @@ class ListDetailViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private lateinit var lists: FakeListRepository
     private lateinit var items: FakeItemRepository
+    private lateinit var auth: FakeAuthRepository
     private lateinit var listId: String
 
     @BeforeTest
@@ -214,6 +317,10 @@ class ListDetailViewModelTest {
         Dispatchers.setMain(dispatcher)
         lists = FakeListRepository()
         items = FakeItemRepository()
+        // FB-404: authenticated up front - see `DashboardViewModelTest.setUp`'s identical
+        // rationale.
+        auth = FakeAuthRepository()
+        runBlocking { auth.signUp("listdetail-test@example.com", "password123") }
     }
 
     @AfterTest
@@ -221,10 +328,12 @@ class ListDetailViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private fun viewModel() = ListDetailViewModel(listId, lists, items, auth)
+
     @Test
     fun composerSubmitAddsItemAndClearsText() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
 
         vm.onComposerChange("Milk")
@@ -239,7 +348,7 @@ class ListDetailViewModelTest {
     @Test
     fun blankComposerIsIgnored() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
 
         vm.onComposerChange("   ")
         vm.submitComposer()
@@ -252,7 +361,7 @@ class ListDetailViewModelTest {
     fun toggleMovesItemBetweenSections() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -271,7 +380,7 @@ class ListDetailViewModelTest {
         items.addItem(listId, "Milk")
         items.addItem(listId, "Bread")
         items.setCompleted(listId, items.observeItems(listId).first().first().id, true)
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -288,7 +397,7 @@ class ListDetailViewModelTest {
     @Test
     fun addItemFailureResetsIsAddingItemAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         vm.onComposerChange("Milk")
 
@@ -316,7 +425,7 @@ class ListDetailViewModelTest {
     @Test
     fun duplicateSubmitComposerCallsWhileInFlightDoNotTriggerASecondAddItem() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         vm.onComposerChange("Milk")
 
         vm.submitComposer() // synchronously marks isAddingItem = true before any suspension point
@@ -331,7 +440,7 @@ class ListDetailViewModelTest {
     fun toggleCompletedFailureResetsPendingAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()
         val item = vm.uiState.value.activeItems.first()
@@ -359,7 +468,7 @@ class ListDetailViewModelTest {
     fun duplicateToggleCompletedCallsForTheSameItemWhileInFlightDoNotTriggerASecondCall() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()
         val item = vm.uiState.value.activeItems.first()
@@ -376,7 +485,7 @@ class ListDetailViewModelTest {
     fun deleteItemFailureResetsPendingAndSurfacesARetryableErrorWithNoPhantomUndo() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()
         val itemId = vm.uiState.value.activeItems.first().id
@@ -407,7 +516,7 @@ class ListDetailViewModelTest {
     fun duplicateDeleteItemCallsForTheSameItemWhileInFlightDoNotTriggerASecondCall() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()
         val itemId = vm.uiState.value.activeItems.first().id
@@ -424,7 +533,7 @@ class ListDetailViewModelTest {
     fun undoDeleteFailureSurfacesARetryableRestoreErrorThenRetrySucceeds() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()
         val itemId = vm.uiState.value.activeItems.first().id
@@ -458,7 +567,7 @@ class ListDetailViewModelTest {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")
         items.setCompleted(listId, items.observeItems(listId).first().first().id, true)
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -485,13 +594,109 @@ class ListDetailViewModelTest {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")
         items.setCompleted(listId, items.observeItems(listId).first().first().id, true)
-        val vm = ListDetailViewModel(listId, lists, items)
+        val vm = viewModel()
 
         vm.clearCompleted() // synchronously marks isClearingCompleted = true before any suspension point
         vm.clearCompleted() // must be a no-op: a clear is already in flight
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, items.clearCompletedCallCount)
+    }
+
+    // --- FB-404: loading/empty/loaded/cached/pending-writes/fatal-session state machine ---
+
+    @Test
+    fun initialStateIsLoadingBeforeAnyEmission() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        // Deliberately no `launch { collect }`/`advanceUntilIdle()` - see
+        // `DashboardViewModelTest.initialStateIsLoadingBeforeAnyEmission`'s identical rationale.
+        val vm = viewModel()
+
+        assertTrue(vm.uiState.value.isLoading)
+        assertFalse(vm.uiState.value.isFatalSession)
+        assertTrue(vm.uiState.value.activeItems.isEmpty())
+        assertTrue(vm.uiState.value.completedItems.isEmpty())
+    }
+
+    @Test
+    fun emptyItemsEmissionIsLoadedAndEmptyNotLoading() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isLoading)
+        assertFalse(state.isFatalSession)
+        assertTrue(state.isEmpty)
+        assertIs<ScreenLoadState.Loaded<*>>(state.itemsLoadState)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun nonEmptyItemsEmissionIsLoadedAndNotEmpty() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isLoading)
+        assertFalse(state.isEmpty)
+        assertEquals(1, state.totalCount)
+        assertFalse(state.isFromCache)
+        assertFalse(state.hasPendingWrites)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun cachedEmissionSetsIsFromCache() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        items.isFromCache = true
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.isFromCache)
+        assertFalse(state.hasPendingWrites)
+        assertFalse(state.isLoading, "cached data is still loaded data, not a loading state")
+        collectJob.cancel()
+    }
+
+    @Test
+    fun pendingWritesEmissionSetsHasPendingWrites() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        items.hasPendingWrites = true
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.hasPendingWrites)
+        assertFalse(state.isFromCache)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun sessionNoLongerAuthenticatedShowsFatalSession() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.value.isFatalSession, "must start Loaded, not fatal, while authenticated")
+
+        auth.signOut()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.isFatalSession)
+        assertIs<ScreenLoadState.FatalSession>(state.itemsLoadState)
+        collectJob.cancel()
     }
 }
 
@@ -640,6 +845,7 @@ class ItemDetailViewModelTest {
     private lateinit var items: FakeItemRepository
     private lateinit var photoStorage: FakePhotoStorage
     private lateinit var photoPicker: FakePhotoPicker
+    private lateinit var auth: FakeAuthRepository
     private lateinit var listId: String
     private lateinit var itemId: String
 
@@ -650,6 +856,10 @@ class ItemDetailViewModelTest {
         items = FakeItemRepository()
         photoStorage = FakePhotoStorage()
         photoPicker = FakePhotoPicker()
+        // FB-404: authenticated up front - see `DashboardViewModelTest.setUp`'s identical
+        // rationale.
+        auth = FakeAuthRepository()
+        runBlocking { auth.signUp("itemdetail-test@example.com", "password123") }
     }
 
     @AfterTest
@@ -666,7 +876,7 @@ class ItemDetailViewModelTest {
      * below is the dedicated test for the preparer actually being consulted.
      */
     private fun viewModel(photoPreparer: (ByteArray) -> ByteArray = { it }) =
-        ItemDetailViewModel(listId, itemId, items, lists, photoPicker, photoStorage, photoPreparer)
+        ItemDetailViewModel(listId, itemId, items, lists, photoPicker, photoStorage, auth, photoPreparer)
 
     /** Creates a list+item and gives the item an already-uploaded photo, mirroring what a
      * real prior session would have persisted. */
@@ -1140,5 +1350,63 @@ class ItemDetailViewModelTest {
         val error = assertNotNull(vm.uiState.value.photoOperationError)
         assertEquals(RepositoryErrorCode.FORBIDDEN, error.code, "the real PhotoStorageException payload must be extracted, not collapsed to UNKNOWN")
         assertFalse(error.canRetry)
+    }
+
+    // --- FB-404: initial-loading vs. not-found vs. fatal-session ---
+
+    @Test
+    fun initialStateIsLoadingBeforeInitCompletes() = runTest(dispatcher) {
+        seedItemWithPhoto()
+        // Deliberately no `advanceUntilIdle()` - see `DashboardViewModelTest`'s identically
+        // reasoned test: the `init` block's `viewModelScope.launch` has not run yet on this
+        // `StandardTestDispatcher`, so `_uiState`'s default (`isLoading = true`) is still the
+        // synchronously observable value.
+        val vm = viewModel()
+
+        assertTrue(vm.uiState.value.isLoading)
+        assertFalse(vm.uiState.value.isFatalSession)
+        assertFalse(vm.uiState.value.notFound)
+        assertNull(vm.uiState.value.item)
+    }
+
+    @Test
+    fun existingItemResolvesToLoadedNotLoading() = runTest(dispatcher) {
+        seedItemWithPhoto()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isLoading)
+        assertFalse(state.isFatalSession)
+        assertFalse(state.notFound)
+        assertNotNull(state.item)
+    }
+
+    @Test
+    fun missingItemResolvesToNotFoundNotLoading() = runTest(dispatcher) {
+        listId = "list-that-does-not-exist"
+        itemId = "item-that-does-not-exist"
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isLoading)
+        assertFalse(state.isFatalSession)
+        assertTrue(state.notFound)
+        assertNull(state.item)
+    }
+
+    @Test
+    fun sessionNotAuthenticatedAtLoadResolvesToFatalSessionNotLoading() = runTest(dispatcher) {
+        seedItemWithPhoto()
+        auth.signOut()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isLoading)
+        assertTrue(state.isFatalSession)
+        assertFalse(state.notFound)
+        assertNull(state.item)
     }
 }

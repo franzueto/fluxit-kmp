@@ -14,6 +14,8 @@ import com.fluxit.data.replacePhoto
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
+import com.fluxit.domain.auth.AuthRepository
+import com.fluxit.domain.auth.AuthSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +35,33 @@ const val MAX_DESCRIPTION_LENGTH = 2000
 enum class PhotoOperationKind { REPLACE, REMOVE }
 
 data class ItemDetailUiState(
+    /**
+     * `FB-404`: true only until the initial load (session check + item fetch) in
+     * [ItemDetailViewModel]'s `init` block settles, one way or another. Unlike
+     * [com.fluxit.feature.dashboard.DashboardViewModel]/[com.fluxit.feature.listdetail.ListDetailViewModel],
+     * this screen's item/title/description fields are a one-shot form populate (deliberately
+     * *not* a live subscription - a live server push would otherwise clobber in-progress local
+     * edits to [title]/[description] while the user is typing), so this flag is set once from
+     * that one-shot load rather than derived from an ongoing [kotlinx.coroutines.flow.combine].
+     */
+    val isLoading: Boolean = true,
+    /**
+     * `FB-404`: true once the initial load found the auth session backing this screen was not
+     * [com.fluxit.domain.auth.AuthSession.Authenticated] - reused verbatim from `FB-101`/
+     * `FB-105`'s session machinery, not a parallel signal invented for this task. See
+     * `DashboardViewModel`'s identically-purposed [com.fluxit.domain.ScreenLoadState.FatalSession]
+     * KDoc for why this is defense-in-depth rather than the primary mechanism that reacts to a
+     * session becoming invalid.
+     */
+    val isFatalSession: Boolean = false,
+    /**
+     * `FB-404`: true once the initial load resolved with no item at [ItemDetailViewModel]'s
+     * `listId`/`itemId` (deleted from another device, a stale deep link, or similar) - this
+     * screen's analogue of a list-of-X screen's "loaded and genuinely empty" state: a
+     * single-document view has nothing to distinguish "empty" from "not found," so this is the
+     * one state, not two.
+     */
+    val notFound: Boolean = false,
     val item: FluxItem? = null,
     val listName: String = "",
     val title: String = "",
@@ -103,6 +132,13 @@ class ItemDetailViewModel(
     private val photoPicker: PhotoPicker,
     private val photoStorage: PhotoStorage,
     /**
+     * `FB-404`: checked once, at the start of the `init` block's one-shot load, to derive
+     * [ItemDetailUiState.isFatalSession] - see that field's KDoc for why this screen checks the
+     * session once rather than continuously combining it, unlike
+     * [com.fluxit.feature.dashboard.DashboardViewModel]/[com.fluxit.feature.listdetail.ListDetailViewModel].
+     */
+    private val authRepository: AuthRepository,
+    /**
      * `FB-303`: validates and, if needed, resizes/recompresses freshly picked bytes before
      * [pickPhoto] ever calls [uploadPhoto]/[replacePhoto] - see `PhotoPolicy.kt`'s
      * [preparePhotoForUpload] for the enforced size/type limits and resize decision logic.
@@ -136,11 +172,32 @@ class ItemDetailViewModel(
      */
     private var pendingRemoveRef: String? = null
 
+    /**
+     * `FB-404`: initial load - session check, then item fetch. `authRepository.session.first
+     * { it !is AuthSession.Unresolved }` mirrors `DashboardViewModel`/`ListDetailViewModel`'s
+     * `AuthSession.Authenticated` check: this ViewModel is only ever constructed once
+     * `SessionGate` has already reached `Ready` (`FB-104`/`FB-105`), so in production this
+     * resolves immediately - the wait guards the narrow, already-accepted race the sibling
+     * ViewModels also guard against, not a real steady-state wait. [ItemDetailUiState.isLoading]
+     * is left `true` (its default) on every path until this block reaches a terminal outcome -
+     * fatal session, not-found, or a populated item - so a caller can never observe a state that
+     * is neither loading nor resolved.
+     */
     init {
         viewModelScope.launch {
-            val item = itemRepository.observeItem(listId, itemId).first() ?: return@launch
+            val session = authRepository.session.first { it !is AuthSession.Unresolved }
+            if (session !is AuthSession.Authenticated) {
+                _uiState.value = _uiState.value.copy(isLoading = false, isFatalSession = true)
+                return@launch
+            }
+            val item = itemRepository.observeItem(listId, itemId).first()
+            if (item == null) {
+                _uiState.value = _uiState.value.copy(isLoading = false, notFound = true)
+                return@launch
+            }
             val listName = listRepository.observeList(item.listId).first()?.name ?: ""
             _uiState.value = ItemDetailUiState(
+                isLoading = false,
                 item = item,
                 listName = listName,
                 title = item.title,

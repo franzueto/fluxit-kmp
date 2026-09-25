@@ -9,9 +9,13 @@ import com.fluxit.domain.FluxItem
 import com.fluxit.domain.FluxList
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
+import com.fluxit.domain.ScreenLoadState
+import com.fluxit.domain.auth.AuthRepository
+import com.fluxit.domain.auth.AuthSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,20 +40,62 @@ data class ListDetailOperationError(
 
 data class ListDetailUiState(
     val list: FluxList? = null,
-    val activeItems: List<FluxItem> = emptyList(),
-    val completedItems: List<FluxItem> = emptyList(),
+    /**
+     * `FB-404`: the raw items load state - see [ScreenLoadState]'s KDoc for the
+     * loading/loaded/fatal-session distinctions and why cache/pending-writes live on
+     * [ScreenLoadState.Loaded] rather than as separate sealed cases.
+     * [activeItems]/[completedItems] below are the pre-existing, filtered convenience views
+     * derived from this.
+     */
+    val itemsLoadState: ScreenLoadState<List<FluxItem>> = ScreenLoadState.Loading,
     val showCompleted: Boolean = true,
     val composerText: String = "",
     val listDeleted: Boolean = false,
 ) {
+    /** `FB-404`: derived from [itemsLoadState] - empty while it is not yet
+     * [ScreenLoadState.Loaded] (kept as its own field, rather than requiring every caller to
+     * match on [itemsLoadState] itself, so pre-existing reads keep compiling unchanged). */
+    val activeItems: List<FluxItem>
+        get() = (itemsLoadState as? ScreenLoadState.Loaded)?.data?.filter { !it.isCompleted } ?: emptyList()
+
+    /** `FB-404`: see [activeItems]'s KDoc. */
+    val completedItems: List<FluxItem>
+        get() = (itemsLoadState as? ScreenLoadState.Loaded)?.data?.filter { it.isCompleted } ?: emptyList()
+
     val totalCount: Int get() = activeItems.size + completedItems.size
     val completedCount: Int get() = completedItems.size
+
+    /** `FB-404`: true only before the very first [itemsLoadState] emission. */
+    val isLoading: Boolean get() = itemsLoadState is ScreenLoadState.Loading
+
+    /** `FB-404`: true once the session backing this screen is known to be no longer valid - see
+     * [ScreenLoadState.FatalSession]'s KDoc. */
+    val isFatalSession: Boolean get() = itemsLoadState is ScreenLoadState.FatalSession
+
+    /** `FB-404`: true once [itemsLoadState] is [ScreenLoadState.Loaded] with zero items. */
+    val isEmpty: Boolean get() = (itemsLoadState as? ScreenLoadState.Loaded)?.data?.isEmpty() == true
+
+    /** `FB-404`: true while [itemsLoadState]'s data came from the local cache rather than a
+     * confirmed server response. See `RepositorySnapshot`'s KDoc for how much of the real
+     * signal is wired up. */
+    val isFromCache: Boolean get() = (itemsLoadState as? ScreenLoadState.Loaded)?.isFromCache == true
+
+    /** `FB-404`: true while [itemsLoadState]'s data reflects at least one local write the server
+     * has not yet acknowledged. */
+    val hasPendingWrites: Boolean get() = (itemsLoadState as? ScreenLoadState.Loaded)?.hasPendingWrites == true
 }
 
 class ListDetailViewModel(
     private val listId: String,
     private val listRepository: ListRepository,
     private val itemRepository: ItemRepository,
+    /**
+     * `FB-404`: combined with [itemRepository]'s observation to derive
+     * [ScreenLoadState.FatalSession] - see `DashboardViewModel`'s identically-purposed
+     * constructor param KDoc for why this reuses `FB-101`/`FB-105`'s session machinery rather
+     * than inventing a parallel signal.
+     */
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val showCompleted = MutableStateFlow(true)
@@ -92,17 +138,34 @@ class ListDetailViewModel(
     private var pendingRetryItemId: String? = null
     private var pendingRetryToggleTarget: Boolean? = null
 
+    /**
+     * `FB-404`: merges the item observation with the auth session so a [ScreenLoadState] is
+     * available to the outer `uiState` combine below without exceeding Kotlin's five-flow
+     * direct-`combine`-overload ceiling (the outer combine already has five slots:
+     * [listRepository]'s `observeList`, this flow, [showCompleted], [composerText],
+     * [listDeleted]).
+     */
+    private val itemsLoadState: Flow<ScreenLoadState<List<FluxItem>>> = combine(
+        itemRepository.observeItemsSnapshot(listId),
+        authRepository.session,
+    ) { snapshot, session ->
+        if (session !is AuthSession.Authenticated) {
+            ScreenLoadState.FatalSession
+        } else {
+            ScreenLoadState.Loaded(snapshot.value, snapshot.isFromCache, snapshot.hasPendingWrites)
+        }
+    }
+
     val uiState: StateFlow<ListDetailUiState> = combine(
         listRepository.observeList(listId),
-        itemRepository.observeItems(listId),
+        itemsLoadState,
         showCompleted,
         composerText,
         listDeleted,
-    ) { list, items, show, text, deleted ->
+    ) { list, itemsState, show, text, deleted ->
         ListDetailUiState(
             list = list,
-            activeItems = items.filter { !it.isCompleted },
-            completedItems = items.filter { it.isCompleted },
+            itemsLoadState = itemsState,
             showCompleted = show,
             composerText = text,
             listDeleted = deleted,

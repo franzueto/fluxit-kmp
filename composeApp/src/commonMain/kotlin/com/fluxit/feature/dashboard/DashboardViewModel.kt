@@ -8,10 +8,14 @@ import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.data.remote.toApplicationError
 import com.fluxit.domain.FluxListSummary
 import com.fluxit.domain.ListRepository
+import com.fluxit.domain.ScreenLoadState
+import com.fluxit.domain.auth.AuthRepository
+import com.fluxit.domain.auth.AuthSession
 import com.fluxit.domain.auth.SessionTrace
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,9 +40,14 @@ data class DashboardOperationError(
 )
 
 data class DashboardUiState(
-    val lists: List<FluxListSummary> = emptyList(),
+    /**
+     * `FB-404`: the raw (unfiltered) load state - see [ScreenLoadState]'s KDoc for the
+     * loading/loaded/fatal-session distinctions and why cache/pending-writes live on
+     * [ScreenLoadState.Loaded] rather than as separate sealed cases. [lists] below is the
+     * pre-existing, search-filtered convenience view derived from this.
+     */
+    val loadState: ScreenLoadState<List<FluxListSummary>> = ScreenLoadState.Loading,
     val searchQuery: String = "",
-    val isLoading: Boolean = true,
     /**
      * `FB-402`: list ids with a delete or restore currently in flight (including a retry). Lets
      * the UI disable that row's actions and doubles as this ViewModel's duplicate-submit guard -
@@ -52,11 +61,55 @@ data class DashboardUiState(
      * since been retried successfully or dismissed via [DashboardViewModel.dismissOperationError].
      */
     val operationError: DashboardOperationError? = null,
-)
+) {
+    /**
+     * `FB-404`: the search-filtered list to render - empty while [loadState] carries no data
+     * yet ([ScreenLoadState.Loading]/[ScreenLoadState.FatalSession]), the
+     * [ScreenLoadState.Loaded] payload filtered by [searchQuery] otherwise. Kept as its own
+     * field (rather than requiring every caller to match on [loadState] itself) so the
+     * pre-existing `DashboardScreen` composable's `state.lists`/`state.isLoading` reads keep
+     * compiling and behaving the same as before this task - [loadState] is additive.
+     */
+    val lists: List<FluxListSummary>
+        get() {
+            val all = (loadState as? ScreenLoadState.Loaded)?.data ?: return emptyList()
+            return if (searchQuery.isBlank()) all
+            else all.filter { it.list.name.contains(searchQuery.trim(), ignoreCase = true) }
+        }
+
+    /** `FB-404`: true only before the very first [loadState] emission - derived so it can never
+     * drift from [loadState] itself (previously a plain field the ViewModel set directly). */
+    val isLoading: Boolean get() = loadState is ScreenLoadState.Loading
+
+    /** `FB-404`: true once the session backing this screen is known to be no longer valid - see
+     * [ScreenLoadState.FatalSession]'s KDoc. */
+    val isFatalSession: Boolean get() = loadState is ScreenLoadState.FatalSession
+
+    /** `FB-404`: true once [loadState] is [ScreenLoadState.Loaded] with zero rows - the
+     * *unfiltered* server/cache state, independent of [searchQuery]. */
+    val isEmpty: Boolean get() = (loadState as? ScreenLoadState.Loaded)?.data?.isEmpty() == true
+
+    /** `FB-404`: true while [loadState]'s data came from the local cache rather than a
+     * confirmed server response (offline, or the very first frame before the network listener
+     * attaches). See `RepositorySnapshot`'s KDoc for how much of the real signal is wired up. */
+    val isFromCache: Boolean get() = (loadState as? ScreenLoadState.Loaded)?.isFromCache == true
+
+    /** `FB-404`: true while [loadState]'s data reflects at least one local write the server has
+     * not yet acknowledged. */
+    val hasPendingWrites: Boolean get() = (loadState as? ScreenLoadState.Loaded)?.hasPendingWrites == true
+}
 
 class DashboardViewModel(
     private val listRepository: ListRepository,
     private val seeder: DebugSeeder,
+    /**
+     * `FB-404`: combined with [listRepository]'s observation to derive
+     * [ScreenLoadState.FatalSession] - reused verbatim from `FB-101`/`FB-105`'s session
+     * machinery, not a parallel session-validity signal invented for this task. See
+     * [ScreenLoadState]'s KDoc for why this is defense-in-depth rather than the primary
+     * mechanism that reacts to a session becoming invalid (that is `SessionGate`'s job).
+     */
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
@@ -76,24 +129,40 @@ class DashboardViewModel(
      */
     private var pendingRetryListId: String? = null
 
-    val uiState: StateFlow<DashboardUiState> =
+    /**
+     * `FB-404`: merges the list observation with the auth session so a [ScreenLoadState] is
+     * available to the outer `uiState` combine below without exceeding Kotlin's five-flow
+     * direct-`combine`-overload ceiling (the outer combine already has five slots: this flow,
+     * [searchQuery], [pendingListIds], [isSeeding], [operationError]).
+     */
+    private val listLoadState: Flow<ScreenLoadState<List<FluxListSummary>>> =
         combine(
-            listRepository.observeListSummaries()
+            listRepository.observeListSummariesSnapshot()
                 // FB-104 evidence hook: this is the first user-scoped data listener the
                 // app starts (Room today, Firestore from Phase 2). Tracing it lets the
                 // manual matrix show, from an ordinary log capture, that it never starts
                 // before the session gate has resolved.
                 .onStart { SessionTrace.event("user-scoped list listener STARTED") },
+            authRepository.session,
+        ) { snapshot, session ->
+            if (session !is AuthSession.Authenticated) {
+                ScreenLoadState.FatalSession
+            } else {
+                ScreenLoadState.Loaded(snapshot.value, snapshot.isFromCache, snapshot.hasPendingWrites)
+            }
+        }
+
+    val uiState: StateFlow<DashboardUiState> =
+        combine(
+            listLoadState,
             searchQuery,
             pendingListIds,
             isSeeding,
             operationError,
-        ) { lists, query, pendingIds, seeding, error ->
+        ) { loadState, query, pendingIds, seeding, error ->
             DashboardUiState(
-                lists = if (query.isBlank()) lists
-                else lists.filter { it.list.name.contains(query.trim(), ignoreCase = true) },
+                loadState = loadState,
                 searchQuery = query,
-                isLoading = false,
                 pendingListIds = pendingIds,
                 isSeeding = seeding,
                 operationError = error,

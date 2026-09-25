@@ -40,8 +40,12 @@ val appModule = module {
     // gate from the ROOT ViewModelStoreOwner, never from the scope it manages.
     viewModel { SessionScopedViewModelStores() }
 
-    viewModel { DashboardViewModel(get(), get()) }
-    viewModel { (listId: String) -> ListDetailViewModel(listId, get(), get()) }
+    // FB-404: DashboardViewModel/ListDetailViewModel/ItemDetailViewModel now each additionally
+    // take AuthRepository, to derive their new fatal-session state from FB-101/FB-105's
+    // existing session machinery (never a parallel signal) - see each ViewModel's constructor
+    // KDoc.
+    viewModel { DashboardViewModel(get(), get(), get()) }
+    viewModel { (listId: String) -> ListDetailViewModel(listId, get(), get(), get()) }
     viewModel { (editingId: String?) -> CreateListViewModel(editingId, get()) }
-    viewModel { (listId: String, itemId: String) -> ItemDetailViewModel(listId, itemId, get(), get(), get(), get()) }
+    viewModel { (listId: String, itemId: String) -> ItemDetailViewModel(listId, itemId, get(), get(), get(), get(), get()) }
 }
