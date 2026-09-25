@@ -1,5 +1,7 @@
 package com.fluxit.data
 
+import com.fluxit.data.remote.ApplicationError
+
 /** Launches the system photo picker and returns the picked image bytes, or null if cancelled. */
 interface PhotoPicker {
     suspend fun pickPhoto(): ByteArray?
@@ -80,22 +82,45 @@ interface PhotoStorage {
      * creates a new object (see [newPhotoId]) - never overwrites or deletes any existing
      * object, including a previous photo for the same item - so the safe-replace ordering
      * documented above is achievable by construction, not by caller discipline alone.
+     *
+     * `FB-403`: any failure - other than [loadPhoto]/[deletePhoto]'s documented "missing
+     * object" no-throw case - is surfaced as [PhotoStorageException], never a raw
+     * platform/Firebase SDK exception instance. See [PhotoStorageException]'s own KDoc.
      */
     suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String
 
     /**
      * Resolves [photoRef] to renderable [PhotoContent], or `null` if it does not exist or is
-     * not accessible.
+     * not accessible. Any other failure is surfaced as [PhotoStorageException] (`FB-403`).
      */
     suspend fun loadPhoto(photoRef: String): PhotoContent?
 
     /**
      * Deletes the object at [photoRef]. MUST be idempotent: deleting an already-missing
      * object is not an error, since a retried/duplicate delete call (e.g. from a client that
-     * failed to observe an earlier call's success) is expected, not exceptional.
+     * failed to observe an earlier call's success) is expected, not exceptional. Any other
+     * failure is surfaced as [PhotoStorageException] (`FB-403`).
      */
     suspend fun deletePhoto(photoRef: String)
 }
+
+/**
+ * `FB-403`: thrown by both platforms' [PhotoStorage] adapters (`AndroidPhotoStorage`,
+ * `IosPhotoStorage`) instead of ever letting a raw platform/Firebase SDK exception instance
+ * cross into `commonMain`-visible code - discharges the remainder of `FB-305-NB2` and closes
+ * `FB-401-NB1`/`FB-401-NB2`. `FB-401` already gave both platforms' Storage SDK exception types
+ * a neutral `.toApplicationError()` mapping (`AndroidFirebaseStorageErrorMapping.kt`,
+ * `IosFirebaseStorageErrorMapping.kt`) but left it unused at any real call site; this type is
+ * what each adapter now wraps that mapped [ApplicationError] in before throwing, so a
+ * `commonMain` caller (`ItemDetailViewModel`, [replacePhoto]) only ever needs to understand
+ * this one neutral type - never a platform-specific exception class - to react to a
+ * photo-storage failure. Exactly the shape `com.fluxit.firebase.list.ListRepositoryException`
+ * already established for `ListRepository`, except deliberately promoted to `commonMain`
+ * (rather than kept `internal` to one platform source set) precisely so callers here *can*
+ * decode the [error] payload - `ListRepositoryException`'s platform-`internal` visibility is
+ * exactly the still-open gap `FB-402-NB1` tracks for list operations, not repeated here.
+ */
+class PhotoStorageException(val error: ApplicationError) : Exception()
 
 /**
  * Deterministic-*shape*, collision-resistant-*value* `photoId` generation, reusing [newId]

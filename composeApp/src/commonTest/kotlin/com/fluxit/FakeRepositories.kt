@@ -97,6 +97,36 @@ class FakeItemRepository : ItemRepository {
      */
     var failSetPhotoRef: Throwable? = null
 
+    /**
+     * `FB-403`: failure injection for `ListDetailViewModelTest`/`ItemDetailViewModelTest`'s
+     * try/finally-reset flags and retryable error states, mirroring
+     * [FakeListRepository]'s identically-shaped `FB-402` fields - not single-shot, and each
+     * paired with a call count so a test can assert a duplicate-submit guard collapsed two
+     * rapid calls into exactly one real one.
+     */
+    var failAddItem: Throwable? = null
+    var failUpdateItem: Throwable? = null
+    var failSetCompleted: Throwable? = null
+    var failSoftDeleteItem: Throwable? = null
+    var failRestoreItem: Throwable? = null
+    var failDeleteItem: Throwable? = null
+    var failClearCompleted: Throwable? = null
+
+    var addItemCallCount = 0
+        private set
+    var updateItemCallCount = 0
+        private set
+    var setCompletedCallCount = 0
+        private set
+    var softDeleteItemCallCount = 0
+        private set
+    var restoreItemCallCount = 0
+        private set
+    var deleteItemCallCount = 0
+        private set
+    var clearCompletedCallCount = 0
+        private set
+
     override fun observeItems(listId: String): Flow<List<FluxItem>> =
         rows.map { all -> all.filter { it.item.listId == listId && !it.deleted }.map { it.item } }
 
@@ -104,15 +134,21 @@ class FakeItemRepository : ItemRepository {
         rows.map { all -> all.firstOrNull { it.item.listId == listId && it.item.id == itemId && !it.deleted }?.item }
 
     override suspend fun addItem(listId: String, title: String) {
+        addItemCallCount++
+        failAddItem?.let { throw it }
         val id = "item-${counter++}"
         rows.value += Row(FluxItem(id, listId, title, null, false, null, counter.toDouble(), 0, 0))
     }
 
     override suspend fun updateItem(listId: String, itemId: String, title: String, description: String?) {
+        updateItemCallCount++
+        failUpdateItem?.let { throw it }
         mutate(listId, itemId) { it.copy(title = title, description = description) }
     }
 
     override suspend fun setCompleted(listId: String, itemId: String, completed: Boolean) {
+        setCompletedCallCount++
+        failSetCompleted?.let { throw it }
         mutate(listId, itemId) { it.copy(isCompleted = completed) }
     }
 
@@ -122,18 +158,26 @@ class FakeItemRepository : ItemRepository {
     }
 
     override suspend fun softDeleteItem(listId: String, itemId: String) {
+        softDeleteItemCallCount++
+        failSoftDeleteItem?.let { throw it }
         rows.value = rows.value.map { if (it.item.listId == listId && it.item.id == itemId) it.copy(deleted = true) else it }
     }
 
     override suspend fun restoreItem(listId: String, itemId: String) {
+        restoreItemCallCount++
+        failRestoreItem?.let { throw it }
         rows.value = rows.value.map { if (it.item.listId == listId && it.item.id == itemId) it.copy(deleted = false) else it }
     }
 
     override suspend fun deleteItem(listId: String, itemId: String) {
+        deleteItemCallCount++
+        failDeleteItem?.let { throw it }
         rows.value = rows.value.filter { it.item.listId != listId || it.item.id != itemId }
     }
 
     override suspend fun clearCompleted(listId: String) {
+        clearCompletedCallCount++
+        failClearCompleted?.let { throw it }
         rows.value = rows.value.map {
             if (it.item.listId == listId && it.item.isCompleted) it.copy(deleted = true) else it
         }

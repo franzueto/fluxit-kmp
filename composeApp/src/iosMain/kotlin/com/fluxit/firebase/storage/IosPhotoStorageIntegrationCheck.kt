@@ -3,8 +3,10 @@ package com.fluxit.firebase.storage
 import com.fluxit.data.IosPhotoStorage
 import com.fluxit.data.PhotoContent
 import com.fluxit.data.PhotoStorage
+import com.fluxit.data.PhotoStorageException
 import com.fluxit.data.newPhotoId
 import com.fluxit.data.remote.FirebaseSchema
+import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.data.replacePhoto
 import com.fluxit.data.toNSData
 import com.fluxit.domain.ListColor
@@ -691,21 +693,35 @@ object IosPhotoStorageIntegrationCheck {
         }
     }
 
-    /** A real denial: explicitly not [isStorageObjectNotFound] - which would let "absent"
-     * masquerade as "denied" and pass this assertion for the wrong reason - and specifically
-     * [isStorageUnauthorized], the Storage SDK's own denial code. */
-    private fun Result<*>.isGenuineDenial(): Boolean {
-        val error = (exceptionOrNull() as? PhotoStorageIosException)?.error ?: return false
-        return !error.isStorageObjectNotFound() && error.isStorageUnauthorized()
+    /**
+     * A real denial: explicitly not "object not found" - which would let "absent" masquerade
+     * as "denied" and pass this assertion for the wrong reason.
+     *
+     * `FB-403`: [readDenial] above goes through [IosPhotoStorage.loadPhoto], which now wraps a
+     * genuine Storage denial in [PhotoStorageException] carrying FB-401's neutral
+     * `ApplicationError` (discharging `FB-401-NB1`/`FB-401-NB2`) rather than the raw
+     * [PhotoStorageIosException]/[NSError] - checked here via
+     * [RepositoryErrorCode.FORBIDDEN]. [writeDenial]/[deleteDenial] deliberately bypass
+     * [IosPhotoStorage] via [uploadDataRaw]/[deleteObjectRaw] (mirroring Android's
+     * `storageB.reference` raw-SDK cross-user check), so they still throw the raw
+     * [PhotoStorageIosException] and are checked the original way.
+     */
+    private fun Result<*>.isGenuineDenial(): Boolean = when (val failure = exceptionOrNull()) {
+        is PhotoStorageException -> failure.error.code == RepositoryErrorCode.FORBIDDEN
+        is PhotoStorageIosException -> !failure.error.isStorageObjectNotFound() && failure.error.isStorageUnauthorized()
+        else -> false
     }
 
-    /** `FB-307` diagnostic-only helper: [ListRepositoryException] never carries a
-     * [Throwable.message] (it wraps a neutral [com.fluxit.data.remote.ApplicationError]
-     * in its own `error` field instead), so the bare `THREW ...: null` a plain
-     * `.message` read produces on these three new entry points' catch blocks is
-     * uninformative - this surfaces the actual error code/detail instead. */
-    private fun Throwable.diagnosticDetail(): String =
-        if (this is ListRepositoryException) "error=$error" else "$message"
+    /** `FB-307` diagnostic-only helper: [ListRepositoryException]/[PhotoStorageException]
+     * never carry a [Throwable.message] (they wrap a neutral
+     * [com.fluxit.data.remote.ApplicationError] in their own `error` field instead), so the
+     * bare `THREW ...: null` a plain `.message` read produces on these three new entry points'
+     * catch blocks is uninformative - this surfaces the actual error code/detail instead. */
+    private fun Throwable.diagnosticDetail(): String = when (this) {
+        is ListRepositoryException -> "error=$error"
+        is PhotoStorageException -> "error=$error"
+        else -> "$message"
+    }
 
     /** `FB-307`: records the most recent `photoRef` [PhotoStorage.uploadPhoto] minted, so
      * [runInterruptedReplaceChecked] can find/verify an orphan object left behind by an

@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.FirebaseAuthCurrentUidProvider
+import com.fluxit.firebase.storage.toApplicationError
 import com.google.android.gms.tasks.Task
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageException
@@ -82,10 +83,13 @@ class AndroidPhotoPicker : PhotoPicker {
  * [StorageException.ERROR_OBJECT_NOT_FOUND] as the documented "missing object" case
  * ([PhotoStorage.loadPhoto] returns `null`; [PhotoStorage.deletePhoto] is a silent
  * no-op) rather than letting it escape as a thrown exception - any other
- * [StorageException] (e.g. a genuine permission denial) still propagates. [uploadPhoto]
- * deliberately swallows nothing: a failed upload must propagate so `replacePhoto`'s
- * safe-replace ordering (`PhotoBridges.kt`, unmodified by this task) leaves the old
- * photo untouched, per its documented failure semantics.
+ * [StorageException] (e.g. a genuine permission denial) still propagates, but (`FB-403`)
+ * wrapped in [PhotoStorageException] via the already-tested
+ * `com.fluxit.firebase.storage.StorageException.toApplicationError()` mapping
+ * (`FB-401`), rather than as a raw `StorageException` instance - discharging the remainder of
+ * `FB-305-NB2`/`FB-401-NB1`/`FB-401-NB2`. [uploadPhoto] deliberately swallows nothing: a failed
+ * upload must propagate so `replacePhoto`'s safe-replace ordering (`PhotoBridges.kt`, unmodified
+ * by this task) leaves the old photo untouched, per its documented failure semantics.
  */
 class AndroidPhotoStorage(
     private val storage: FirebaseStorage = FirebaseStorage.getInstance(),
@@ -94,7 +98,13 @@ class AndroidPhotoStorage(
 
     override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String {
         val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, newPhotoId())
-        storage.reference.child(photoRef).putBytes(bytes).awaitResult()
+        try {
+            storage.reference.child(photoRef).putBytes(bytes).awaitResult()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: StorageException) {
+            throw PhotoStorageException(failure.toApplicationError())
+        }
         return photoRef
     }
 
@@ -104,7 +114,8 @@ class AndroidPhotoStorage(
     } catch (cancellation: CancellationException) {
         throw cancellation
     } catch (missing: StorageException) {
-        if (missing.errorCode == StorageException.ERROR_OBJECT_NOT_FOUND) null else throw missing
+        if (missing.errorCode == StorageException.ERROR_OBJECT_NOT_FOUND) null
+        else throw PhotoStorageException(missing.toApplicationError())
     }
 
     override suspend fun deletePhoto(photoRef: String) {
@@ -113,7 +124,9 @@ class AndroidPhotoStorage(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (missing: StorageException) {
-            if (missing.errorCode != StorageException.ERROR_OBJECT_NOT_FOUND) throw missing
+            if (missing.errorCode != StorageException.ERROR_OBJECT_NOT_FOUND) {
+                throw PhotoStorageException(missing.toApplicationError())
+            }
         }
     }
 

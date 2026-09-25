@@ -26,6 +26,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -76,6 +77,15 @@ import org.junit.runner.RunWith
  *
  * `FB-306` added [uploadPhotoWhileSignedOutThrowsAndCreatesNoObject], discharging
  * `FB-302-NB1` (no test anywhere exercised `uploadPhoto` while signed out).
+ *
+ * `FB-403` wired `AndroidPhotoStorage`'s already-tested `StorageException.toApplicationError()`
+ * mapping (`FB-401`) into every real call site, so a genuine (non-missing-object) Storage
+ * failure now surfaces as [PhotoStorageException] carrying FB-401's neutral `ApplicationError`,
+ * never the raw `StorageException` instance. [crossUserReadOfTheFirstUsersObjectIsDeniedNotFalselyReportedAsMissing]
+ * below is updated accordingly - it exercises the failure through [AndroidPhotoStorage] itself,
+ * so it is the one assertion in this file this change touches.
+ * [crossUserWriteAndDeleteOfTheFirstUsersObjectAreBothDenied] reaches under the adapter with a
+ * raw `storageB.reference` call and is unaffected - it still sees the real SDK exception type.
  */
 @RunWith(AndroidJUnit4::class)
 class PhotoStorageEmulatorIntegrationTest {
@@ -191,10 +201,19 @@ class PhotoStorageEmulatorIntegrationTest {
         val itemId = UUID.randomUUID().toString()
         val ownerRef = clientA.uploadPhoto(itemId, samplePngBytes())
 
-        val denial = assertFailsWith<StorageException>("client B must not be able to read client A's object") {
+        // FB-403: AndroidPhotoStorage now wraps the real StorageException denial in the neutral
+        // PhotoStorageException/ApplicationError before it ever reaches this caller - see this
+        // file's class KDoc. FORBIDDEN (not NOT_FOUND/UNKNOWN) is exactly the mapping proving a
+        // real Rules denial was correctly distinguished from "object absent".
+        val denial = assertFailsWith<PhotoStorageException>("client B must not be able to read client A's object") {
             clientB.loadPhoto(ownerRef)
         }
-        assertDenied(denial)
+        assertEquals(
+            RepositoryErrorCode.FORBIDDEN,
+            denial.error.code,
+            "a Rules denial must map to the neutral FORBIDDEN code, not object-not-found or UNKNOWN: ${denial.error}",
+        )
+        assertFalse(denial.error.canRetry, "a permission denial is not retryable")
 
         // Sanity: the object genuinely exists and the owner can still read it - proves the
         // above was a real denial, not a same-path 404 both clients would have hit.

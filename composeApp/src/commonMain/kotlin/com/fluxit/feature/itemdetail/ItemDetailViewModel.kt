@@ -5,7 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.fluxit.data.PhotoContent
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
+import com.fluxit.data.PhotoStorageException
 import com.fluxit.data.preparePhotoForUpload
+import com.fluxit.data.remote.ApplicationError
+import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.toApplicationError
 import com.fluxit.data.replacePhoto
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.ItemRepository
@@ -39,6 +43,14 @@ data class ItemDetailUiState(
      * or while it has not been resolved/is unresolvable. */
     val photoPreview: PhotoContent? = null,
     val isSaving: Boolean = false,
+    /**
+     * `FB-403`: non-null when the most recent [ItemDetailViewModel.save] attempt failed and has
+     * not since been retried successfully or dismissed via [ItemDetailViewModel.dismissSaveError].
+     * FB-401's neutral, Firebase-free [ApplicationError] - previously an uncaught exception here
+     * left [isSaving] permanently `true` with no feedback at all, the same bug `FB-402` fixed for
+     * `CreateListViewModel.save`.
+     */
+    val saveError: ApplicationError? = null,
     val isPickingPhoto: Boolean = false,
     /** `FB-306`: true while a [ItemDetailViewModel.removePhoto] (or its retry) is in flight. */
     val isRemovingPhoto: Boolean = false,
@@ -52,7 +64,26 @@ data class ItemDetailUiState(
      * successful retry, or [ItemDetailViewModel.dismissPhotoError].
      */
     val photoOperationFailed: PhotoOperationKind? = null,
+    /**
+     * `FB-403`: FB-401's neutral, Firebase-free [ApplicationError] paired with
+     * [photoOperationFailed] - additive alongside the pre-existing enum field (rather than
+     * replacing its type) so `ItemDetailScreen`'s existing `PhotoOperationKind`-typed rendering
+     * keeps compiling unchanged, matching `FB-402`'s established "new fields are purely
+     * additive" precedent. `AndroidPhotoStorage`/`IosPhotoStorage` now throw
+     * [com.fluxit.data.PhotoStorageException] carrying exactly this type (`FB-403`, discharging
+     * `FB-401-NB1`/`FB-401-NB2`); any other failure (e.g. an `ItemRepository` Firestore write)
+     * conservatively falls back to [RepositoryErrorCode.UNKNOWN] - see [toItemDetailApplicationError].
+     */
+    val photoOperationError: ApplicationError? = null,
     val closed: Boolean = false,
+    /** `FB-403`: true while [ItemDetailViewModel.deleteItem] (or its retry) is in flight. */
+    val isDeletingItem: Boolean = false,
+    /**
+     * `FB-403`: non-null when the most recent [ItemDetailViewModel.deleteItem] attempt failed
+     * and has not since been retried successfully or dismissed via
+     * [ItemDetailViewModel.dismissDeleteError].
+     */
+    val deleteError: ApplicationError? = null,
 ) {
     val isValid: Boolean get() = title.trim().isNotEmpty()
     val isDirty: Boolean
@@ -134,19 +165,48 @@ class ItemDetailViewModel(
         }
     }
 
+    /**
+     * `FB-403`: a second call while a save is already in flight is a no-op - [state.canSave]
+     * already requires `!isSaving`, checked synchronously before [ItemDetailUiState.isSaving]
+     * is itself set, so the guard always sees the first call's flag, exactly like
+     * `CreateListViewModel.save`'s identical guard (`FB-402`).
+     *
+     * On failure, `isSaving` is still reset (`finally`) and a retryable
+     * [ItemDetailUiState.saveError] is surfaced instead of the flag being left stuck `true`
+     * forever with no feedback - previously an uncaught exception here left
+     * [ItemDetailUiState.isSaving] permanently `true`, locking the Save button with no
+     * recourse (the exact bug `FB-402` fixed for `CreateListViewModel.save`).
+     */
     fun save() {
         val state = _uiState.value
         if (!state.canSave) return
-        _uiState.value = state.copy(isSaving = true)
+        _uiState.value = state.copy(isSaving = true, saveError = null)
         viewModelScope.launch {
-            itemRepository.updateItem(
-                listId,
-                itemId,
-                state.title.trim(),
-                state.description.trim().ifEmpty { null },
-            )
-            _uiState.value = _uiState.value.copy(closed = true)
+            try {
+                itemRepository.updateItem(
+                    listId,
+                    itemId,
+                    state.title.trim(),
+                    state.description.trim().ifEmpty { null },
+                )
+                _uiState.value = _uiState.value.copy(closed = true)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Throwable) {
+                _uiState.value = _uiState.value.copy(saveError = failure.toItemDetailApplicationError())
+            } finally {
+                _uiState.value = _uiState.value.copy(isSaving = false)
+            }
         }
+    }
+
+    /** `FB-403`: re-attempts [save] with the current (possibly since-edited) field values - a
+     * no-op if nothing failed or a save is already in flight, exactly like [save] itself. */
+    fun retrySave() = save()
+
+    /** Clears a shown [ItemDetailUiState.saveError] without retrying. */
+    fun dismissSaveError() {
+        _uiState.value = _uiState.value.copy(saveError = null)
     }
 
     /**
@@ -164,7 +224,7 @@ class ItemDetailViewModel(
      */
     fun pickPhoto() {
         if (_uiState.value.isPhotoBusy) return
-        _uiState.value = _uiState.value.copy(isPickingPhoto = true, photoOperationFailed = null)
+        _uiState.value = _uiState.value.copy(isPickingPhoto = true, photoOperationFailed = null, photoOperationError = null)
         viewModelScope.launch {
             val pickedBytes = photoPicker.pickPhoto()
             if (pickedBytes == null) {
@@ -187,7 +247,8 @@ class ItemDetailViewModel(
         when (_uiState.value.photoOperationFailed) {
             PhotoOperationKind.REPLACE -> {
                 val bytes = pendingReplaceBytes ?: return
-                _uiState.value = _uiState.value.copy(isPickingPhoto = true, photoOperationFailed = null)
+                _uiState.value =
+                    _uiState.value.copy(isPickingPhoto = true, photoOperationFailed = null, photoOperationError = null)
                 viewModelScope.launch { performReplace(bytes) }
             }
             PhotoOperationKind.REMOVE -> {
@@ -201,7 +262,7 @@ class ItemDetailViewModel(
     /** Clears a shown [ItemDetailUiState.photoOperationFailed] without retrying - e.g. the
      * user dismisses the failure banner and picks a different photo, or simply moves on. */
     fun dismissPhotoError() {
-        _uiState.value = _uiState.value.copy(photoOperationFailed = null)
+        _uiState.value = _uiState.value.copy(photoOperationFailed = null, photoOperationError = null)
     }
 
     /**
@@ -244,11 +305,15 @@ class ItemDetailViewModel(
                 photoRef = newRef,
                 photoPreview = PhotoContent.Bytes(prepared),
                 photoOperationFailed = null,
+                photoOperationError = null,
             )
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Throwable) {
-            _uiState.value = _uiState.value.copy(photoOperationFailed = PhotoOperationKind.REPLACE)
+            _uiState.value = _uiState.value.copy(
+                photoOperationFailed = PhotoOperationKind.REPLACE,
+                photoOperationError = failure.toItemDetailApplicationError(),
+            )
         } finally {
             _uiState.value = _uiState.value.copy(isPickingPhoto = false)
         }
@@ -272,7 +337,7 @@ class ItemDetailViewModel(
     }
 
     private fun beginRemove(ref: String) {
-        _uiState.value = _uiState.value.copy(isRemovingPhoto = true, photoOperationFailed = null)
+        _uiState.value = _uiState.value.copy(isRemovingPhoto = true, photoOperationFailed = null, photoOperationError = null)
         viewModelScope.launch {
             try {
                 itemRepository.setPhotoRef(listId, itemId, null)
@@ -282,20 +347,66 @@ class ItemDetailViewModel(
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (failure: Throwable) {
-                _uiState.value = _uiState.value.copy(photoOperationFailed = PhotoOperationKind.REMOVE)
+                _uiState.value = _uiState.value.copy(
+                    photoOperationFailed = PhotoOperationKind.REMOVE,
+                    photoOperationError = failure.toItemDetailApplicationError(),
+                )
             } finally {
                 _uiState.value = _uiState.value.copy(isRemovingPhoto = false)
             }
         }
     }
 
+    /**
+     * `FB-403`: a second call while a delete is already in flight is a no-op -
+     * [ItemDetailUiState.isDeletingItem] is set synchronously, before the coroutine is even
+     * launched. On failure, the flag is still reset (`finally`) and a retryable
+     * [ItemDetailUiState.deleteError] is surfaced instead of an uncaught exception from
+     * `viewModelScope.launch`. The best-effort photo cleanup below is unchanged - a Storage
+     * hiccup there is already swallowed via `runCatching` and must not block deleting the item
+     * itself; only a genuine [itemRepository.deleteItem] failure reaches the `catch` below.
+     */
     fun deleteItem() {
+        if (_uiState.value.isDeletingItem) return
+        _uiState.value = _uiState.value.copy(isDeletingItem = true, deleteError = null)
         viewModelScope.launch {
-            // Best-effort cleanup: a Storage hiccup must not block deleting the item itself.
-            // Reliable cascade cleanup on item deletion is FB-502/FB-503's job, not this one's.
-            _uiState.value.photoRef?.let { ref -> runCatching { photoStorage.deletePhoto(ref) } }
-            itemRepository.deleteItem(listId, itemId)
-            _uiState.value = _uiState.value.copy(closed = true)
+            try {
+                // Best-effort cleanup: a Storage hiccup must not block deleting the item itself.
+                // Reliable cascade cleanup on item deletion is FB-502/FB-503's job, not this one's.
+                _uiState.value.photoRef?.let { ref -> runCatching { photoStorage.deletePhoto(ref) } }
+                itemRepository.deleteItem(listId, itemId)
+                _uiState.value = _uiState.value.copy(closed = true)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Throwable) {
+                _uiState.value = _uiState.value.copy(deleteError = failure.toItemDetailApplicationError())
+            } finally {
+                _uiState.value = _uiState.value.copy(isDeletingItem = false)
+            }
         }
     }
+
+    /** `FB-403`: re-attempts [deleteItem] - a no-op if nothing failed or a delete is already in
+     * flight, exactly like [deleteItem] itself. */
+    fun retryDeleteItem() = deleteItem()
+
+    /** Clears a shown [ItemDetailUiState.deleteError] without retrying. */
+    fun dismissDeleteError() {
+        _uiState.value = _uiState.value.copy(deleteError = null)
+    }
+}
+
+/**
+ * `FB-403`: `PhotoStorage` failures now surface FB-401's neutral [ApplicationError] directly via
+ * [PhotoStorageException] (`AndroidPhotoStorage`/`IosPhotoStorage`, discharging
+ * `FB-401-NB1`/`FB-401-NB2`) - extracted here without loss. `ItemRepository`'s Firestore-backed
+ * write failures (e.g. `updateItem`/`setPhotoRef`/`deleteItem`) have no such `commonMain`-visible
+ * mapping yet - the same `ListRepositoryException` platform-`internal`-visibility gap
+ * `FB-402-NB1` already tracks for `ListRepository`/`ItemRepository`, not this task's scope to
+ * close - so those conservatively fall back to [RepositoryErrorCode.UNKNOWN] (`canRetry = true`)
+ * rather than a guessed, more specific code.
+ */
+private fun Throwable.toItemDetailApplicationError(): ApplicationError = when (this) {
+    is PhotoStorageException -> error
+    else -> RepositoryErrorCode.UNKNOWN.toApplicationError()
 }

@@ -3,6 +3,8 @@ package com.fluxit
 import com.fluxit.data.DebugSeeder
 import com.fluxit.data.PhotoContent
 import com.fluxit.data.PhotoRejected
+import com.fluxit.data.PhotoStorageException
+import com.fluxit.data.remote.ApplicationError
 import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
@@ -11,6 +13,7 @@ import com.fluxit.feature.dashboard.DashboardOperation
 import com.fluxit.feature.dashboard.DashboardViewModel
 import com.fluxit.feature.itemdetail.ItemDetailViewModel
 import com.fluxit.feature.itemdetail.PhotoOperationKind
+import com.fluxit.feature.listdetail.ListDetailOperation
 import com.fluxit.feature.listdetail.ListDetailViewModel
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -278,6 +281,217 @@ class ListDetailViewModelTest {
         assertEquals(listOf("Bread"), vm.uiState.value.activeItems.map { it.title })
         assertTrue(vm.uiState.value.completedItems.isEmpty())
         collectJob.cancel()
+    }
+
+    // --- FB-403: try/finally flag reset, retryable error, duplicate-submit guard ---
+
+    @Test
+    fun addItemFailureResetsIsAddingItemAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = ListDetailViewModel(listId, lists, items)
+        val collectJob = launch { vm.uiState.collect {} }
+        vm.onComposerChange("Milk")
+
+        items.failAddItem = IllegalStateException("boom")
+        vm.submitComposer()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.isAddingItem.value, "isAddingItem must reset on failure (finally), not stay stuck true")
+        assertTrue(vm.uiState.value.activeItems.isEmpty())
+        val error = assertNotNull(vm.operationError.value)
+        assertEquals(ListDetailOperation.ADD_ITEM, error.operation)
+        assertTrue(error.error.canRetry)
+        assertEquals(RepositoryErrorCode.UNKNOWN, error.error.code)
+
+        items.failAddItem = null
+        vm.retryFailedOperation()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.isAddingItem.value)
+        assertNull(vm.operationError.value)
+        assertEquals(listOf("Milk"), vm.uiState.value.activeItems.map { it.title }, "the retried add must succeed with the originally typed title")
+        collectJob.cancel()
+    }
+
+    @Test
+    fun duplicateSubmitComposerCallsWhileInFlightDoNotTriggerASecondAddItem() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = ListDetailViewModel(listId, lists, items)
+        vm.onComposerChange("Milk")
+
+        vm.submitComposer() // synchronously marks isAddingItem = true before any suspension point
+        vm.onComposerChange("Milk") // even if re-typed, a second submit while in flight is still a no-op
+        vm.submitComposer()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, items.addItemCallCount)
+    }
+
+    @Test
+    fun toggleCompletedFailureResetsPendingAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val vm = ListDetailViewModel(listId, lists, items)
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        val item = vm.uiState.value.activeItems.first()
+
+        items.failSetCompleted = IllegalStateException("boom")
+        vm.toggleCompleted(item)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(vm.pendingItemIds.value.isEmpty(), "pendingItemIds must reset on failure (finally)")
+        assertEquals(listOf("Milk"), vm.uiState.value.activeItems.map { it.title }, "a failed toggle must not move the item")
+        val error = assertNotNull(vm.operationError.value)
+        assertEquals(ListDetailOperation.TOGGLE_COMPLETED, error.operation)
+
+        items.failSetCompleted = null
+        vm.retryFailedOperation()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(vm.operationError.value)
+        assertTrue(vm.uiState.value.activeItems.isEmpty(), "the retried toggle must succeed")
+        assertEquals(1, vm.uiState.value.completedItems.size)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun duplicateToggleCompletedCallsForTheSameItemWhileInFlightDoNotTriggerASecondCall() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val vm = ListDetailViewModel(listId, lists, items)
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        val item = vm.uiState.value.activeItems.first()
+
+        vm.toggleCompleted(item) // synchronously marks the item id pending before any suspension point
+        vm.toggleCompleted(item) // must be a no-op: a toggle for this item is already in flight
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, items.setCompletedCallCount)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun deleteItemFailureResetsPendingAndSurfacesARetryableErrorWithNoPhantomUndo() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val vm = ListDetailViewModel(listId, lists, items)
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        val itemId = vm.uiState.value.activeItems.first().id
+
+        items.failSoftDeleteItem = IllegalStateException("boom")
+        vm.deleteItem(itemId)
+        // `runCurrent()`, not `advanceUntilIdle()`: the failure path never suspends on `delay`,
+        // and `advanceUntilIdle()` here would also fast-forward past the 5s undo window started
+        // by the *later* successful retry before this test gets to observe it - same reasoning
+        // as `DashboardViewModelTest.deleteListFailureResetsPendingFlagAndSurfacesARetryableErrorThenRetrySucceeds` (`FB-402`).
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue(vm.pendingItemIds.value.isEmpty(), "pendingItemIds must reset on failure (finally)")
+        assertNull(vm.undoItemId.value, "a failed delete must never show an undo affordance")
+        val error = assertNotNull(vm.operationError.value)
+        assertEquals(ListDetailOperation.DELETE_ITEM, error.operation)
+
+        items.failSoftDeleteItem = null
+        vm.retryFailedOperation()
+        dispatcher.scheduler.runCurrent()
+
+        assertNull(vm.operationError.value)
+        assertNotNull(vm.undoItemId.value, "the retried delete must start the undo window like any other successful delete")
+        collectJob.cancel()
+    }
+
+    @Test
+    fun duplicateDeleteItemCallsForTheSameItemWhileInFlightDoNotTriggerASecondCall() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val vm = ListDetailViewModel(listId, lists, items)
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        val itemId = vm.uiState.value.activeItems.first().id
+
+        vm.deleteItem(itemId) // synchronously marks the item id pending before any suspension point
+        vm.deleteItem(itemId) // must be a no-op: a delete for this item is already in flight
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, items.softDeleteItemCallCount)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun undoDeleteFailureSurfacesARetryableRestoreErrorThenRetrySucceeds() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val vm = ListDetailViewModel(listId, lists, items)
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        val itemId = vm.uiState.value.activeItems.first().id
+        vm.deleteItem(itemId)
+        // `runCurrent()`, not `advanceUntilIdle()`: the latter would also fast-forward through
+        // the 5s undo-expiry delay before `undoDelete()` below ever gets to cancel it, which
+        // would clear `pendingUndo` out from under this test and make `undoDelete()` an
+        // unintended no-op.
+        dispatcher.scheduler.runCurrent()
+
+        items.failRestoreItem = IllegalStateException("boom")
+        vm.undoDelete()
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue(vm.pendingItemIds.value.isEmpty())
+        assertTrue(vm.uiState.value.activeItems.isEmpty(), "a failed restore must not bring the item back")
+        val error = assertNotNull(vm.operationError.value)
+        assertEquals(ListDetailOperation.RESTORE_ITEM, error.operation)
+
+        items.failRestoreItem = null
+        vm.retryFailedOperation()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(vm.operationError.value)
+        assertEquals(listOf("Milk"), vm.uiState.value.activeItems.map { it.title }, "the retried restore must succeed")
+        collectJob.cancel()
+    }
+
+    @Test
+    fun clearCompletedFailureResetsFlagAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        items.setCompleted(listId, items.observeItems(listId).first().first().id, true)
+        val vm = ListDetailViewModel(listId, lists, items)
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        items.failClearCompleted = IllegalStateException("boom")
+        vm.clearCompleted()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.isClearingCompleted.value, "isClearingCompleted must reset on failure (finally)")
+        assertEquals(1, vm.uiState.value.completedItems.size, "a failed clear must not remove completed items")
+        val error = assertNotNull(vm.operationError.value)
+        assertEquals(ListDetailOperation.CLEAR_COMPLETED, error.operation)
+
+        items.failClearCompleted = null
+        vm.retryFailedOperation()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(vm.operationError.value)
+        assertTrue(vm.uiState.value.completedItems.isEmpty(), "the retried clear must succeed")
+        collectJob.cancel()
+    }
+
+    @Test
+    fun duplicateClearCompletedCallsWhileInFlightDoNotTriggerASecondCall() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        items.setCompleted(listId, items.observeItems(listId).first().first().id, true)
+        val vm = ListDetailViewModel(listId, lists, items)
+
+        vm.clearCompleted() // synchronously marks isClearingCompleted = true before any suspension point
+        vm.clearCompleted() // must be a no-op: a clear is already in flight
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, items.clearCompletedCallCount)
     }
 }
 
@@ -793,5 +1007,138 @@ class ItemDetailViewModelTest {
         val newRef = vm.uiState.value.photoRef
         assertNotNull(newRef, "removePhoto must not have cleared the ref while the replace was in flight")
         assertEquals(newRef, items.observeItem(listId, itemId).first()?.photoRef)
+    }
+
+    // --- FB-403: try/finally flag reset, retryable error, duplicate-submit guard (save/delete) ---
+
+    @Test
+    fun saveFailureResetsIsSavingAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        itemId = items.observeItems(listId).first().first().id
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        vm.onTitleChange("Whole milk")
+
+        items.failUpdateItem = IllegalStateException("boom")
+        vm.save()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isSaving, "isSaving must reset on failure (finally), not stay stuck true")
+        assertFalse(vm.uiState.value.closed)
+        val error = assertNotNull(vm.uiState.value.saveError)
+        assertTrue(error.canRetry)
+        assertEquals(RepositoryErrorCode.UNKNOWN, error.code)
+        assertEquals("Milk", items.observeItem(listId, itemId).first()?.title, "a failed save must not change the stored item")
+
+        items.failUpdateItem = null
+        vm.retrySave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isSaving)
+        assertNull(vm.uiState.value.saveError)
+        assertTrue(vm.uiState.value.closed, "the retried save must succeed")
+        assertEquals("Whole milk", items.observeItem(listId, itemId).first()?.title)
+    }
+
+    @Test
+    fun duplicateSaveCallsWhileInFlightDoNotTriggerASecondUpdateItem() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        itemId = items.observeItems(listId).first().first().id
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        vm.onTitleChange("Whole milk")
+
+        vm.save() // synchronously marks isSaving = true before any suspension point
+        vm.save() // must be a no-op: a save is already in flight
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, items.updateItemCallCount)
+    }
+
+    @Test
+    fun deleteItemFailureResetsIsDeletingItemAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
+        seedItemWithPhoto()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        items.failDeleteItem = IllegalStateException("boom")
+        vm.deleteItem()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isDeletingItem, "isDeletingItem must reset on failure (finally), not stay stuck true")
+        assertFalse(vm.uiState.value.closed)
+        val error = assertNotNull(vm.uiState.value.deleteError)
+        assertTrue(error.canRetry)
+        assertEquals(RepositoryErrorCode.UNKNOWN, error.code)
+        assertNotNull(items.observeItem(listId, itemId).first(), "a failed delete must not remove the item")
+
+        items.failDeleteItem = null
+        vm.retryDeleteItem()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isDeletingItem)
+        assertNull(vm.uiState.value.deleteError)
+        assertTrue(vm.uiState.value.closed, "the retried delete must succeed")
+        assertNull(items.observeItem(listId, itemId).first())
+    }
+
+    @Test
+    fun duplicateDeleteItemCallsWhileInFlightDoNotTriggerASecondDeleteItem() = runTest(dispatcher) {
+        seedItemWithPhoto()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.deleteItem() // synchronously marks isDeletingItem = true before any suspension point
+        vm.deleteItem() // must be a no-op: a delete is already in flight
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, items.deleteItemCallCount)
+    }
+
+    @Test
+    fun dismissSaveErrorClearsTheFailedStateWithoutRetrying() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        itemId = items.observeItems(listId).first().first().id
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        vm.onTitleChange("Whole milk")
+
+        items.failUpdateItem = IllegalStateException("boom")
+        vm.save()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNotNull(vm.uiState.value.saveError)
+
+        vm.dismissSaveError()
+
+        assertNull(vm.uiState.value.saveError)
+        assertFalse(vm.uiState.value.closed)
+    }
+
+    /**
+     * `FB-403` (discharging the remainder of `FB-305-NB2`/`FB-401-NB1`/`FB-401-NB2`): a
+     * `PhotoStorage` failure must surface its real, specific [ApplicationError] - not just the
+     * conservative `RepositoryErrorCode.UNKNOWN` fallback [toItemDetailApplicationError] uses
+     * for non-`PhotoStorage` failures - proving `performReplace`'s catch block actually unwraps
+     * [PhotoStorageException] rather than discarding it.
+     */
+    @Test
+    fun pickPhotoFailureSurfacesThePhotoStorageExceptionsRealApplicationErrorNotJustUnknown() = runTest(dispatcher) {
+        seedItemWithPhoto()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val forbidden = ApplicationError(RepositoryErrorCode.FORBIDDEN, canRetry = false)
+        photoStorage.failUpload = PhotoStorageException(forbidden)
+        photoPicker.nextPick = byteArrayOf(2)
+        vm.pickPhoto()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(PhotoOperationKind.REPLACE, vm.uiState.value.photoOperationFailed)
+        val error = assertNotNull(vm.uiState.value.photoOperationError)
+        assertEquals(RepositoryErrorCode.FORBIDDEN, error.code, "the real PhotoStorageException payload must be extracted, not collapsed to UNKNOWN")
+        assertFalse(error.canRetry)
     }
 }

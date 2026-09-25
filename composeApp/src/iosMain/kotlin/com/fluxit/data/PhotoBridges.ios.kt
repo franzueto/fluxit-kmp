@@ -3,12 +3,15 @@
 package com.fluxit.data
 
 import com.fluxit.data.remote.FirebaseSchema
+import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.toApplicationError
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.IosAuthBridgeCurrentUidProvider
 import com.fluxit.firebase.storage.IosFirebaseStorageBridge
 import com.fluxit.firebase.storage.IosFirebaseStorageBridgeRegistry
 import com.fluxit.firebase.storage.PhotoStorageIosException
 import com.fluxit.firebase.storage.isStorageObjectNotFound
+import com.fluxit.firebase.storage.toApplicationError
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
@@ -132,12 +135,13 @@ class IosPhotoPicker : PhotoPicker {
  * ([com.fluxit.firebase.storage.isStorageObjectNotFound]) as the documented "missing
  * object" case ([PhotoStorage.loadPhoto] returns `null`; [PhotoStorage.deletePhoto] is a
  * silent no-op) rather than letting it escape as a thrown exception - any other failure
- * (e.g. a genuine Rules denial) still propagates, wrapped in
- * [com.fluxit.firebase.storage.PhotoStorageIosException] so no raw Firebase-SDK-originated
- * type crosses out of `iosMain` (the [NSError] itself is a Foundation type, not an SDK type,
- * but is still never exposed to `commonMain` here). [uploadPhoto] deliberately swallows
- * nothing: a failed upload must propagate so `replacePhoto`'s safe-replace ordering
- * (`PhotoBridges.kt`, unmodified by this task) leaves the old photo untouched, per its
+ * (e.g. a genuine Rules denial) still propagates, but (`FB-403`) as [PhotoStorageException]
+ * (via the already-tested
+ * `com.fluxit.firebase.storage.PhotoStorageIosException.toApplicationError()` mapping,
+ * `FB-401`), never the raw [com.fluxit.firebase.storage.PhotoStorageIosException]/[NSError]
+ * instance - discharging the remainder of `FB-305-NB2`/`FB-401-NB1`/`FB-401-NB2`. [uploadPhoto]
+ * deliberately swallows nothing: a failed upload must propagate so `replacePhoto`'s safe-replace
+ * ordering (`PhotoBridges.kt`, unmodified by this task) leaves the old photo untouched, per its
  * documented failure semantics - mirrors `AndroidPhotoStorage.uploadPhoto` exactly.
  */
 class IosPhotoStorage(
@@ -149,14 +153,20 @@ class IosPhotoStorage(
     override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String {
         val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, newPhotoId())
         val data = bytes.toNSData()
-        suspendCancellableCoroutine<Unit> { continuation ->
-            bridgeProvider().uploadData(photoRef, data) { error ->
-                if (error != null) {
-                    continuation.resumeWithException(PhotoStorageIosException(error))
-                } else {
-                    continuation.resume(Unit)
+        try {
+            suspendCancellableCoroutine<Unit> { continuation ->
+                bridgeProvider().uploadData(photoRef, data) { error ->
+                    if (error != null) {
+                        continuation.resumeWithException(PhotoStorageIosException(error))
+                    } else {
+                        continuation.resume(Unit)
+                    }
                 }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: PhotoStorageIosException) {
+            throw PhotoStorageException(failure.toApplicationError())
         }
         return photoRef
     }
@@ -177,7 +187,9 @@ class IosPhotoStorage(
     } catch (cancellation: CancellationException) {
         throw cancellation
     } catch (missing: PhotoStorageIosException) {
-        if (missing.error.isStorageObjectNotFound()) null else throw missing
+        if (missing.error.isStorageObjectNotFound()) null else throw PhotoStorageException(missing.toApplicationError())
+    } catch (failure: IllegalStateException) {
+        throw PhotoStorageException(RepositoryErrorCode.UNKNOWN.toApplicationError())
     }
 
     override suspend fun deletePhoto(photoRef: String) {
@@ -194,7 +206,7 @@ class IosPhotoStorage(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (missing: PhotoStorageIosException) {
-            if (!missing.error.isStorageObjectNotFound()) throw missing
+            if (!missing.error.isStorageObjectNotFound()) throw PhotoStorageException(missing.toApplicationError())
         }
     }
 
