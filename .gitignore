@@ -21,6 +21,7 @@ serviceAccountKey.json
 # Firebase CLI and emulator local artifacts
 .firebase/
 firebase/node_modules/
+functions/node_modules/
 firebase-debug.log*
 firestore-debug.log*
 

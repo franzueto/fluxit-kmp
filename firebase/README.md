@@ -1,4 +1,4 @@
-# Firebase emulator & Security Rules tests (FB-005)
+# Firebase emulator, Security Rules tests, and cleanup backend
 
 Self-contained tooling for the Firebase emulator suite and the baseline
 Security Rules tests. It is **not** wired into the Gradle/KMP build and does not
@@ -13,6 +13,7 @@ affect any Android/iOS build command.
 | `../storage.rules` | Baseline authenticated owner-only Storage Rules |
 | `../.firebaserc` | Project aliases — **placeholder only**, see below |
 | `test/` | `@firebase/rules-unit-testing` Rules tests |
+| `../functions/` | FB-501 scheduled cleanup target and local invocation harness |
 
 ## Pinned emulator ports
 
@@ -21,6 +22,8 @@ affect any Android/iOS build command.
 | Authentication | 9099 |
 | Cloud Firestore | 8080 |
 | Cloud Storage | 9199 |
+| Cloud Functions | 5001 |
+| Pub/Sub (scheduled trigger emulation) | 8085 |
 | Emulator UI | 4000 |
 | Emulator hub | 4400 |
 
@@ -157,6 +160,37 @@ npm install
 npm test        # starts auth+firestore+storage emulators, runs Rules tests, shuts down
 npm run emulators   # long-running emulator suite incl. UI at http://127.0.0.1:4000
 ```
+
+## Scheduled cleanup target (FB-501)
+
+`../functions/index.js` exports `cleanupExpiredData`, a second-generation Cloud
+Functions scheduled target for 03:00 UTC daily. The target is pinned to one
+instance with one concurrent invocation. Its 30-day retention constant records
+`DEC-003b` and `DEC-003e-2`; `FB-502` and `FB-503` will add the tombstone,
+Storage, and list-cascade passes. **The FB-501 target only logs a scaffold
+message and performs no reads or deletions.** `FB-507` owns development
+deployment after those passes have been reviewed. The mobile clients still use
+their existing purge path until `FB-504`.
+
+Run the build/metadata check and real local Functions emulator harness from a
+clean clone without Firebase login or service-account credentials:
+
+```sh
+cd firebase && npm ci
+cd ../functions && npm ci
+npm run check
+npm run test:emulator
+```
+
+`test:emulator` starts Functions, Pub/Sub, Firestore, and Storage emulators using
+the reserved `demo-fluxit` project, invokes the scheduled target through the
+local Functions emulator, asserts an HTTP success, and shuts all emulators down.
+Pub/Sub is required for the CLI to initialize scheduled triggers. The Functions
+runtime is configured as Node.js 22, which Firebase supports; using a different
+local Node.js version may produce an emulator mismatch warning. Port 5001 and
+8085 are pinned in `../firebase.json` alongside the existing emulator ports.
+This harness checks target registration/invocation only; deletion and restore
+race behavior belong to `FB-502`/`FB-503` tests.
 
 ## `.firebaserc` is a placeholder
 
