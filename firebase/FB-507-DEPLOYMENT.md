@@ -95,10 +95,20 @@ record its deployment time and revision/version identifier if displayed. A
 deployment is not a proof of cleanup behavior; `FB-504` owns the development
 end-to-end check and removal of the mobile purge path.
 
+From the same terminal, `firebase/node_modules/.bin/firebase --project fluxit-dev functions:list`
+should list `cleanupExpiredData` in `us-central1` as a second-generation
+function. In the Google Cloud Console for `fluxit-dev`, check Cloud Scheduler
+for the enabled job `firebase-schedule-cleanupExpiredData-us-central1`, with
+schedule `0 3 * * *` and time zone `Etc/UTC`. Verify the function detail shows
+Node.js 22. Do not manually run the Scheduler job for this deployment check;
+it would execute deletion against live development data. A safe synthetic
+end-to-end check belongs to `FB-504`.
+
 ## Safe evidence to send back
 
 Report only: (1) probe `PASS` or sanitized failure; (2) Firestore Rules/indexes
 deploy success and index-ready state or sanitized blocker; (3) function deploy
-success, project ID, region, runtime, and deployment time/revision if available.
+success, project ID, region, runtime, Scheduler job enabled state, and
+deployment time/revision if available.
 Do not paste credentials, full logs, Firestore documents, Storage paths from app
 data, or personal data.
