@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
  * via [ListDetailViewModel.retryFailedOperation] instead of a swallowed or uncaught exception -
  * exact counterpart of `DashboardOperation` (`FB-402`), scoped to this screen's operations.
  */
-enum class ListDetailOperation { ADD_ITEM, TOGGLE_COMPLETED, DELETE_ITEM, RESTORE_ITEM, CLEAR_COMPLETED }
+enum class ListDetailOperation { ADD_ITEM, TOGGLE_COMPLETED, DELETE_ITEM, RESTORE_ITEM, CLEAR_COMPLETED, DELETE_LIST }
 
 /** `FB-403`: pairs the failed operation with FB-401's neutral, Firebase-free [ApplicationError]. */
 data class ListDetailOperationError(
@@ -126,6 +126,12 @@ class ListDetailViewModel(
     private val _isClearingCompleted = MutableStateFlow(false)
     val isClearingCompleted: StateFlow<Boolean> = _isClearingCompleted.asStateFlow()
 
+    /** `FB-409`: true while [deleteList] (or its retry) is in flight - same duplicate-submit
+     * guard shape as [_isAddingItem]/[_isClearingCompleted], kept as its own [StateFlow] for the
+     * same "already at the outer `combine`'s 5-flow ceiling" reason those are. */
+    private val _isDeletingList = MutableStateFlow(false)
+    val isDeletingList: StateFlow<Boolean> = _isDeletingList.asStateFlow()
+
     /**
      * `FB-403`: non-null when the most recent add/toggle/delete/restore/clear-completed attempt
      * failed and has not since been retried successfully or dismissed via [dismissOperationError].
@@ -168,8 +174,27 @@ class ListDetailViewModel(
          */
         .catch { _ -> emit(ScreenLoadState.FatalSession) }
 
+    /**
+     * `FB-409` sibling-audit fix (found via this task's live cross-uid reproduction of
+     * `deleteList()`'s crash, not the `deleteList()` bug itself): `listRepository.observeList`'s
+     * `callbackFlow` calls `close(exception)` on a terminal listener error the exact same way
+     * `itemRepository.observeItemsSnapshot`/`observeListSummariesSnapshot` do, but this flow was
+     * fed directly into [uiState]'s `combine(...)` below with no `.catch` at all - unlike
+     * [itemsLoadState], which `FB-408` did fix. A real terminal error on the *list document*
+     * listener therefore still rethrew uncaught through `viewModelScope`'s `stateIn` and
+     * crashed the app process, exactly `FB-405`'s original finding, even after `FB-408` was
+     * marked `DONE` for this ViewModel - `FB-408`'s fix only covered the items listener. Mapped
+     * to `null` (not a new [ScreenLoadState]) since this flow only ever feeds
+     * [ListDetailUiState.list] - a single optional value with no loading/cache semantics of its
+     * own; [itemsLoadState] (fixed by `FB-408`) and the direct `authRepository.session` check
+     * inside it remain the authoritative source for [ListDetailUiState.isFatalSession], so a
+     * `null` list here composes correctly with the pre-existing "list not found/not yet loaded"
+     * rendering without inventing new UI state.
+     */
+    private val list: Flow<FluxList?> = listRepository.observeList(listId).catch { _ -> emit(null) }
+
     val uiState: StateFlow<ListDetailUiState> = combine(
-        listRepository.observeList(listId),
+        list,
         itemsLoadState,
         showCompleted,
         composerText,
@@ -363,6 +388,7 @@ class ListDetailViewModel(
             ListDetailOperation.DELETE_ITEM -> pendingRetryItemId?.let { performDelete(it) }
             ListDetailOperation.RESTORE_ITEM -> pendingRetryItemId?.let { performRestore(it) }
             ListDetailOperation.CLEAR_COMPLETED -> clearCompleted()
+            ListDetailOperation.DELETE_LIST -> deleteList()
         }
     }
 
@@ -375,10 +401,39 @@ class ListDetailViewModel(
         if (_operationError.value?.operation == operation) _operationError.value = null
     }
 
+    /**
+     * `FB-409`: soft-deletes this screen's own list (as opposed to [performDelete]/
+     * [performRestore], which act on one of its items). Mirrors [performDelete]'s
+     * try/catch(`CancellationException` rethrown)/catch(`Throwable`)/finally and
+     * duplicate-submit-guard shape - a second call while a delete is already in flight is a
+     * no-op ([_isDeletingList] is set synchronously, before the coroutine is even launched).
+     *
+     * Previously this was a bare `viewModelScope.launch { listRepository.softDeleteList(listId);
+     * listDeleted.value = true }` with no guard at all: a real Firestore failure (e.g.
+     * `PERMISSION_DENIED` after session invalidation) rethrew as `ListRepositoryException`
+     * uncaught through `viewModelScope`, crashing the app process - the identical crash class
+     * `DEC-008`/`FB-408` fixed for this screen's listener-observation chain ([itemsLoadState]),
+     * just on this mutation path instead (`FB-406-B1`/`DEC-009`). On failure, [_isDeletingList]
+     * is still reset (`finally`), [listDeleted] is left `false` (the screen is never torn down
+     * for a delete that did not actually happen), and a retryable [ListDetailOperationError] is
+     * surfaced via [ListDetailOperation.DELETE_LIST] instead.
+     */
     fun deleteList() {
+        if (_isDeletingList.value) return
+        _isDeletingList.value = true
+        clearErrorFor(ListDetailOperation.DELETE_LIST)
         viewModelScope.launch {
-            listRepository.softDeleteList(listId)
-            listDeleted.value = true
+            try {
+                listRepository.softDeleteList(listId)
+                listDeleted.value = true
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Throwable) {
+                _operationError.value =
+                    ListDetailOperationError(ListDetailOperation.DELETE_LIST, failure.toListDetailApplicationError())
+            } finally {
+                _isDeletingList.value = false
+            }
         }
     }
 }

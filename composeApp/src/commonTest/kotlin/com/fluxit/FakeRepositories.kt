@@ -36,6 +36,14 @@ class FakeListRepository : ListRepository {
     var failSoftDeleteList: Throwable? = null
     var failRestoreList: Throwable? = null
 
+    /**
+     * `FB-409`: failure injection for [purgeExpired] so `DashboardViewModelTest` can prove the
+     * best-effort `init`-time purge (see `DashboardViewModel`'s `init` block KDoc) swallows a
+     * failure instead of crashing the ViewModel on construction - the sibling bare-`launch`
+     * shape this task's re-audit found alongside `ListDetailViewModel.deleteList()`.
+     */
+    var failPurgeExpired: Throwable? = null
+
     /** `FB-402`: lets a test assert a duplicate-submit guard prevented a second real call. */
     var createListCallCount = 0
         private set
@@ -95,8 +103,32 @@ class FakeListRepository : ListRepository {
         }
     }
 
-    override fun observeList(listId: String): Flow<FluxList?> =
-        rows.map { all -> all.firstOrNull { it.list.id == listId && !it.deleted }?.list }
+    /**
+     * `FB-409`: converted to a `callbackFlow` reacting to the same [listenerFailureSignal]
+     * [observeListSummariesSnapshot] does (not a single-shot `fail*` field - this is a listener
+     * chain, mirroring production's shape) - found during this task's live cross-uid
+     * reproduction of `deleteList()`'s crash: `ListDetailViewModel.uiState`'s `combine(...)`
+     * collects this flow directly, with no `.catch` at all (unlike `itemsLoadState`, which
+     * `FB-408` did fix) - a real terminal Firestore listener error on the *list document*
+     * itself (e.g. the identical session-invalidation trigger `FB-405`/`FB-408` already
+     * documented, racing against or independent of the items listener) rethrows uncaught
+     * through `viewModelScope`'s `stateIn` and crashes the app process exactly like `FB-405`'s
+     * original finding - `FB-408`'s "DONE" claim for `ListDetailViewModel` covered the items
+     * listener only, not this one. Fixed alongside `FB-409`'s assigned `deleteList()` mutation
+     * fix since the same live-reproduction trigger surfaced both in the same session.
+     */
+    override fun observeList(listId: String): Flow<FluxList?> = callbackFlow {
+        val failureJob = launch {
+            listenerFailureSignal.collect { failure -> if (failure != null) close(failure) }
+        }
+        val dataJob = launch {
+            rows.collect { all -> trySend(all.firstOrNull { it.list.id == listId && !it.deleted }?.list) }
+        }
+        awaitClose {
+            failureJob.cancel()
+            dataJob.cancel()
+        }
+    }
 
     override suspend fun createList(name: String, icon: ListIcon, color: ListColor): String {
         createListCallCount++
@@ -127,7 +159,9 @@ class FakeListRepository : ListRepository {
         rows.value = rows.value.map { if (it.list.id == listId) it.copy(deleted = false) else it }
     }
 
-    override suspend fun purgeExpired() = Unit
+    override suspend fun purgeExpired() {
+        failPurgeExpired?.let { throw it }
+    }
 }
 
 class FakeItemRepository : ItemRepository {

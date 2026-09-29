@@ -209,9 +209,33 @@ class DashboardViewModel(
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
+    /**
+     * `FB-409` sibling-audit fix: this best-effort startup maintenance call was also a bare
+     * `viewModelScope.launch { listRepository.purgeExpired() } ` with no guard at all - the
+     * identical shape `FB-406-B1`/`DEC-009` flagged for `ListDetailViewModel.deleteList()`,
+     * just triggered on `ViewModel` construction rather than a user action. Today's real
+     * Android/iOS Firestore adapters implement [ListRepository.purgeExpired] as a no-op, so
+     * this could not actually throw in production as currently wired; the pre-Firebase
+     * `Repositories.kt` implementation does real work, and `DEC-003d-1`'s "temporary dev flag"
+     * means that code path is not guaranteed to stay unreachable. Caught here (best-effort,
+     * `runCatching`-style swallow) rather than surfaced as a [DashboardOperationError]: unlike
+     * every other operation in this file, this is not a user-initiated action with a UI slot to
+     * show a failure or a retry to offer - the app already runs correctly without a purge on
+     * any given launch (it is a housekeeping optimization, not part of this screen's own data),
+     * so silently deferring to the next launch is the correct behavior, not a silent failure of
+     * something the user asked for.
+     */
     init {
         SessionTrace.event("DashboardViewModel created (user-scoped consumer)")
-        viewModelScope.launch { listRepository.purgeExpired() }
+        viewModelScope.launch {
+            try {
+                listRepository.purgeExpired()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Throwable) {
+                SessionTrace.event("purgeExpired failed (best-effort, ignored): ${failure.message}")
+            }
+        }
     }
 
     fun onSearchChange(query: String) {

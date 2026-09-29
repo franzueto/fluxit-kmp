@@ -350,6 +350,34 @@ class DashboardViewModelTest {
         assertTrue(state.isFatalSession)
         collectJob.cancel()
     }
+
+    // --- FB-409 sibling-audit fix: init's best-effort purgeExpired() must never crash ---
+
+    /**
+     * `FB-409`: this re-audit found `init`'s `viewModelScope.launch { listRepository.purgeExpired() }`
+     * had the identical bare-`launch`-with-no-guard shape as `ListDetailViewModel.deleteList()`
+     * (`FB-406-B1`/`DEC-009`) - a failure would rethrow uncaught through `viewModelScope` and
+     * crash the app on `DashboardViewModel` construction itself. Unlike the other operations in
+     * this file, there is no user-facing slot to show this failure (it is a background
+     * housekeeping call, not something the user initiated), so this proves the fix takes the
+     * "best-effort swallow" shape instead of a [DashboardOperationError] - the ViewModel must
+     * still construct and reach a normal, non-crashed `uiState` despite the failure.
+     */
+    @Test
+    fun purgeExpiredFailureOnConstructionDoesNotCrashTheViewModel() = runTest(dispatcher) {
+        lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        lists.failPurgeExpired = IllegalStateException("boom")
+
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(collectJob.isActive, "a purgeExpired failure must never crash the ViewModel's coroutine scope")
+        assertFalse(vm.uiState.value.isFatalSession)
+        assertEquals(1, vm.uiState.value.lists.size, "the screen's own data must be unaffected by the purge failure")
+        assertNull(vm.uiState.value.operationError, "purgeExpired has no user-facing retry slot - it is swallowed, not surfaced")
+        collectJob.cancel()
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -770,6 +798,87 @@ class ListDetailViewModelTest {
         assertTrue(state.isFatalSession, "a terminal listener error must surface as FatalSession, not crash")
         assertIs<ScreenLoadState.FatalSession>(state.itemsLoadState)
         assertTrue(collectJob.isActive, "the uiState collector coroutine must survive the listener error")
+        collectJob.cancel()
+    }
+
+    // --- FB-409: try/finally flag reset, retryable error, duplicate-submit guard for deleteList ---
+
+    /**
+     * `FB-409`/`FB-406-B1`: `deleteList()` was a bare `viewModelScope.launch { ... }` with no
+     * `try/catch/finally` at all, zero test coverage, and no duplicate-submit guard - a real
+     * Firestore failure would rethrow uncaught through `viewModelScope` and crash the app
+     * process, the identical crash class `DEC-008`/`FB-408` fixed for this screen's
+     * listener-observation chain ([ScreenLoadState.FatalSession] via `itemsLoadState`), just on
+     * this mutation path instead. This proves the fix: the coroutine survives, [listDeleted]
+     * stays `false` (the screen must not close on a delete that did not happen), a retryable
+     * [ListDetailOperationError] is surfaced, and a successful retry closes the screen.
+     */
+    @Test
+    fun deleteListFailureResetsFlagAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        lists.failSoftDeleteList = IllegalStateException("boom")
+        vm.deleteList()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(collectJob.isActive, "a failed deleteList must never crash the ViewModel's coroutine scope")
+        assertFalse(vm.isDeletingList.value, "isDeletingList must reset on failure (finally), not stay stuck true")
+        assertFalse(vm.uiState.value.listDeleted, "a failed delete must not close the screen")
+        val error = assertNotNull(vm.operationError.value)
+        assertEquals(ListDetailOperation.DELETE_LIST, error.operation)
+        assertTrue(error.error.canRetry)
+        assertEquals(RepositoryErrorCode.UNKNOWN, error.error.code)
+
+        lists.failSoftDeleteList = null
+        vm.retryFailedOperation()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.isDeletingList.value)
+        assertNull(vm.operationError.value)
+        assertTrue(vm.uiState.value.listDeleted, "the retried delete must succeed and close the screen")
+        collectJob.cancel()
+    }
+
+    @Test
+    fun duplicateDeleteListCallsWhileInFlightDoNotTriggerASecondSoftDelete() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+
+        vm.deleteList() // synchronously marks isDeletingList = true before any suspension point
+        vm.deleteList() // must be a no-op: a delete is already in flight
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, lists.softDeleteListCallCount)
+    }
+
+    // --- FB-409 sibling-audit fix: the list-document listener must never crash either ---
+
+    /**
+     * `FB-409`: this task's live cross-uid reproduction of `deleteList()`'s crash (run against
+     * a real Firestore emulator) surfaced a second, distinct gap in the same `uiState`
+     * `combine(...)`: `listRepository.observeList(listId)` was fed in directly with no `.catch`
+     * at all - unlike [itemsLoadState]/`itemsLoadState`'s sibling flow, which `FB-408` did fix.
+     * A terminal listener error on the *list document* itself therefore still rethrew uncaught
+     * through `viewModelScope`'s `stateIn` and crashed the process, exactly `FB-405`'s original
+     * finding, even though `FB-408` was marked `DONE` for this ViewModel. Proves the fix: the
+     * coroutine survives and [ListDetailUiState.list] resolves to `null` instead.
+     */
+    @Test
+    fun listDocumentListenerTerminalErrorResolvesToNullListInsteadOfCrashing() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNotNull(vm.uiState.value.list, "must start with the real list loaded")
+
+        lists.failListenerWith(IllegalStateException("PERMISSION_DENIED (fake terminal list-document listener error)"))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(collectJob.isActive, "a terminal list-document listener error must never crash the ViewModel's coroutine scope")
+        assertNull(vm.uiState.value.list, "must resolve to no list rather than propagate the error")
         collectJob.cancel()
     }
 }
