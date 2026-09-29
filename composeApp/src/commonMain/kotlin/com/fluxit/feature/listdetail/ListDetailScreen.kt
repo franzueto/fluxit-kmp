@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fluxit.domain.FluxItem
 import com.fluxit.ui.components.EmptyState
+import com.fluxit.ui.components.OperationErrorFeedback
 import com.fluxit.ui.components.SwipeToDeleteContainer
 import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
@@ -79,6 +80,11 @@ fun ListDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val undoItemId by viewModel.undoItemId.collectAsState()
+    val pendingItemIds by viewModel.pendingItemIds.collectAsState()
+    val isAddingItem by viewModel.isAddingItem.collectAsState()
+    val isClearingCompleted by viewModel.isClearingCompleted.collectAsState()
+    val isDeletingList by viewModel.isDeletingList.collectAsState()
+    val operationError by viewModel.operationError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var menuExpanded by remember { mutableStateOf(false) }
     val itemDeletedMessage = stringResource(Res.string.message_item_deleted)
@@ -107,6 +113,7 @@ fun ListDetailScreen(
                 text = state.composerText,
                 onTextChange = viewModel::onComposerChange,
                 onSubmit = viewModel::submitComposer,
+                enabled = !isAddingItem && !isDeletingList,
             )
         },
     ) { padding ->
@@ -140,7 +147,7 @@ fun ListDetailScreen(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
                 Box {
-                    IconButton(onClick = { menuExpanded = true }) {
+                    IconButton(onClick = { menuExpanded = true }, enabled = !isDeletingList) {
                         Icon(
                             Icons.Outlined.MoreHoriz,
                             contentDescription = stringResource(Res.string.action_more),
@@ -150,6 +157,7 @@ fun ListDetailScreen(
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                         DropdownMenuItem(
                             text = { Text(stringResource(Res.string.action_edit_list_details)) },
+                            enabled = !isDeletingList,
                             onClick = {
                                 menuExpanded = false
                                 onEditList(listId)
@@ -157,6 +165,7 @@ fun ListDetailScreen(
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(Res.string.action_clear_completed)) },
+                            enabled = !isClearingCompleted && !isDeletingList,
                             onClick = {
                                 menuExpanded = false
                                 viewModel.clearCompleted()
@@ -169,6 +178,7 @@ fun ListDetailScreen(
                                     color = MaterialTheme.colorScheme.error,
                                 )
                             },
+                            enabled = !isDeletingList,
                             onClick = {
                                 menuExpanded = false
                                 viewModel.deleteList()
@@ -176,6 +186,27 @@ fun ListDetailScreen(
                         )
                     }
                 }
+            }
+
+            operationError?.let { failure ->
+                OperationErrorFeedback(
+                    message = stringResource(
+                        when (failure.operation) {
+                            ListDetailOperation.ADD_ITEM -> Res.string.operation_add_item_failed
+                            ListDetailOperation.TOGGLE_COMPLETED -> Res.string.operation_update_item_failed
+                            ListDetailOperation.DELETE_ITEM -> Res.string.operation_delete_item_failed
+                            ListDetailOperation.RESTORE_ITEM -> Res.string.operation_restore_item_failed
+                            ListDetailOperation.CLEAR_COMPLETED -> Res.string.operation_clear_completed_failed
+                            ListDetailOperation.DELETE_LIST -> Res.string.operation_delete_list_failed
+                        },
+                    ),
+                    error = failure.error,
+                    operationInFlight = pendingItemIds.isNotEmpty() ||
+                        isAddingItem || isClearingCompleted || isDeletingList,
+                    onRetry = viewModel::retryFailedOperation,
+                    onDismiss = viewModel::dismissOperationError,
+                    modifier = Modifier.padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
+                )
             }
 
             // Completion header
@@ -228,11 +259,15 @@ fun ListDetailScreen(
                         SectionHeader(stringResource(Res.string.section_to_buy))
                     }
                     items(state.activeItems, key = { it.id }) { item ->
-                        SwipeToDeleteContainer(onDelete = { viewModel.deleteItem(item.id) }) {
+                        SwipeToDeleteContainer(
+                            onDelete = { viewModel.deleteItem(item.id) },
+                            enabled = item.id !in pendingItemIds && !isDeletingList,
+                        ) {
                             ItemRow(
                                 item = item,
                                 onToggle = { viewModel.toggleCompleted(item) },
                                 onClick = { onOpenItem(item.id) },
+                                enabled = item.id !in pendingItemIds && !isDeletingList,
                             )
                         }
                     }
@@ -259,11 +294,15 @@ fun ListDetailScreen(
                     }
                     if (state.showCompleted) {
                         items(state.completedItems, key = { it.id }) { item ->
-                            SwipeToDeleteContainer(onDelete = { viewModel.deleteItem(item.id) }) {
+                            SwipeToDeleteContainer(
+                                onDelete = { viewModel.deleteItem(item.id) },
+                                enabled = item.id !in pendingItemIds && !isDeletingList,
+                            ) {
                                 ItemRow(
                                     item = item,
                                     onToggle = { viewModel.toggleCompleted(item) },
                                     onClick = { onOpenItem(item.id) },
+                                    enabled = item.id !in pendingItemIds && !isDeletingList,
                                 )
                             }
                         }
@@ -285,7 +324,7 @@ private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
+private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit, enabled: Boolean) {
     // Opaque composite so the swipe-to-delete background never bleeds through.
     val rowColor =
         if (item.isCompleted) {
@@ -297,7 +336,7 @@ private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
     Surface(
         color = rowColor,
         shape = FluxCardShape,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -310,7 +349,7 @@ private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
                         if (item.isCompleted) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
                         else Modifier.border(2.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)
                     )
-                    .clickable(onClick = onToggle),
+                    .clickable(enabled = enabled, onClick = onToggle),
                 contentAlignment = Alignment.Center,
             ) {
                 if (item.isCompleted) {
@@ -354,7 +393,7 @@ private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () -> Unit) {
+private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () -> Unit, enabled: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -366,6 +405,7 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
         TextField(
             value = text,
             onValueChange = onTextChange,
+            enabled = enabled,
             modifier = Modifier.weight(1f),
             placeholder = {
                 Text(
@@ -388,21 +428,21 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
             ),
         )
         Spacer(Modifier.size(12.dp))
-        val enabled = text.isNotBlank()
+        val canSubmit = enabled && text.isNotBlank()
         Box(
             modifier = Modifier
                 .size(52.dp)
                 .background(
-                    if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,
+                    if (canSubmit) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,
                     CircleShape,
                 )
-                .clickable(enabled = enabled, onClick = onSubmit),
+                .clickable(enabled = canSubmit, onClick = onSubmit),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.AutoMirrored.Outlined.Send,
                 contentDescription = stringResource(Res.string.action_add_item),
-                tint = if (enabled) {
+                tint = if (canSubmit) {
                     MaterialTheme.colorScheme.onPrimary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant

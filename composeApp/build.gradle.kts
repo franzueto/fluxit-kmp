@@ -180,6 +180,8 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.androidx.test.ext.junit)
             implementation(libs.androidx.test.runner)
+            implementation("androidx.compose.ui:ui-test-junit4-android:1.10.4")
+            implementation("androidx.test.espresso:espresso-core:3.7.0")
         }
     }
 }

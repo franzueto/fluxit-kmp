@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.fluxit.domain.FluxListSummary
 import com.fluxit.ui.components.EmptyState
+import com.fluxit.ui.components.OperationErrorFeedback
 import com.fluxit.ui.components.SwipeToDeleteContainer
 import com.fluxit.ui.components.toImageVector
 import com.fluxit.ui.theme.FluxCardShape
@@ -191,7 +192,7 @@ fun DashboardScreen(
                 }
                 Spacer(Modifier.weight(1f))
                 if (DEBUG_SEED_ENABLED) {
-                    IconButton(onClick = viewModel::seedSampleData) {
+                    IconButton(onClick = viewModel::seedSampleData, enabled = !state.isSeeding) {
                         Icon(
                             Icons.Outlined.DataArray,
                             contentDescription = stringResource(Res.string.content_description_seed_sample_data),
@@ -245,6 +246,23 @@ fun DashboardScreen(
                 ),
             )
 
+            state.operationError?.let { failure ->
+                OperationErrorFeedback(
+                    message = stringResource(
+                        when (failure.operation) {
+                            DashboardOperation.DELETE_LIST -> Res.string.operation_delete_list_failed
+                            DashboardOperation.RESTORE_LIST -> Res.string.operation_restore_list_failed
+                            DashboardOperation.SEED_SAMPLE_DATA -> Res.string.operation_seed_data_failed
+                        },
+                    ),
+                    error = failure.error,
+                    operationInFlight = state.pendingListIds.isNotEmpty() || state.isSeeding,
+                    onRetry = viewModel::retryFailedOperation,
+                    onDismiss = viewModel::dismissOperationError,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+
             if (!state.isLoading && state.lists.isEmpty()) {
                 EmptyState(
                     if (state.searchQuery.isBlank()) stringResource(Res.string.empty_lists)
@@ -257,7 +275,10 @@ fun DashboardScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 16.dp, bottom = 96.dp),
                 ) {
                     items(state.lists, key = { it.list.id }) { summary ->
-                        SwipeToDeleteContainer(onDelete = { viewModel.deleteList(summary.list.id) }) {
+                        SwipeToDeleteContainer(
+                            onDelete = { viewModel.deleteList(summary.list.id) },
+                            enabled = summary.list.id !in state.pendingListIds,
+                        ) {
                             ListRow(summary = summary, onClick = { onOpenList(summary.list.id) })
                         }
                     }

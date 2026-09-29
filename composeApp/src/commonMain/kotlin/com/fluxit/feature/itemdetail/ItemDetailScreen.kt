@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import com.fluxit.data.PhotoContent
 import com.fluxit.ui.components.decodeImageBytes
 import com.fluxit.ui.components.decodeImageFile
+import com.fluxit.ui.components.OperationErrorFeedback
 import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
@@ -73,6 +75,7 @@ fun ItemDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val operationInFlight = state.isSaving || state.isDeletingItem || state.isPhotoBusy
 
     LaunchedEffect(state.closed) {
         if (state.closed) onBack()
@@ -95,10 +98,13 @@ fun ItemDetailScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    viewModel.deleteItem()
-                }) {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteItem()
+                    },
+                    enabled = !operationInFlight,
+                ) {
                     Text(stringResource(Res.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -110,10 +116,11 @@ fun ItemDetailScreen(
         )
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets.safeDrawing,
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets.safeDrawing,
+        ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -150,14 +157,14 @@ fun ItemDetailScreen(
                 Text(
                     stringResource(Res.string.action_save),
                     style = FluxType.BodyMd,
-                    color = if (state.canSave) {
+                    color = if (state.canSave && !operationInFlight) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .clickable(enabled = state.canSave, onClick = viewModel::save)
+                        .clickable(enabled = state.canSave && !operationInFlight, onClick = viewModel::save)
                         .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
                 )
             }
@@ -174,6 +181,7 @@ fun ItemDetailScreen(
                 value = state.title,
                 onValueChange = viewModel::onTitleChange,
                 singleLine = true,
+                enabled = !operationInFlight,
             )
 
             SectionLabel(stringResource(Res.string.section_description))
@@ -182,6 +190,7 @@ fun ItemDetailScreen(
                 onValueChange = viewModel::onDescriptionChange,
                 singleLine = false,
                 minHeight = 120.dp,
+                enabled = !operationInFlight,
             )
 
             // Photo section
@@ -200,7 +209,7 @@ fun ItemDetailScreen(
                 )
                 Row(
                     modifier = Modifier
-                        .clickable(enabled = !state.isPhotoBusy, onClick = viewModel::pickPhoto)
+                        .clickable(enabled = !operationInFlight, onClick = viewModel::pickPhoto)
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -267,7 +276,8 @@ fun ItemDetailScreen(
             if (photoError != null) {
                 PhotoErrorRow(
                     kind = photoError,
-                    enabled = !state.isPhotoBusy,
+                    enabled = !operationInFlight,
+                    canRetry = state.photoOperationError?.canRetry != false,
                     onRetry = viewModel::retryPhotoOperation,
                     onDismiss = viewModel::dismissPhotoError,
                 )
@@ -278,15 +288,31 @@ fun ItemDetailScreen(
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
-                        .clickable(enabled = !state.isPhotoBusy, onClick = viewModel::removePhoto)
+                        .clickable(enabled = !operationInFlight, onClick = viewModel::removePhoto)
                         .padding(8.dp),
                 )
             }
 
             Spacer(Modifier.height(24.dp))
 
+            state.deleteError?.let { error ->
+                OperationErrorFeedback(
+                    message = stringResource(Res.string.operation_delete_item_failed),
+                    error = error,
+                    operationInFlight = operationInFlight,
+                    onRetry = viewModel::retryDeleteItem,
+                    onDismiss = viewModel::dismissDeleteError,
+                    modifier = Modifier.padding(
+                        start = FluxSpacing.ContainerPadding,
+                        end = FluxSpacing.ContainerPadding,
+                        bottom = 12.dp,
+                    ),
+                )
+            }
+
             OutlinedButton(
                 onClick = { showDeleteDialog = true },
+                enabled = !operationInFlight,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = FluxSpacing.ContainerPadding)
@@ -313,6 +339,20 @@ fun ItemDetailScreen(
                 )
             }
             Spacer(Modifier.height(16.dp))
+            }
+        }
+        state.saveError?.let { error ->
+            OperationErrorFeedback(
+                message = stringResource(Res.string.operation_save_item_failed),
+                error = error,
+                operationInFlight = operationInFlight,
+                onRetry = viewModel::retrySave,
+                onDismiss = viewModel::dismissSaveError,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
+            )
         }
     }
 }
@@ -330,6 +370,7 @@ fun ItemDetailScreen(
 private fun PhotoErrorRow(
     kind: PhotoOperationKind,
     enabled: Boolean,
+    canRetry: Boolean,
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -349,14 +390,16 @@ private fun PhotoErrorRow(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             horizontalArrangement = Arrangement.Center,
         ) {
-            Text(
-                stringResource(Res.string.action_try_again),
-                style = FluxType.LabelSm,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clickable(enabled = enabled, onClick = onRetry)
-                    .padding(8.dp),
-            )
+            if (canRetry) {
+                Text(
+                    stringResource(Res.string.action_try_again),
+                    style = FluxType.LabelSm,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clickable(enabled = enabled, onClick = onRetry)
+                        .padding(8.dp),
+                )
+            }
             Text(
                 stringResource(Res.string.action_dismiss),
                 style = FluxType.LabelSm,
@@ -421,10 +464,12 @@ private fun FluxTextField(
     onValueChange: (String) -> Unit,
     singleLine: Boolean,
     minHeight: androidx.compose.ui.unit.Dp = 56.dp,
+    enabled: Boolean = true,
 ) {
     TextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = FluxSpacing.ContainerPadding)

@@ -24,11 +24,12 @@ import org.jetbrains.compose.resources.stringResource
 fun SwipeToDeleteContainer(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val state = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
+            if (enabled && value == SwipeToDismissBoxValue.EndToStart) {
                 onDelete()
                 true
             } else {
@@ -40,6 +41,7 @@ fun SwipeToDeleteContainer(
         state = state,
         modifier = modifier,
         enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = enabled,
         backgroundContent = {
             Box(
                 modifier = Modifier
