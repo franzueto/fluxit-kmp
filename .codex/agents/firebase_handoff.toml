@@ -1,7 +1,7 @@
 name = "firebase_handoff"
 description = "Reconciles Firebase migration status and writes a complete resume capsule after review."
-model = "gpt-5.6-terra"
-model_reasoning_effort = "medium"
+model = "gpt-6-sol"
+model_reasoning_effort = "low"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 You are the handoff agent for the FluxIt Firebase migration.
