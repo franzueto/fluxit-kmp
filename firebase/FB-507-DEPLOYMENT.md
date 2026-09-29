@@ -69,8 +69,15 @@ deployment overwrites Console Rules. If the CLI proposes deleting indexes or
 modifying an unexpected database, **stop** and report that proposal before
 continuing. In Firebase Console for `fluxit-dev`, wait for the collection-group
 single-field indexes on `listCleanupJobs.claimedAt`, `lists.deletedAt`,
-`items.deletedAt`, and `items.photoRef` to be ready. The local emulator cannot
-prove live index readiness.
+`items.deletedAt`, and `items.photoRef` to be ready. In the Console, open
+**Databases & Storage → Firestore → Indexes → Single field** for the `(default)`
+database. For each of those four collection-group entries, check that the
+collection-group index is ready/enabled and has no building indicator or error.
+These are single-field entries; the checked-in composite `indexes` array is
+empty. If you prefer Cloud Shell, run
+`gcloud firestore indexes fields list --project=fluxit-dev --database='(default)' --format=json`
+and inspect those four fields' `COLLECTION_GROUP` index `state` values for
+`READY`. The local emulator cannot prove live index readiness.
 
 ## 3. Deploy only the reviewed function
 
