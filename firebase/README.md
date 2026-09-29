@@ -161,7 +161,7 @@ npm test        # starts auth+firestore+storage emulators, runs Rules tests, shu
 npm run emulators   # long-running emulator suite incl. UI at http://127.0.0.1:4000
 ```
 
-## Scheduled cleanup target (FB-501 / FB-502)
+## Scheduled cleanup target (FB-501–FB-503)
 
 `../functions/index.js` exports `cleanupExpiredData`, a second-generation Cloud
 Functions scheduled target for 03:00 UTC daily. The target is pinned to one
@@ -176,14 +176,45 @@ soft-deleted items. Deletion has a Storage generation precondition, so a newer
 upload at the same path is preserved. Only the exact
 `users/{uid}/items/{itemId}/{photoId}` path is in scope; Storage has no list ID
 segment (`PLAN-006`/`PLAN-007`). A failed pass aborts the invocation and can be
-retried; repeated runs skip already-deleted resources. `FB-503` will add list
-cascade, and `FB-507` owns development deployment after review. The mobile
-clients retain their current purge path until `FB-504`.
+retried; repeated runs skip already-deleted resources.
 
-The cleanup uses collection-group queries on item `deletedAt` and `photoRef`.
-`../firestore.indexes.json` declares their required collection-group indexes
-while retaining collection-scope indexes. Those indexes must be present before
-the scheduled backend is deployed; the local Firestore emulator does not
+`FB-503` adds expired-list cascade in `../functions/cascade.js`. The schedule
+runs it before standalone item cleanup, so a list's item `photoRef`s are not
+lost. A claim transaction re-reads the list tombstone, creates a durable
+`users/{uid}/listCleanupJobs/{listId}` job, and deletes the parent list in one
+atomic commit. Both mobile restore implementations use a field-scoped Firestore
+`update`: a restore committed before the claim wins and preserves all children;
+a restore attempted after the claim fails because the parent is absent. The
+job collection has no client match in the owner-only Firestore Rules, so only
+the Admin SDK can create, change, or remove a claim.
+
+The owner-only Rules also require an item write's list parent to exist after
+the write batch, deny list creation/updates while a cleanup claim exists, and
+deny direct client hard deletion of a list. Clients use `deletedAt` updates for
+soft deletion; only the Admin cleanup job removes the parent. These guards
+reject delayed offline item writes after the claim, batches that delete a list
+and create a child together, and re-creation of a claimed list ID. Backend
+Admin SDK writes bypass these Rules. Deploy the tightened Firestore Rules and
+the indexes **before** deploying or enabling the scheduled cleanup function;
+otherwise an old client write could create an untracked orphan after a job
+finishes. `FB-507` must verify this order in the development project.
+
+After the claim, each transaction deletes at most 100 item documents and
+writes a private `listCleanupJobs/{listId}/photos/{itemId}` record for each
+referenced photo in the same commit. The journal survives a Storage failure or
+process interruption. Each photo must pass the same 30-day creation age and
+fresh-reference checks, and is deleted with a generation precondition. A photo
+younger than 30 days keeps its journal and job for a later run. The job is
+removed only when both item documents and photo journals are empty. Every run
+first discovers and resumes existing jobs, including those whose parent is
+already absent. No Storage prefix based on `listId` is used. `FB-507` owns
+development deployment after review. The mobile clients retain their current
+purge path until `FB-504`.
+
+The cleanup uses collection-group queries on job `claimedAt`, list/item
+`deletedAt`, and item `photoRef`. `../firestore.indexes.json` declares the
+required group indexes while retaining collection-scope indexes. These indexes
+must be present before the scheduled backend is deployed; the local Firestore emulator does not
 prove that deployment state. The function's success log contains counts only.
 
 Run the build/unit checks and real local Functions emulator harness from a
@@ -198,15 +229,17 @@ npm run test:emulator
 
 `test:emulator` starts Functions, Pub/Sub, Firestore, and Storage emulators using
 the reserved `demo-fluxit` project, invokes the scheduled target through the
-local Functions emulator, exercises synthetic item/photo fixtures, and shuts
-all emulators down. Unit tests also cover restore between scan and deletion,
-the exact age boundary, retry after failure, and replacement-generation safety.
+local Functions emulator, exercises synthetic item/photo fixtures, including a
+620-item cascade and a partial Storage failure/retry, and shuts all emulators
+down. Unit tests cover the exact age boundary, retry after failure, photo path
+validation, and replacement-generation safety. Emulator tests prove a restore
+before claim preserves all children and attempts after claim fail across pages
+and during photo-journal processing.
 Pub/Sub is required for the CLI to initialize scheduled triggers. The Functions
 runtime is configured as Node.js 22, which Firebase supports; using a different
 local Node.js version may produce an emulator mismatch warning. Port 5001 and
 8085 are pinned in `../firebase.json` alongside the existing emulator ports.
-These tests do not exercise live development deployment or large list cascades;
-the latter belongs to `FB-503`.
+These tests do not exercise live development deployment.
 
 ## `.firebaserc` is a placeholder
 

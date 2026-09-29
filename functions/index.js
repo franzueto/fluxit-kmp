@@ -17,7 +17,7 @@ exports.cleanupExpiredData = onSchedule(
   async () => {
     if (!getApps().length) initializeApp();
     const result = await runCleanup({ db: getFirestore(), bucket: getStorage().bucket() });
-    // FB-503 adds list cascade; FB-507 controls deployment.
-    logger.info('Scheduled item/photo cleanup finished.', { ...result, retentionDays: RETENTION_DAYS });
+    // FB-507 controls development deployment after this backend is reviewed.
+    logger.info('Scheduled cleanup finished.', { ...result, retentionDays: RETENTION_DAYS });
   },
 );

@@ -2,6 +2,22 @@
   "indexes": [],
   "fieldOverrides": [
     {
+      "collectionGroup": "listCleanupJobs",
+      "fieldPath": "claimedAt",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "lists",
+      "fieldPath": "deletedAt",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
       "collectionGroup": "items",
       "fieldPath": "deletedAt",
       "indexes": [

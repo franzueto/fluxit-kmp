@@ -43,6 +43,7 @@ test('real Firestore/Storage emulators: exact boundary, restore, and repeat run'
     await raced.update({ deletedAt: null });
     assert.equal(await deleteExpiredItem(db, staleCandidate.ref, cutoff), false);
     const first = await runCleanup({ db, bucket, nowMillis });
+    assert.equal(first.deletedLists, 0);
     assert.equal(first.deletedItems, 2);
     assert.equal(first.deletedPhotos, 0);
     assert.equal((await old.get()).exists, false);
@@ -53,7 +54,7 @@ test('real Firestore/Storage emulators: exact boundary, restore, and repeat run'
     assert.equal((await retained.get()).exists, true);
     assert.equal((await bucket.file(photo).exists())[0], true);
     assert.equal((await bucket.file(recentOrphan).exists())[0], true);
-    assert.deepEqual(await runCleanup({ db, bucket, nowMillis }), { deletedItems: 0, deletedPhotos: 0 });
+    assert.deepEqual(await runCleanup({ db, bucket, nowMillis }), { deletedLists: 0, deletedItems: 0, deletedPhotos: 0 });
   } finally {
     await Promise.all([old.delete(), boundary.delete(), fresh.delete(), restored.delete(), raced.delete(), retained.delete()]);
     await listRef.delete();

@@ -1,4 +1,5 @@
 const { Timestamp } = require('firebase-admin/firestore');
+const { purgeExpiredLists } = require('./cascade');
 
 // DEC-003b / DEC-003e-2: a single 30-day horizon for tombstones and uploads.
 const RETENTION_DAYS = 30;
@@ -109,12 +110,15 @@ async function purgeOrphanPhotos(db, bucket, cutoffMillis) {
 
 async function runCleanup({ db, bucket, nowMillis = Date.now() }) {
   const cutoffMillis = nowMillis - RETENTION_MS;
-  // Firestore deletion comes first. A failed photo pass leaves objects for a
-  // later retry, with the same grace period and reference re-check.
+  // Cascade lists first so item photoRefs are journaled before the standalone
+  // expired-item pass can remove those documents.
+  const deletedLists = await purgeExpiredLists({
+    db, bucket, cutoffMillis, isReferenced: (name) => isReferenced(db, name),
+  });
   const deletedItems = await purgeExpiredItems(db, cutoffMillis);
   const deletedPhotos = await purgeOrphanPhotos(db, bucket, cutoffMillis);
-  return { deletedItems, deletedPhotos };
+  return { deletedLists, deletedItems, deletedPhotos };
 }
 
 module.exports = { RETENTION_DAYS, RETENTION_MS, isFluxPhotoPath, deleteExpiredItem,
-  deleteOrphanPhoto, runCleanup };
+  deleteOrphanPhoto, isReferenced, runCleanup };
