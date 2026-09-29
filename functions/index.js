@@ -1,9 +1,9 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions');
-
-// DEC-003b / DEC-003e-2: both tombstones and orphan photos retain for 30 days.
-// FB-502 will use this single value for both eligibility checks.
-const RETENTION_DAYS = 30;
+const { initializeApp, getApps } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
+const { runCleanup, RETENTION_DAYS } = require('./cleanup');
 
 exports.cleanupExpiredData = onSchedule(
   {
@@ -12,12 +12,12 @@ exports.cleanupExpiredData = onSchedule(
     region: 'us-central1',
     maxInstances: 1,
     concurrency: 1,
+    timeoutSeconds: 540,
   },
   async () => {
-    // FB-502 and FB-503 add the deletion passes here. Until then the scheduled
-    // target is deliberately read/write-free; FB-507 controls deployment.
-    logger.info('Cleanup scaffold invoked; deletion passes are pending FB-502 and FB-503.', {
-      retentionDays: RETENTION_DAYS,
-    });
+    if (!getApps().length) initializeApp();
+    const result = await runCleanup({ db: getFirestore(), bucket: getStorage().bucket() });
+    // FB-503 adds list cascade; FB-507 controls deployment.
+    logger.info('Scheduled item/photo cleanup finished.', { ...result, retentionDays: RETENTION_DAYS });
   },
 );

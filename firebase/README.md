@@ -161,18 +161,32 @@ npm test        # starts auth+firestore+storage emulators, runs Rules tests, shu
 npm run emulators   # long-running emulator suite incl. UI at http://127.0.0.1:4000
 ```
 
-## Scheduled cleanup target (FB-501)
+## Scheduled cleanup target (FB-501 / FB-502)
 
 `../functions/index.js` exports `cleanupExpiredData`, a second-generation Cloud
 Functions scheduled target for 03:00 UTC daily. The target is pinned to one
-instance with one concurrent invocation. Its 30-day retention constant records
-`DEC-003b` and `DEC-003e-2`; `FB-502` and `FB-503` will add the tombstone,
-Storage, and list-cascade passes. **The FB-501 target only logs a scaffold
-message and performs no reads or deletions.** `FB-507` owns development
-deployment after those passes have been reviewed. The mobile clients still use
-their existing purge path until `FB-504`.
+instance with one concurrent invocation and a 540-second timeout. `FB-502`
+adds item tombstone and orphan-photo cleanup in `../functions/cleanup.js`.
+The two passes share one 30-day retention constant (`DEC-003b` and
+`DEC-003e-2`). Eligible item documents are deleted only after a transactional
+re-read of `deletedAt`, so a restore before the transaction wins. Photos are
+reclaimed only after their creation age reaches 30 days and a fresh Firestore
+query finds no owning item document referencing the exact `photoRef`, including
+soft-deleted items. Deletion has a Storage generation precondition, so a newer
+upload at the same path is preserved. Only the exact
+`users/{uid}/items/{itemId}/{photoId}` path is in scope; Storage has no list ID
+segment (`PLAN-006`/`PLAN-007`). A failed pass aborts the invocation and can be
+retried; repeated runs skip already-deleted resources. `FB-503` will add list
+cascade, and `FB-507` owns development deployment after review. The mobile
+clients retain their current purge path until `FB-504`.
 
-Run the build/metadata check and real local Functions emulator harness from a
+The cleanup uses collection-group queries on item `deletedAt` and `photoRef`.
+`../firestore.indexes.json` declares their required collection-group indexes
+while retaining collection-scope indexes. Those indexes must be present before
+the scheduled backend is deployed; the local Firestore emulator does not
+prove that deployment state. The function's success log contains counts only.
+
+Run the build/unit checks and real local Functions emulator harness from a
 clean clone without Firebase login or service-account credentials:
 
 ```sh
@@ -184,13 +198,15 @@ npm run test:emulator
 
 `test:emulator` starts Functions, Pub/Sub, Firestore, and Storage emulators using
 the reserved `demo-fluxit` project, invokes the scheduled target through the
-local Functions emulator, asserts an HTTP success, and shuts all emulators down.
+local Functions emulator, exercises synthetic item/photo fixtures, and shuts
+all emulators down. Unit tests also cover restore between scan and deletion,
+the exact age boundary, retry after failure, and replacement-generation safety.
 Pub/Sub is required for the CLI to initialize scheduled triggers. The Functions
 runtime is configured as Node.js 22, which Firebase supports; using a different
 local Node.js version may produce an emulator mismatch warning. Port 5001 and
 8085 are pinned in `../firebase.json` alongside the existing emulator ports.
-This harness checks target registration/invocation only; deletion and restore
-race behavior belong to `FB-502`/`FB-503` tests.
+These tests do not exercise live development deployment or large list cascades;
+the latter belongs to `FB-503`.
 
 ## `.firebaserc` is a placeholder
 
