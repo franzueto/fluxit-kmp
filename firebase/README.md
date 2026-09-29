@@ -241,13 +241,12 @@ local Node.js version may produce an emulator mismatch warning. Port 5001 and
 8085 are pinned in `../firebase.json` alongside the existing emulator ports.
 These tests do not exercise live development deployment.
 
-## `.firebaserc` is a placeholder
+## `.firebaserc` defaults to the emulator project
 
-`default` is set to `demo-fluxit`. This is **not** a real Firebase project — the
-`demo-` prefix is a Firebase-reserved, emulator-only convention. Per `DEC-002a`
-no project has been provisioned yet. `FB-004`/`MAN-001` must add the real
-development project alias once the user creates it. Until then any `firebase
-deploy` will fail loudly rather than write somewhere unintended.
+`default` remains `demo-fluxit`, a Firebase-reserved emulator-only project ID.
+The real development project is `fluxit-dev` (`MAN-001` is complete). Every
+development deployment must pass `--project fluxit-dev` explicitly; the
+default must never be used for deployment. See [FB-507 deployment procedure](FB-507-DEPLOYMENT.md).
 
 ## Rules scope
 
