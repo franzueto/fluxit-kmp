@@ -1,6 +1,6 @@
 name = "firebase_handoff"
 description = "Reconciles Firebase migration status and writes a complete resume capsule after review."
-model = "gpt-6-sol"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "low"
 sandbox_mode = "workspace-write"
 developer_instructions = """
