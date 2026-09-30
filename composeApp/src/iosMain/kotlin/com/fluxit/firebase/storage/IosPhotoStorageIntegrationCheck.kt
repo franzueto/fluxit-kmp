@@ -9,6 +9,7 @@ import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.data.replacePhoto
 import com.fluxit.data.toNSData
+import com.fluxit.data.validatePhotoSource
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.domain.auth.AuthResult
@@ -678,8 +679,9 @@ object IosPhotoStorageIntegrationCheck {
      * mints a brand-new ref). */
     private suspend fun uploadDataRaw(bridge: IosFirebaseStorageBridge, photoRef: String, bytes: ByteArray) {
         val data = bytes.toNSData()
+        val mimeType = validatePhotoSource(bytes).mimeType
         suspendCancellableCoroutine<Unit> { continuation ->
-            bridge.uploadData(photoRef, data) { error ->
+            bridge.uploadData(photoRef, data, mimeType) { error ->
                 if (error != null) continuation.resumeWithException(PhotoStorageIosException(error)) else continuation.resume(Unit)
             }
         }

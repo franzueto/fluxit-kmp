@@ -143,6 +143,8 @@ class IosPhotoPicker : PhotoPicker {
  * deliberately swallows nothing: a failed upload must propagate so `replacePhoto`'s safe-replace
  * ordering (`PhotoBridges.kt`, unmodified by this task) leaves the old photo untouched, per its
  * documented failure semantics - mirrors `AndroidPhotoStorage.uploadPhoto` exactly.
+ * FB-602 sends MIME metadata derived from the validated bytes through the Swift bridge;
+ * generated photo IDs have no extension from which the Storage SDK can infer a type.
  */
 class IosPhotoStorage(
     private val bridgeProvider: () -> IosFirebaseStorageBridge = IosFirebaseStorageBridgeRegistry::requireBridge,
@@ -152,10 +154,11 @@ class IosPhotoStorage(
     @OptIn(ExperimentalForeignApi::class)
     override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String {
         val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, newPhotoId())
+        val mimeType = validatePhotoSource(bytes).mimeType
         val data = bytes.toNSData()
         try {
             suspendCancellableCoroutine<Unit> { continuation ->
-                bridgeProvider().uploadData(photoRef, data) { error ->
+                bridgeProvider().uploadData(photoRef, data, mimeType) { error ->
                     if (error != null) {
                         continuation.resumeWithException(PhotoStorageIosException(error))
                     } else {

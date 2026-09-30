@@ -9,6 +9,7 @@ import com.fluxit.firebase.list.FirebaseAuthCurrentUidProvider
 import com.fluxit.firebase.storage.toApplicationError
 import com.google.android.gms.tasks.Task
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import com.google.firebase.storage.StorageException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -90,6 +91,8 @@ class AndroidPhotoPicker : PhotoPicker {
  * `FB-305-NB2`/`FB-401-NB1`/`FB-401-NB2`. [uploadPhoto] deliberately swallows nothing: a failed
  * upload must propagate so `replacePhoto`'s safe-replace ordering (`PhotoBridges.kt`, unmodified
  * by this task) leaves the old photo untouched, per its documented failure semantics.
+ * FB-602 supplies MIME metadata from the validated byte signature because the generated
+ * photo ID has no file extension for the Storage SDK to infer a type from.
  */
 class AndroidPhotoStorage(
     private val storage: FirebaseStorage = FirebaseStorage.getInstance(),
@@ -98,8 +101,10 @@ class AndroidPhotoStorage(
 
     override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String {
         val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, newPhotoId())
+        val mimeType = validatePhotoSource(bytes).mimeType
         try {
-            storage.reference.child(photoRef).putBytes(bytes).awaitResult()
+            val metadata = StorageMetadata.Builder().setContentType(mimeType).build()
+            storage.reference.child(photoRef).putBytes(bytes, metadata).awaitResult()
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: StorageException) {

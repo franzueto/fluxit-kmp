@@ -260,6 +260,12 @@ and denied malformed, cross-user, and out-of-range writes. Firestore Rules
 cannot enumerate an arbitrary batch's item writes to prove that its aggregate
 counter delta is exact; a bounded, internally consistent but dishonest counter
 increment remains possible and requires a server-authoritative counter design
-if that threat must be eliminated. Storage Rules remain at the Phase 0 baseline
-until `FB-602`. These checked-in changes are local; `FB-608` owns reviewed
-development deployment.
+if that threat must be eliminated. Storage Rules allow an authenticated owner
+to read/delete photos only at `users/{uid}/items/{itemId}/{photoId}` and to
+create nonempty JPEG, PNG, or WebP objects no larger than 5 MiB. Existing
+objects cannot be overwritten. Android and iOS upload adapters derive MIME
+metadata from the already-supported image byte signatures; extensionless
+photo IDs otherwise upload as `application/octet-stream`. Storage Rules can
+validate declared MIME metadata and size, but cannot decode the image bytes;
+the client photo preparation policy performs that check. These checked-in
+changes are local; `FB-608` owns reviewed development deployment.

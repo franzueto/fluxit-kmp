@@ -25,8 +25,10 @@ final class FirebaseStorageBridge: NSObject, IosFirebaseStorageBridge {
         super.init()
     }
 
-    func uploadData(photoRef: String, data: Data, completion: @escaping (Error?) -> Void) {
-        storage.reference(withPath: photoRef).putData(data, metadata: nil) { _, error in
+    func uploadData(photoRef: String, data: Data, mimeType: String, completion: @escaping (Error?) -> Void) {
+        let metadata = StorageMetadata()
+        metadata.contentType = mimeType
+        storage.reference(withPath: photoRef).putData(data, metadata: metadata) { _, error in
             completion(error)
         }
     }

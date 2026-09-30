@@ -32,8 +32,9 @@ interface IosFirebaseStorageBridge {
     /** Uploads [data] to the object at [photoRef], creating it (or overwriting it, for the
      * raw cross-user-denial check only - production [com.fluxit.data.IosPhotoStorage] never
      * calls this against an existing [photoRef]; see [com.fluxit.data.PhotoStorage.uploadPhoto]'s
-     * "always creates a new object" contract). */
-    fun uploadData(photoRef: String, data: NSData, completion: (NSError?) -> Unit)
+     * "always creates a new object" contract). [mimeType] is derived from the validated
+     * image bytes and attached to the SDK upload as Storage metadata. */
+    fun uploadData(photoRef: String, data: NSData, mimeType: String, completion: (NSError?) -> Unit)
 
     /**
      * Downloads the full contents of the object at [photoRef], capped at [maxSize] bytes -
