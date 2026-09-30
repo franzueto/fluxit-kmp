@@ -351,31 +351,17 @@ class DashboardViewModelTest {
         collectJob.cancel()
     }
 
-    // --- FB-409 sibling-audit fix: init's best-effort purgeExpired() must never crash ---
-
-    /**
-     * `FB-409`: this re-audit found `init`'s `viewModelScope.launch { listRepository.purgeExpired() }`
-     * had the identical bare-`launch`-with-no-guard shape as `ListDetailViewModel.deleteList()`
-     * (`FB-406-B1`/`DEC-009`) - a failure would rethrow uncaught through `viewModelScope` and
-     * crash the app on `DashboardViewModel` construction itself. Unlike the other operations in
-     * this file, there is no user-facing slot to show this failure (it is a background
-     * housekeeping call, not something the user initiated), so this proves the fix takes the
-     * "best-effort swallow" shape instead of a [DashboardOperationError] - the ViewModel must
-     * still construct and reach a normal, non-crashed `uiState` despite the failure.
-     */
+    // FB-504: cleanup now belongs to the scheduled backend, not dashboard startup.
     @Test
-    fun purgeExpiredFailureOnConstructionDoesNotCrashTheViewModel() = runTest(dispatcher) {
+    fun dashboardConstructionDoesNotPurgeExpiredData() = runTest(dispatcher) {
         lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
-        lists.failPurgeExpired = IllegalStateException("boom")
 
         val vm = viewModel()
         val collectJob = launch { vm.uiState.collect {} }
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertTrue(collectJob.isActive, "a purgeExpired failure must never crash the ViewModel's coroutine scope")
-        assertFalse(vm.uiState.value.isFatalSession)
-        assertEquals(1, vm.uiState.value.lists.size, "the screen's own data must be unaffected by the purge failure")
-        assertNull(vm.uiState.value.operationError, "purgeExpired has no user-facing retry slot - it is swallowed, not surfaced")
+        assertEquals(0, lists.purgeExpiredCallCount, "dashboard startup must leave cleanup to the backend")
+        assertEquals(1, vm.uiState.value.lists.size, "normal list observation must still start")
         collectJob.cancel()
     }
 }

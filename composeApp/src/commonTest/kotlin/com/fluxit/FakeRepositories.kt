@@ -36,14 +36,6 @@ class FakeListRepository : ListRepository {
     var failSoftDeleteList: Throwable? = null
     var failRestoreList: Throwable? = null
 
-    /**
-     * `FB-409`: failure injection for [purgeExpired] so `DashboardViewModelTest` can prove the
-     * best-effort `init`-time purge (see `DashboardViewModel`'s `init` block KDoc) swallows a
-     * failure instead of crashing the ViewModel on construction - the sibling bare-`launch`
-     * shape this task's re-audit found alongside `ListDetailViewModel.deleteList()`.
-     */
-    var failPurgeExpired: Throwable? = null
-
     /** `FB-402`: lets a test assert a duplicate-submit guard prevented a second real call. */
     var createListCallCount = 0
         private set
@@ -52,6 +44,8 @@ class FakeListRepository : ListRepository {
     var softDeleteListCallCount = 0
         private set
     var restoreListCallCount = 0
+        private set
+    var purgeExpiredCallCount = 0
         private set
 
     /**
@@ -160,7 +154,7 @@ class FakeListRepository : ListRepository {
     }
 
     override suspend fun purgeExpired() {
-        failPurgeExpired?.let { throw it }
+        purgeExpiredCallCount++
     }
 }
 
