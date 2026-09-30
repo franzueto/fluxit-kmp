@@ -1,7 +1,7 @@
 # Firebase emulator, Security Rules tests, and cleanup backend
 
-Self-contained tooling for the Firebase emulator suite and the baseline
-Security Rules tests. It is **not** wired into the Gradle/KMP build and does not
+Self-contained tooling for the Firebase emulator suite and Security Rules
+tests. It is **not** wired into the Gradle/KMP build and does not
 affect any Android/iOS build command.
 
 ## Files
@@ -9,7 +9,7 @@ affect any Android/iOS build command.
 | Path | Purpose |
 |---|---|
 | `../firebase.json` | CLI + emulator configuration (pinned ports) |
-| `../firestore.rules` | Baseline authenticated owner-only Firestore Rules |
+| `../firestore.rules` | FB-601 owner-only Firestore schema, tombstone, and counter checks |
 | `../storage.rules` | Baseline authenticated owner-only Storage Rules |
 | `../.firebaserc` | Project aliases — **placeholder only**, see below |
 | `test/` | `@firebase/rules-unit-testing` Rules tests |
@@ -250,7 +250,16 @@ default must never be used for deployment. See [FB-507 deployment procedure](FB-
 
 ## Rules scope
 
-These are the Phase 0 **baseline** Rules per `PLAN-002`: deny-by-default,
-authenticated, owner-only. Field-level validation, type/range checks,
-counter-integrity rules and immutable-ownership enforcement are Phase 6
-(`FB-601`/`FB-602`) and are deliberately out of scope here.
+Firestore Rules now validate the complete list/item field sets and types,
+immutable creation/schema/path ownership fields, exact owner/item photo paths,
+server-time tombstones, nonnegative `completedItems <= totalItems` bounds, and
+the expected direction of parent counter movement for each item write.
+Owner-only paths, private cleanup jobs, and parent-existence/claim guards remain.
+The emulator matrix includes valid Android/iOS-shaped atomic item/counter writes
+and denied malformed, cross-user, and out-of-range writes. Firestore Rules
+cannot enumerate an arbitrary batch's item writes to prove that its aggregate
+counter delta is exact; a bounded, internally consistent but dishonest counter
+increment remains possible and requires a server-authoritative counter design
+if that threat must be eliminated. Storage Rules remain at the Phase 0 baseline
+until `FB-602`. These checked-in changes are local; `FB-608` owns reviewed
+development deployment.

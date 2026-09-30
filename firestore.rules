@@ -1,64 +1,187 @@
 rules_version = '2';
 
-// FluxIt baseline Firestore Security Rules (FB-005, PLAN-002).
-//
-// Security model: deny by default, authenticated, owner-only.
-//   * There is no top-level catch-all `match`, so any path not explicitly
-//     matched below is denied for every caller, authenticated or not.
-//   * Every `allow` below is guarded by `isOwner(uid)`, which requires BOTH a
-//     signed-in caller AND that the caller's uid equals the `{uid}` path
-//     segment. `request.auth != null` alone is never sufficient.
-//   * Rules v2 does not cascade a parent `match` to subcollections unless a
-//     recursive `{document=**}` wildcard is used. Subcollections are therefore
-//     matched explicitly rather than with a recursive wildcard, so a future
-//     sibling subcollection is denied until it is deliberately added here.
-//
-// Scope (PLAN-002): this is the Phase 0 BASELINE. Field-level validation,
-// type/range checks, `totalItems`/`completedItems` counter-integrity rules and
-// immutable-ownership enforcement are Phase 6 (FB-601/FB-602) and are
-// deliberately NOT implemented here. The `read`/`write` allows are kept on
-// separate lines so Phase 6 can split `write` into `create`/`update`/`delete`
-// and attach validation without restructuring this file.
-//
-// Data model per FIREBASE_MIGRATION_PLAN.md "Proposed Firebase model":
-//   users/{uid}
-//   users/{uid}/lists/{listId}
-//   users/{uid}/lists/{listId}/items/{itemId}
-
+// FB-601: owner-only, deny-by-default schema. Admin cleanup bypasses Rules;
+// its private listCleanupJobs/photo-journal paths have no client match.
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Signed in AND the owner of this user-scoped subtree.
     function isOwner(uid) {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    // A cleanup claim is server-owned and has no client match below. Once a
-    // claim exists, a queued client write must not recreate its list ID.
     function noCleanupClaim(uid, listId) {
       return !existsAfter(/databases/$(database)/documents/users/$(uid)/listCleanupJobs/$(listId));
     }
 
-    // existsAfter also rejects a batch that deletes the parent and writes a
-    // child in the same commit. A delayed offline item write after claim fails.
     function listExistsAfterWrite(uid, listId) {
       return existsAfter(/databases/$(database)/documents/users/$(uid)/lists/$(listId));
     }
 
+    function validText(value, maxLength) {
+      return value is string && value.trim().size() > 0 && value.size() <= maxLength;
+    }
+
+    function validOptionalText(value, maxLength) {
+      return value == null || (value is string && value.size() <= maxLength);
+    }
+
+    function validTombstone(value, createdAt) {
+      return value == null || (value is timestamp && value >= createdAt);
+    }
+
+    function validCounter(value) {
+      return value is int && value >= 0 && value <= 2147483647;
+    }
+
+    function validList(data) {
+      return data.keys().hasAll([
+        'name', 'icon', 'color', 'createdAt', 'updatedAt', 'deletedAt',
+        'totalItems', 'completedItems', 'schemaVersion'
+      ]) && data.keys().hasOnly([
+        'name', 'icon', 'color', 'createdAt', 'updatedAt', 'deletedAt',
+        'totalItems', 'completedItems', 'schemaVersion'
+      ]) && validText(data.name, 60)
+        && data.icon in ['CART', 'TRAVEL', 'WORK', 'HOME', 'GIFT', 'FOOD', 'FITNESS', 'STAR']
+        && data.color in ['PRIMARY_BLUE', 'ORANGE', 'EMERALD', 'ROSE', 'INDIGO', 'SKY']
+        && data.createdAt is timestamp && data.updatedAt is timestamp
+        && data.updatedAt >= data.createdAt
+        && validTombstone(data.deletedAt, data.createdAt)
+        && validCounter(data.totalItems) && validCounter(data.completedItems)
+        && data.completedItems <= data.totalItems
+        && data.schemaVersion is int && data.schemaVersion == 1;
+    }
+
+    function validPhotoRef(value, uid, itemId) {
+      return value == null || (value is string && value.size() <= 512
+        && validNonNullPhotoRef(value, uid, itemId));
+    }
+
+    function validNonNullPhotoRef(value, uid, itemId) {
+      let parts = value.split('/');
+      return parts.size() == 5 && parts[0] == 'users' && parts[1] == uid
+        && parts[2] == 'items' && parts[3] == itemId && parts[4] != '';
+    }
+
+    function validItem(data, uid, listId, itemId) {
+      return data.keys().hasAll([
+        'listId', 'title', 'isCompleted', 'createdAt', 'updatedAt',
+        'deletedAt', 'schemaVersion'
+      ]) && data.keys().hasOnly([
+        'listId', 'title', 'description', 'isCompleted', 'photoRef',
+        'createdAt', 'updatedAt', 'deletedAt', 'schemaVersion'
+      ]) && data.listId == listId
+        && validText(data.title, 10000)
+        && validOptionalText(data.get('description', null), 2000)
+        && data.isCompleted is bool
+        && validPhotoRef(data.get('photoRef', null), uid, itemId)
+        && data.createdAt is timestamp && data.updatedAt is timestamp
+        && data.updatedAt >= data.createdAt
+        && validTombstone(data.deletedAt, data.createdAt)
+        && data.schemaVersion is int && data.schemaVersion == 1;
+    }
+
+    function validFreshTimes(data) {
+      return data.createdAt == request.time && data.updatedAt == request.time;
+    }
+
+    function validChangedTime(field) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([field])
+        || request.resource.data[field] == request.time;
+    }
+
+    function validListEditTime() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['name', 'icon', 'color'])
+        || request.resource.data.updatedAt == request.time;
+    }
+
+    // The app's 400-item clearCompleted chunks require aggregate deltas. Rules
+    // bound the resulting counters and delta, but cannot enumerate all item
+    // writes in a batch to prove their exact aggregate relationship.
+    function validCounterDelta() {
+      return request.resource.data.totalItems - resource.data.totalItems >= -499
+        && request.resource.data.totalItems - resource.data.totalItems <= 499
+        && request.resource.data.completedItems - resource.data.completedItems >= -499
+        && request.resource.data.completedItems - resource.data.completedItems <= 499;
+    }
+
+    function validCountDirection(beforeCount, afterCount, beforeIncluded, afterIncluded) {
+      return (beforeIncluded == afterIncluded && afterCount == beforeCount)
+        || (!beforeIncluded && afterIncluded && afterCount > beforeCount)
+        || (beforeIncluded && !afterIncluded && afterCount < beforeCount);
+    }
+
+    // Works for a one-item transaction and for a multi-item batch: each item
+    // checks direction, while the list rule bounds the total aggregate delta.
+    function validParentCounterMovement(uid, listId,
+                                        beforeActive, afterActive,
+                                        beforeCompleted, afterCompleted) {
+      let path = /databases/$(database)/documents/users/$(uid)/lists/$(listId);
+      let before = get(path).data;
+      let after = getAfter(path).data;
+      return validCountDirection(before.totalItems, after.totalItems,
+                                 beforeActive, afterActive)
+        && validCountDirection(before.completedItems, after.completedItems,
+                               beforeCompleted, afterCompleted);
+    }
+
     match /users/{uid} {
       allow read: if isOwner(uid);
-      allow write: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['displayName'])
+        && validOptionalText(request.resource.data.get('displayName', null), 120);
+      allow delete: if false;
 
       match /lists/{listId} {
         allow read: if isOwner(uid);
-        allow create, update: if isOwner(uid) && noCleanupClaim(uid, listId);
-        // Clients soft-delete with deletedAt. Only Admin cleanup may remove a
-        // parent document; a direct client delete would strand its items.
+        allow create: if isOwner(uid) && noCleanupClaim(uid, listId)
+          && validList(request.resource.data)
+          && validFreshTimes(request.resource.data)
+          && request.resource.data.deletedAt == null
+          && request.resource.data.totalItems == 0
+          && request.resource.data.completedItems == 0;
+        allow update: if isOwner(uid) && noCleanupClaim(uid, listId)
+          && validList(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'icon', 'color', 'updatedAt', 'deletedAt',
+            'totalItems', 'completedItems'
+          ]) && validChangedTime('updatedAt')
+          && validListEditTime()
+          && (request.resource.data.deletedAt == null || validChangedTime('deletedAt'))
+          && validCounterDelta();
+        // Only Admin cleanup may remove a parent; client deletion strands items.
         allow delete: if false;
 
         match /items/{itemId} {
           allow read: if isOwner(uid);
-          allow write: if isOwner(uid) && listExistsAfterWrite(uid, listId);
+          allow create: if isOwner(uid) && listExistsAfterWrite(uid, listId)
+            && validItem(request.resource.data, uid, listId, itemId)
+            && validFreshTimes(request.resource.data)
+            && request.resource.data.deletedAt == null
+            && request.resource.data.isCompleted == false
+            && request.resource.data.get('photoRef', null) == null
+            && validParentCounterMovement(uid, listId, false, true, false, false);
+          allow update: if isOwner(uid) && listExistsAfterWrite(uid, listId)
+            && validItem(request.resource.data, uid, listId, itemId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'description', 'isCompleted', 'photoRef',
+              'updatedAt', 'deletedAt'
+            ]) && validChangedTime('updatedAt')
+            && request.resource.data.updatedAt == request.time
+            && (request.resource.data.deletedAt == null || validChangedTime('deletedAt'))
+            && validParentCounterMovement(
+              uid, listId,
+              resource.data.deletedAt == null,
+              request.resource.data.deletedAt == null,
+              resource.data.deletedAt == null && resource.data.isCompleted,
+              request.resource.data.deletedAt == null && request.resource.data.isCompleted
+            );
+          // ItemRepository.deleteItem is a genuine hard-delete operation.
+          allow delete: if isOwner(uid) && listExistsAfterWrite(uid, listId)
+            && validParentCounterMovement(
+              uid, listId,
+              resource.data.deletedAt == null, false,
+              resource.data.deletedAt == null && resource.data.isCompleted, false
+            );
         }
       }
     }
