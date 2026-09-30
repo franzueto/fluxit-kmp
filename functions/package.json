@@ -9,7 +9,7 @@
   "scripts": {
     "build": "node --check index.js && node --check cleanup.js && node --check cascade.js",
     "check": "npm run build && node --test test/scaffold.test.js test/cleanup.test.js test/cascade.test.js",
-    "test:emulator": "../firebase/node_modules/.bin/firebase --config ../firebase.json --project demo-fluxit emulators:exec --only functions,pubsub,firestore,storage \"node --test --test-concurrency=1 test/emulator.test.js test/cleanup.emulator.test.js test/cascade.emulator.test.js\""
+    "test:emulator": "../firebase/node_modules/.bin/firebase --config ../firebase.json --project demo-fluxit emulators:exec --only functions,pubsub,firestore,storage \"node --test --test-concurrency=1 test/emulator.test.js test/cleanup.emulator.test.js test/cascade.emulator.test.js test/indexes.emulator.test.js\""
   },
   "dependencies": {
     "firebase-admin": "14.5.0",

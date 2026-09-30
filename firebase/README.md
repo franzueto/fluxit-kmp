@@ -9,10 +9,11 @@ affect any Android/iOS build command.
 | Path | Purpose |
 |---|---|
 | `../firebase.json` | CLI + emulator configuration (pinned ports) |
+| `../firestore.indexes.json` | FB-603 query index contract; Phase 5 group indexes retained |
 | `../firestore.rules` | FB-601 owner-only Firestore schema, tombstone, and counter checks |
 | `../storage.rules` | Baseline authenticated owner-only Storage Rules |
 | `../.firebaserc` | Project aliases — **placeholder only**, see below |
-| `test/` | `@firebase/rules-unit-testing` Rules tests |
+| `test/` | Rules, client query, and config/index contract tests |
 | `../functions/` | FB-501 scheduled cleanup target and local invocation harness |
 
 ## Pinned emulator ports
@@ -56,8 +57,9 @@ environment variable, or on the command line:
   -Pfluxit.firebase.emulator.firestore.port=8580
 ```
 
-The defaults above still match `../firebase.json` and `test/helpers.js`. If the
-default Firestore port is ever moved off `8080`, all three must move together.
+`test/helpers.js` reads ports from `../firebase.json`. `npm run check` verifies
+that the Auth, Firestore, and Storage defaults in `../gradle.properties` still
+match that CLI configuration (FB-006-NB2). If a default moves, update both files.
 On the Android emulator, a configured host of `127.0.0.1`/`localhost` is
 translated to `10.0.2.2` automatically; a physical device needs the host set to
 the development machine's LAN address explicitly.
@@ -157,9 +159,60 @@ Swift and injected back across the framework boundary, or reached through a Kotl
 ```sh
 cd firebase
 npm install
-npm test        # starts auth+firestore+storage emulators, runs Rules tests, shuts down
+npm run check   # config/index contract and port drift checks; no emulators
+npm test        # contract checks, then auth+firestore+storage Rules/query tests
 npm run emulators   # long-running emulator suite incl. UI at http://127.0.0.1:4000
 ```
+
+## Query and index inventory (FB-603)
+
+This inventory comes from `AndroidFirebaseListRepository.kt`,
+`AndroidFirebaseItemRepository.kt`, their `iosMain` counterparts,
+`iosApp/iosApp/FirebaseListBridge.swift`, `FirebaseItemBridge.swift`, and
+`../functions/cleanup.js`/`cascade.js`. Paths below are scoped to the current
+authenticated UID on mobile; backend group queries use the Admin SDK.
+
+| Caller | Actual server query | Required index |
+|---|---|---|
+| Android/iOS list summaries (including metadata listeners) | Full `users/{uid}/lists` collection; no filter or `orderBy` | Default document-name ordering |
+| Android/iOS item lists (including metadata listeners) | Full `users/{uid}/lists/{listId}/items` collection; no filter or `orderBy` | Default document-name ordering |
+| Android/iOS single-list/item listeners and mutation reads | Exact document path | No field/composite index |
+| Android/iOS clear-completed | Scoped items: `isCompleted == true`, `deletedAt == null`, `limit(chunkSize)`; default chunk 400, repeat after tombstoning each page | Merge default collection single-field equality indexes |
+| Backend expired-list/item scan | Group `lists`/`items`: `deletedAt <= cutoff`, `orderBy(deletedAt ASC)`, `limit(100)`, then `startAfter(lastSnapshot)` | Ascending group index on `deletedAt` for each group |
+| Backend orphan-photo reference check | Group `items`: `photoRef == exactObjectPath`, `limit(100)`, then `startAfter(lastSnapshot)` | Ascending group index on `photoRef` |
+| Backend interrupted-cascade discovery | Group `listCleanupJobs`: `orderBy(claimedAt ASC)`, `limit(100)`, then `startAfter(lastSnapshot)` | Ascending group index on `claimedAt` |
+| Backend cascade children/journals and empty-job probes | Scoped `items`/`photos`: `limit(100)` (or `limit(1)`); photo-journal pages use `startAfter(lastSnapshot)` | Default document-name ordering |
+
+Mobile active/deleted filtering and `(createdAt, documentId)` ordering happen
+in `FirebaseDocumentMapper`, after the raw snapshot. Adding a server-side
+ordering would change the handling of pending server timestamps. None is added.
+
+The checked-in `../firestore.indexes.json` already contains all four required
+group field overrides from Phase 5, retaining ascending/descending collection
+indexes for list/item `deletedAt` and item `photoRef`. It stays unchanged;
+`indexes: []` is deliberate. [Firestore supports merging simple equality
+indexes](https://firebase.google.com/docs/firestore/query-data/index-overview#use_index_merging),
+so clear-completed needs no composite index. Group field indexes must be
+explicitly enabled; default collection indexes do not cover them.
+
+`test/config.test.js` checks the declared group scopes, collection indexes used
+by equality merging, CLI config, and endpoint defaults. `test/firestore.queries.test.js`
+executes equivalent mobile query shapes with the JavaScript client SDK and the
+real owner Rules: server snapshots include tombstones for client mapping, foreign
+collections are denied, and a 401-match clear-completed fixture selects 400 then
+one without selecting incomplete, deleted, or missing-field items. These tests
+do not execute the Android or Apple SDKs.
+`../functions/test/indexes.emulator.test.js` checks the backend group shapes,
+cutoff exclusion, tied timestamps across owners and 100-document page cursors,
+and executes production `isReferenced` past a full page of foreign matches.
+
+Passing local queries is **not proof of deployed index readiness**. The
+[Firestore emulator does not track compound indexes](https://firebase.google.com/docs/emulator-suite/connect_firestore#indexes)
+and accepts valid queries even when production would require a missing index.
+The contract checks and documented query analysis provide local evidence only;
+FB-608 must verify reviewed indexes are Ready/Enabled in development, and
+FB-604 must run actual allowed-owner queries there. Re-audit this inventory and
+the contract whenever a server filter or ordering changes.
 
 ## Scheduled cleanup target (FB-501–FB-503)
 
@@ -244,9 +297,10 @@ These tests do not exercise live development deployment.
 ## `.firebaserc` defaults to the emulator project
 
 `default` remains `demo-fluxit`, a Firebase-reserved emulator-only project ID.
-The real development project is `fluxit-dev` (`MAN-001` is complete). Every
-development deployment must pass `--project fluxit-dev` explicitly; the
-default must never be used for deployment. See [FB-507 deployment procedure](FB-507-DEPLOYMENT.md).
+Per `DEC-002d`, obtain the real development project ID from the gitignored
+`google-services.json` and pass it explicitly through `--project "$FLUXIT_PROJECT_ID"`
+for every Console-affecting command. Keep that value out of tracked files and
+never use the default for deployment. See [FB-507 deployment procedure](FB-507-DEPLOYMENT.md).
 
 ## Rules scope
 
