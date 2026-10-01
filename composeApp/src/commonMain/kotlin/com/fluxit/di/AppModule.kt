@@ -16,12 +16,8 @@ import org.koin.dsl.module
  * Platform module providing FluxItDatabase, PhotoPicker, PhotoStorage, AuthRepository, and
  * (FB-207) the `ListRepository`/`ItemRepository` bindings.
  *
- * `ListRepository`/`ItemRepository` moved here from [appModule] as part of FB-207: each
- * `actual platformModule()` now constructs either the Room or the Firebase implementation,
- * behind `com.fluxit.config.FirebaseDevFlags.USE_FIREBASE_REPOSITORIES` (see
- * [selectRepositoryBinding]), because only the platform module has both implementations
- * available (Room's `FluxItDatabase` binding and the platform-specific Firebase
- * repositories both already live there).
+ * FB-702: each actual platform module binds Firebase unconditionally. UID paths and
+ * listeners are resolved only by authenticated operations. Room removal is FB-703.
  */
 expect fun platformModule(): Module
 

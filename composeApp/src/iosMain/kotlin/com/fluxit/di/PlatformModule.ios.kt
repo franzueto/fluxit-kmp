@@ -2,14 +2,11 @@ package com.fluxit.di
 
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.fluxit.config.FirebaseDevFlags
 import com.fluxit.data.FluxItDatabase
 import com.fluxit.data.IosPhotoPicker
 import com.fluxit.data.IosPhotoStorage
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
-import com.fluxit.data.RoomItemRepository
-import com.fluxit.data.RoomListRepository
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
 import com.fluxit.domain.auth.AuthRepository
@@ -56,24 +53,9 @@ actual fun platformModule(): Module = module {
     // `FirebaseBootstrap.start()` has registered it.
     single<AuthRepository> { IosAuthRepository() }
 
-    // FB-207: moved out of the common `appModule`, mirroring the Android binding above -
-    // see its KDoc for the full rationale (`FirebaseDevFlags.USE_FIREBASE_REPOSITORIES`
-    // default false, lazy uid/listener resolution, no pre-auth access). The no-arg
-    // `IosFirebaseListRepository()`/`IosFirebaseItemRepository()` constructors resolve
-    // their Swift bridge and uid provider lazily per call, exactly like the Android
-    // Firestore handles do.
-    single<ListRepository> {
-        selectRepositoryBinding(
-            useFirebaseRepositories = FirebaseDevFlags.USE_FIREBASE_REPOSITORIES,
-            firebase = { IosFirebaseListRepository() },
-            room = { RoomListRepository(get()) },
-        )
-    }
-    single<ItemRepository> {
-        selectRepositoryBinding(
-            useFirebaseRepositories = FirebaseDevFlags.USE_FIREBASE_REPOSITORIES,
-            firebase = { IosFirebaseItemRepository() },
-            room = { RoomItemRepository(get()) },
-        )
-    }
+    // FB-702: ordinary application bindings always use Firebase. Constructors remain
+    // lazy with respect to UID paths/listeners. The unused Room database definition
+    // is retained for FB-703 removal; neither repository resolves it.
+    single<ListRepository> { IosFirebaseListRepository() }
+    single<ItemRepository> { IosFirebaseItemRepository() }
 }

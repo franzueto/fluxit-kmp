@@ -1,7 +1,8 @@
 package com.fluxit.di
 
 /**
- * FB-207: picks between the Firebase and Room implementation of a repository interface,
+ * Historical FB-207 comparator helper, unused by production bindings since FB-702.
+ * Retained with its tests for FB-703 cleanup. Picks between the Firebase and Room implementation of a repository interface,
  * behind the `com.fluxit.config.FirebaseDevFlags.USE_FIREBASE_REPOSITORIES` temporary
  * development flag.
  *

@@ -11,7 +11,6 @@ import com.fluxit.domain.ListRepository
 import com.fluxit.domain.ScreenLoadState
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.domain.auth.AuthSession
-import com.fluxit.domain.auth.SessionTrace
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -138,12 +136,7 @@ class DashboardViewModel(
      */
     private val listLoadState: Flow<ScreenLoadState<List<FluxListSummary>>> =
         combine(
-            listRepository.observeListSummariesSnapshot()
-                // FB-104 evidence hook: this is the first user-scoped data listener the
-                // app starts (Room today, Firestore from Phase 2). Tracing it lets the
-                // manual matrix show, from an ordinary log capture, that it never starts
-                // before the session gate has resolved.
-                .onStart { SessionTrace.event("user-scoped list listener STARTED") },
+            listRepository.observeListSummariesSnapshot(),
             authRepository.session,
         ) { snapshot, session ->
             if (session !is AuthSession.Authenticated) {
@@ -188,7 +181,6 @@ class DashboardViewModel(
              * before this task for its original (session-driven) trigger.
              */
             .catch { _ ->
-                SessionTrace.event("user-scoped list listener TERMINATED (mapped to FatalSession, FB-408)")
                 emit(ScreenLoadState.FatalSession)
             }
 
@@ -211,10 +203,6 @@ class DashboardViewModel(
 
     // FB-504: the scheduled backend owns expired tombstone cleanup. Dashboard startup
     // must not purge locally; soft-delete and the five-second undo remain below.
-    init {
-        SessionTrace.event("DashboardViewModel created (user-scoped consumer)")
-    }
-
     fun onSearchChange(query: String) {
         searchQuery.value = query
     }

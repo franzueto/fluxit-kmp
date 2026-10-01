@@ -19,13 +19,8 @@ plugins {
 // Firestore default port 8080 never has to be hard-coded into client code.
 // The generated object holds plain constants only - no Firebase SDK types.
 //
-// FB-207 reuses this same generated file/task for a second, independent
-// constant object (`FirebaseDevFlags`): whether each `actual platformModule()`
-// binds the Firebase list/item repositories instead of Room. It is orthogonal
-// to the emulator endpoints above (you can point Firebase repositories at
-// production, or run Room against a device with the emulator flag on), but
-// sharing this task avoids duplicating the whole generated-source/srcDir/stale-
-// output-cleanup scaffolding for a single extra boolean.
+// FirebaseDevFlags retains constant compatibility metadata after FB-702. Repository
+// selection is unconditional in each actual platformModule(), independent of properties.
 abstract class GenerateFirebaseEmulatorConfig : DefaultTask() {
     @get:Input
     abstract val emulatorEnabled: Property<Boolean>
@@ -41,9 +36,6 @@ abstract class GenerateFirebaseEmulatorConfig : DefaultTask() {
 
     @get:Input
     abstract val storagePort: Property<Int>
-
-    @get:Input
-    abstract val useFirebaseRepositories: Property<Boolean>
 
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
@@ -77,15 +69,11 @@ abstract class GenerateFirebaseEmulatorConfig : DefaultTask() {
             |}
             |
             |/**
-            | * FB-207: temporary development-only flag deciding, inside each `actual
-            | * platformModule()`, whether `ListRepository`/`ItemRepository` are bound to the
-            | * Firebase implementations (FB-202-FB-205) or to Room. Default false keeps the
-            | * Room bindings unchanged for ordinary builds; this is not the production
-            | * cutover (`FIREBASE_MIGRATION_PLAN.md` Phase 7 switches the production Koin
-            | * bindings to Firebase and removes Room).
+            | * FB-702: compatibility metadata. Production Koin modules unconditionally bind
+            | * Firebase; the retired fluxit.firebase.repositories.enabled property is ignored.
             | */
             |public object FirebaseDevFlags {
-            |    public const val USE_FIREBASE_REPOSITORIES: Boolean = ${useFirebaseRepositories.get()}
+            |    public const val USE_FIREBASE_REPOSITORIES: Boolean = true
             |}
             |
             """.trimMargin()
@@ -110,11 +98,6 @@ val generateFirebaseEmulatorConfig =
         )
         storagePort.set(
             providers.gradleProperty("fluxit.firebase.emulator.storage.port").map { it.toInt() }.orElse(9199)
-        )
-        useFirebaseRepositories.set(
-            providers.gradleProperty("fluxit.firebase.repositories.enabled")
-                .map { it.toBoolean() }
-                .orElse(false)
         )
         outputDirectory.set(layout.buildDirectory.dir("generated/fluxit/firebaseEmulatorConfig/kotlin"))
     }

@@ -34,6 +34,7 @@ import platform.Foundation.NSUUID
  * Every account it creates is a throwaway with a random UUID local part, in the local
  * emulator, and is signed out at the end.
  */
+// FB-702: this fixture is compiled only with fluxit.parity.enabled=true.
 object IosAuthIntegrationCheck {
 
     private const val PASSWORD = "sw0rdfish!42"

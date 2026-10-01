@@ -3,7 +3,6 @@ package com.fluxit.feature.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
-import com.fluxit.domain.auth.SessionTrace
 
 /**
  * Which session the currently composed UI belongs to (FB-105).
@@ -86,11 +85,10 @@ class SessionScopedViewModelStores : ViewModel() {
     fun storeFor(scope: SessionScope): ViewModelStore {
         val existing = currentStore
         if (existing != null && currentScope == scope) return existing
-        clearActiveScope(reason = "scope changed to ${scope.traceName()}")
+        clearActiveScope()
         val store = ViewModelStore()
         currentScope = scope
         currentStore = store
-        SessionTrace.event("session scope opened: ${scope.traceName()}")
         return store
     }
 
@@ -105,21 +103,14 @@ class SessionScopedViewModelStores : ViewModel() {
     /**
      * Destroys the active scope's store, clearing every ViewModel in it. Idempotent.
      */
-    fun clearActiveScope(reason: String = "explicit clear") {
-        val outgoing = currentScope ?: return
+    fun clearActiveScope() {
+        if (currentScope == null) return
         currentStore?.clear()
         currentStore = null
         currentScope = null
-        SessionTrace.event("session scope closed: ${outgoing.traceName()} ($reason)")
     }
 
     override fun onCleared() {
-        clearActiveScope(reason = "holder cleared")
+        clearActiveScope()
     }
-}
-
-/** Trace label that never prints a raw uid beyond what the signed-in user already sees. */
-private fun SessionScope.traceName(): String = when (this) {
-    SessionScope.SignedOut -> "signed-out"
-    is SessionScope.User -> "user(${uid})"
 }

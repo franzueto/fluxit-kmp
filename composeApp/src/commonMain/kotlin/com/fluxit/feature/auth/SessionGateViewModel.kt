@@ -6,7 +6,6 @@ import com.fluxit.domain.auth.AuthError
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.domain.auth.AuthSession
 import com.fluxit.domain.auth.AuthUser
-import com.fluxit.domain.auth.SessionTrace
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Job
@@ -56,20 +55,6 @@ fun AuthSession.toGateState(): SessionGateState = when (this) {
     AuthSession.SignedOut -> SessionGateState.SignedOut
     is AuthSession.Authenticated -> SessionGateState.Ready(user)
     is AuthSession.ResolutionFailed -> SessionGateState.ResolutionFailed(error)
-}
-
-private fun SessionGateState.traceName(): String = when (this) {
-    SessionGateState.Resolving -> "Resolving"
-    SessionGateState.SignedOut -> "SignedOut"
-    is SessionGateState.Ready -> "Ready"
-    is SessionGateState.ResolutionFailed -> "ResolutionFailed(${error::class.simpleName})"
-}
-
-private fun AuthSession.traceName(): String = when (this) {
-    AuthSession.Unresolved -> "Unresolved"
-    AuthSession.SignedOut -> "SignedOut"
-    is AuthSession.Authenticated -> "Authenticated"
-    is AuthSession.ResolutionFailed -> "ResolutionFailed(${error::class.simpleName})"
 }
 
 /**
@@ -151,25 +136,16 @@ class SessionGateViewModel(
     private var restorationJob: Job? = null
 
     init {
-        SessionTrace.event("gate created; state=Resolving; userScopedWorkAllowed=false")
         viewModelScope.launch {
-            try {
-                authRepository.session.collect { session ->
-                    latestSession.value = session
-                    // A value arriving now is, by definition, later than any timeout the
-                    // gate has already declared, so it supersedes the fallback.
-                    if (session != AuthSession.Unresolved) _restoreTimedOut.value = false
-                    publishGateState(source = "session=${session.traceName()}")
-                }
-            } finally {
-                // FB-105: the one place the gate's hold on the repository's listener is
-                // released. Both adapters register their SDK auth-state listener when
-                // this collection starts and remove it from `awaitClose` when it ends,
-                // so cancelling this scope (ViewModel cleared) disposes the listener.
-                SessionTrace.event("session collection released; SDK listener disposed")
+            // Cancellation still releases the SDK listener through the adapter's awaitClose.
+            authRepository.session.collect { session ->
+                latestSession.value = session
+                // A later resolved value supersedes any restoration timeout fallback.
+                if (session != AuthSession.Unresolved) _restoreTimedOut.value = false
+                publishGateState()
             }
         }
-        startInitialRestoration(source = "gate created")
+        startInitialRestoration()
     }
 
     /**
@@ -178,12 +154,12 @@ class SessionGateViewModel(
      * Replaces any restoration already in flight, so a retry after a timeout cannot race
      * the attempt it is replacing.
      */
-    private fun startInitialRestoration(source: String) {
+    private fun startInitialRestoration() {
         restorationJob?.cancel()
         restorationJob = viewModelScope.launch {
             initialRestorationComplete = false
             _restoreTimedOut.value = false
-            publishGateState(source = "restoreSession() requested ($source)")
+            publishGateState()
 
             val resolved = withTimeoutOrNull(InitialRestorationTimeout) {
                 authRepository.restoreSession()
@@ -194,9 +170,9 @@ class SessionGateViewModel(
             initialRestorationComplete = true
             if (resolved == null) {
                 _restoreTimedOut.value = true
-                publishGateState(source = "restoreSession() timed out after $InitialRestorationTimeout")
+                publishGateState()
             } else {
-                publishGateState(source = "restoreSession() returned")
+                publishGateState()
             }
         }
     }
@@ -234,7 +210,7 @@ class SessionGateViewModel(
      * Recomputes [gate] from [latestSession], holding it at [SessionGateState.Resolving]
      * until the initial restoration has returned (see the class KDoc).
      */
-    private fun publishGateState(source: String) {
+    private fun publishGateState() {
         val next = when {
             !initialRestorationComplete -> SessionGateState.Resolving
             // DEC-006: a timed-out restoration resolves to signed-out regardless of what
@@ -242,12 +218,6 @@ class SessionGateViewModel(
             _restoreTimedOut.value -> SessionGateState.SignedOut
             else -> latestSession.value.toGateState()
         }
-        SessionTrace.event(
-            "$source -> gate=${next.traceName()}; " +
-                "restorationComplete=$initialRestorationComplete; " +
-                "restoreTimedOut=${_restoreTimedOut.value}; " +
-                "userScopedWorkAllowed=${next.allowsUserScopedWork}",
-        )
         _gate.value = next
     }
 
@@ -261,8 +231,7 @@ class SessionGateViewModel(
      */
     fun retryInitialRestoration() {
         if (restorationJob?.isActive == true) return
-        SessionTrace.event("recovery: retryInitialRestoration() after timeout")
-        startInitialRestoration(source = "retry after timeout")
+        startInitialRestoration()
     }
 
     /**
@@ -273,7 +242,6 @@ class SessionGateViewModel(
         if (_isBusy.value) return
         viewModelScope.launch {
             _isBusy.value = true
-            SessionTrace.event("recovery: retryResolution()")
             authRepository.restoreSession()
             _isBusy.value = false
         }
@@ -290,10 +258,8 @@ class SessionGateViewModel(
         if (_isBusy.value) return
         viewModelScope.launch {
             _isBusy.value = true
-            SessionTrace.event("recovery: signOutAndRetry() - signing out")
             authRepository.signOut()
             authRepository.restoreSession()
-            SessionTrace.event("recovery: signOutAndRetry() - complete")
             _isBusy.value = false
         }
     }
@@ -303,7 +269,6 @@ class SessionGateViewModel(
         if (_isBusy.value) return
         viewModelScope.launch {
             _isBusy.value = true
-            SessionTrace.event("signOut() requested from authenticated area")
             authRepository.signOut()
             _isBusy.value = false
         }

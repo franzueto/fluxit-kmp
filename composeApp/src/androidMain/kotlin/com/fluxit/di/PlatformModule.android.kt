@@ -3,14 +3,11 @@ package com.fluxit.di
 import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.fluxit.config.FirebaseDevFlags
 import com.fluxit.data.AndroidPhotoPicker
 import com.fluxit.data.AndroidPhotoStorage
 import com.fluxit.data.FluxItDatabase
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
-import com.fluxit.data.RoomItemRepository
-import com.fluxit.data.RoomListRepository
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
 import com.fluxit.domain.auth.AuthRepository
@@ -46,28 +43,9 @@ actual fun platformModule(): Module = module {
     // only on Android.
     single<AuthRepository> { AndroidAuthRepository() }
 
-    // FB-207: moved out of the common `appModule` because only this platform module has
-    // both implementations available. Behind `FirebaseDevFlags.USE_FIREBASE_REPOSITORIES`
-    // (default false, so ordinary builds are unaffected): off binds Room exactly as
-    // before, on binds the FB-202/FB-204 Firebase adapters. `AndroidFirebaseListRepository`/
-    // `AndroidFirebaseItemRepository`'s default constructors only grab `FirebaseFirestore`
-    // handles here - they resolve `currentUid`/register listeners lazily per call (see
-    // their KDoc), and this `single { }` lambda itself does not run until something
-    // actually injects `ListRepository`/`ItemRepository`, which for every app ViewModel
-    // means the FB-104/FB-105 authenticated session scope. No pre-auth listener or
-    // uid-path resolution results from this binding existing.
-    single<ListRepository> {
-        selectRepositoryBinding(
-            useFirebaseRepositories = FirebaseDevFlags.USE_FIREBASE_REPOSITORIES,
-            firebase = { AndroidFirebaseListRepository() },
-            room = { RoomListRepository(get()) },
-        )
-    }
-    single<ItemRepository> {
-        selectRepositoryBinding(
-            useFirebaseRepositories = FirebaseDevFlags.USE_FIREBASE_REPOSITORIES,
-            firebase = { AndroidFirebaseItemRepository() },
-            room = { RoomItemRepository(get()) },
-        )
-    }
+    // FB-702: ordinary application bindings always use Firebase. Constructors remain
+    // lazy with respect to UID paths/listeners. The unused Room database definition
+    // is retained for FB-703 removal; neither repository resolves it.
+    single<ListRepository> { AndroidFirebaseListRepository() }
+    single<ItemRepository> { AndroidFirebaseItemRepository() }
 }

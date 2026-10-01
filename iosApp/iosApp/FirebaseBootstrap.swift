@@ -99,10 +99,12 @@ enum FirebaseBootstrap {
     }
     #endif
 
+    #if FLUXIT_PARITY
     /// FB-103 evidence hook: runs the emulator-backed Auth integration check and prints
     /// its report, then leaves the app running normally.
     ///
-    /// Two independent gates keep this out of any ordinary build: the app must be
+    /// FLUXIT_PARITY compiles this hook only with the opt-in Kotlin fixture. Runtime
+    /// gates also require the launch argument and emulator configuration: the app must be
     /// launched with `-FluxItAuthSelfCheck`, and the Kotlin check itself refuses to run
     /// unless the build was configured with `fluxit.firebase.emulator.enabled=true`,
     /// which is the same flag that points Auth at the local emulator. It therefore
@@ -130,6 +132,8 @@ enum FirebaseBootstrap {
             }
         }
     }
+
+    #endif
 
     /// FB-203 evidence hook: same shape as [runAuthSelfCheckIfRequested], for the
     /// Firestore list adapter. Guarded the same way: `-FluxItFirestoreListSelfCheck` on
@@ -316,9 +320,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         FirebaseBootstrap.start()
         #if FLUXIT_PARITY
+        if ProcessInfo.processInfo.arguments.contains("-FluxItDefaultGraphCheck") {
+            // Resolve the real startup graph without mounting Compose or restoring auth.
+            precondition(!IosFirebaseEmulatorSettings.shared.enabled)
+            precondition(Firestore.firestore().settings.isSSLEnabled)
+            precondition(Firestore.firestore().settings.host == "firestore.googleapis.com")
+            print(IosDefaultGraphCheck.shared.run())
+            return true
+        }
         FirebaseBootstrap.runParityIfRequested()
         #endif
+        #if FLUXIT_PARITY
         FirebaseBootstrap.runAuthSelfCheckIfRequested()
+        #endif
         FirebaseBootstrap.runFirestoreListSelfCheckIfRequested()
         FirebaseBootstrap.runFirestoreItemSelfCheckIfRequested()
         FirebaseBootstrap.runCrossClientSelfCheckIfRequested()
