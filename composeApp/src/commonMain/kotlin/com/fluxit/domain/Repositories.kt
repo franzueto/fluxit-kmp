@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.map
  * the first change to [ListRepository]/[ItemRepository]'s shape since `FB-204`/`FB-205`
  * landed the Firestore adapters. Rather than changing [ListRepository.observeListSummaries]/
  * [ItemRepository.observeItems]'s existing return type (which would force every
- * implementer - `RoomListRepository`/`RoomItemRepository`, both Firestore adapters on both
+ * implementer - both Firestore adapters on both
  * platforms, and every test double - to change in lockstep), this task adds *parallel*
  * `*Snapshot()` methods that return this type, each with a default body (see
  * [ListRepository.observeListSummariesSnapshot]/[ItemRepository.observeItemsSnapshot]) that
@@ -43,7 +43,7 @@ import kotlinx.coroutines.flow.map
  * `addSnapshotListener(includeMetadataChanges: true)` reading `snapshot.metadata` in
  * `FirebaseListBridge.swift`/`FirebaseItemBridge.swift`). The default body documented
  * above (`isFromCache = false`, `hasPendingWrites = false`) remains live for
- * `RoomListRepository`/`RoomItemRepository` and any other future implementer that does
+ * test doubles and any future implementer that does
  * not override it - it was never removed, only overridden by the four production
  * Firestore adapters.
  */

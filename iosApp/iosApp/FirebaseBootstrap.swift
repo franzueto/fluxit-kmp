@@ -72,28 +72,28 @@ enum FirebaseBootstrap {
     }
 
     #if FLUXIT_PARITY
-    // FB-701: opt-in build symbol + emulator-only Kotlin gate + explicit launch argument.
-    static func runParityIfRequested() {
+    // FB-703: opt-in build symbol + emulator-only Kotlin gate + explicit launch argument.
+    static func runFirebaseRegressionIfRequested() {
         let arguments = ProcessInfo.processInfo.arguments
-        guard arguments.contains("-FluxItParitySelfCheck"), IosFirebaseEmulatorSettings.shared.enabled else { return }
+        guard arguments.contains("-FluxItFirebaseRegressionSelfCheck"), IosFirebaseEmulatorSettings.shared.enabled else { return }
         func value(_ key: String) -> String? {
             guard let index = arguments.firstIndex(of: key), index + 1 < arguments.count else { return nil }
             return arguments[index + 1]
         }
         guard let email = value("-parityEmail"), let password = value("-parityPassword"),
-              let marker = value("-parityMarker") else { print("FB-701 iOS FAILED missing-arguments\nFB-701 END"); return }
+              let marker = value("-parityMarker") else { print("FB-703 iOS FAILED missing-arguments\nFB-703 END"); return }
         Task {
             do {
                 try await Firestore.firestore().disableNetwork()
-                let offline = try await IosFirebaseRoomParityCheck.shared.runOffline(email: email, password: password, marker: marker) {
+                let offline = try await IosFirebaseRegressionCheck.shared.runOffline(email: email, password: password, marker: marker) {
                     Task { try await Firestore.firestore().enableNetwork() }
                 }
                 print(offline)
-                guard offline.contains("offline PASS") else { print("FB-701 iOS FAILED\nFB-701 END"); return }
-                print(try await IosFirebaseRoomParityCheck.shared.run(email: email, password: password, marker: marker))
+                guard offline.contains("offline PASS") else { print("FB-703 iOS FAILED\nFB-703 END"); return }
+                print(try await IosFirebaseRegressionCheck.shared.run(email: email, password: password, marker: marker))
             } catch {
                 try? await Firestore.firestore().enableNetwork()
-                print("FB-701 iOS FAILED\nFB-701 END")
+                print("FB-703 iOS FAILED\nFB-703 END")
             }
         }
     }
@@ -328,7 +328,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             print(IosDefaultGraphCheck.shared.run())
             return true
         }
-        FirebaseBootstrap.runParityIfRequested()
+        FirebaseBootstrap.runFirebaseRegressionIfRequested()
         #endif
         #if FLUXIT_PARITY
         FirebaseBootstrap.runAuthSelfCheckIfRequested()

@@ -1,7 +1,6 @@
 package com.fluxit.di
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.fluxit.data.FluxItDatabase
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
 import com.fluxit.firebase.item.AndroidFirebaseItemRepository
@@ -20,9 +19,8 @@ class RepositoryDiInstrumentedTest {
         val graph = GlobalContext.get()
         assertIs<AndroidFirebaseListRepository>(graph.get<ListRepository>())
         assertIs<AndroidFirebaseItemRepository>(graph.get<ItemRepository>())
-        val database = graph.instanceRegistry.instances.values.single {
-            it.beanDefinition.primaryType == FluxItDatabase::class
-        }
-        assertFalse(database.isCreated(null), "Firebase resolution must leave Room uninitialized")
+        assertFalse(graph.instanceRegistry.instances.values.any {
+            it.beanDefinition.primaryType.qualifiedName == "com.fluxit.data.FluxItDatabase"
+        }, "The retired database must have no Koin definition")
     }
 }

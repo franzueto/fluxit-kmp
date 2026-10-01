@@ -5,9 +5,30 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 
-/** Real-adapter contract comparison. IDs, timestamps and internal ordering ranks differ
- * deliberately; observable order/content/counts must agree. No SDK types cross this seam. */
-object RepositoryParityScenario {
+/** Firebase real-adapter contract regression. Checkpoints validate observable
+ * order/content/counts without relying on IDs or timestamps. No SDK types cross this seam. */
+object RepositoryRegressionScenario {
+    // Fixed observable contract previously compared against Room in FB-701/FB-702.
+    // Keep the expected values independent of the current Firebase implementation.
+    private val expectedTrace = listOf(
+        "empty:Parity:CART:PRIMARY_BLUE:0:0:",
+        "edit-list:Updated:HOME:EMERALD:0:0:",
+        "add:Updated:HOME:EMERALD:1:0:alpha,null,false,false",
+        "order:Updated:HOME:EMERALD:2:0:alpha,null,false,false|beta,null,false,false",
+        "edit-item:Updated:HOME:EMERALD:2:0:alpha edited,description,false,false|beta,null,false,false",
+        "complete-retry:Updated:HOME:EMERALD:2:1:alpha edited,description,true,false|beta,null,false,false",
+        "uncomplete:Updated:HOME:EMERALD:2:0:alpha edited,description,false,false|beta,null,false,false",
+        "photo-reference:Updated:HOME:EMERALD:2:0:alpha edited,description,false,true|beta,null,false,false",
+        "remove-photo:Updated:HOME:EMERALD:2:0:alpha edited,description,false,false|beta,null,false,false",
+        "delete-retry:Updated:HOME:EMERALD:1:0:beta,null,false,false",
+        "undo-retry:Updated:HOME:EMERALD:2:0:alpha edited,description,false,false|beta,null,false,false",
+        "clear-completed-retry:Updated:HOME:EMERALD:1:0:beta,null,false,false",
+        "undo-completed:Updated:HOME:EMERALD:2:1:alpha edited,description,true,false|beta,null,false,false",
+        "hard-delete-retry:Updated:HOME:EMERALD:1:1:alpha edited,description,true,false",
+        "delete-list:hidden",
+        "undo-list:Updated:HOME:EMERALD:1:1:alpha edited,description,true,false",
+    )
+
     suspend fun run(lists: ListRepository, items: ItemRepository, photoRef: (String) -> String): List<String> {
         val trace = mutableListOf<String>()
         val id = lists.createList("Parity", ListIcon.CART, ListColor.PRIMARY_BLUE)
@@ -68,6 +89,7 @@ object RepositoryParityScenario {
         trace += "delete-list:hidden"
         lists.restoreList(id)
         checkpoint("undo-list", listOf("alpha edited"), 1, 1)
+        check(trace == expectedTrace) { "Firebase observable contract differs from the reviewed baseline" }
         return trace
     }
 }

@@ -54,7 +54,7 @@ fun SessionGateState.sessionScope(): SessionScope = when (this) {
  *   stack intact, so nothing is popped and nothing is cleared.
  *
  * The consequence is concrete: user A's `DashboardViewModel` - with A's list data in its
- * `StateFlow` and A's Room/Firestore listener in its `viewModelScope` - would be handed
+ * `StateFlow` and A's Firestore listener in its `viewModelScope` - would be handed
  * straight back to user B.
  *
  * ## What this does instead

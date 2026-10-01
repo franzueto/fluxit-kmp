@@ -7,8 +7,6 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.room)
     alias(libs.plugins.googleServices)
 }
 
@@ -124,7 +122,7 @@ kotlin {
         commonMain {
             kotlin.srcDir(generateFirebaseEmulatorConfig)
         }
-        // FB-701: parity fixtures are opt-in test code, absent from ordinary app binaries.
+        // Firebase regression fixtures are opt-in test code, absent from ordinary app binaries.
         androidInstrumentedTest { kotlin.srcDir("src/firebaseParity/kotlin") }
         if (providers.gradleProperty("fluxit.parity.enabled").orNull == "true") {
             androidInstrumentedTest { kotlin.srcDir("src/firebaseParityAndroid/kotlin") }
@@ -144,8 +142,6 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtime.compose)
             implementation(libs.androidx.lifecycle.viewmodel.navigation3)
             implementation(libs.navigation3.ui)
-            implementation(libs.room.runtime)
-            implementation(libs.sqlite.bundled)
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
@@ -199,14 +195,4 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-}
-
-room {
-    schemaDirectory("$projectDir/schemas")
-}
-
-dependencies {
-    add("kspAndroid", libs.room.compiler)
-    add("kspIosArm64", libs.room.compiler)
-    add("kspIosSimulatorArm64", libs.room.compiler)
 }

@@ -1,7 +1,5 @@
 package com.fluxit.parity
 
-import androidx.room.Room
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.fluxit.config.FirebaseDevFlags
@@ -20,8 +18,8 @@ import org.koin.core.context.GlobalContext
 
 /** Explicit opt-in emulator-only acceptance fixture; never compiled into the app. */
 @RunWith(AndroidJUnit4::class)
-class FirebaseRoomParityInstrumentedTest {
-    @Test fun parityAndBidirectionalAppleAndroidRealtime() = runBlocking {
+class FirebaseRegressionInstrumentedTest {
+    @Test fun contractAndBidirectionalAppleAndroidRealtime() = runBlocking {
         check(FirebaseEmulatorConfig.ENABLED && FirebaseDevFlags.USE_FIREBASE_REPOSITORIES)
         val args = InstrumentationRegistry.getArguments()
         val email = requireNotNull(args.getString("parityEmail"))
@@ -33,14 +31,10 @@ class FirebaseRoomParityInstrumentedTest {
         val uid = withTimeout(15_000) { auth.session.first { it is AuthSession.Authenticated } }.uidOrNull!!
         val lists = assertIs<AndroidFirebaseListRepository>(graph.get<ListRepository>())
         val items = assertIs<AndroidFirebaseItemRepository>(graph.get<ItemRepository>())
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val db = Room.inMemoryDatabaseBuilder<FluxItDatabase>(context)
-            .setDriver(BundledSQLiteDriver()).setQueryCoroutineContext(Dispatchers.IO).build()
         try {
-            val room = RepositoryParityScenario.run(RoomListRepository(db), RoomItemRepository(db)) { "fixture/$it" }
-            val firebase = RepositoryParityScenario.run(lists, items) { "users/$uid/items/$it/parity.jpg" }
-            assertEquals(room, firebase)
-            println("FB-701 Android parity PASS checkpoints=${firebase.size}")
+            val trace = RepositoryRegressionScenario.run(lists, items) { "users/$uid/items/$it/parity.jpg" }
+            assertEquals(16, trace.size)
+            println("FB-703 Android Firebase regression PASS checkpoints=${trace.size}")
             // Register before Apple's update and keep this same collector alive through it.
             val shared = withTimeout(90_000) { lists.observeListSummaries().first { r -> r.any { it.list.name == "$marker-ready" } } }
                 .first { it.list.name == "$marker-ready" }.list.id
@@ -66,9 +60,9 @@ class FirebaseRoomParityInstrumentedTest {
                 photos.deletePhoto(applePhoto)
                 assertNull(photos.loadPhoto(applePhoto))
                 items.setPhotoRef(shared, item.id, null)
-                println("FB-701 Android cross-platform-photo PASS bytes=equal replacements=1 deleted=1")
-                println("FB-701 Android realtime PASS Apple-list-edit Apple-item-completion counters=1/1")
+                println("FB-703 Android cross-platform-photo PASS bytes=equal replacements=1 deleted=1")
+                println("FB-703 Android realtime PASS Apple-list-edit Apple-item-completion counters=1/1")
             } finally { listener.cancelAndJoin() }
-        } finally { db.close(); auth.signOut() }
+        } finally { auth.signOut() }
     }
 }

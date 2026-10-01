@@ -1,7 +1,5 @@
 package com.fluxit.parity
 
-import androidx.room.Room
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.fluxit.config.FirebaseDevFlags
 import com.fluxit.data.*
 import com.fluxit.domain.*
@@ -12,14 +10,9 @@ import com.fluxit.firebase.list.IosFirebaseListRepository
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.koin.mp.KoinPlatform
-import platform.Foundation.NSTemporaryDirectory
-import platform.Foundation.NSUUID
-import platform.Foundation.NSFileManager
-import kotlinx.cinterop.ExperimentalForeignApi
 
 /** Only compiled with fluxit.parity.enabled=true. Swift adds an independent launch gate. */
-@OptIn(ExperimentalForeignApi::class)
-object IosFirebaseRoomParityCheck {
+object IosFirebaseRegressionCheck {
     /** Swift disables the real default SDK connection before entry and reenables it
      * through this callback after local cache/pending assertions; no production bridge API. */
     suspend fun runOffline(email: String, password: String, marker: String, reconnect: () -> Unit): String {
@@ -72,10 +65,10 @@ object IosFirebaseRoomParityCheck {
                     }
                 } }
             }
-            "FB-701 iOS offline PASS cached-read pending-list-item edit-tombstone-undo reconnect-server-ack"
+            "FB-703 iOS offline PASS cached-read pending-list-item edit-tombstone-undo reconnect-server-ack"
         } catch (error: Throwable) {
             reconnect()
-            "FB-701 iOS offline FAILED stage=$stage ${error::class.simpleName}"
+            "FB-703 iOS offline FAILED stage=$stage ${error::class.simpleName}"
         }
     }
 
@@ -91,18 +84,10 @@ object IosFirebaseRoomParityCheck {
         val lists = graph.get<ListRepository>()
         val items = graph.get<ItemRepository>()
         check(lists is IosFirebaseListRepository && items is IosFirebaseItemRepository)
-        val path = NSTemporaryDirectory() + "fb701-" + NSUUID().UUIDString + ".db"
-        val db = Room.databaseBuilder<FluxItDatabase>(path).setDriver(BundledSQLiteDriver())
-            .setQueryCoroutineContext(Dispatchers.Default).build()
         try {
-            val room = RepositoryParityScenario.run(RoomListRepository(db), RoomItemRepository(db)) { "fixture/$it" }
-            val firebase = RepositoryParityScenario.run(lists, items) { "users/$uid/items/$it/parity.jpg" }
-            if (room != firebase) {
-                println("FB-701 parity Room trace=$room")
-                println("FB-701 parity Firebase trace=$firebase")
-                error("Room/Firebase observable trace differs")
-            }
-            println("FB-701 iOS parity PASS checkpoints=${firebase.size} real-app-DI=Firebase")
+            val trace = RepositoryRegressionScenario.run(lists, items) { "users/$uid/items/$it/parity.jpg" }
+            check(trace.size == 16)
+            println("FB-703 iOS Firebase regression PASS checkpoints=${trace.size} real-app-DI=Firebase")
             coroutineScope {
                 val shared = lists.createList("$marker-ready", ListIcon.CART, ListColor.PRIMARY_BLUE)
                 val seen = MutableStateFlow<FluxList?>(null)
@@ -123,15 +108,13 @@ object IosFirebaseRoomParityCheck {
                     photos.deletePhoto(androidPhoto)
                     check(photos.loadPhoto(androidPhoto) == null)
                     withTimeout(60_000) { items.observeItem(shared, item.id).first { it?.photoRef == null } }
-                    println("FB-701 iOS cross-platform-photo PASS bytes=equal replacements=1 deleted=1")
-                    println("FB-701 iOS realtime PASS Android-list-edit Android-item-create counters=1/1")
+                    println("FB-703 iOS cross-platform-photo PASS bytes=equal replacements=1 deleted=1")
+                    println("FB-703 iOS realtime PASS Android-list-edit Android-item-create counters=1/1")
                 } finally { listener.cancelAndJoin() }
             }
-            "FB-701 iOS ALL CHECKS PASSED\nFB-701 END"
+            "FB-703 iOS ALL CHECKS PASSED\nFB-703 END"
         } finally {
-            db.close()
-            listOf(path, "$path-wal", "$path-shm").forEach { NSFileManager.defaultManager.removeItemAtPath(it, null) }
             auth.signOut()
         }
-    } catch (error: Throwable) { "FB-701 iOS FAILED ${error::class.simpleName}\nFB-701 END" }
+    } catch (error: Throwable) { "FB-703 iOS FAILED ${error::class.simpleName}\nFB-703 END" }
 }

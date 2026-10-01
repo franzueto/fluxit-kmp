@@ -13,11 +13,11 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
- * Platform module providing FluxItDatabase, PhotoPicker, PhotoStorage, AuthRepository, and
+ * Platform module providing PhotoPicker, PhotoStorage, AuthRepository, and
  * (FB-207) the `ListRepository`/`ItemRepository` bindings.
  *
  * FB-702: each actual platform module binds Firebase unconditionally. UID paths and
- * listeners are resolved only by authenticated operations. Room removal is FB-703.
+ * listeners are resolved only by authenticated operations.
  */
 expect fun platformModule(): Module
 

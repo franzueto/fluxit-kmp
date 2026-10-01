@@ -1,11 +1,7 @@
 package com.fluxit.di
 
-import android.content.Context
-import androidx.room.Room
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.fluxit.data.AndroidPhotoPicker
 import com.fluxit.data.AndroidPhotoStorage
-import com.fluxit.data.FluxItDatabase
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
 import com.fluxit.domain.ItemRepository
@@ -14,22 +10,10 @@ import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.firebase.auth.AndroidAuthRepository
 import com.fluxit.firebase.item.AndroidFirebaseItemRepository
 import com.fluxit.firebase.list.AndroidFirebaseListRepository
-import kotlinx.coroutines.Dispatchers
-import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
 actual fun platformModule(): Module = module {
-    single<FluxItDatabase> {
-        val context: Context = androidContext()
-        Room.databaseBuilder<FluxItDatabase>(
-            context = context,
-            name = context.getDatabasePath("fluxit.db").absolutePath,
-        )
-            .setDriver(BundledSQLiteDriver())
-            .setQueryCoroutineContext(Dispatchers.IO)
-            .build()
-    }
     single<PhotoPicker> { AndroidPhotoPicker() }
     // FB-304: AndroidPhotoStorage is now real Cloud Storage-backed and needs no
     // Android Context (it only resolves a FirebaseStorage handle and the signed-in
@@ -44,8 +28,7 @@ actual fun platformModule(): Module = module {
     single<AuthRepository> { AndroidAuthRepository() }
 
     // FB-702: ordinary application bindings always use Firebase. Constructors remain
-    // lazy with respect to UID paths/listeners. The unused Room database definition
-    // is retained for FB-703 removal; neither repository resolves it.
+    // lazy with respect to UID paths/listeners.
     single<ListRepository> { AndroidFirebaseListRepository() }
     single<ItemRepository> { AndroidFirebaseItemRepository() }
 }

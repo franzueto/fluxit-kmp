@@ -2,7 +2,6 @@ package com.fluxit.parity
 
 import com.fluxit.config.FirebaseEmulatorConfig
 import com.fluxit.config.FirebaseDevFlags
-import com.fluxit.data.FluxItDatabase
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
 import com.fluxit.domain.auth.AuthRepository
@@ -22,13 +21,12 @@ object IosDefaultGraphCheck {
         val graph = KoinPlatform.getKoin()
         check(graph.get<ListRepository>() is IosFirebaseListRepository)
         check(graph.get<ItemRepository>() is IosFirebaseItemRepository)
-        val database = graph.instanceRegistry.instances.values.single {
-            it.beanDefinition.primaryType == FluxItDatabase::class
-        }
-        check(!database.isCreated(null))
+        check(graph.instanceRegistry.instances.values.none {
+            it.beanDefinition.primaryType.qualifiedName == "com.fluxit.data.FluxItDatabase"
+        })
         check(!graph.instanceRegistry.instances.values.single {
             it.beanDefinition.primaryType == AuthRepository::class
         }.isCreated(null))
-        return "FB-702 iOS default-graph PASS Firebase-list-item emulator=false Room-initialized=false auth-initialized=false"
+        return "FB-703 iOS default-graph PASS Firebase-list-item emulator=false Room-definition=absent auth-initialized=false"
     }
 }
