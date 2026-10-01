@@ -174,7 +174,9 @@ final class FirebaseListBridge: NSObject, IosFirestoreListBridge {
 
     private static func toDocument(_ snapshot: DocumentSnapshot) -> IosFirestoreListDocument {
         var fields: [String: FirebaseValue] = [:]
-        for (key, raw) in snapshot.data() ?? [:] {
+        // FB-701: local server-timestamp estimates keep offline creations visible;
+        // explicit stored nulls remain null and are rejected by required-field mapping.
+        for (key, raw) in snapshot.data(with: .estimate) ?? [:] {
             if let decoded = decode(raw) {
                 fields[key] = decoded
             }

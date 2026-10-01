@@ -339,6 +339,45 @@ class CrossClientItemEmulatorIntegrationTest {
         assertTrue(items.none { it.id == badId }, "an item whose listId field disagrees with its actual path must be excluded, not crash")
     }
 
+    // FB-701: hardened-Rules contention regression beyond completion.
+    @Test
+    fun concurrentSoftDeleteRestoreAndHardDeleteRecomputeOnlyChangedItemState(): Unit = runBlocking {
+        val listId = bootstrapList()
+        clientA.addItem(listId, "counter race")
+        val itemId = waitForItems(clientA, listId, 1).single().id
+        coroutineScope {
+            launch { clientA.softDeleteItem(listId, itemId) }
+            launch { clientB.softDeleteItem(listId, itemId) }
+        }
+        assertEquals(0L, listDocOn(firestoreA, listId).get().awaitResult().getLong("totalItems"))
+        coroutineScope {
+            launch { clientA.restoreItem(listId, itemId) }
+            launch { clientB.restoreItem(listId, itemId) }
+        }
+        assertEquals(1L, listDocOn(firestoreA, listId).get().awaitResult().getLong("totalItems"))
+        coroutineScope {
+            launch { clientA.deleteItem(listId, itemId) }
+            launch { clientB.deleteItem(listId, itemId) }
+        }
+        assertEquals(0L, listDocOn(firestoreA, listId).get().awaitResult().getLong("totalItems"))
+        assertTrue(!itemsCollectionOn(firestoreA, listId).document(itemId).get().awaitResult().exists())
+    }
+
+    @Test
+    fun stableCounterRuleDenialRemainsForbiddenAndDoesNotMutateTheItem(): Unit = runBlocking {
+        val listId = bootstrapList()
+        clientA.addItem(listId, "stable denied transaction")
+        val itemId = waitForItems(clientA, listId, 1).single().id
+        // Synthetic inconsistent parent demonstrates the disclosed practical Rules bound.
+        // Completing now would violate completedItems <= totalItems; no item changed.
+        listDocOn(firestoreA, listId).update("totalItems", 0L).awaitResult()
+        val failure = runCatching { clientA.setCompleted(listId, itemId, true) }.exceptionOrNull()
+        val mapped = kotlin.test.assertIs<com.fluxit.firebase.list.ListRepositoryException>(failure)
+        assertEquals(com.fluxit.data.remote.RepositoryErrorCode.FORBIDDEN, mapped.error.code)
+        assertEquals(false, itemsCollectionOn(firestoreA, listId).document(itemId).get().awaitResult().getBoolean("isCompleted"))
+        assertEquals(0L, listDocOn(firestoreA, listId).get().awaitResult().getLong("completedItems"))
+    }
+
     // --- helpers -------------------------------------------------------------------
 
     private suspend fun waitForItems(repository: AndroidFirebaseItemRepository, listId: String, count: Int): List<FluxItem> =
@@ -362,8 +401,8 @@ class CrossClientItemEmulatorIntegrationTest {
                 "name" to "Groceries",
                 "icon" to "CART",
                 "color" to "PRIMARY_BLUE",
-                "createdAt" to Timestamp.now(),
-                "updatedAt" to Timestamp.now(),
+                "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
                 "deletedAt" to null,
                 "totalItems" to 0L,
                 "completedItems" to 0L,
@@ -374,7 +413,7 @@ class CrossClientItemEmulatorIntegrationTest {
     }
 
     /**
-     * Writes a raw item document directly (bypassing [AndroidFirebaseItemRepository])
+     * Admin-injects a historical malformed item into the fixed demo emulator (not a client write)
      * with a valid baseline schema, [overrides] applied on top.
      */
     private suspend fun writeRawItem(listId: String, overrides: Map<String, Any?>): String {
@@ -390,7 +429,9 @@ class CrossClientItemEmulatorIntegrationTest {
             "deletedAt" to null,
             "schemaVersion" to 1L,
         )
-        itemsCollectionOn(firestoreA, listId).document(id).set(baseline + overrides).awaitResult()
+        com.fluxit.firebase.EmulatorMalformedFixture.put(
+            firestoreA.app.options.projectId!!, itemsCollectionOn(firestoreA, listId).document(id).path, baseline + overrides,
+        )
         return id
     }
 

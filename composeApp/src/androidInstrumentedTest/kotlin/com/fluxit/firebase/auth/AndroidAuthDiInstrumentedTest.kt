@@ -33,8 +33,10 @@ class AndroidAuthDiInstrumentedTest {
     }
 
     @Test
-    fun theResolvedRepositoryStartsUnresolvedRatherThanSignedOut() = runBlocking {
-        val repository = GlobalContext.get().get<AuthRepository>()
+    fun aFreshAdapterStartsUnresolvedEvenIfTheApplicationGraphWasAlreadyResolved() = runBlocking {
+        // Other instrumented UI tests may already have restored the application's
+        // singleton. Initial-state semantics belong to a newly created adapter.
+        val repository = AndroidAuthRepository()
 
         val first = withTimeout(5_000) { repository.session.first() }
 

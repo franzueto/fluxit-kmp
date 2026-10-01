@@ -16,6 +16,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import platform.Foundation.NSUUID
 
 /**
@@ -174,6 +175,40 @@ object IosFirestoreCrossClientIntegrationCheck {
                 "title=${afterLww?.title}",
             )
 
+            // FB-701: related counter mutations share the same bounded contention seam.
+            val raceList = clientAList.createList("FB-701 counter race", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            clientAItems.addItem(raceList, "race item")
+            val raceItem = requireNotNull(withTimeoutObserveFirst(clientAItems, raceList) { it.singleOrNull() }?.id)
+            coroutineScope {
+                launch { clientAItems.softDeleteItem(raceList, raceItem) }
+                launch { clientBItems.softDeleteItem(raceList, raceItem) }
+            }
+            report.check("concurrent soft deletes converge to total 0", readTotals(clientAList, raceList)?.first == 0, "")
+            coroutineScope {
+                launch { clientAItems.restoreItem(raceList, raceItem) }
+                launch { clientBItems.restoreItem(raceList, raceItem) }
+            }
+            report.check("concurrent restores converge to total 1", readTotals(clientAList, raceList)?.first == 1, "")
+            coroutineScope {
+                launch { clientAItems.deleteItem(raceList, raceItem) }
+                launch { clientBItems.deleteItem(raceList, raceItem) }
+            }
+            report.check("concurrent hard deletes converge to total 0", readTotals(clientAList, raceList)?.first == 0, "")
+
+            clientAItems.addItem(raceList, "stable denial")
+            val deniedItem = requireNotNull(withTimeoutObserveFirst(clientAItems, raceList) { it.singleOrNull() }?.id)
+            val parentEdit = CompletableDeferred<platform.Foundation.NSError?>()
+            listBridge.updateListFields(uid, raceList, mapOf(FirebaseSchema.Fields.TOTAL_ITEMS to FirebaseValue.Number(0))) {
+                parentEdit.complete(it)
+            }
+            check(parentEdit.await() == null)
+            val stableFailure = runCatching { clientAItems.setCompleted(raceList, deniedItem, true) }.exceptionOrNull()
+            report.check("stable counter validation denial remains FORBIDDEN",
+                (stableFailure as? com.fluxit.firebase.list.ListRepositoryException)?.error?.code ==
+                    com.fluxit.data.remote.RepositoryErrorCode.FORBIDDEN, "")
+            report.check("denied transaction did not complete the item",
+                withTimeoutObserveFirst(clientAItems, raceList) { it.singleOrNull() }?.isCompleted == false, "")
+
             // --- malformed-document: no valueOf/decode crash -------------------------
             val malformedItemFields = mapOf(
                 FirebaseSchema.Fields.LIST_ID to FirebaseValue.Text(listId),
@@ -192,7 +227,7 @@ object IosFirestoreCrossClientIntegrationCheck {
             val malformedItemDeferred = CompletableDeferred<Unit>()
             itemBridge.addItem(uid, listId, malformedItemFields) { id, error ->
                 malformedItemId = id
-                report.check("raw malformed item write itself succeeded (SDK does not validate field types)", error == null, "error=$error")
+                report.check("hardened Rules reject client malformed item with PERMISSION_DENIED", error?.domain == "FIRFirestoreErrorDomain" && error.code == 7L, "code=${error?.code}")
                 malformedItemDeferred.complete(Unit)
             }
             malformedItemDeferred.await()
@@ -220,22 +255,15 @@ object IosFirestoreCrossClientIntegrationCheck {
             val malformedListDeferred = CompletableDeferred<Unit>()
             listBridge.createList(uid, malformedListFields) { id, error ->
                 malformedListId = id
-                report.check("raw malformed list write itself succeeded", error == null, "error=$error")
+                report.check("hardened Rules reject client unknown-enum list with PERMISSION_DENIED", error?.domain == "FIRFirestoreErrorDomain" && error.code == 7L, "code=${error?.code}")
                 malformedListDeferred.complete(Unit)
             }
             malformedListDeferred.await()
             delay(SETTLE_MS)
-            val fallbackIcon = malformedListId?.let { id ->
-                var result: ListIcon? = null
-                val job = launch { clientBList.observeList(id).collect { list -> if (list != null) result = list.icon } }
-                awaitCondition { result != null }
-                job.cancel()
-                result
-            }
             report.check(
-                "an unrecognized icon enum literal falls back to the default instead of crashing via valueOf",
-                fallbackIcon == ListIcon.CART,
-                "icon=$fallbackIcon",
+                "rejected unknown-enum list is absent from client observations",
+                malformedListId == null || kotlinx.coroutines.withTimeout(8_000) { clientBList.observeList(malformedListId!!).first() } == null,
+                "rejected list must not become readable",
             )
 
             // --- reconnect: a torn-down-and-recreated listener catches up -----------

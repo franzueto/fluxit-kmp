@@ -12,6 +12,7 @@ import com.fluxit.domain.ListIcon
 import com.fluxit.domain.ListRepository
 import com.fluxit.domain.RepositorySnapshot
 import com.google.android.gms.tasks.Task
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.MetadataChanges
@@ -121,7 +122,7 @@ class AndroidFirebaseListRepository(
         val now = System.currentTimeMillis()
         return snapshot.documents
             .mapNotNull { doc ->
-                val dto = FirestoreValueCodec.decode(doc.id, doc.data, now)
+                val dto = FirestoreValueCodec.decode(doc.id, doc.getData(DocumentSnapshot.ServerTimestampBehavior.ESTIMATE), now)
                 (FirebaseDocumentMapper.list(dto) as? ContractResult.Value)?.value
             }
             .sortedWith(FirebaseDocumentMapper.listOrdering)
@@ -139,7 +140,7 @@ class AndroidFirebaseListRepository(
                 return@addSnapshotListener
             }
             val now = System.currentTimeMillis()
-            val dto = FirestoreValueCodec.decode(snapshot.id, snapshot.data, now)
+            val dto = FirestoreValueCodec.decode(snapshot.id, snapshot.getData(DocumentSnapshot.ServerTimestampBehavior.ESTIMATE), now)
             val list = (FirebaseDocumentMapper.list(dto) as? ContractResult.Value)?.value?.list
             trySend(list)
         }

@@ -20,6 +20,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.Transaction
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.Source
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
@@ -154,7 +157,7 @@ class AndroidFirebaseItemRepository(
         val now = System.currentTimeMillis()
         return snapshot.documents
             .mapNotNull { doc ->
-                val dto = FirestoreValueCodec.decode(doc.id, doc.data, now)
+                val dto = FirestoreValueCodec.decode(doc.id, doc.getData(DocumentSnapshot.ServerTimestampBehavior.ESTIMATE), now)
                 (FirebaseDocumentMapper.item(listId, dto) as? ContractResult.Value)?.value
             }
             .sortedWith(FirebaseDocumentMapper.itemOrdering)
@@ -172,7 +175,7 @@ class AndroidFirebaseItemRepository(
                 return@addSnapshotListener
             }
             val now = System.currentTimeMillis()
-            val dto = FirestoreValueCodec.decode(snapshot.id, snapshot.data, now)
+            val dto = FirestoreValueCodec.decode(snapshot.id, snapshot.getData(DocumentSnapshot.ServerTimestampBehavior.ESTIMATE), now)
             val item = (FirebaseDocumentMapper.item(listId, dto) as? ContractResult.Value)?.value
             trySend(item)
         }
@@ -253,8 +256,7 @@ class AndroidFirebaseItemRepository(
         val uid = currentUid.currentUid()
         val itemRef = itemsCollection(uid, listId).document(itemId)
         val listRef = listDoc(uid, listId)
-        runFirestoreTransaction { transaction ->
-            val snapshot = transaction.get(itemRef)
+        runItemCounterTransaction(itemRef) { transaction, snapshot ->
             if (snapshot.exists()) {
                 val wasCompleted = snapshot.getBoolean(FirebaseSchema.Fields.IS_COMPLETED) ?: false
                 val isActive = snapshot.get(FirebaseSchema.Fields.DELETED_AT) == null
@@ -288,8 +290,7 @@ class AndroidFirebaseItemRepository(
         val uid = currentUid.currentUid()
         val itemRef = itemsCollection(uid, listId).document(itemId)
         val listRef = listDoc(uid, listId)
-        runFirestoreTransaction { transaction ->
-            val snapshot = transaction.get(itemRef)
+        runItemCounterTransaction(itemRef) { transaction, snapshot ->
             if (snapshot.exists()) {
                 val wasActive = snapshot.get(FirebaseSchema.Fields.DELETED_AT) == null
                 val wasCompleted = snapshot.getBoolean(FirebaseSchema.Fields.IS_COMPLETED) ?: false
@@ -320,8 +321,7 @@ class AndroidFirebaseItemRepository(
         val uid = currentUid.currentUid()
         val itemRef = itemsCollection(uid, listId).document(itemId)
         val listRef = listDoc(uid, listId)
-        runFirestoreTransaction { transaction ->
-            val snapshot = transaction.get(itemRef)
+        runItemCounterTransaction(itemRef) { transaction, snapshot ->
             if (snapshot.exists()) {
                 val wasTombstoned = snapshot.get(FirebaseSchema.Fields.DELETED_AT) != null
                 val wasCompleted = snapshot.getBoolean(FirebaseSchema.Fields.IS_COMPLETED) ?: false
@@ -353,8 +353,7 @@ class AndroidFirebaseItemRepository(
         val uid = currentUid.currentUid()
         val itemRef = itemsCollection(uid, listId).document(itemId)
         val listRef = listDoc(uid, listId)
-        runFirestoreTransaction { transaction ->
-            val snapshot = transaction.get(itemRef)
+        runItemCounterTransaction(itemRef) { transaction, snapshot ->
             if (snapshot.exists()) {
                 val wasActive = snapshot.get(FirebaseSchema.Fields.DELETED_AT) == null
                 val wasCompleted = snapshot.getBoolean(FirebaseSchema.Fields.IS_COMPLETED) ?: false
@@ -446,13 +445,48 @@ class AndroidFirebaseItemRepository(
         }
     }
 
-    private suspend fun runFirestoreTransaction(block: (Transaction) -> Unit) {
-        try {
-            firestore.runTransaction { transaction -> block(transaction) }.awaitTaskResult()
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (throwable: Throwable) {
-            throw throwable.toListRepositoryException()
+    /** Hardened counter-direction Rules may reject an optimistic stale delta before
+     * the SDK classifies it as contention. Retry only when a server reread proves the
+     * exact item's existence/completion/tombstone state read by this attempt changed. Stable authorization/schema denials remain
+     * terminal, and the full item+counter transaction is recomputed, never replayed. */
+    private suspend fun runItemCounterTransaction(
+        itemRef: DocumentReference,
+        block: (Transaction, DocumentSnapshot) -> Unit,
+    ) {
+        var retries = 0
+        while (true) {
+            var read: DocumentSnapshot? = null
+            try {
+                firestore.runTransaction { transaction ->
+                    val snapshot = transaction.get(itemRef)
+                    read = snapshot
+                    block(transaction, snapshot)
+                }.awaitTaskResult()
+                return
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                val attempted = read
+                if (throwable is FirebaseFirestoreException &&
+                    throwable.code == FirebaseFirestoreException.Code.PERMISSION_DENIED &&
+                    attempted != null && retries < 3
+                ) {
+                    val current = try {
+                        itemRef.get(Source.SERVER).awaitTaskResult()
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (_: Throwable) { null }
+                    if (current != null && (
+                        current.exists() != attempted.exists() ||
+                        current.get(FirebaseSchema.Fields.IS_COMPLETED) != attempted.get(FirebaseSchema.Fields.IS_COMPLETED) ||
+                        current.get(FirebaseSchema.Fields.DELETED_AT) != attempted.get(FirebaseSchema.Fields.DELETED_AT)
+                    )) {
+                        retries++
+                        continue
+                    }
+                }
+                throw throwable.toListRepositoryException()
+            }
         }
     }
 

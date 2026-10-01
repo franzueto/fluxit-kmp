@@ -9,7 +9,6 @@ import com.fluxit.firebase.list.CurrentUidProvider
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.UUID
@@ -17,6 +16,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -114,13 +114,14 @@ class FirestoreItemSnapshotEmulatorIntegrationTest {
         firestore.disableNetwork().awaitResult()
         val addDeferred = async(Dispatchers.IO) { repository.addItem(listId, "FB-407 Offline Item") }
 
-        // Note: the new item is deliberately NOT expected to appear in `pendingSeen.value`
-        // yet - see `FirestoreListSnapshotEmulatorIntegrationTest`'s identically-reasoned
-        // comment (its `createdAt`/`updatedAt` pending-server-timestamp sentinels decode
-        // as null until the server resolves them, so FB-201's `FirebaseDocumentMapper.item`
-        // correctly drops it as malformed until reconnection). This test proves the
-        // snapshot-level `hasPendingWrites`/`isFromCache` metadata alone.
-        val pendingSeen = withTimeout(TIMEOUT_MS) { awaitEmission(emissions) { it.hasPendingWrites } }
+        // FB-701: pending server timestamp estimates must expose the real new item.
+        val pendingSeen = withTimeout(TIMEOUT_MS) { awaitEmission(emissions) {
+            it.hasPendingWrites && it.value.any { item -> item.title == "FB-407 Offline Item" }
+        } }
+        val pendingItem = pendingSeen.value.single { it.title == "FB-407 Offline Item" }
+        val individual = withTimeout(TIMEOUT_MS) { repository.observeItem(listId, pendingItem.id).first { it != null } }
+        assertEquals("FB-407 Offline Item", individual?.title)
+        assertTrue(!addDeferred.isCompleted, "the queued creation must still await server acknowledgement")
         assertTrue(pendingSeen.hasPendingWrites, "a write held only in the local cache must report hasPendingWrites=true")
         assertTrue(pendingSeen.isFromCache, "with the SDK offline, the snapshot must also report isFromCache=true")
 
@@ -155,8 +156,8 @@ class FirestoreItemSnapshotEmulatorIntegrationTest {
                 "name" to "Groceries",
                 "icon" to "CART",
                 "color" to "PRIMARY_BLUE",
-                "createdAt" to Timestamp.now(),
-                "updatedAt" to Timestamp.now(),
+                "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
                 "deletedAt" to null,
                 "totalItems" to 0L,
                 "completedItems" to 0L,

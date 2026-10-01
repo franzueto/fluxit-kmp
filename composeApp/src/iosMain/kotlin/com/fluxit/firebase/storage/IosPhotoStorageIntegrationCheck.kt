@@ -323,7 +323,9 @@ object IosPhotoStorageIntegrationCheck {
         }
         delay(SETTLE_MS)
 
-        val existingListId = lists.observeListSummaries().first().firstOrNull { it.list.name == CROSS_DEVICE_LIST_NAME }?.list?.id
+        val existingListId = lists.observeListSummariesSnapshot().first {
+            !it.isFromCache && !it.hasPendingWrites
+        }.value.firstOrNull { it.list.name == CROSS_DEVICE_LIST_NAME }?.list?.id
         val listId = existingListId ?: lists.createList(CROSS_DEVICE_LIST_NAME, ListIcon.CART, ListColor.PRIMARY_BLUE)
         delay(SETTLE_MS)
         report.pass("publish: resolved a listId", "listId=$listId existedAlready=${existingListId != null}")
@@ -344,18 +346,22 @@ object IosPhotoStorageIntegrationCheck {
         // the staleness question entirely; any duplicate/stale items left by an earlier
         // run's incomplete attempt are swept up below so `runCrossDeviceSubscribe`'s
         // exact-title match stays unambiguous.
+        // FB-701: UUID order does not identify the new item. Capture server-confirmed
+        // preexisting IDs, then select only this write's newly observed document.
+        val priorItemIds = items.observeItemsSnapshot(listId).first {
+            !it.isFromCache && !it.hasPendingWrites
+        }.value.map { it.id }.toSet()
         val addItemResult = runCatching { items.addItem(listId, CROSS_DEVICE_ITEM_TITLE) }
         if (addItemResult.isFailure) {
             report.fail("publish: addItem", "listId=$listId threw ${addItemResult.exceptionOrNull()}")
             return report.render()
         }
         val itemId = withTimeoutOrNull(SUBSCRIBE_TIMEOUT_MS) {
-            var found = items.observeItems(listId).first().filter { it.title == CROSS_DEVICE_ITEM_TITLE }.maxByOrNull { it.id }?.id
-            while (found == null) {
-                delay(SETTLE_MS)
-                found = items.observeItems(listId).first().filter { it.title == CROSS_DEVICE_ITEM_TITLE }.maxByOrNull { it.id }?.id
-            }
-            found
+            items.observeItemsSnapshot(listId).first { snapshot ->
+                !snapshot.isFromCache && !snapshot.hasPendingWrites && snapshot.value.any {
+                    it.title == CROSS_DEVICE_ITEM_TITLE && it.id !in priorItemIds
+                }
+            }.value.single { it.title == CROSS_DEVICE_ITEM_TITLE && it.id !in priorItemIds }.id
         }
         if (itemId == null) {
             report.fail("publish preconditions", "addItem's item never appeared under listId=$listId")
@@ -392,7 +398,7 @@ object IosPhotoStorageIntegrationCheck {
         // `deleteItem` is safe/idempotent against an already-gone document (transactional
         // read-first, mirrors the Android repository's documented no-op-on-missing
         // behavior), so this is safe even against further staleness.
-        items.observeItems(listId).first()
+        items.observeItemsSnapshot(listId).first { !it.isFromCache && !it.hasPendingWrites }.value
             .filter { it.title == CROSS_DEVICE_ITEM_TITLE && it.id != itemId }
             .forEach { stale ->
                 stale.photoRef?.let { staleRef -> runCatching { storage.deletePhoto(staleRef) } }
@@ -429,12 +435,10 @@ object IosPhotoStorageIntegrationCheck {
         delay(SETTLE_MS)
 
         val listId = withTimeoutOrNull(SUBSCRIBE_TIMEOUT_MS) {
-            var found = lists.observeListSummaries().first().firstOrNull { it.list.name == CROSS_DEVICE_LIST_NAME }?.list?.id
-            while (found == null) {
-                delay(SETTLE_MS)
-                found = lists.observeListSummaries().first().firstOrNull { it.list.name == CROSS_DEVICE_LIST_NAME }?.list?.id
-            }
-            found
+            lists.observeListSummariesSnapshot().first { snapshot ->
+                !snapshot.isFromCache && !snapshot.hasPendingWrites &&
+                    snapshot.value.any { it.list.name == CROSS_DEVICE_LIST_NAME }
+            }.value.first { it.list.name == CROSS_DEVICE_LIST_NAME }.list.id
         }
         if (listId == null) {
             report.fail("subscribe", "no list named '$CROSS_DEVICE_LIST_NAME' was found - did a publish run happen first?")
@@ -443,12 +447,10 @@ object IosPhotoStorageIntegrationCheck {
         report.pass("subscribe: found the list a publish run created", "listId=$listId")
 
         val item = withTimeoutOrNull(SUBSCRIBE_TIMEOUT_MS) {
-            var found = items.observeItems(listId).first().firstOrNull { it.title == CROSS_DEVICE_ITEM_TITLE }
-            while (found?.photoRef == null) {
-                delay(SETTLE_MS)
-                found = items.observeItems(listId).first().firstOrNull { it.title == CROSS_DEVICE_ITEM_TITLE }
-            }
-            found
+            items.observeItemsSnapshot(listId).first { snapshot ->
+                !snapshot.isFromCache && !snapshot.hasPendingWrites &&
+                    snapshot.value.any { it.title == CROSS_DEVICE_ITEM_TITLE && it.photoRef != null }
+            }.value.first { it.title == CROSS_DEVICE_ITEM_TITLE && it.photoRef != null }
         }
         if (item?.photoRef == null) {
             report.fail("subscribe", "no item with a photoRef was found under listId=$listId")

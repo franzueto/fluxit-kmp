@@ -167,41 +167,68 @@ final class FirebaseItemBridge: NSObject, IosFirestoreItemBridge {
     ) {
         let itemRef = itemsCollection(uid: uid, listId: listId).document(itemId)
         let listRef = listDoc(uid: uid, listId: listId)
-        firestore.runTransaction({ transaction, errorPointer in
-            let snapshot: DocumentSnapshot
-            do {
-                snapshot = try transaction.getDocument(itemRef)
-            } catch {
-                errorPointer?.pointee = error as NSError
+        // A stale optimistic delta may fail hardened direction Rules before SDK
+        // contention retry. Only a changed server item proves that this is retryable.
+        func attempt(_ retriesRemaining: Int) {
+            var readExists = false
+            var readCompleted: Bool?
+            var readDeletedAt: Timestamp?
+            var didRead = false
+            firestore.runTransaction({ transaction, errorPointer in
+                let snapshot: DocumentSnapshot
+                do {
+                    snapshot = try transaction.getDocument(itemRef)
+                } catch {
+                    errorPointer?.pointee = error as NSError
+                    return nil
+                }
+                readExists = snapshot.exists
+                readCompleted = snapshot.get("isCompleted") as? Bool
+                readDeletedAt = snapshot.get("deletedAt") as? Timestamp
+                didRead = true
+                let fields: [String: FirebaseValue]? = snapshot.exists ? FirebaseItemBridge.toFields(snapshot) : nil
+                let outcome = decide(fields)
+                switch outcome {
+                case is ItemCounterOutcomeNoOp:
+                    break
+                case let apply as ItemCounterOutcomeApplyPatch:
+                    transaction.updateData(FirebaseItemBridge.encode(apply.itemFields), forDocument: itemRef)
+                    let delta = FirebaseItemBridge.encodeIncrements(apply.counterDelta)
+                    if !delta.isEmpty {
+                        transaction.updateData(delta, forDocument: listRef)
+                    }
+                case let hardDelete as ItemCounterOutcomeHardDelete:
+                    transaction.deleteDocument(itemRef)
+                    let delta = FirebaseItemBridge.encodeIncrements(hardDelete.counterDelta)
+                    if !delta.isEmpty {
+                        transaction.updateData(delta, forDocument: listRef)
+                    }
+                default:
+                    // Unreachable: ItemCounterOutcome is a Kotlin sealed interface, every
+                    // case is covered above. Mirrors FirebaseListBridge.encode's the same
+                    // defensive-not-crashing fallback for a hypothetical future case.
+                    break
+                }
                 return nil
-            }
-            let fields: [String: FirebaseValue]? = snapshot.exists ? FirebaseItemBridge.toFields(snapshot) : nil
-            let outcome = decide(fields)
-            switch outcome {
-            case is ItemCounterOutcomeNoOp:
-                break
-            case let apply as ItemCounterOutcomeApplyPatch:
-                transaction.updateData(FirebaseItemBridge.encode(apply.itemFields), forDocument: itemRef)
-                let delta = FirebaseItemBridge.encodeIncrements(apply.counterDelta)
-                if !delta.isEmpty {
-                    transaction.updateData(delta, forDocument: listRef)
+            }, completion: { _, error in
+                guard let failure = error as NSError?,
+                      failure.domain == FirestoreErrorDomain,
+                      failure.code == FirestoreErrorCode.permissionDenied.rawValue,
+                      didRead, retriesRemaining > 0 else {
+                    completion(error)
+                    return
                 }
-            case let hardDelete as ItemCounterOutcomeHardDelete:
-                transaction.deleteDocument(itemRef)
-                let delta = FirebaseItemBridge.encodeIncrements(hardDelete.counterDelta)
-                if !delta.isEmpty {
-                    transaction.updateData(delta, forDocument: listRef)
+                itemRef.getDocument(source: .server) { current, readError in
+                    guard readError == nil, let current = current else { completion(error); return }
+                    let changed = readExists != current.exists
+                        || readCompleted != (current.get("isCompleted") as? Bool)
+                        || readDeletedAt != (current.get("deletedAt") as? Timestamp)
+                    if changed { attempt(retriesRemaining - 1) }
+                    else { completion(error) }
                 }
-            default:
-                // Unreachable: ItemCounterOutcome is a Kotlin sealed interface, every
-                // case is covered above. Mirrors FirebaseListBridge.encode's the same
-                // defensive-not-crashing fallback for a hypothetical future case.
-                break
-            }
-            return nil
-        }, completion: { _, error in
-            completion(error)
-        })
+            })
+        }
+        attempt(3)
     }
 
     /// One page of the `clearCompleted` sweep: queries up to `chunkSize` active-and-
@@ -304,7 +331,9 @@ final class FirebaseItemBridge: NSObject, IosFirestoreItemBridge {
 
     private static func toFields(_ snapshot: DocumentSnapshot) -> [String: FirebaseValue] {
         var fields: [String: FirebaseValue] = [:]
-        for (key, raw) in snapshot.data() ?? [:] {
+        // FB-701: local server-timestamp estimates keep offline creations visible;
+        // explicit stored nulls remain null and are rejected by required-field mapping.
+        for (key, raw) in snapshot.data(with: .estimate) ?? [:] {
             if let decoded = decode(raw) {
                 fields[key] = decoded
             }

@@ -14,6 +14,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -126,20 +127,15 @@ class FirestoreListSnapshotEmulatorIntegrationTest {
             repository.createList("FB-407 Offline List", com.fluxit.domain.ListIcon.CART, com.fluxit.domain.ListColor.PRIMARY_BLUE)
         }
 
-        // Note: the new document itself is deliberately NOT expected to appear in
-        // `pendingSeen.value` yet. Its `createdAt`/`updatedAt` are `FieldValue.
-        // serverTimestamp()` sentinels (`FirebaseValue.PendingServerTimestamp`) that
-        // decode as null until the server resolves them - which cannot happen while
-        // offline - so FB-201's `FirebaseDocumentMapper.list` correctly treats it as
-        // malformed (`MISSING_FIELD`) and drops it from the mapped list, exactly as it
-        // would for any other client racing to read its own unacknowledged write (the
-        // same eventual-consistency window `IosFirestoreListIntegrationCheck.
-        // awaitCondition`'s KDoc documents on the other platform). What this test proves
-        // is the *snapshot-level* `hasPendingWrites`/`isFromCache` metadata - which
-        // Firestore computes over the whole query result, independent of this
-        // repository's own field-validity filtering - correctly reaches
-        // [RepositorySnapshot] while that write is outstanding.
-        val pendingSeen = withTimeout(TIMEOUT_MS) { awaitEmission(emissions) { it.hasPendingWrites } }
+        // FB-701: pending server timestamps use SDK estimates, so real queued
+        // content must be visible before reconnect, not just metadata on an empty list.
+        val pendingSeen = withTimeout(TIMEOUT_MS) { awaitEmission(emissions) {
+            it.hasPendingWrites && it.value.any { row -> row.list.name == "FB-407 Offline List" }
+        } }
+        val pendingList = pendingSeen.value.single { it.list.name == "FB-407 Offline List" }.list
+        val individual = withTimeout(TIMEOUT_MS) { repository.observeList(pendingList.id).first { it != null } }
+        assertEquals("FB-407 Offline List", individual?.name)
+        assertTrue(!createDeferred.isCompleted, "the queued creation must still await server acknowledgement")
         assertTrue(pendingSeen.hasPendingWrites, "a write held only in the local cache must report hasPendingWrites=true")
         assertTrue(pendingSeen.isFromCache, "with the SDK offline, the snapshot must also report isFromCache=true")
 

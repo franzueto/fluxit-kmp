@@ -9,7 +9,6 @@ import com.fluxit.firebase.list.ListRepositoryException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.UUID
@@ -515,8 +514,8 @@ class FirestoreItemEmulatorIntegrationTest {
                 "name" to "Groceries",
                 "icon" to "CART",
                 "color" to "PRIMARY_BLUE",
-                "createdAt" to Timestamp.now(),
-                "updatedAt" to Timestamp.now(),
+                "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
                 "deletedAt" to null,
                 "totalItems" to 0L,
                 "completedItems" to 0L,

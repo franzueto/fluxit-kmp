@@ -141,6 +141,15 @@ kotlin {
         commonMain {
             kotlin.srcDir(generateFirebaseEmulatorConfig)
         }
+        // FB-701: parity fixtures are opt-in test code, absent from ordinary app binaries.
+        androidInstrumentedTest { kotlin.srcDir("src/firebaseParity/kotlin") }
+        if (providers.gradleProperty("fluxit.parity.enabled").orNull == "true") {
+            androidInstrumentedTest { kotlin.srcDir("src/firebaseParityAndroid/kotlin") }
+            iosMain {
+                kotlin.srcDir("src/firebaseParity/kotlin")
+                kotlin.srcDir("src/firebaseParityIos/kotlin")
+            }
+        }
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)

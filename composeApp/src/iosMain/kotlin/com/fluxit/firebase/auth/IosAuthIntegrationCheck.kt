@@ -134,6 +134,10 @@ object IosAuthIntegrationCheck {
             return report.render()
         }
         report.pass("bridge registration", "Swift bridge present")
+        // FB-701: a previously interrupted self-check may have persisted its synthetic
+        // credential. Establish the empty-credential fixture before constructing the
+        // adapter whose initial Unresolved/restoration behavior is asserted below.
+        report.expectSuccess("discard prior emulator fixture credential", IosAuthRepository().signOut())
 
         val repository = IosAuthRepository()
         val email = "fb103-${NSUUID().UUIDString().lowercase()}@example.com"

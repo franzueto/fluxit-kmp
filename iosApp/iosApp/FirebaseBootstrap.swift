@@ -71,6 +71,34 @@ enum FirebaseBootstrap {
         IosFirebaseStorageBridgeRegistry.shared.register(bridge: FirebaseStorageBridge())
     }
 
+    #if FLUXIT_PARITY
+    // FB-701: opt-in build symbol + emulator-only Kotlin gate + explicit launch argument.
+    static func runParityIfRequested() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("-FluxItParitySelfCheck"), IosFirebaseEmulatorSettings.shared.enabled else { return }
+        func value(_ key: String) -> String? {
+            guard let index = arguments.firstIndex(of: key), index + 1 < arguments.count else { return nil }
+            return arguments[index + 1]
+        }
+        guard let email = value("-parityEmail"), let password = value("-parityPassword"),
+              let marker = value("-parityMarker") else { print("FB-701 iOS FAILED missing-arguments\nFB-701 END"); return }
+        Task {
+            do {
+                try await Firestore.firestore().disableNetwork()
+                let offline = try await IosFirebaseRoomParityCheck.shared.runOffline(email: email, password: password, marker: marker) {
+                    Task { try await Firestore.firestore().enableNetwork() }
+                }
+                print(offline)
+                guard offline.contains("offline PASS") else { print("FB-701 iOS FAILED\nFB-701 END"); return }
+                print(try await IosFirebaseRoomParityCheck.shared.run(email: email, password: password, marker: marker))
+            } catch {
+                try? await Firestore.firestore().enableNetwork()
+                print("FB-701 iOS FAILED\nFB-701 END")
+            }
+        }
+    }
+    #endif
+
     /// FB-103 evidence hook: runs the emulator-backed Auth integration check and prints
     /// its report, then leaves the app running normally.
     ///
@@ -287,6 +315,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         FirebaseBootstrap.start()
+        #if FLUXIT_PARITY
+        FirebaseBootstrap.runParityIfRequested()
+        #endif
         FirebaseBootstrap.runAuthSelfCheckIfRequested()
         FirebaseBootstrap.runFirestoreListSelfCheckIfRequested()
         FirebaseBootstrap.runFirestoreItemSelfCheckIfRequested()

@@ -241,7 +241,7 @@ class CrossClientListEmulatorIntegrationTest {
         firestore.collection("users").document(uid).collection("lists").document(id)
 
     /**
-     * Writes a raw list document directly (bypassing [AndroidFirebaseListRepository])
+     * Admin-injects a historical malformed list into the fixed demo emulator (not a client write)
      * with a valid baseline schema, [overrides] applied on top - so each malformed test
      * only has to name the one field it wants broken.
      */
@@ -259,7 +259,9 @@ class CrossClientListEmulatorIntegrationTest {
             "schemaVersion" to 1L,
         )
         val fields = (baseline + overrides) - omit
-        listDocOn(firestoreA, id).set(fields).awaitResult()
+        com.fluxit.firebase.EmulatorMalformedFixture.put(
+            firestoreA.app.options.projectId!!, listDocOn(firestoreA, id).path, fields,
+        )
         return id
     }
 
