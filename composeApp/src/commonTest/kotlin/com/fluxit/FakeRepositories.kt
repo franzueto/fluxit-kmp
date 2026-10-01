@@ -311,8 +311,8 @@ class FakeItemRepository : ItemRepository {
 /**
  * In-memory [PhotoStorage] test double (`FB-302`), with configurable failure injection at
  * upload/delete time so contract tests can exercise every documented failure branch of
- * `replacePhoto`'s safe-replace ordering without touching either platform's real local-file
- * stub. Every `photoRef` it mints is built by the same [FirebaseSchema.photoRef] production
+ * `replacePhoto`'s safe-replace ordering without touching either platform's Firebase Cloud
+ * Storage adapter. Every `photoRef` it mints is built by the same [FirebaseSchema.photoRef] production
  * uses, so a test asserting on the returned ref is asserting on the real PLAN-006 shape, not
  * a simplified stand-in.
  */

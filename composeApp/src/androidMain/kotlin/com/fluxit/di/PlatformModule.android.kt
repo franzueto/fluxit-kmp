@@ -17,7 +17,7 @@ actual fun platformModule(): Module = module {
     single<PhotoPicker> { AndroidPhotoPicker() }
     // FB-304: AndroidPhotoStorage is now real Cloud Storage-backed and needs no
     // Android Context (it only resolves a FirebaseStorage handle and the signed-in
-    // uid), unlike FB-302's local-file stub this replaced.
+    // uid).
     single<PhotoStorage> { AndroidPhotoStorage() }
 
     // FB-102: the Android Firebase Auth adapter. Bound here rather than in the shared

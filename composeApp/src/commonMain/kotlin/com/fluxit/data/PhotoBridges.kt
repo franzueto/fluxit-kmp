@@ -7,21 +7,11 @@ interface PhotoPicker {
     suspend fun pickPhoto(): ByteArray?
 }
 
-/**
- * A resolved, renderable form of a photo object. Deliberately not a single type: today's
- * platform adapters ([FB-302's local-file stubs][PhotoStorage]) hand back a loadable path,
- * while a real Cloud Storage adapter (`FB-304`/`FB-305`, not yet built) may instead download
- * bytes directly. Never a Firebase SDK type - this is exactly the boundary Firebase-touching
- * platform code must stay behind (see [PhotoStorage]).
- */
+/** Downloaded or locally prepared image bytes, ready for platform decoding.
+ * Firebase SDK types remain behind the platform adapters. */
 sealed interface PhotoContent {
     /** Already-available bytes, ready to hand to an image decoder. */
     data class Bytes(val bytes: ByteArray) : PhotoContent
-
-    /** A URI/path the platform's own image decoder can load directly - e.g. a local file
-     * path today, or a cached-download path/platform image-loader URL once `FB-304`/`FB-305`
-     * land. */
-    data class Loadable(val uri: String) : PhotoContent
 }
 
 /**
@@ -29,10 +19,8 @@ sealed interface PhotoContent {
  * item's `photoRef` (`com.fluxit.data.remote.FirebaseSchema.photoRef`, PLAN-005/PLAN-006/
  * PLAN-007). No Firebase SDK type may appear here or anywhere else in `commonMain`; platform
  * adapters (`AndroidPhotoStorage`/`IosPhotoStorage`) are the only place allowed to depend on
- * a concrete backing store. **Today both adapters are still local-file stubs** that merely
- * produce/consume correctly-shaped `photoRef` strings - real Cloud Storage upload/download/
- * delete is `FB-304` (Android) and `FB-305` (iOS), deliberately not this contract's job, and
- * image validation/resize/compression is `FB-303`, also deliberately not here.
+ * a concrete backing store. Both adapters upload/download/delete through Firebase Cloud
+ * Storage. Image validation/resize/compression runs before upload via [preparePhotoForUpload].
  *
  * ### `photoRef` shape (PLAN-006)
  * [uploadPhoto] returns a `photoRef` built by `FirebaseSchema.photoRef`: exactly
@@ -40,16 +28,15 @@ sealed interface PhotoContent {
  * `photoId` never contains `/` (see [newPhotoId]). [loadPhoto]/[deletePhoto] take that exact
  * string back unmodified; neither of them constructs or parses it.
  *
- * ### Orphan-reconciliation contract (PLAN-007; the sweep itself is `FB-502`/`FB-503`, not
- * implemented here)
- * Storage photo paths carry no `listId`, so the future sweep can only key eligibility on
+ * ### Orphan-reconciliation contract (PLAN-007; backend sweep in `FB-502`/`FB-503`)
+ * Storage photo paths carry no `listId`, so the backend sweep can only key eligibility on
  * `itemId` (`FirebaseSchema.itemIdFromPhotoRef`). This interface must never do anything that
  * would make that keying, or `DEC-003e`/`DEC-003e-2`'s 30-day-grace-period /
  * tombstone-still-referenced rule, impossible later:
  *  - [uploadPhoto] must never encode a `listId` anywhere in the returned ref.
  *  - Nothing in this interface deletes an object except an explicit [deletePhoto] call - in
  *    particular, [uploadPhoto] must never delete or overwrite the object it is replacing.
- *    Only an explicit [deletePhoto] call, or the future sweep after its grace period, may
+ *    Only an explicit [deletePhoto] call, or the backend sweep after its grace period, may
  *    ever remove an object, so there is exactly one deletion path for the sweep's
  *    still-referenced check to reason about.
  *
@@ -124,7 +111,7 @@ class PhotoStorageException(val error: ApplicationError) : Exception()
 
 /**
  * Deterministic-*shape*, collision-resistant-*value* `photoId` generation, reusing [newId]
- * (the same random-UUID generator already used for list/item ids).
+ * (the random-UUID generator retained for photo object ids).
  *
  * Justification against the alternatives considered:
  *  - **A stable id per item** (e.g. always `"photo"`) is wrong: [PhotoStorage]'s safe-replace

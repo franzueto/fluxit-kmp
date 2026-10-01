@@ -52,8 +52,7 @@ class AndroidPhotoPicker : PhotoPicker {
 }
 
 /**
- * Real Cloud Storage-backed [PhotoStorage] (`FB-304`), replacing `FB-302`'s interim
- * local-file stub. Every object is addressed by the exact `photoRef` string
+ * Real Cloud Storage-backed [PhotoStorage] (`FB-304`). Every object is addressed by the exact `photoRef` string
  * [FirebaseSchema.photoRef] already produces (`users/{uid}/items/{itemId}/{photoId}`) -
  * this class never constructs or parses that shape itself, matching the contract's
  * documented boundary. The deployed owner-only `storage.rules` (`FB-005`) gate every
@@ -63,21 +62,9 @@ class AndroidPhotoPicker : PhotoPicker {
  * [com.fluxit.firebase.item.AndroidFirebaseItemRepository] does for Firestore paths -
  * resolved fresh per call, never cached, same Phase 1 constraint.
  *
- * ### Remote-rendering design choice (judgment call, flagged for the reviewer)
- * [loadPhoto] returns [PhotoContent.Bytes] (a direct `getBytes` download), not
- * [PhotoContent.Loadable]. [PhotoContent.Loadable] is rendered by
- * `com.fluxit.ui.components.decodeImageFile`, whose Android `actual` is
- * `android.graphics.BitmapFactory.decodeFile` - a **local filesystem path** decoder. It
- * cannot load an `https://` download URL (`BitmapFactory.decodeFile` treats a URL string
- * as a nonexistent path and returns `null`), so wiring a `Loadable(downloadUrl)` here
- * would silently fail to render on the existing `ItemDetailScreen` code path without also
- * changing that screen (out of this task's explicit scope) to fetch the URL itself, e.g.
- * via a network image loader. `PhotoContent.Bytes` is instead rendered by
- * `decodeImageBytes` (`BitmapFactory.decodeByteArray`), which already handles raw bytes
- * correctly - so this choice needs **zero** changes to `ItemDetailScreen`/
- * `ItemDetailViewModel`, and composes directly with `FB-303`'s already-enforced
- * [com.fluxit.data.PhotoPolicy.MAX_UPLOAD_BYTES] upload-size ceiling to bound the
- * download.
+ * [loadPhoto] downloads [PhotoContent.Bytes], rendered by
+ * `com.fluxit.ui.components.decodeImageBytes`. Downloads reuse
+ * [PhotoPolicy.MAX_UPLOAD_BYTES] as their bound, matching upload preparation.
  *
  * ### Idempotent delete / missing-object semantics
  * [loadPhoto] and [deletePhoto] both treat Firebase Storage's

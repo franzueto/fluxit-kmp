@@ -5,8 +5,8 @@ data class ImageDimensions(val widthPx: Int, val heightPx: Int)
 
 /**
  * Real per-platform image decode/resize, backing [preparePhotoForUpload]'s default parameters
- * (see `PhotoPolicy.kt`). Mirrors the existing `com.fluxit.ui.components.decodeImageFile`/
- * `decodeImageBytes` expect/actual pattern (`FB-302`): platform-native decode only -
+ * (see `PhotoPolicy.kt`). Uses the same expect/actual pattern as
+ * `com.fluxit.ui.components.decodeImageBytes`: platform-native decode only -
  * `android.graphics.BitmapFactory`/`Bitmap` on Android, the already-used `org.jetbrains.skia`
  * Skia bindings on iOS (the same library `ImageDecoder.ios.kt` already depends on for
  * rendering) - so no new third-party dependency is introduced by either actual.

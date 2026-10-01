@@ -52,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fluxit.data.PhotoContent
 import com.fluxit.ui.components.decodeImageBytes
-import com.fluxit.ui.components.decodeImageFile
 import com.fluxit.ui.components.OperationErrorFeedback
 import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
@@ -240,7 +239,6 @@ fun ItemDetailScreen(
                 val preview = state.photoPreview
                 val bitmap = remember(preview) {
                     when (preview) {
-                        is PhotoContent.Loadable -> decodeImageFile(preview.uri)
                         is PhotoContent.Bytes -> decodeImageBytes(preview.bytes)
                         null -> null
                     }

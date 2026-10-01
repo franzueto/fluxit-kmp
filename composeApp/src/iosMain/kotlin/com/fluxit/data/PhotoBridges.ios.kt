@@ -96,8 +96,7 @@ class IosPhotoPicker : PhotoPicker {
 }
 
 /**
- * Real Cloud Storage-backed [PhotoStorage] (`FB-305`), replacing `FB-302`'s interim
- * local-file stub. Every object is addressed by the exact `photoRef` string
+ * Real Cloud Storage-backed [PhotoStorage] (`FB-305`). Every object is addressed by the exact `photoRef` string
  * [FirebaseSchema.photoRef] already produces (`users/{uid}/items/{itemId}/{photoId}`) -
  * this class never constructs or parses that shape itself, matching the contract's
  * documented boundary. The deployed owner-only `storage.rules` (`FB-005`) gate every call
@@ -112,23 +111,9 @@ class IosPhotoPicker : PhotoPicker {
  * exactly how `IosFirebaseItemRepository`/`IosFirebaseListRepository`/`IosAuthRepository`
  * each reach their own SDK surface through a Swift-implemented Kotlin protocol.
  *
- * ### Remote-rendering design choice (judgment call, flagged for the reviewer)
- * [loadPhoto] returns [PhotoContent.Bytes] (a direct download), not [PhotoContent.Loadable]
- * - the same choice `AndroidPhotoStorage` (`FB-304`) made, for the same underlying reason,
- * confirmed to apply identically on this platform rather than merely assumed: iOS's own
- * [PhotoContent.Loadable] renderer, `com.fluxit.ui.components.decodeImageFile`, has an
- * `actual` (`ImageDecoder.ios.kt`) that calls `NSData.dataWithContentsOfFile` - a **local
- * filesystem path** decoder, exactly as local-file-only as Android's
- * `BitmapFactory.decodeFile`. It cannot load an `https://` download URL, so wiring a
- * `Loadable(downloadUrl)` here would silently fail to render on the existing
- * `ItemDetailScreen` code path without also changing that screen (out of this task's
- * explicit scope) to fetch the URL itself. `PhotoContent.Bytes` is instead rendered by
- * `decodeImageBytes` (`Image.makeFromEncoded`), which already handles raw bytes correctly -
- * so this choice needs **zero** changes to `ItemDetailScreen`/`ItemDetailViewModel` (neither
- * file appears in this task's diff), and composes directly with `FB-303`'s already-enforced
- * [PhotoPolicy.MAX_UPLOAD_BYTES] upload-size ceiling to bound the download, reused rather
- * than a second independent size constant - same as `AndroidPhotoStorage`'s
- * `MAX_DOWNLOAD_BYTES`.
+ * [loadPhoto] downloads [PhotoContent.Bytes], rendered by
+ * `com.fluxit.ui.components.decodeImageBytes`. Downloads reuse
+ * [PhotoPolicy.MAX_UPLOAD_BYTES] as their bound, matching upload preparation.
  *
  * ### Idempotent delete / missing-object semantics
  * [loadPhoto] and [deletePhoto] both treat Storage's own "object does not exist" outcome
