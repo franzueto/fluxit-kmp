@@ -1,6 +1,7 @@
 package com.fluxit.firebase.auth
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.fluxit.domain.session.SessionAuthRepository
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.domain.auth.AuthSession
 import kotlin.test.assertEquals
@@ -14,10 +15,10 @@ import org.koin.core.context.GlobalContext
 
 /**
  * FB-102 wiring check: the real application's Koin graph resolves [AuthRepository] to
- * the Android adapter.
+ * the session lifecycle around the Android adapter.
  *
  * This runs inside `FluxItApplication`, i.e. against the Koin graph the shipped app
- * actually builds, so it fails if `platformModule()` ever stops binding the adapter or
+ * actually builds, so it fails if `platformModule()` ever stops binding the session lifecycle or
  * if the binding cannot be constructed. It performs no authentication call: resolving
  * the binding touches only `FirebaseAuth.getInstance()` on the already-initialised
  * default app, which is local and does not reach any backend.
@@ -29,7 +30,7 @@ class AndroidAuthDiInstrumentedTest {
     fun koinResolvesTheAndroidAuthAdapter() {
         val repository = GlobalContext.get().get<AuthRepository>()
 
-        assertIs<AndroidAuthRepository>(repository)
+        assertIs<SessionAuthRepository>(repository)
     }
 
     @Test
