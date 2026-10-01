@@ -88,7 +88,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * already accepted at FB-202, not a new one introduced here. Flagged for the reviewer.
  */
 class AndroidFirebaseItemRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    firestore: FirebaseFirestore? = null,
     private val currentUid: CurrentUidProvider = FirebaseAuthCurrentUidProvider(),
     /**
      * Max item documents fetched/tombstoned per `clearCompleted` batch. One slot is
@@ -99,7 +99,10 @@ class AndroidFirebaseItemRepository(
      * whether a future change adds a second trailing write to the same batch.
      */
     private val clearCompletedChunkSize: Int = DEFAULT_CLEAR_COMPLETED_CHUNK_SIZE,
+    private val firestoreProvider: () -> FirebaseFirestore = { firestore ?: FirebaseFirestore.getInstance() },
 ) : ItemRepository {
+
+    private val firestore: FirebaseFirestore get() = firestoreProvider()
 
     init {
         requireValidClearCompletedChunkSize(clearCompletedChunkSize)

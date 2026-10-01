@@ -107,20 +107,7 @@ class AndroidAuthRepository internal constructor(
         }
     }
 
-    /**
-     * Signs out and clears Firebase Auth's own persisted credential (DEC-003a, the Auth
-     * part of it).
-     *
-     * Scope boundary, deliberate, and re-confirmed as correct when FB-105 implemented
-     * the rest of DEC-003a: Firestore's and Storage's local caches are *not* cleared
-     * here. FB-105's signOut() work is Auth-only. Those SDKs are not wired into the
-     * app's data path yet, so `terminate()`/`clearPersistence()` is **deferred to Phase
-     * 2** (Firestore repositories) and **Phase 3** (Storage photos) - whichever phase
-     * first puts a live listener or cached document on the device owns sequencing its
-     * teardown, with FB-404 presenting the resulting first-load-after-sign-in as an
-     * initial-loading state. Doing it here would clear a cache nothing owns yet and
-     * would put the cross-SDK teardown order in the wrong place.
-     */
+    /** Auth credential removal. Production DI sequences this after SessionCleanup. */
     override suspend fun signOut(): AuthResult {
         return try {
             gateway.signOut()

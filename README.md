@@ -58,8 +58,9 @@ git check-ignore composeApp/google-services.json iosApp/GoogleService-Info.plist
 The committed `.firebaserc` points only to `demo-fluxit`, an emulator placeholder.
 **Every Console-affecting CLI command must pass `--project <id>` explicitly**;
 never rely on that default for deployment or cloud administration. Development
-and production config/deployment are separate concerns; MAN-005 and the production
-counter architecture decision remain unresolved. See [deployment targeting](firebase/README.md#cloud-targeting-and-operations).
+and production config/deployment are separate concerns. DEC-012 explicitly limits
+closure to development and waives production provisioning (MAN-005). Exact aggregate
+integrity (FB-601-NB1) must be resolved before any later production scope. See [deployment targeting](firebase/README.md#cloud-targeting-and-operations).
 
 ## Build and run
 
@@ -121,15 +122,17 @@ app-managed durable offline photo cache or background upload queue. Upload failu
 keeps the old attachment; replacement uploads the new object, saves its reference,
 then removes the old object. Retry visible failures after reconnecting.
 
-Sign-out clears Auth credentials and replaces the user-scoped navigation and
-ViewModel stores, releasing their listeners and in-memory screen state. **Current
-gap:** it does not terminate/clear Firestore's persistent cache or explicitly erase
-SDK caches/pending writes. DEC-003a requires full persistent cache clearing; this
-remains an implementation obligation (FB-709/PLAN-010), not an accepted retention policy. UID-scoped
-UI and owner Rules do not establish local disk erasure. Even SDK cache clearing
-is logical deletion, not secure overwriting or a forensic erasure guarantee, and
-can discard queued offline writes. See the current follow-up
-in [the tracker](FIREBASE_MIGRATION_STATUS.md).
+Sign-out closes user-scoped work, clears navigation/screen memory, cancels active
+photo transfers, and removes locally cached documents and remaining queued writes
+before reporting success. **Changes that have not synced can be discarded.** Auth
+credentials are removed, and the next sign-in starts with an empty document cache;
+its first load needs the network. A cleanup failure keeps user data closed and offers
+retry before another sign-in. Offline persistence remains enabled for normal use.
+
+This is logical SDK deletion, not secure disk overwriting or a forensic erasure
+guarantee. It does not delete server documents or already-uploaded photos; orphan
+photos retain the approved backend grace period. See [FB-709 verification](firebase/FB-709-RESULTS.md)
+and [the current tracker](FIREBASE_MIGRATION_STATUS.md).
 
 ## Deletes, operations and privacy
 

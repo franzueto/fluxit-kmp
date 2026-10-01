@@ -106,6 +106,7 @@ fun DashboardScreen(
                 )
             },
             text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     if (accountEmail != null) {
                         stringResource(Res.string.account_signed_in_as, accountEmail)
@@ -114,6 +115,8 @@ fun DashboardScreen(
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Text(stringResource(Res.string.session_sign_out_notice))
+                }
             },
             confirmButton = {
                 TextButton(

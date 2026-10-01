@@ -13,7 +13,7 @@ struct ComposeView: UIViewControllerRepresentable {
 struct ContentView: View {
     var body: some View {
         #if FLUXIT_PARITY
-        if ProcessInfo.processInfo.arguments.contains("-FluxItDefaultGraphCheck") {
+        if ProcessInfo.processInfo.arguments.contains("-FluxItDefaultGraphCheck") || ProcessInfo.processInfo.arguments.contains("-FluxItSessionCleanupCheck") {
             // The default-config graph probe must not compose the auth/session UI.
             Color.clear
         } else {

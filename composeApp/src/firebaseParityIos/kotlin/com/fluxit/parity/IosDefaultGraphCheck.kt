@@ -2,6 +2,8 @@ package com.fluxit.parity
 
 import com.fluxit.config.FirebaseEmulatorConfig
 import com.fluxit.config.FirebaseDevFlags
+import com.fluxit.domain.session.SessionItemRepository
+import com.fluxit.domain.session.SessionListRepository
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
 import com.fluxit.domain.auth.AuthRepository
@@ -19,8 +21,8 @@ object IosDefaultGraphCheck {
         check(FirebaseDevFlags.USE_FIREBASE_REPOSITORIES)
         initializeIosKoin() // Exact helper called by ordinary MainViewController startup.
         val graph = KoinPlatform.getKoin()
-        check(graph.get<ListRepository>() is IosFirebaseListRepository)
-        check(graph.get<ItemRepository>() is IosFirebaseItemRepository)
+        check(graph.get<ListRepository>() is SessionListRepository)
+        check(graph.get<ItemRepository>() is SessionItemRepository)
         check(graph.instanceRegistry.instances.values.none {
             it.beanDefinition.primaryType.qualifiedName == "com.fluxit.data.FluxItDatabase"
         })

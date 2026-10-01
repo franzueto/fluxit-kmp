@@ -3,11 +3,14 @@ package com.fluxit.parity
 import com.fluxit.config.FirebaseDevFlags
 import com.fluxit.data.*
 import com.fluxit.domain.*
+import com.fluxit.domain.session.SessionItemRepository
+import com.fluxit.domain.session.SessionListRepository
 import com.fluxit.domain.auth.*
 import com.fluxit.firebase.IosFirebaseEmulatorSettings
 import com.fluxit.firebase.item.IosFirebaseItemRepository
 import com.fluxit.firebase.list.IosFirebaseListRepository
 import kotlinx.coroutines.*
+import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.*
 import org.koin.mp.KoinPlatform
 
@@ -15,7 +18,7 @@ import org.koin.mp.KoinPlatform
 object IosFirebaseRegressionCheck {
     /** Swift disables the real default SDK connection before entry and reenables it
      * through this callback after local cache/pending assertions; no production bridge API. */
-    suspend fun runOffline(email: String, password: String, marker: String, reconnect: () -> Unit): String {
+    suspend fun runOffline(email: String, password: String, marker: String, disconnect: ((Boolean) -> Unit) -> Unit, reconnect: () -> Unit): String {
         var stage = "preconditions"
         return try {
             check(IosFirebaseEmulatorSettings.enabled && FirebaseDevFlags.USE_FIREBASE_REPOSITORIES)
@@ -24,6 +27,7 @@ object IosFirebaseRegressionCheck {
             val graph = KoinPlatform.getKoin()
             val auth = graph.get<AuthRepository>()
             check(auth.signIn(email, password) == AuthResult.Success)
+            check(suspendCancellableCoroutine<Boolean> { continuation -> disconnect { if (continuation.isActive) continuation.resume(it) } })
             val lists = graph.get<ListRepository>()
             val items = graph.get<ItemRepository>()
             coroutineScope {
@@ -83,7 +87,7 @@ object IosFirebaseRegressionCheck {
         val uid = withTimeout(15_000) { auth.session.first { it is AuthSession.Authenticated } }.uidOrNull!!
         val lists = graph.get<ListRepository>()
         val items = graph.get<ItemRepository>()
-        check(lists is IosFirebaseListRepository && items is IosFirebaseItemRepository)
+        check(lists is SessionListRepository && items is SessionItemRepository)
         try {
             val trace = RepositoryRegressionScenario.run(lists, items) { "users/$uid/items/$it/parity.jpg" }
             check(trace.size == 16)

@@ -21,6 +21,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import platform.Foundation.NSProgress
 import platform.Foundation.NSData
 import platform.Foundation.dataWithBytes
 import platform.PhotosUI.PHPickerConfiguration
@@ -50,10 +51,15 @@ class IosPhotoPicker : PhotoPicker {
     private var activeDelegate: PHPickerViewControllerDelegateProtocol? = null
 
     override suspend fun pickPhoto(): ByteArray? = withContext(Dispatchers.Main) {
-        suspendCancellableCoroutine { continuation ->
+        var presentedPicker: PHPickerViewController? = null
+        var loading: NSProgress? = null
+        try { suspendCancellableCoroutine { continuation ->
             var resumed = false
+            continuation.invokeOnCancellation {
+                activeDelegate = null
+            }
             fun finish(bytes: ByteArray?) {
-                if (!resumed) {
+                if (!resumed && continuation.isActive) {
                     resumed = true
                     activeDelegate = null
                     continuation.resume(bytes)
@@ -75,6 +81,7 @@ class IosPhotoPicker : PhotoPicker {
                 filter = PHPickerFilter.imagesFilter
             }
             val picker = PHPickerViewController(configuration)
+            presentedPicker = picker
             val delegate = object : NSObject(), PHPickerViewControllerDelegateProtocol {
                 override fun picker(picker: PHPickerViewController, didFinishPicking: List<*>) {
                     picker.dismissViewControllerAnimated(true, null)
@@ -83,14 +90,18 @@ class IosPhotoPicker : PhotoPicker {
                         finish(null)
                         return
                     }
-                    itemProvider.loadDataRepresentationForTypeIdentifier("public.image") { data, _ ->
-                        finish(data?.toByteArray())
+                    loading = itemProvider.loadDataRepresentationForTypeIdentifier("public.image") { data, _ ->
+                        if (continuation.isActive) finish(data?.toByteArray())
                     }
                 }
             }
             activeDelegate = delegate
             picker.delegate = delegate
             rootViewController.presentViewController(picker, animated = true, completion = null)
+        } } finally {
+            loading?.cancel()
+            presentedPicker?.dismissViewControllerAnimated(false, null)
+            activeDelegate = null
         }
     }
 }
@@ -134,16 +145,18 @@ class IosPhotoPicker : PhotoPicker {
 class IosPhotoStorage(
     private val bridgeProvider: () -> IosFirebaseStorageBridge = IosFirebaseStorageBridgeRegistry::requireBridge,
     private val currentUid: CurrentUidProvider = IosAuthBridgeCurrentUidProvider(),
+    private val photoIdFactory: () -> String = ::newPhotoId,
 ) : PhotoStorage {
 
     @OptIn(ExperimentalForeignApi::class)
     override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String {
-        val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, newPhotoId())
+        val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, photoIdFactory())
         val mimeType = validatePhotoSource(bytes).mimeType
         val data = bytes.toNSData()
         try {
             suspendCancellableCoroutine<Unit> { continuation ->
                 bridgeProvider().uploadData(photoRef, data, mimeType) { error ->
+                    if (!continuation.isActive) return@uploadData
                     if (error != null) {
                         continuation.resumeWithException(PhotoStorageIosException(error))
                     } else {
@@ -162,6 +175,7 @@ class IosPhotoStorage(
     override suspend fun loadPhoto(photoRef: String): PhotoContent? = try {
         val data = suspendCancellableCoroutine<NSData> { continuation ->
             bridgeProvider().downloadData(photoRef, MAX_DOWNLOAD_BYTES) { data, error ->
+                if (!continuation.isActive) return@downloadData
                 when {
                     error != null -> continuation.resumeWithException(PhotoStorageIosException(error))
                     data != null -> continuation.resume(data)
@@ -184,6 +198,7 @@ class IosPhotoStorage(
         try {
             suspendCancellableCoroutine<Unit> { continuation ->
                 bridgeProvider().deleteObject(photoRef) { error ->
+                    if (!continuation.isActive) return@deleteObject
                     if (error != null) {
                         continuation.resumeWithException(PhotoStorageIosException(error))
                     } else {

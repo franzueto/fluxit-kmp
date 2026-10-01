@@ -17,6 +17,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -78,6 +79,7 @@ fun SessionGate(
     viewModel: SessionGateViewModel = koinViewModel(),
     scopedStores: SessionScopedViewModelStores = koinViewModel(),
 ) {
+    SideEffect { viewModel.beforeSignOut = scopedStores::clearActiveScope }
     val gate by viewModel.gate.collectAsState()
     val isBusy by viewModel.isBusy.collectAsState()
     val restoreTimedOut by viewModel.restoreTimedOut.collectAsState()

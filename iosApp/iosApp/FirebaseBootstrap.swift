@@ -68,7 +68,9 @@ enum FirebaseBootstrap {
         IosFirestoreItemBridgeRegistry.shared.register(bridge: FirebaseItemBridge())
 
         // FB-305: same hand-off, for the Storage photo bridge.
-        IosFirebaseStorageBridgeRegistry.shared.register(bridge: FirebaseStorageBridge())
+        let storageBridge = FirebaseStorageBridge()
+        IosFirebaseStorageBridgeRegistry.shared.register(bridge: storageBridge)
+        IosSessionCleanupBridgeRegistry.shared.register(bridge: FirebaseSessionCleanupBridge(storageBridge: storageBridge))
     }
 
     #if FLUXIT_PARITY
@@ -84,10 +86,11 @@ enum FirebaseBootstrap {
               let marker = value("-parityMarker") else { print("FB-703 iOS FAILED missing-arguments\nFB-703 END"); return }
         Task {
             do {
-                try await Firestore.firestore().disableNetwork()
-                let offline = try await IosFirebaseRegressionCheck.shared.runOffline(email: email, password: password, marker: marker) {
+                let offline = try await IosFirebaseRegressionCheck.shared.runOffline(email: email, password: password, marker: marker, disconnect: { completion in
+                    Firestore.firestore().disableNetwork { error in completion(KotlinBoolean(value: error == nil)) }
+                }, reconnect: {
                     Task { try await Firestore.firestore().enableNetwork() }
-                }
+                })
                 print(offline)
                 guard offline.contains("offline PASS") else { print("FB-703 iOS FAILED\nFB-703 END"); return }
                 print(try await IosFirebaseRegressionCheck.shared.run(email: email, password: password, marker: marker))
@@ -328,6 +331,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             print(IosDefaultGraphCheck.shared.run())
             return true
         }
+        if FirebaseBootstrap.runSessionCleanupIfRequested() { return true }
         FirebaseBootstrap.runFirebaseRegressionIfRequested()
         #endif
         #if FLUXIT_PARITY
@@ -344,3 +348,160 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 }
+
+/// Local privacy lifecycle; all SDK objects remain on the Swift side of the boundary.
+final class FirebaseSessionCleanupBridge: NSObject, IosSessionCleanupBridge {
+    private let storageBridge: FirebaseStorageBridge
+    private var cleanupTask: Task<Void, Error>?
+    private var stopped: Firestore?
+    private var terminated = false
+    private var savedSettings: FirestoreSettings?
+    private let defaults: UserDefaults
+    private var startupRecovery: Bool
+
+    init(storageBridge: FirebaseStorageBridge, defaults: UserDefaults = .standard) {
+        self.storageBridge = storageBridge
+        self.defaults = defaults
+        self.startupRecovery = defaults.bool(forKey: "session-cleanup-pending")
+        super.init()
+    }
+
+    var pending: Bool { defaults.bool(forKey: "session-cleanup-pending") }
+    func begin_() -> Bool {
+        defaults.set(true, forKey: "session-cleanup-pending")
+        return defaults.synchronize()
+    }
+    func complete_() -> Bool {
+        defaults.removeObject(forKey: "session-cleanup-pending")
+        cleanupTask = nil
+        return defaults.synchronize()
+    }
+
+    func clear(completion: @escaping ((any Error)?) -> Void) {
+        // Calls arrive on the Kotlin main dispatcher. Retain one operation through
+        // UI timeout, so a retry cannot race an SDK termination still completing.
+        if cleanupTask == nil {
+            cleanupTask = Task { @MainActor in
+                await storageBridge.cancelSessionTasks()
+                let old = stopped ?? Firestore.firestore()
+                if stopped == nil { savedSettings = old.settings; stopped = old }
+                // Avoid initializing a network client with old persisted writes on restart.
+                if startupRecovery {
+                    do { try await old.clearPersistence() }
+                    catch {
+                        let failure = error as NSError
+                        guard failure.domain == FirestoreErrorDomain && failure.code == FirestoreErrorCode.failedPrecondition.rawValue else { throw error }
+                    }
+                    startupRecovery = false
+                }
+                if !terminated { try await old.terminate(); terminated = true }
+                try await old.clearPersistence()
+                let fresh = Firestore.firestore()
+                guard fresh !== old, let settings = savedSettings else {
+                    throw NSError(domain: "SessionCleanup", code: 1)
+                }
+                fresh.settings = settings
+                stopped = nil
+                terminated = false
+                savedSettings = nil
+            }
+        }
+        let task = cleanupTask!
+        Task { @MainActor in
+            do { try await task.value; completion(nil) }
+            catch {
+                cleanupTask = nil
+                completion(error)
+            }
+        }
+    }
+}
+
+#if FLUXIT_PARITY
+extension FirebaseBootstrap {
+    static func runSessionCleanupIfRequested() -> Bool {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("-FluxItSessionCleanupCheck") else { return false }
+        guard IosFirebaseEmulatorSettings.shared.enabled else { return false }
+        func value(_ key: String) -> String {
+            guard let index = args.firstIndex(of: key), index + 1 < args.count else { fatalError("Missing fixture argument") }
+            return args[index + 1]
+        }
+        Task {
+            do {
+                let report = try await IosSessionCleanupCheck.shared.run(phase: value("-phase"), emailA: value("-emailA"), emailB: value("-emailB"),
+                    password: value("-password"), uidA: value("-uidA"), uidB: value("-uidB"), bridge: FirebaseSessionCleanupProbe())
+                print("FB-709 Apple \(report)")
+                print("FB-709 END")
+            } catch { print("FB-709 Apple FAILED \(error)\nFB-709 END") }
+        }
+        return true
+    }
+}
+
+final class FirebaseSessionCleanupProbe: NSObject, IosSessionCleanupProbe {
+    private var old: Firestore?
+    private var settings: FirestoreSettings?
+    func recordClient() { old = Firestore.firestore(); settings = old?.settings }
+    func verifyRecreated() -> Bool {
+        let fresh = Firestore.firestore()
+        return fresh !== old && fresh.settings.isEqual(settings) && !fresh.settings.isSSLEnabled && fresh.settings.host.contains("127.0.0.1")
+    }
+    func disableNetwork(completion: @escaping (KotlinBoolean) -> Void) {
+        Firestore.firestore().disableNetwork { error in completion(KotlinBoolean(value: error == nil)) }
+    }
+    func cachedName(path: String, completion: @escaping (String?, KotlinBoolean) -> Void) {
+        Firestore.firestore().document(path).getDocument(source: .cache) { snapshot, error in
+            if let error = error as NSError? {
+                completion(nil, KotlinBoolean(value: error.code == FirestoreErrorCode.unavailable.rawValue))
+            } else { completion(snapshot?.get(path.contains("/items/") ? "title" : "name") as? String, KotlinBoolean(value: true)) }
+        }
+    }
+    func serverName(path: String, completion: @escaping (String?, KotlinBoolean) -> Void) {
+        Firestore.firestore().document(path).getDocument(source: .server) { snapshot, error in
+            completion(snapshot?.get(path.contains("/items/") ? "title" : "name") as? String, KotlinBoolean(value: error == nil))
+        }
+    }
+    func verifyStorageCancellation(uid: String, completion: @escaping (KotlinBoolean) -> Void) {
+        Task { @MainActor in
+            do {
+                let name = "fb709-storage-cancel"
+                if FirebaseApp.app(name: name) == nil { FirebaseApp.configure(name: name, options: FirebaseApp.app()!.options) }
+                let secondary = FirebaseApp.app(name: name)!
+                let storage = Storage.storage(app: secondary)
+                storage.useEmulator(withHost: "127.0.0.1", port: 9198)
+                let bridge = FirebaseStorageBridge(storageProvider: { storage })
+                let pending = Task { @MainActor in
+                    try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                        bridge.uploadData(photoRef: "users/\(uid)/items/fb709-item/cancelled-upload", data: Data([0xff, 0xd8, 0xff]), mimeType: "image/jpeg") {
+                            if let error = $0 { c.resume(throwing: error) } else { c.resume() }
+                        }
+                    }
+                }
+                let pendingDownload = Task { @MainActor in
+                    try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                        bridge.downloadData(photoRef: "users/\(uid)/items/fb709-item/cancelled-upload", maxSize: 5_242_880) { _, error in
+                            if let error = error { c.resume(throwing: error) } else { c.resume() }
+                        }
+                    }
+                }
+                await Task.yield()
+                let cleaner = FirebaseSessionCleanupBridge(storageBridge: bridge)
+                try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                    cleaner.clear { if let error = $0 { c.resume(throwing: error) } else { c.resume() } }
+                }
+                do { try await pending.value; throw NSError(domain: "FB709", code: 1) }
+                catch {
+                    guard (error as NSError).code == StorageErrorCode.cancelled.rawValue else { throw error }
+                }
+                do { try await pendingDownload.value; throw NSError(domain: "FB709", code: 2) }
+                catch {
+                    guard (error as NSError).code == StorageErrorCode.cancelled.rawValue else { throw error }
+                }
+                secondary.delete { _ in }
+                completion(KotlinBoolean(value: true))
+            } catch { print("FB-709 Storage FAILED \(error)"); completion(KotlinBoolean(value: false)) }
+        }
+    }
+}
+#endif

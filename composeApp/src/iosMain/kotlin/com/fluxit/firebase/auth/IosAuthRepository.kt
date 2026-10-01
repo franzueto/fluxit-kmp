@@ -123,17 +123,7 @@ class IosAuthRepository internal constructor(
         }
     }
 
-    /**
-     * Signs out and clears Firebase Auth's own persisted credential (DEC-003a, the Auth
-     * part of it).
-     *
-     * Scope boundary, deliberate and identical to FB-102's: Firestore's and Storage's
-     * local caches are *not* cleared here. FB-105's signOut() work is Auth-only; those
-     * SDKs are not wired into the app's data path yet, so `terminate()`/
-     * `clearPersistence()` is **deferred to Phase 2** (Firestore repositories) and
-     * **Phase 3** (Storage photos), whichever first puts a live listener or cached
-     * document on the device, with FB-404 owning the loading-state consequence.
-     */
+    /** Auth credential removal. Production DI sequences this after SessionCleanup. */
     override suspend fun signOut(): AuthResult {
         val bridge = bridgeProvider()
         val error = awaitCompletion { completion -> bridge.signOut(completion) }

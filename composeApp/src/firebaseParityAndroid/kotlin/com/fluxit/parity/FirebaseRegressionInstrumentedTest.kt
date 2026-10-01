@@ -6,6 +6,8 @@ import com.fluxit.config.FirebaseDevFlags
 import com.fluxit.config.FirebaseEmulatorConfig
 import com.fluxit.data.*
 import com.fluxit.domain.*
+import com.fluxit.domain.session.SessionListRepository
+import com.fluxit.domain.session.SessionItemRepository
 import com.fluxit.domain.auth.*
 import com.fluxit.firebase.item.AndroidFirebaseItemRepository
 import com.fluxit.firebase.list.AndroidFirebaseListRepository
@@ -29,8 +31,8 @@ class FirebaseRegressionInstrumentedTest {
         val auth = graph.get<AuthRepository>()
         assertEquals(AuthResult.Success, auth.signIn(email, password))
         val uid = withTimeout(15_000) { auth.session.first { it is AuthSession.Authenticated } }.uidOrNull!!
-        val lists = assertIs<AndroidFirebaseListRepository>(graph.get<ListRepository>())
-        val items = assertIs<AndroidFirebaseItemRepository>(graph.get<ItemRepository>())
+        val lists = assertIs<SessionListRepository>(graph.get<ListRepository>())
+        val items = assertIs<SessionItemRepository>(graph.get<ItemRepository>())
         try {
             val trace = RepositoryRegressionScenario.run(lists, items) { "users/$uid/items/$it/parity.jpg" }
             assertEquals(16, trace.size)

@@ -185,4 +185,6 @@
     <string name="account_signed_in_as">Signed in as %1$s</string>
     <string name="account_signed_in_no_email">Signed in</string>
     <string name="content_description_account">Account</string>
+    <string name="session_cleanup_failed">Local data cleanup is incomplete. Retry sign-out before signing in.</string>
+    <string name="session_sign_out_notice">Sign-out removes downloaded data and discards changes that have not synced.</string>
 </resources>

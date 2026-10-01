@@ -8,6 +8,8 @@ import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.FirebaseAuthCurrentUidProvider
 import com.fluxit.firebase.storage.toApplicationError
 import com.google.android.gms.tasks.Task
+import com.google.firebase.storage.StorageTask
+import com.fluxit.firebase.session.AndroidStorageSessionTasks
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
 import com.google.firebase.storage.StorageException
@@ -27,13 +29,14 @@ class AndroidPhotoPicker : PhotoPicker {
         val launcher = activity.registerForActivityResult(
             ActivityResultContracts.PickVisualMedia()
         ) { uri ->
+            val request = pending ?: return@registerForActivityResult
             val bytes = uri?.let {
                 runCatching {
                     activity.contentResolver.openInputStream(it)?.use { stream -> stream.readBytes() }
                 }.getOrNull()
             }
-            pending?.complete(bytes)
-            pending = null
+            request.complete(bytes)
+            if (pending === request) pending = null
         }
         launchPicker = {
             launcher.launch(
@@ -47,7 +50,7 @@ class AndroidPhotoPicker : PhotoPicker {
         val deferred = CompletableDeferred<ByteArray?>()
         pending = deferred
         launch()
-        return deferred.await()
+        return try { deferred.await() } finally { if (pending === deferred) pending = null }
     }
 }
 
@@ -84,14 +87,15 @@ class AndroidPhotoPicker : PhotoPicker {
 class AndroidPhotoStorage(
     private val storage: FirebaseStorage = FirebaseStorage.getInstance(),
     private val currentUid: CurrentUidProvider = FirebaseAuthCurrentUidProvider(),
+    private val photoIdFactory: () -> String = ::newPhotoId,
 ) : PhotoStorage {
 
     override suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String {
-        val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, newPhotoId())
+        val photoRef = FirebaseSchema.photoRef(currentUid.currentUid(), itemId, photoIdFactory())
         val mimeType = validatePhotoSource(bytes).mimeType
         try {
             val metadata = StorageMetadata.Builder().setContentType(mimeType).build()
-            storage.reference.child(photoRef).putBytes(bytes, metadata).awaitResult()
+            storage.reference.child(photoRef).putBytes(bytes, metadata).also(AndroidStorageSessionTasks::track).awaitResult()
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: StorageException) {
@@ -101,8 +105,12 @@ class AndroidPhotoStorage(
     }
 
     override suspend fun loadPhoto(photoRef: String): PhotoContent? = try {
-        val bytes = storage.reference.child(photoRef).getBytes(MAX_DOWNLOAD_BYTES).awaitResult()
-        PhotoContent.Bytes(bytes)
+        var bytes: ByteArray? = null
+        val download = storage.reference.child(photoRef).getStream { _, stream ->
+            bytes = readBoundedPhotoBytes(stream, MAX_DOWNLOAD_BYTES)
+        }
+        download.also(AndroidStorageSessionTasks::track).awaitResult()
+        PhotoContent.Bytes(checkNotNull(bytes))
     } catch (cancellation: CancellationException) {
         throw cancellation
     } catch (missing: StorageException) {
@@ -143,7 +151,9 @@ class AndroidPhotoStorage(
  * visibility across an unrelated package boundary.
  */
 private suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine { continuation ->
+    if (this is StorageTask<*>) continuation.invokeOnCancellation { cancel() }
     addOnCompleteListener { task ->
+        if (!continuation.isActive) return@addOnCompleteListener
         val exception = task.exception
         when {
             exception != null -> continuation.resumeWithException(exception)

@@ -1,5 +1,6 @@
 package com.fluxit.feature.auth
 
+import fluxit.composeapp.generated.resources.session_cleanup_failed
 import com.fluxit.domain.auth.AuthError
 import fluxit.composeapp.generated.resources.Res
 import fluxit.composeapp.generated.resources.auth_error_email_already_in_use
@@ -33,6 +34,7 @@ fun AuthError.messageResource(): StringResource = when (this) {
     AuthError.TooManyRequests -> Res.string.auth_error_too_many_requests
     AuthError.NetworkUnavailable -> Res.string.auth_error_network_unavailable
     AuthError.SessionExpired -> Res.string.auth_error_session_expired
+    AuthError.CleanupFailed -> Res.string.session_cleanup_failed
     AuthError.Unknown -> Res.string.auth_error_unknown
 }
 

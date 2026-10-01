@@ -10,9 +10,10 @@ Firestore, Storage, reviewed Rules/indexes and scheduled cleanup must be configu
 by the project owner for cloud use. Mobile config downloads are not Admin keys;
 repository policy still prohibits committing them.
 
-The current source cutover uses development configuration (DEC-011). Production
-provisioning/backup/budgets (MAN-005) and exact aggregate integrity (FB-601-NB1)
-remain unresolved. iOS is simulator-only under the permanent DEC-004 waiver.
+The source cutover uses development configuration (DEC-011). DEC-012 explicitly
+limits closure to development and waives production provisioning (MAN-005). Exact
+aggregate integrity (FB-601-NB1) and production readiness remain prerequisites if
+production scope is reopened. iOS is simulator-only under the permanent DEC-004 waiver.
 [Canonical migration status](../FIREBASE_MIGRATION_STATUS.md) owns gates and evidence.
 
 ## Files
@@ -262,7 +263,7 @@ loopback ports and reject alternative routing; use defaults for those runners.
 | Development cloud security | [FB-604 security procedure](FB-604-SECURITY.md) | Explicit development execution, reviewed assets/IAM, local login and exact fixture cleanup; JS client tier |
 
 These commands do not constitute new execution evidence. FB-706 owns the final
-matrix, following the outstanding sign-out cache obligation FB-709/PLAN-010.
+matrix after FB-709 privacy cleanup passes independent review.
 No real radio gesture, literal reinstall, manual picker gesture, production smoke,
 aged-cloud-photo deletion or physical iOS testing is inferred from scripted checks.
 
@@ -511,20 +512,44 @@ checks are not proof of a live schedule. The current live development evidence i
 bounded: [FB-504 probe](FB-504-LIVE-PROBE.md) demonstrated Firestore cleanup, with
 no aged-photo cloud deletion claimed; [FB-604 results](FB-604-RESULTS.md) documented
 client security/query tests. Production requires a separate readiness/architecture
-choice, budget alerts and backup/export approval (MAN-005, FB-601-NB1).
+choice, budget alerts and backup/export approval if its scope is reopened; DEC-012
+waives MAN-005 for the current development-only closure.
 
 Keep Admin SDK credentials out of mobile builds. Prefer existing approved local
 login/IAM workflows over downloading service-account keys. Raw CLI/native logs,
 reset links, fixture identities and manifests remain local; report sanitized status,
 error codes and counts. Firestore/Storage Rules enforce server ownership, not local
-cache erasure. Current sign-out does not clear persistent Firestore data despite
-DEC-003a; FB-709 owns that privacy fix before final verification.
-`terminate()` + `clearPersistence()` will logically remove cached documents and
-pending writes; it does not securely overwrite disk bytes or guarantee forensic
-erasure. Pending offline work can be discarded by that policy. See official
+cache erasure. FB-709 now sequences session job/listener teardown, Storage transfer
+cancellation, Firestore termination and `clearPersistence()`, client recreation with
+preserved settings, and Auth credential removal. Ordinary repository singletons
+resolve fresh clients after cleanup. First sign-in refetches from the network;
+normal offline persistence stays enabled.
+
+`clearPersistence()` logically removes cached documents and remaining pending writes;
+it does not securely overwrite disk bytes or guarantee forensic erasure. Sign-out
+can discard unsynced work, and the account dialog explains this. Cleanup failure
+keeps the gate closed with a retry affordance. Pending privacy cleanup has its own
+15-second budget and can hold the gate beyond ordinary network restoration's
+10-second timeout; its failure takes priority over the signed-out timeout fallback.
+A local, identity-free pending marker
+recovers interrupted cleanup before restoration; a marker write failure is reported
+as a cleanup failure rather than success. No durability is claimed when that write
+fails. Recovery clears an unstarted client's persistence before termination because
+both shipped SDKs can initialize a client from `terminate()` itself.
+
+Auth sign-out removes the SDK credential; Storage has no Firestore-style persistence
+clearing API. This app downloads photos into memory, retains no app-owned disk photo
+cache, waits for cancellation of active uploads/downloads and releases session/picker memory.
+Shipped Android Storage disables HTTP caches for requests; shipped Apple byte
+downloads use ephemeral fetcher sessions without a destination file URL. These
+paths do not own a persistent HTTP/file photo cache. SDK/OS transient memory
+internals are outside a forensic-erasure guarantee. It does
+not delete uploaded cloud objects on sign-out. OS-managed data and secure overwrite
+remain outside this logical cleanup guarantee. See official
 [Android cache API](https://firebase.google.com/docs/reference/android/com/google/firebase/firestore/FirebaseFirestore#clearPersistence())
-and [Apple cache API](https://firebase.google.com/docs/reference/swift/firebasefirestore/api/reference/Classes/Firestore). See
-[account/cache behavior](../README.md#accounts-offline-use-and-photos).
+and [Apple cache API](https://firebase.google.com/docs/reference/swift/firebasefirestore/api/reference/Classes/Firestore),
+[FB-709 results](FB-709-RESULTS.md) and [account behavior](../README.md#accounts-offline-use-and-photos).
+
 
 
 ## Rules scope

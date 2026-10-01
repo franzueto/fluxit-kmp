@@ -3,6 +3,8 @@ package com.fluxit.feature.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fluxit.domain.auth.AuthError
+import com.fluxit.domain.auth.AuthResult
+import kotlinx.coroutines.CancellationException
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.domain.auth.AuthSession
 import com.fluxit.domain.auth.AuthUser
@@ -134,6 +136,9 @@ class SessionGateViewModel(
     private var initialRestorationComplete: Boolean = false
 
     private var restorationJob: Job? = null
+    private var cleanupInProgress = false
+    private var cleanupError: AuthError? = null
+    var beforeSignOut: () -> Unit = {}
 
     init {
         viewModelScope.launch {
@@ -212,6 +217,10 @@ class SessionGateViewModel(
      */
     private fun publishGateState() {
         val next = when {
+            cleanupInProgress -> SessionGateState.Resolving
+            cleanupError != null -> SessionGateState.ResolutionFailed(cleanupError!!)
+            (latestSession.value as? AuthSession.ResolutionFailed)?.error == AuthError.CleanupFailed ->
+                SessionGateState.ResolutionFailed(AuthError.CleanupFailed)
             !initialRestorationComplete -> SessionGateState.Resolving
             // DEC-006: a timed-out restoration resolves to signed-out regardless of what
             // the underlying flow last said, because whatever it said was never validated.
@@ -240,37 +249,50 @@ class SessionGateViewModel(
      */
     fun retryResolution() {
         if (_isBusy.value) return
+        if (cleanupError != null || (gate.value as? SessionGateState.ResolutionFailed)?.error == AuthError.CleanupFailed) {
+            signOut()
+            return
+        }
+        _isBusy.value = true
         viewModelScope.launch {
-            _isBusy.value = true
-            authRepository.restoreSession()
-            _isBusy.value = false
+            try { authRepository.restoreSession() }
+            finally { _isBusy.value = false }
         }
     }
 
-    /**
-     * Explicit escape hatch required by FB-102-NB2 and its iOS mirror: neither adapter
-     * signs out on a hard resolution failure, so a revoked or expired credential can
-     * leave the gate in [SessionGateState.ResolutionFailed] across any number of bare
-     * retries. Signing out first clears that credential and gives the user a path back
-     * to [SessionGateState.SignedOut] and the sign-in form.
-     */
-    fun signOutAndRetry() {
-        if (_isBusy.value) return
-        viewModelScope.launch {
-            _isBusy.value = true
-            authRepository.signOut()
-            authRepository.restoreSession()
-            _isBusy.value = false
-        }
-    }
+    fun signOutAndRetry() = performSignOut(retry = true)
+    fun signOut() = performSignOut(retry = false)
 
-    /** Signs the current user out from inside the authenticated area. */
-    fun signOut() {
+    private fun performSignOut(retry: Boolean) {
         if (_isBusy.value) return
+        _isBusy.value = true
+        cleanupInProgress = true
+        cleanupError = null
+        restorationJob?.cancel()
+        initialRestorationComplete = true
+        publishGateState()
+        // Synchronous store teardown releases user memory and cancels ViewModel scopes
+        // before the repository starts native SDK termination.
+        beforeSignOut()
         viewModelScope.launch {
-            _isBusy.value = true
-            authRepository.signOut()
-            _isBusy.value = false
+            try {
+                when (val result = authRepository.signOut()) {
+                    AuthResult.Success -> {
+                        latestSession.value = AuthSession.SignedOut
+                        if (retry) authRepository.restoreSession()
+                    }
+                    is AuthResult.Failure -> cleanupError = result.error
+                }
+            } catch (cancelled: CancellationException) {
+                cleanupError = AuthError.CleanupFailed
+                throw cancelled
+            } catch (_: Exception) {
+                cleanupError = AuthError.CleanupFailed
+            } finally {
+                cleanupInProgress = false
+                _isBusy.value = false
+                publishGateState()
+            }
         }
     }
 

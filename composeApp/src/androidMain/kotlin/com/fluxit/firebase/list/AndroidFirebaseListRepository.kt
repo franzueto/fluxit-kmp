@@ -61,9 +61,12 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  *   about concurrent edits to a document that already exists.
  */
 class AndroidFirebaseListRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    firestore: FirebaseFirestore? = null,
     private val currentUid: CurrentUidProvider = FirebaseAuthCurrentUidProvider(),
+    private val firestoreProvider: () -> FirebaseFirestore = { firestore ?: FirebaseFirestore.getInstance() },
 ) : ListRepository {
+
+    private val firestore: FirebaseFirestore get() = firestoreProvider()
 
     private fun listsCollection(uid: String): CollectionReference =
         firestore.collection(FirebaseSchema.USERS).document(uid).collection(FirebaseSchema.LISTS)

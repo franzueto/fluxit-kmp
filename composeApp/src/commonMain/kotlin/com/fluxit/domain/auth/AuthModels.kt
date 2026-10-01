@@ -86,6 +86,9 @@ sealed interface AuthError {
     /** The stored session is no longer valid and the user must sign in again. */
     data object SessionExpired : AuthError
 
+    /** Local privacy cleanup is incomplete. Sign-in stays blocked until retry succeeds. */
+    data object CleanupFailed : AuthError
+
     /** Anything the adapter could not map to a case above. */
     data object Unknown : AuthError
 }

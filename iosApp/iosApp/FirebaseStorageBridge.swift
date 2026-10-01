@@ -19,6 +19,57 @@ final class FirebaseStorageBridge: NSObject, IosFirebaseStorageBridge {
     private let storageProvider: () -> Storage
 
     private var storage: Storage { storageProvider() }
+    private let taskLock = NSLock()
+    private var tasks: [UUID: () -> Void] = [:]
+
+    private var cancelling = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func cancelSessionTasks() async {
+        await withCheckedContinuation { continuation in
+            taskLock.lock()
+            if tasks.isEmpty {
+                taskLock.unlock()
+                continuation.resume()
+                return
+            }
+            cancelling = true
+            waiters.append(continuation)
+            let outgoing = Array(tasks.values)
+            taskLock.unlock()
+            outgoing.forEach { $0() }
+        }
+    }
+
+    private func starting() -> UUID {
+        let id = UUID()
+        taskLock.lock(); tasks[id] = {}; taskLock.unlock()
+        return id
+    }
+
+    private func track(_ id: UUID, cancellation: @escaping () -> Void) {
+        taskLock.lock()
+        if tasks[id] != nil {
+            tasks[id] = cancellation
+            let cancelNow = cancelling
+            taskLock.unlock()
+            if cancelNow { cancellation() }
+        } else {
+            taskLock.unlock()
+            // Completion or cleanup raced task creation; never retain/restart it.
+            cancellation()
+        }
+    }
+
+    private func finished(_ id: UUID) {
+        taskLock.lock()
+        tasks.removeValue(forKey: id)
+        let completed = tasks.isEmpty ? waiters : []
+        if tasks.isEmpty { waiters.removeAll(); cancelling = false }
+        taskLock.unlock()
+        completed.forEach { $0.resume() }
+    }
+
 
     init(storageProvider: @escaping () -> Storage = { Storage.storage() }) {
         self.storageProvider = storageProvider
@@ -28,15 +79,21 @@ final class FirebaseStorageBridge: NSObject, IosFirebaseStorageBridge {
     func uploadData(photoRef: String, data: Data, mimeType: String, completion: @escaping (Error?) -> Void) {
         let metadata = StorageMetadata()
         metadata.contentType = mimeType
-        storage.reference(withPath: photoRef).putData(data, metadata: metadata) { _, error in
+        let id = starting()
+        let task = storage.reference(withPath: photoRef).putData(data, metadata: metadata) { [weak self] _, error in
+            self?.finished(id)
             completion(error)
         }
+        track(id) { task.cancel() }
     }
 
     func downloadData(photoRef: String, maxSize: Int64, completion: @escaping (Data?, Error?) -> Void) {
-        storage.reference(withPath: photoRef).getData(maxSize: maxSize) { data, error in
+        let id = starting()
+        let task = storage.reference(withPath: photoRef).getData(maxSize: maxSize) { [weak self] data, error in
+            self?.finished(id)
             completion(data, error)
         }
+        track(id) { task.cancel() }
     }
 
     func deleteObject(photoRef: String, completion: @escaping (Error?) -> Void) {
