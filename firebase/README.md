@@ -323,3 +323,7 @@ photo IDs otherwise upload as `application/octet-stream`. Storage Rules can
 validate declared MIME metadata and size, but cannot decode the image bytes;
 the client photo preparation policy performs that check. These checked-in
 changes are local; `FB-608` owns reviewed development deployment.
+
+The deployed-development client security runner, bounded fixture recovery, native
+iOS emulator runner and evidence bounds are documented in
+[FB-604 security verification](FB-604-SECURITY.md).
