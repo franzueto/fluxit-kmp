@@ -160,6 +160,10 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
+        iosTest.dependencies {
+            @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+            implementation(compose.uiTest)
+        }
         // FB-102: instrumented integration checks for the Android Firebase Auth
         // adapter. They run against the local Auth emulator (see the KDoc on
         // FirebaseAuthEmulatorIntegrationTest), never against a live project.

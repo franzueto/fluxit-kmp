@@ -9,17 +9,37 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxDefaults
+import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.fluxit.ui.theme.FluxCardShape
 import fluxit.composeapp.generated.resources.Res
 import fluxit.composeapp.generated.resources.content_description_delete
+import kotlinx.coroutines.flow.filter
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Swipe-to-delete wrapper (end-to-start only).
+ *
+ * FB-710: the swipe state is intentionally `remember`ed, NOT `rememberSaveable` (which is what
+ * `rememberSwipeToDismissBoxState` uses). A deleted row settles at `EndToStart`; inside a keyed
+ * `LazyColumn` a saveable state would be restored for the same key when Undo re-adds the row,
+ * leaving it dismissed (stuck error-colored row, or an `AnchoredDraggableState` "offset was read
+ * before being initialized" crash). A plain `remember` is discarded with the removed row, so a
+ * restored row always starts `Settled`.
+ *
+ * [onDelete] fires once per swipe, after the row has settled at the dismissed position, instead of
+ * from the deprecated `confirmValueChange` callback (which can be invoked repeatedly per gesture).
+ */
 @Composable
 fun SwipeToDeleteContainer(
     onDelete: () -> Unit,
@@ -27,16 +47,20 @@ fun SwipeToDeleteContainer(
     enabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val state = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (enabled && value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        }
-    )
+    val positionalThreshold = SwipeToDismissBoxDefaults.positionalThreshold
+    val state = remember {
+        SwipeToDismissBoxState(
+            initialValue = SwipeToDismissBoxValue.Settled,
+            positionalThreshold = positionalThreshold,
+        )
+    }
+    val currentOnDelete by rememberUpdatedState(onDelete)
+    val currentEnabled by rememberUpdatedState(enabled)
+    LaunchedEffect(state) {
+        snapshotFlow { state.settledValue }
+            .filter { it == SwipeToDismissBoxValue.EndToStart }
+            .collect { if (currentEnabled) currentOnDelete() }
+    }
     SwipeToDismissBox(
         state = state,
         modifier = modifier,
