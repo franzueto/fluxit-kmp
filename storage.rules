@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// FB-602: deny by default. Photos use exactly users/{uid}/items/{itemId}/{photoId}.
+// The mobile clients create a new photoId for every upload; existing objects
+// cannot be overwritten, while owners may still delete old/legacy objects.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function validImageUpload() {
+      return request.resource.size > 0
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType in [
+          'image/jpeg', 'image/png', 'image/webp'
+        ];
+    }
+
+    match /users/{uid}/items/{itemId}/{photoId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && resource == null && validImageUpload();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+  }
+}

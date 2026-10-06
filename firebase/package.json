@@ -1,0 +1,18 @@
+{
+  "name": "fluxit-firebase-rules-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-contained Firebase emulator + Security Rules tests for FluxIt (FB-005). Not wired into the Gradle/KMP build.",
+  "scripts": {
+    "emulators": "firebase --config ../firebase.json --project demo-fluxit emulators:start --only auth,firestore,storage",
+    "check": "node --test test/config.test.js",
+    "test": "npm run check && firebase --config ../firebase.json --project demo-fluxit emulators:exec --only auth,firestore,storage \"npm run test:run\"",
+    "test:run": "node --test --test-concurrency=1 test/firestore.rules.test.js test/storage.rules.test.js test/firestore.queries.test.js"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.6.0",
+    "firebase-tools": "^14.2.0"
+  }
+}

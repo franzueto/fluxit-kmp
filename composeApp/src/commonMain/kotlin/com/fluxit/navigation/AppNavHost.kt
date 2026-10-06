@@ -30,7 +30,7 @@ data class ListDetailRoute(val listId: String) : AppRoute
 data class CreateListRoute(val editingId: String? = null) : AppRoute
 
 @Serializable
-data class ItemDetailRoute(val itemId: String) : AppRoute
+data class ItemDetailRoute(val listId: String, val itemId: String) : AppRoute
 
 private val navigationSavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
@@ -43,8 +43,20 @@ private val navigationSavedStateConfiguration = SavedStateConfiguration {
     }
 }
 
+/**
+ * The authenticated navigation graph.
+ *
+ * FB-104: this is composed only from the `SessionGate`'s `Ready` branch, so every
+ * ViewModel and repository listener reachable from here is created strictly after
+ * session resolution. [accountEmail] and [onSignOut] come from the resolved session;
+ * they are passed down rather than re-resolved so no screen below needs its own
+ * `AuthRepository` handle.
+ */
 @Composable
-fun AppNavHost() {
+fun AppNavHost(
+    accountEmail: String?,
+    onSignOut: () -> Unit,
+) {
     val backStack = rememberNavBackStack(
         navigationSavedStateConfiguration,
         DashboardRoute,
@@ -62,6 +74,8 @@ fun AppNavHost() {
                 DashboardScreen(
                     onOpenList = { backStack.add(ListDetailRoute(it)) },
                     onCreateList = { backStack.add(CreateListRoute()) },
+                    accountEmail = accountEmail,
+                    onSignOut = onSignOut,
                 )
             }
             entry<ListDetailRoute> { route ->
@@ -69,7 +83,7 @@ fun AppNavHost() {
                     listId = route.listId,
                     onBack = { backStack.removeLastOrNull() },
                     onEditList = { backStack.add(CreateListRoute(it)) },
-                    onOpenItem = { backStack.add(ItemDetailRoute(it)) },
+                    onOpenItem = { backStack.add(ItemDetailRoute(route.listId, it)) },
                 )
             }
             entry<CreateListRoute> { route ->
@@ -84,6 +98,7 @@ fun AppNavHost() {
             }
             entry<ItemDetailRoute> { route ->
                 ItemDetailScreen(
+                    listId = route.listId,
                     itemId = route.itemId,
                     onBack = { backStack.removeLastOrNull() },
                 )

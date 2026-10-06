@@ -1,0 +1,104 @@
+{
+  "task": "FB-702",
+  "reviewStatus": "developer evidence; independent review pending",
+  "rollback": "a3b90bc2a6f38336e35d44a515fb424ecc026df0",
+  "earlierRollback": "462bac331698f0a10beaa253919a510ce30c54ab",
+  "historical701EvidenceCommit": "a3b90bc2a6f38336e35d44a515fb424ecc026df0",
+  "sourceFingerprintAlgorithm": "SHA256(sorted relative path + NUL + file SHA256 or DELETED + newline); includes unchanged 701 runtime sources and changed 702 sources, excludes tracker/evidence/prose",
+  "sourceFingerprint": "6aebf9a08fe7ef601271fc786d325f5b4a13b6c92bccb29d5ca116abd7e1c390",
+  "files": {
+    "composeApp/build.gradle.kts": "4b5228660ad7d5d65504d7bdcd52fd8e32c30f3333dac3f18132178cefabca73",
+    "composeApp/src/androidInstrumentedTest/kotlin/com/fluxit/data/PhotoAvailabilityEmulatorIntegrationTest.kt": "859eea60ab9d3e73899a69b303a3962d52442f999a6be61beaee96a00965c5fc",
+    "composeApp/src/androidInstrumentedTest/kotlin/com/fluxit/di/RepositoryDiInstrumentedTest.kt": "98bf0c877576752e76a5a817cb6c30ea35183de73e8e11f854ccf4fa68b1961d",
+    "composeApp/src/androidInstrumentedTest/kotlin/com/fluxit/firebase/EmulatorMalformedFixture.kt": "2a01d2d46500e2560178a4d8fd5010dec9f06045fbf78f048c7afb36d8152920",
+    "composeApp/src/androidInstrumentedTest/kotlin/com/fluxit/firebase/auth/AndroidAuthDiInstrumentedTest.kt": "c1565cac6052125076d6a4cc6c668c7bad1971bd0a5ea65d7bf95130846e235d",
+    "composeApp/src/androidInstrumentedTest/kotlin/com/fluxit/firebase/item/CrossClientItemEmulatorIntegrationTest.kt": "03201e59876a737ed576a165e24dcbb3f3e802f77c11859c8f0c5bc33ac8680b",
+    "composeApp/src/androidInstrumentedTest/kotlin/com/fluxit/firebase/item/FirestoreItemEmulatorIntegrationTest.kt": "81cc2cd0c33db15aa40c7f6f846f5b8471196473ca9cc6db742bf20f3838830a",
+    "composeApp/src/androidInstrumentedTest/kotlin/com/fluxit/firebase/item/FirestoreItemSnapshotEmulatorIntegrationTest.kt": "4f9b366ffef6921e576a7ecdcbf75559e39c6c4ea46524d620a5c29bf6310025",
+    "composeApp/src/androidInstrumentedTest/kotlin/com/fluxit/firebase/list/CrossClientListEmulatorIntegrationTest.kt": "b0a186277df30e85bba7d752571835ee64421d4160840ab017bba185bfba40a4",
+    "composeApp/src/androidInstrumentedTest/kotlin/com/fluxit/firebase/list/FirestoreListSnapshotEmulatorIntegrationTest.kt": "8072f484f1a21652824f4cf6e9eba73e19fe5e14eb9a4656a272e0f8a59c357e",
+    "composeApp/src/androidMain/kotlin/com/fluxit/di/PlatformModule.android.kt": "729f18778cf959bba728ea1f96cb59d3c031dd738d5cf332b2b929fde44f8e1a",
+    "composeApp/src/androidMain/kotlin/com/fluxit/firebase/item/AndroidFirebaseItemRepository.kt": "8c9564b1e7a09bb9e6bf3e190034f9d07d99ac6981051739beded1577ac7d0c0",
+    "composeApp/src/androidMain/kotlin/com/fluxit/firebase/list/AndroidFirebaseListRepository.kt": "b2b48c72ac72e03e1408e64a612532faa877e58eef337b5965a5c4f2b954f885",
+    "composeApp/src/commonMain/kotlin/com/fluxit/di/AppModule.kt": "1b63ffd819dba6518436ad2c9627e22418f07c5ea7b17712dd75a7ca9b46f1ab",
+    "composeApp/src/commonMain/kotlin/com/fluxit/di/RepositoryBinding.kt": "8d4e4139fd972e4dcff01d4e4c929939822a6522f1b38c47aaf2853c3aad865c",
+    "composeApp/src/commonMain/kotlin/com/fluxit/domain/auth/SessionTrace.kt": "DELETED",
+    "composeApp/src/commonMain/kotlin/com/fluxit/feature/auth/SessionGateViewModel.kt": "9be88066aba6b3f7b6ea489181d44fc0c87aa0761ec4cae337b1d18240013516",
+    "composeApp/src/commonMain/kotlin/com/fluxit/feature/auth/SessionScopedViewModelStores.kt": "7295c24f216a36d3d48aa5ff020416813e736d368f1b0362931f20e5108b5a4b",
+    "composeApp/src/commonMain/kotlin/com/fluxit/feature/dashboard/DashboardViewModel.kt": "948d3130ed78ce2e1b1c94726dd448dc0fc76d50a063c7990249559c5b2241cd",
+    "composeApp/src/commonTest/kotlin/com/fluxit/di/FirebaseDevFlagsTest.kt": "598f3f2e104e5a13b85e4e916b70b85772f9c693e18c187f9b65e71510a0c959",
+    "composeApp/src/firebaseParity/kotlin/com/fluxit/parity/ParityPhoto.kt": "15ee0e2d7fa65413f4878d287c7bc591db2de772355a69e7f9bcb2cf9a93d139",
+    "composeApp/src/firebaseParity/kotlin/com/fluxit/parity/RepositoryParityScenario.kt": "ea1bca16d52e82879bfebeb5713d5a0a16f2738599f192289cddd80077dcf1f5",
+    "composeApp/src/firebaseParityAndroid/kotlin/com/fluxit/parity/FirebaseRoomParityInstrumentedTest.kt": "915a65053d27e603b9e75ca14cf5f81b425dbf374e5c32e944263a7eeee78268",
+    "composeApp/src/firebaseParityIos/kotlin/com/fluxit/firebase/auth/IosAuthIntegrationCheck.kt": "4814e0c4c2b34a028c7795bb7a8c42bfd3a1a85d8746170c383e657a1be38d1a",
+    "composeApp/src/firebaseParityIos/kotlin/com/fluxit/parity/IosDefaultGraphCheck.kt": "a1953930bdc54bc058db1b05a31bd5e4b7a3a83757a347dd213bf395932c86ae",
+    "composeApp/src/firebaseParityIos/kotlin/com/fluxit/parity/IosFirebaseRoomParityCheck.kt": "0d0c762f88336fd73c33a5bf3bfaefe72553c06834ffb39afc32e4e51dfe0f4d",
+    "composeApp/src/iosMain/kotlin/com/fluxit/MainViewController.kt": "6be3f1b0a8fddd538f2c081cc6f600e54bd67ba3b44165a2b20655364a0dc770",
+    "composeApp/src/iosMain/kotlin/com/fluxit/di/PlatformModule.ios.kt": "2dece846f85768ead7d909df4e14dbdb55e5792eff53633ee860e9043f233723",
+    "composeApp/src/iosMain/kotlin/com/fluxit/firebase/auth/IosAuthIntegrationCheck.kt": "DELETED",
+    "composeApp/src/iosMain/kotlin/com/fluxit/firebase/crossclient/IosFirestoreCrossClientIntegrationCheck.kt": "63d96c6b7bb08bd6ed6ba04efea2772d5e355eb023b554710ac13fa0d49652e1",
+    "composeApp/src/iosMain/kotlin/com/fluxit/firebase/storage/IosPhotoStorageIntegrationCheck.kt": "6eebb9c91afa1d351d33f0522b43165e4d9fa8be23cc7ef47575d4683472c519",
+    "firebase/cutover/default-ios.py": "e7a7566a77db12f36236f4533268fa60bf877db2dae7798c4d4c159daec7d468",
+    "firebase/cutover/verify.py": "91b09407decf3aa8e8b38f7007d35fed494b6b35f222ea7a377f4a14f6ef19df",
+    "firebase/parity/ios-checks.py": "5c2c226f6e036e15d8662acab071f1c6bc824ac7acdace78b3a06d158f529dfe",
+    "firebase/parity/native.py": "d8d5baa1e38e4abfec5364e0ec24dfa286a3f66f4a85a0d1e578ad7e32a9b512",
+    "firebase/parity/report.py": "cfc8a50a67ebdbf75d9296fa0fd626714bab63900895d42e240b5bbf4b93eafe",
+    "gradle.properties": "fc4d7cf1a7819c1563f2b6250de34b6f8f53c95215e9a6b6039099c804ff1ecd",
+    "iosApp/iosApp/ContentView.swift": "96a4ca6c9014f98f1d10ed33860a09bce158693c7478f3db48d24d0e5ad08233",
+    "iosApp/iosApp/FirebaseBootstrap.swift": "92b71d770db57045831a61713a4001ffd36537eeedb48358d07b227aeb304f29",
+    "iosApp/iosApp/FirebaseItemBridge.swift": "ff58bcb7f44d8b76ab704afdeebe9ee198843011fdae43cea1dbb2e86ebe1a91",
+    "iosApp/iosApp/FirebaseListBridge.swift": "053707e8cdc6d1b71afe85a8546a81b928040263947174ef3a452345152fda26"
+  },
+  "results": {
+    "androidNative": 88,
+    "appleNativeAssertions": 138,
+    "appleListenerCrashPass": true,
+    "parityCheckpointsPerPlatform": 16,
+    "crossPlatformRealtime": "bidirectional",
+    "crossPlatformPhotos": "byte equal; replacement and two deletions",
+    "offlineRecovery": "visible pending list/item/edit/tombstone/undo, server acknowledgement",
+    "defaultAndroidActualGraph": "Firebase, Room factory uncreated",
+    "defaultIosActualStartupGraphDiagnostic": "Firebase, emulator=false, Room/Auth repository factories uncreated; no auth composition or repository I/O",
+    "defaultConfiguration": {
+      "emulatorEnabled": false,
+      "repositoryMetadata": true
+    },
+    "ordinaryBuilds": [
+      "Android Debug",
+      "Android Release",
+      "iOS Debug simulator",
+      "iOS Release simulator"
+    ],
+    "ordinaryDiagnosticsAbsent": [
+      "moved iOS Auth check",
+      "iOS parity/default graph probes",
+      "production SessionTrace"
+    ],
+    "scopedCleanup": {
+      "documents": 8,
+      "accounts": 1,
+      "remainingAccounts": 0,
+      "remainingLists": 0,
+      "remainingPhotos": 0,
+      "recoveryPhotos": 0
+    },
+    "testDebugUnitTest": {
+      "tests": 232,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "testReleaseUnitTest": {
+      "tests": 232,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "iosSimulatorArm64Test": {
+      "tests": 295,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  }
+}

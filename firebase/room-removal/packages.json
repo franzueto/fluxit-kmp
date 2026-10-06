@@ -1,0 +1,71 @@
+{
+  "dependenciesSha256": "68e42f61df5fa149880afd5655fb9d1ab7eca88a3323ea5ee4e1ee996a50629e",
+  "packages": {
+    "android-debug": {
+      "sha256": "62c2c2adc7dd7a17553fbdfafad2fd6ef61129c135276a6d6840407c7dabc85d",
+      "dexFiles": [
+        "classes.dex",
+        "classes10.dex",
+        "classes11.dex",
+        "classes12.dex",
+        "classes13.dex",
+        "classes14.dex",
+        "classes15.dex",
+        "classes2.dex",
+        "classes3.dex",
+        "classes4.dex",
+        "classes5.dex",
+        "classes6.dex",
+        "classes7.dex",
+        "classes8.dex",
+        "classes9.dex"
+      ],
+      "nativeEntries": [
+        "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "lib/arm64-v8a/libdatastore_shared_counter.so",
+        "lib/armeabi-v7a/libandroidx.graphics.path.so",
+        "lib/armeabi-v7a/libdatastore_shared_counter.so",
+        "lib/x86/libandroidx.graphics.path.so",
+        "lib/x86/libdatastore_shared_counter.so",
+        "lib/x86_64/libandroidx.graphics.path.so",
+        "lib/x86_64/libdatastore_shared_counter.so"
+      ],
+      "firebaseSystemSQLiteReferences": true
+    },
+    "android-release": {
+      "sha256": "730ccb3adeb25b73aed483f335cfe0e5241ecdf0b3ab3c4a328f7fa0bde6e021",
+      "dexFiles": [
+        "classes.dex",
+        "classes2.dex",
+        "classes3.dex",
+        "classes4.dex"
+      ],
+      "nativeEntries": [
+        "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "lib/arm64-v8a/libdatastore_shared_counter.so",
+        "lib/armeabi-v7a/libandroidx.graphics.path.so",
+        "lib/armeabi-v7a/libdatastore_shared_counter.so",
+        "lib/x86/libandroidx.graphics.path.so",
+        "lib/x86/libdatastore_shared_counter.so",
+        "lib/x86_64/libandroidx.graphics.path.so",
+        "lib/x86_64/libdatastore_shared_counter.so"
+      ],
+      "firebaseSystemSQLiteReferences": true
+    },
+    "ios-debug": {
+      "binaries": {
+        "FluxIt": "4e93684271007677affd8e709aea971cf79a5d6a56884b6e71b4faffca1b9e22",
+        "FluxIt.debug.dylib": "1e98de3d977819c315463c8f9abebf97c941ced6d7860a07cddc880961819495"
+      },
+      "nativeFirestorePresent": true,
+      "systemSQLiteLinkage": []
+    },
+    "ios-release": {
+      "binaries": {
+        "FluxIt": "5e888bee736f321c669bf92976d8720c4ff1a8eabed88f89359f3bcd784ba9af"
+      },
+      "nativeFirestorePresent": true,
+      "systemSQLiteLinkage": []
+    }
+  }
+}

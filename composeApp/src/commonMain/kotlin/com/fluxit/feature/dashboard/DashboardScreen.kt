@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.DataArray
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,13 +36,16 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -49,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.fluxit.domain.FluxListSummary
 import com.fluxit.ui.components.EmptyState
+import com.fluxit.ui.components.OperationErrorFeedback
 import com.fluxit.ui.components.SwipeToDeleteContainer
 import com.fluxit.ui.components.toImageVector
 import com.fluxit.ui.theme.FluxCardShape
@@ -66,11 +71,17 @@ const val DEBUG_SEED_ENABLED = true
 fun DashboardScreen(
     onOpenList: (String) -> Unit,
     onCreateList: () -> Unit,
+    // FB-104: supplied by the session gate. This screen never resolves an
+    // AuthRepository itself; it only renders the already-resolved identity and
+    // forwards the sign-out intent back up to the gate.
+    accountEmail: String? = null,
+    onSignOut: () -> Unit = {},
     viewModel: DashboardViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val undoListId by viewModel.undoListId.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showAccountDialog by remember { mutableStateOf(false) }
     val listDeletedMessage = stringResource(Res.string.message_list_deleted)
     val undoLabel = stringResource(Res.string.action_undo)
 
@@ -82,6 +93,53 @@ fun DashboardScreen(
             duration = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete() else viewModel.dismissUndo()
+    }
+
+    if (showAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showAccountDialog = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            title = {
+                Text(
+                    stringResource(Res.string.account_title),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    if (accountEmail != null) {
+                        stringResource(Res.string.account_signed_in_as, accountEmail)
+                    } else {
+                        stringResource(Res.string.account_signed_in_no_email)
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(stringResource(Res.string.session_sign_out_notice))
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showAccountDialog = false
+                        onSignOut()
+                    },
+                ) {
+                    Text(
+                        stringResource(Res.string.action_sign_out),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAccountDialog = false }) {
+                    Text(
+                        stringResource(Res.string.action_cancel),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
+        )
     }
 
     Scaffold(
@@ -123,18 +181,21 @@ fun DashboardScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape)
+                        .clickable { showAccountDialog = true },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Outlined.Person,
-                        contentDescription = stringResource(Res.string.content_description_profile),
+                        contentDescription = stringResource(Res.string.content_description_account),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Spacer(Modifier.weight(1f))
                 if (DEBUG_SEED_ENABLED) {
-                    IconButton(onClick = viewModel::seedSampleData) {
+                    IconButton(onClick = viewModel::seedSampleData, enabled = !state.isSeeding) {
                         Icon(
                             Icons.Outlined.DataArray,
                             contentDescription = stringResource(Res.string.content_description_seed_sample_data),
@@ -188,6 +249,23 @@ fun DashboardScreen(
                 ),
             )
 
+            state.operationError?.let { failure ->
+                OperationErrorFeedback(
+                    message = stringResource(
+                        when (failure.operation) {
+                            DashboardOperation.DELETE_LIST -> Res.string.operation_delete_list_failed
+                            DashboardOperation.RESTORE_LIST -> Res.string.operation_restore_list_failed
+                            DashboardOperation.SEED_SAMPLE_DATA -> Res.string.operation_seed_data_failed
+                        },
+                    ),
+                    error = failure.error,
+                    operationInFlight = state.pendingListIds.isNotEmpty() || state.isSeeding,
+                    onRetry = viewModel::retryFailedOperation,
+                    onDismiss = viewModel::dismissOperationError,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+
             if (!state.isLoading && state.lists.isEmpty()) {
                 EmptyState(
                     if (state.searchQuery.isBlank()) stringResource(Res.string.empty_lists)
@@ -200,7 +278,10 @@ fun DashboardScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 16.dp, bottom = 96.dp),
                 ) {
                     items(state.lists, key = { it.list.id }) { summary ->
-                        SwipeToDeleteContainer(onDelete = { viewModel.deleteList(summary.list.id) }) {
+                        SwipeToDeleteContainer(
+                            onDelete = { viewModel.deleteList(summary.list.id) },
+                            enabled = summary.list.id !in state.pendingListIds,
+                        ) {
                             ListRow(summary = summary, onClick = { onOpenList(summary.list.id) })
                         }
                     }

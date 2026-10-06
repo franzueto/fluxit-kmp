@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -41,12 +43,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.ui.components.toImageVector
+import com.fluxit.ui.components.OperationErrorFeedback
 import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
@@ -65,6 +70,15 @@ fun CreateListScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var showDiscardDialog by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(state.error) {
+        if (state.error != null) {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+        }
+    }
 
     LaunchedEffect(state.savedListId) {
         val saved = state.savedListId ?: return@LaunchedEffect
@@ -90,11 +104,12 @@ fun CreateListScreen(
         )
     }
 
+    Box(modifier = Modifier.fillMaxSize().imePadding()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
-            Box(
+            Column(
                 modifier = Modifier
                     .background(MaterialTheme.colorScheme.background)
                     .padding(FluxSpacing.ContainerPadding),
@@ -135,7 +150,9 @@ fun CreateListScreen(
                     style = FluxType.BodyMd,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .clickable { if (state.isDirty) showDiscardDialog = true else onDismiss() }
+                        .clickable(enabled = !state.isSaving) {
+                            if (state.isDirty) showDiscardDialog = true else onDismiss()
+                        }
                         .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
                 )
                 Text(
@@ -153,6 +170,7 @@ fun CreateListScreen(
             TextField(
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
+                enabled = !state.isSaving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = FluxSpacing.ContainerPadding),
@@ -208,7 +226,7 @@ fun CreateListScreen(
                                 if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, FluxCardShape)
                                 else Modifier
                             )
-                            .clickable { viewModel.onIconChange(icon) },
+                            .clickable(enabled = !state.isSaving) { viewModel.onIconChange(icon) },
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -239,11 +257,25 @@ fun CreateListScreen(
                             )
                             .padding(5.dp)
                             .background(colorToken.toColor(), CircleShape)
-                            .clickable { viewModel.onColorChange(colorToken) },
+                            .clickable(enabled = !state.isSaving) { viewModel.onColorChange(colorToken) },
                     )
                 }
             }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+        state.error?.let { error ->
+            OperationErrorFeedback(
+                message = stringResource(Res.string.operation_create_list_failed),
+                error = error,
+                operationInFlight = state.isSaving,
+                onRetry = viewModel::retrySave,
+                onDismiss = viewModel::dismissError,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
+            )
         }
     }
 }

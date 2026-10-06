@@ -1,18 +1,19 @@
 [versions]
 kotlin = "2.3.20"
-ksp = "2.3.6"
 agp = "8.9.2"
 composeMultiplatform = "1.10.3"
 androidx-activity = "1.10.1"
 androidx-lifecycle = "2.10.0"
 navigation3 = "1.1.1"
-room = "2.7.2"
-sqlite = "2.5.2"
 koin = "4.1.0"
 kotlinx-coroutines = "1.10.2"
 kotlinx-datetime = "0.7.1"
 kotlinx-serialization = "1.9.0"
 materialIconsExtended = "1.7.3"
+googleServices = "4.4.4"
+firebaseBom = "34.4.0"
+androidx-test-junit = "1.2.1"
+androidx-test-runner = "1.6.2"
 
 android-compileSdk = "36"
 android-minSdk = "26"
@@ -25,9 +26,6 @@ androidx-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycl
 androidx-lifecycle-viewmodel-navigation3 = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "androidx-lifecycle" }
 navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
 material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel", version.ref = "koin" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
@@ -36,6 +34,12 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-auth = { module = "com.google.firebase:firebase-auth" }
+firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
+firebase-storage = { module = "com.google.firebase:firebase-storage" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-junit" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test-runner" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -43,5 +47,4 @@ composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMul
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-room = { id = "androidx.room", version.ref = "room" }
+googleServices = { id = "com.google.gms.google-services", version.ref = "googleServices" }

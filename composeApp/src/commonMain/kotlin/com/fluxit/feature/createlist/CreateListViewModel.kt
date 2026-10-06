@@ -2,9 +2,13 @@ package com.fluxit.feature.createlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fluxit.data.remote.ApplicationError
+import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.toApplicationError
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.domain.ListRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +28,12 @@ data class CreateListUiState(
     val isSaving: Boolean = false,
     /** Set after save: created list id (create mode) or "" (edit mode saved). */
     val savedListId: String? = null,
+    /**
+     * `FB-402`: non-null when the most recent [CreateListViewModel.save] attempt failed and has
+     * not since been retried successfully or dismissed via [CreateListViewModel.dismissError].
+     * FB-401's neutral, Firebase-free [ApplicationError] - never a raw SDK exception.
+     */
+    val error: ApplicationError? = null,
 ) {
     val isValid: Boolean get() = name.trim().isNotEmpty() && name.length <= MAX_LIST_NAME_LENGTH
     val isDirty: Boolean get() = name != initialName || icon != initialIcon || color != initialColor
@@ -66,19 +76,59 @@ class CreateListViewModel(
         _uiState.value = _uiState.value.copy(color = color)
     }
 
+    /**
+     * `FB-402`: creates or updates the list. A second call while the first is still in flight (a
+     * double-tap, or a retry racing a fresh tap) is a no-op - [CreateListUiState.isSaving] is set
+     * synchronously, before the coroutine is even launched, so the guard below always sees the
+     * first call's flag, exactly like `ItemDetailViewModel.pickPhoto`'s pre-existing
+     * `isPickingPhoto` guard.
+     *
+     * On failure, `isSaving` is still reset (`finally`) and a retryable [CreateListUiState.error]
+     * is surfaced instead of the flag being left stuck `true` forever with no feedback -
+     * previously an uncaught exception here left [CreateListUiState.isSaving] permanently `true`,
+     * locking the Save button with no recourse.
+     */
     fun save() {
         val state = _uiState.value
         if (!state.isValid || state.isSaving) return
-        _uiState.value = state.copy(isSaving = true)
+        _uiState.value = state.copy(isSaving = true, error = null)
         viewModelScope.launch {
-            val name = state.name.trim()
-            if (editingId != null) {
-                listRepository.updateList(editingId, name, state.icon, state.color)
-                _uiState.value = _uiState.value.copy(savedListId = "")
-            } else {
-                val id = listRepository.createList(name, state.icon, state.color)
-                _uiState.value = _uiState.value.copy(savedListId = id)
+            try {
+                val name = state.name.trim()
+                if (editingId != null) {
+                    listRepository.updateList(editingId, name, state.icon, state.color)
+                    _uiState.value = _uiState.value.copy(savedListId = "")
+                } else {
+                    val id = listRepository.createList(name, state.icon, state.color)
+                    _uiState.value = _uiState.value.copy(savedListId = id)
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Throwable) {
+                _uiState.value = _uiState.value.copy(error = failure.toCreateListApplicationError())
+            } finally {
+                _uiState.value = _uiState.value.copy(isSaving = false)
             }
         }
     }
+
+    /**
+     * `FB-402`: re-attempts [save] with the current (possibly since-edited) field values - a
+     * no-op if nothing failed or a save is already in flight, exactly like [save] itself.
+     */
+    fun retrySave() = save()
+
+    /** Clears a shown [CreateListUiState.error] without retrying. */
+    fun dismissError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
 }
+
+/**
+ * `FB-402`: see the identically-documented helper in `DashboardViewModel.kt` - the same
+ * `commonMain`/platform-`internal` boundary gap applies here, since [CreateListViewModel] also
+ * only ever calls [ListRepository]. Conservatively reported as [RepositoryErrorCode.UNKNOWN]
+ * (`canRetry = true`) rather than a guessed, more specific code.
+ */
+private fun Throwable.toCreateListApplicationError(): ApplicationError =
+    RepositoryErrorCode.UNKNOWN.toApplicationError()

@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -47,7 +50,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.fluxit.ui.components.decodeImageFile
+import com.fluxit.data.PhotoContent
+import com.fluxit.ui.components.decodeImageBytes
+import com.fluxit.ui.components.OperationErrorFeedback
 import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
@@ -62,12 +67,14 @@ import org.koin.core.parameter.parametersOf
 
 @Composable
 fun ItemDetailScreen(
+    listId: String,
     itemId: String,
     onBack: () -> Unit,
-    viewModel: ItemDetailViewModel = koinViewModel { parametersOf(itemId) },
+    viewModel: ItemDetailViewModel = koinViewModel { parametersOf(listId, itemId) },
 ) {
     val state by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val operationInFlight = state.isSaving || state.isDeletingItem || state.isPhotoBusy
 
     LaunchedEffect(state.closed) {
         if (state.closed) onBack()
@@ -90,10 +97,13 @@ fun ItemDetailScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    viewModel.deleteItem()
-                }) {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteItem()
+                    },
+                    enabled = !operationInFlight,
+                ) {
                     Text(stringResource(Res.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -105,10 +115,11 @@ fun ItemDetailScreen(
         )
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets.safeDrawing,
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets.safeDrawing,
+        ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -145,14 +156,14 @@ fun ItemDetailScreen(
                 Text(
                     stringResource(Res.string.action_save),
                     style = FluxType.BodyMd,
-                    color = if (state.canSave) {
+                    color = if (state.canSave && !operationInFlight) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .clickable(enabled = state.canSave, onClick = viewModel::save)
+                        .clickable(enabled = state.canSave && !operationInFlight, onClick = viewModel::save)
                         .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
                 )
             }
@@ -169,6 +180,7 @@ fun ItemDetailScreen(
                 value = state.title,
                 onValueChange = viewModel::onTitleChange,
                 singleLine = true,
+                enabled = !operationInFlight,
             )
 
             SectionLabel(stringResource(Res.string.section_description))
@@ -177,6 +189,7 @@ fun ItemDetailScreen(
                 onValueChange = viewModel::onDescriptionChange,
                 singleLine = false,
                 minHeight = 120.dp,
+                enabled = !operationInFlight,
             )
 
             // Photo section
@@ -195,7 +208,7 @@ fun ItemDetailScreen(
                 )
                 Row(
                     modifier = Modifier
-                        .clickable(enabled = !state.isPickingPhoto, onClick = viewModel::pickPhoto)
+                        .clickable(enabled = !operationInFlight, onClick = viewModel::pickPhoto)
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -223,8 +236,13 @@ fun ItemDetailScreen(
                     .background(MaterialTheme.colorScheme.surfaceContainer),
                 contentAlignment = Alignment.Center,
             ) {
-                val path = state.photoPath
-                val bitmap = remember(path) { path?.let(::decodeImageFile) }
+                val preview = state.photoPreview
+                val bitmap = remember(preview) {
+                    when (preview) {
+                        is PhotoContent.Bytes -> decodeImageBytes(preview.bytes)
+                        null -> null
+                    }
+                }
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap,
@@ -232,30 +250,67 @@ fun ItemDetailScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                     )
-                } else {
+                } else if (!state.isPhotoBusy) {
                     Text(
                         stringResource(Res.string.no_photo_yet),
                         style = FluxType.BodyMd,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                // FB-306: loading/progress state, shown for both a replace (isPickingPhoto)
+                // and a remove (isRemovingPhoto) - overlaid on top of whatever preview (old
+                // photo, if any) is currently showing, so the old photo stays visible while
+                // its replacement/removal is in flight rather than flashing to a blank state.
+                if (state.isPhotoBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 3.dp,
+                    )
+                }
             }
-            if (state.photoPath != null) {
+
+            val photoError = state.photoOperationFailed
+            if (photoError != null) {
+                PhotoErrorRow(
+                    kind = photoError,
+                    enabled = !operationInFlight,
+                    canRetry = state.photoOperationError?.canRetry != false,
+                    onRetry = viewModel::retryPhotoOperation,
+                    onDismiss = viewModel::dismissPhotoError,
+                )
+            } else if (state.photoRef != null) {
                 Text(
                     stringResource(Res.string.action_remove_photo),
                     style = FluxType.LabelSm,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
-                        .clickable(onClick = viewModel::removePhoto)
+                        .clickable(enabled = !operationInFlight, onClick = viewModel::removePhoto)
                         .padding(8.dp),
                 )
             }
 
             Spacer(Modifier.height(24.dp))
 
+            state.deleteError?.let { error ->
+                OperationErrorFeedback(
+                    message = stringResource(Res.string.operation_delete_item_failed),
+                    error = error,
+                    operationInFlight = operationInFlight,
+                    onRetry = viewModel::retryDeleteItem,
+                    onDismiss = viewModel::dismissDeleteError,
+                    modifier = Modifier.padding(
+                        start = FluxSpacing.ContainerPadding,
+                        end = FluxSpacing.ContainerPadding,
+                        bottom = 12.dp,
+                    ),
+                )
+            }
+
             OutlinedButton(
                 onClick = { showDeleteDialog = true },
+                enabled = !operationInFlight,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = FluxSpacing.ContainerPadding)
@@ -282,8 +337,82 @@ fun ItemDetailScreen(
                 )
             }
             Spacer(Modifier.height(16.dp))
+            }
+        }
+        state.saveError?.let { error ->
+            OperationErrorFeedback(
+                message = stringResource(Res.string.operation_save_item_failed),
+                error = error,
+                operationInFlight = operationInFlight,
+                onRetry = viewModel::retrySave,
+                onDismiss = viewModel::dismissSaveError,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
+            )
         }
     }
+}
+
+/**
+ * `FB-306`: shown in place of the "Remove photo" affordance whenever
+ * [ItemDetailUiState.photoOperationFailed] is non-null - a failed replace or remove, with a
+ * message scoped to which operation failed (see [PhotoOperationKind]) and Retry/Dismiss
+ * actions wired to [ItemDetailViewModel.retryPhotoOperation]/
+ * [ItemDetailViewModel.dismissPhotoError]. Both actions are disabled while [enabled] is false
+ * (i.e. while a retry is already in flight), mirroring `SessionGate`'s established
+ * busy-disables-actions pattern for its own retry row.
+ */
+@Composable
+private fun PhotoErrorRow(
+    kind: PhotoOperationKind,
+    enabled: Boolean,
+    canRetry: Boolean,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = FluxSpacing.ContainerPadding, vertical = 8.dp),
+    ) {
+        Text(
+            stringResource(kind.messageResource()),
+            style = FluxType.LabelSm,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            if (canRetry) {
+                Text(
+                    stringResource(Res.string.action_try_again),
+                    style = FluxType.LabelSm,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clickable(enabled = enabled, onClick = onRetry)
+                        .padding(8.dp),
+                )
+            }
+            Text(
+                stringResource(Res.string.action_dismiss),
+                style = FluxType.LabelSm,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clickable(enabled = enabled, onClick = onDismiss)
+                    .padding(8.dp),
+            )
+        }
+    }
+}
+
+private fun PhotoOperationKind.messageResource() = when (this) {
+    PhotoOperationKind.REPLACE -> Res.string.photo_replace_failed_message
+    PhotoOperationKind.REMOVE -> Res.string.photo_remove_failed_message
 }
 
 @Composable
@@ -333,10 +462,12 @@ private fun FluxTextField(
     onValueChange: (String) -> Unit,
     singleLine: Boolean,
     minHeight: androidx.compose.ui.unit.Dp = 56.dp,
+    enabled: Boolean = true,
 ) {
     TextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = FluxSpacing.ContainerPadding)

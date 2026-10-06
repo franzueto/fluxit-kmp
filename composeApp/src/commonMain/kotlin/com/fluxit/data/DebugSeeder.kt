@@ -27,7 +27,7 @@ class DebugSeeder(
             getString(Res.string.sample_item_olive_oil),
         ).forEach { items.addItem(supermarket, it) }
         // Complete a couple so the dashboard shows the "x% completed" subtitle.
-        items.observeItems(supermarket).first().take(3).forEach { items.setCompleted(it.id, true) }
+        items.observeItems(supermarket).first().take(3).forEach { items.setCompleted(supermarket, it.id, true) }
 
         val home = lists.createList(
             getString(Res.string.sample_list_home_todo),
