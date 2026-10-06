@@ -1,5 +1,7 @@
 # FB-706 remaining human checks
 
+> Update 2026-10-06: MAN-008 later recorded PASS (user-attested, blanket M01-M10 on Android AVD and iOS simulator, after FB-710); see FIREBASE_MIGRATION_STATUS.md. The statement below is historically true for FB-706 only.
+
 This checklist supplies FB-707 / MAN-008 under PLAN-012. Every row below is **NOT RUN by a human in FB-706**. Automated coverage is related evidence, never a literal gesture PASS. The orchestrator requests sanitized per-platform results or an explicit waiver of named remaining checks after independent FB-706 review. DEC-012 waives production provisioning only; the existing permanent physical-iOS waiver remains. Supported targets are Android AVD and iOS simulator, with development-only synthetic accounts/data.
 
 Use an explicitly approved development fixture/account on each supported platform. Record only platform/build fingerprint, row ID, PASS/FAIL/WAIVED and sanitized observations. Do not send passwords, tokens, email/UID, screenshots containing account data, or raw SDK logs. Do not reset or delete shared development data. When network-cut steps are used, identify the connection actually cut and restore it before continuing; simulator host-network cuts approximate device radio behavior.
