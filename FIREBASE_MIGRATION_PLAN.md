@@ -2,7 +2,7 @@
 
 > Plan version: 2.0 (execution-ready)
 >
-> This file defines architecture and scope. Live task state, evidence, blockers, and the exact resume point are maintained in [`FIREBASE_MIGRATION_STATUS.md`](FIREBASE_MIGRATION_STATUS.md). The four-agent operating procedure is defined in [`FIREBASE_MIGRATION_WORKFLOW.md`](FIREBASE_MIGRATION_WORKFLOW.md). Do not infer progress from this document or from chat history.
+> This file defines architecture and scope. Live task state, evidence, blockers, and the exact resume point are maintained in [`FIREBASE_MIGRATION_STATUS.md`](FIREBASE_MIGRATION_STATUS.md). The four-agent operating procedure is defined in [`FIREBASE_MIGRATION_WORKFLOW.md`](docs/firebase-migration/agent-config/FIREBASE_MIGRATION_WORKFLOW.md) (kept as reference after migration closure). Do not infer progress from this document or from chat history.
 
 ## Goal
 

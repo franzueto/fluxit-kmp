@@ -121,8 +121,10 @@ try:
     run([a.adb,'-s',a.android_device,'install','-r',str(apks[0])],'android-install.log')
     run([a.adb,'-s',a.android_device,'install','-r',str(apks[1])],'android-test-install.log')
     android=run([a.adb,'-s',a.android_device,'shell','am','instrument','-w','-r','-e','notClass','com.fluxit.parity.FirebaseRegressionInstrumentedTest,com.fluxit.parity.SessionCleanupInstrumentedTest','com.fluxit.test/androidx.test.runner.AndroidJUnitRunner'],'android-full.log')
-    assert 'OK (90 tests)' in android and 'FAILURES!!!' not in android and 'Process crashed' not in android,'incomplete-android-suite'
-    print('PASS Android complete instrumentation=90 including actual default DI',flush=True)
+    # Exact count guards against a partial run; update it when instrumented tests are added or removed.
+    expected_android_tests=100
+    assert f'OK ({expected_android_tests} tests)' in android and 'FAILURES!!!' not in android and 'Process crashed' not in android,'incomplete-android-suite'
+    print(f'PASS Android complete instrumentation={expected_android_tests} including actual default DI',flush=True)
     apple=run(['python3',str(root/'firebase/final-verification/ios_checks.py'),'--app',a.app,'--device',a.device,'--lease',str(lease_path)],'apple-checks.log')
     assert apple.count('PASS native-iOS-emulator')==11 and '\nFAIL' not in apple,'incomplete-apple-suite'
     print('PASS Apple emulator selfchecks=11',flush=True)
