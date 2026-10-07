@@ -275,6 +275,30 @@ class PhotoStorageEmulatorIntegrationTest {
         assertNull(clientA.loadPhoto(neverUploadedRef), "a signed-out uploadPhoto call must never create an object")
     }
 
+    // --- direct callers get PhotoRejected for invalid bytes ----------------------------
+
+    /**
+     * [PhotoStorage.uploadPhoto] validates its bytes before touching Storage and documents
+     * [PhotoRejected] as the result for a direct caller passing invalid ones. Nothing may be
+     * created for the rejected call.
+     */
+    @Test
+    fun uploadPhotoWithInvalidBytesThrowsPhotoRejectedAndCreatesNoObject(): Unit = runBlocking {
+        val itemId = UUID.randomUUID().toString()
+        val fixedPhotoId = newPhotoId()
+        val client = AndroidPhotoStorage(storageA, CurrentUidProvider { uidA }, photoIdFactory = { fixedPhotoId })
+
+        assertFailsWith<PhotoRejected.Corrupt> { client.uploadPhoto(itemId, byteArrayOf(1, 2, 3)) }
+        assertFailsWith<PhotoRejected.UnsupportedType> {
+            client.uploadPhoto(itemId, "GIF89a".encodeToByteArray() + ByteArray(16))
+        }
+
+        assertNull(
+            clientA.loadPhoto(FirebaseSchema.photoRef(uidA, itemId, fixedPhotoId)),
+            "a rejected upload must never create an object",
+        )
+    }
+
     // --- helpers ------------------------------------------------------------------------
 
     /** A real denial: the specific code Storage Rules use for a permission failure, and

@@ -18,7 +18,7 @@ when you start or finish an item, and add a line to its *Log*.
 | [PM-01](#pm-01--shared-repository-error-classification) | High | Shared repository error classification | DONE | FB-402-NB1, FB-403-NB2, FB-406-NB2, FB-204-NB3 |
 | [PM-02](#pm-02--swipe-to-delete-row-stuck-after-a-failed-or-skipped-delete) | Medium | Swipe-to-delete row stuck after a failed or skipped delete | DONE | FB-710-NB1, FB-710-NB2, FB-710-NB3 |
 | [PM-03](#pm-03--move-ios-test-harnesses-out-of-the-shipping-app) | Medium | Move iOS test harnesses out of the shipping app | DONE | FB-103-NB3, FB-307-NB1 |
-| [PM-04](#pm-04--photo-upload-error-contract-for-direct-callers) | Low | Photo upload error contract for direct callers | TODO | FB-602-NB1 |
+| [PM-04](#pm-04--photo-upload-error-contract-for-direct-callers) | Low | Photo upload error contract for direct callers | DONE | FB-602-NB1 |
 | [PM-05](#pm-05--test-coverage-gaps) | Low | Test coverage gaps | TODO | FB-007-NB1, FB-304-NB2, FB-105-NB2 |
 | [PM-06](#pm-06--session-restore-outcome-contract) | Low | Session-restore outcome contract | TODO | FB-104-NB1 |
 | [PM-07](#pm-07--continuous-integration-optional) | Optional | Continuous integration | TODO | FB-206-NB2 |
@@ -126,7 +126,7 @@ references first. If `IosPhotoStorageIntegrationCheck` is kept, fix or soften FB
 
 ## PM-04 — Photo upload error contract for direct callers
 
-**Priority:** Low · **Status:** TODO · **Source:** FB-602-NB1
+**Priority:** Low · **Status:** DONE · **Source:** FB-602-NB1
 
 **Problem.** `PhotoStorage.uploadPhoto` documents that failures surface as
 `PhotoStorageException`, but `validatePhotoSource` runs before the adapter's try/catch on
@@ -138,10 +138,11 @@ no user flow is affected.
 so it surfaces as `PhotoStorageException`. Pick one and test it.
 
 **Done when:**
-- [ ] The contract KDoc and the behaviour agree on both platforms.
-- [ ] A test covers a direct invalid-byte call.
+- [x] The contract KDoc and the behaviour agree on both platforms.
+- [x] A test covers a direct invalid-byte call.
 
 **Log:**
+- 2026-10-07: Chose to document `PhotoRejected` as part of the contract rather than wrap it. It is a local input error, not a storage failure, and `ItemDetailViewModel` already handles it separately. `PhotoStorage.uploadPhoto` KDoc now says invalid bytes throw `PhotoRejected` before anything is sent, and points direct callers at `preparePhotoForUpload`. Adapters unchanged. Tests: `IosPhotoStorageValidationTest` (iOS: corrupt, unsupported GIF, oversized; the Storage bridge fails the test if reached) and `uploadPhotoWithInvalidBytesThrowsPhotoRejectedAndCreatesNoObject` in `PhotoStorageEmulatorIntegrationTest` (Android: corrupt and GIF, then checks no object exists at the minted ref). Verified: iOS test 3/3; `PhotoStorageEmulatorIntegrationTest` 8/8 against the local emulators on the Pixel_10a AVD.
 
 ---
 

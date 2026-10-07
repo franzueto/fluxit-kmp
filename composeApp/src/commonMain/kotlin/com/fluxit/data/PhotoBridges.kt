@@ -70,9 +70,16 @@ interface PhotoStorage {
      * object, including a previous photo for the same item - so the safe-replace ordering
      * documented above is achievable by construction, not by caller discipline alone.
      *
-     * `FB-403`: any failure - other than [loadPhoto]/[deletePhoto]'s documented "missing
+     * `FB-403`: any storage failure - other than [loadPhoto]/[deletePhoto]'s documented "missing
      * object" no-throw case - is surfaced as [PhotoStorageException], never a raw
      * platform/Firebase SDK exception instance. See [PhotoStorageException]'s own KDoc.
+     *
+     * Rejected source bytes are the one exception: [bytes] are validated with
+     * [validatePhotoSource] before anything is sent, and a failure there throws [PhotoRejected]
+     * (too large, unsupported type, or corrupt), not [PhotoStorageException]. It is a local
+     * input error, not a storage failure, so nothing is uploaded and no `photoRef` is minted.
+     * Callers that pass bytes straight from the picker should run [preparePhotoForUpload]
+     * first, as `ItemDetailViewModel` does, and handle [PhotoRejected] there.
      */
     suspend fun uploadPhoto(itemId: String, bytes: ByteArray): String
 
