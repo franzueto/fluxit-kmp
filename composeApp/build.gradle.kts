@@ -249,6 +249,10 @@ kotlin {
             implementation(libs.firebase.firestore)
             implementation(libs.firebase.storage)
         }
+        wasmJsMain.dependencies {
+            // Firebase JS modular SDK, reached only from wasmJsMain/resources/firebase-bridge.mjs.
+            implementation(npm("firebase", "12.19.0"))
+        }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
@@ -294,10 +298,18 @@ android {
     }
 }
 
-// The deployable web bundle must carry a real Firebase web config.
+// The deployable web bundle must carry a real Firebase web config and must never point at
+// the local emulators (the emulator runs under the dev project ID).
 tasks.named("wasmJsBrowserProductionWebpack") {
     val configFile = firebaseWebConfigFile.asFile
+    val emulatorEnabled = providers.gradleProperty("fluxit.firebase.emulator.enabled").orNull == "true"
     doFirst {
+        if (emulatorEnabled) {
+            throw GradleException(
+                "The production web bundle cannot be built with fluxit.firebase.emulator.enabled=true; " +
+                    "use the development distribution for emulator runs."
+            )
+        }
         if (!configFile.isFile) {
             throw GradleException(
                 "Missing composeApp/firebase-web-config.json; copy firebase-web-config.example.json and fill it in " +

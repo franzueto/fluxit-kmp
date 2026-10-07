@@ -6,7 +6,7 @@ the next phase.
 
 - **Branch:** `web/wasm-app`
 - **Started:** 2026-10-07
-- **Current phase:** Phase 2 — Auth on web (next; not started)
+- **Current phase:** Phase 3 — Lists and items on web (next; not started). Phase 2 owner check against the dev project still open.
 
 ## Goal
 
@@ -102,14 +102,22 @@ Also fixed in this phase:
 - `SessionGateAccountSwitchIosTest` builds its own Koin graph from `appModule`; it now binds `AppFeatures.Mobile` like the iOS platform module.
 - Kotlin 2.3.20 Wasm incremental compile crashed on any edit after the first build (`ArrayIndexOutOfBoundsException` in `WasmIrFileMetadata`; latent in Phase 0). The JS/Wasm compile is incremental if either `kotlin.incremental.js.klib` or `kotlin.incremental.js` is on, so both are off in `gradle.properties` (Wasm-only effect; full Wasm compile is ~1–2 s).
 
-### Phase 2 — Auth on web · ⬜
+### Phase 2 — Auth on web · ✅
 
-- [ ] Add Firebase JS SDK (npm) and the auth part of the JS bridge
-- [ ] `WebAuthRepository` (ported from `IosAuthRepository`) + error mapping from Firebase JS error codes to `AuthError`
-- [ ] Wrapped in `SessionAuthRepository`; `SessionCleanup` for web
-- [ ] Sign in, session restore on reload, password reset, sign out work against the Auth emulator and the dev project
-- [ ] Tests for error mapping
-- [ ] Session starts at `Unresolved` and resolves only via `restoreSession()` (Phase 0 review follow-up)
+- [x] Firebase JS SDK `firebase@12.19.0` (npm, `wasmJsMain`; 13.0.0 was released the same day, so skipped) and the auth part of the JS bridge: `wasmJsMain/resources/firebase-bridge.mjs`, copied next to the compiled Kotlin by the resources sync so webpack bundles it with the SDK. Side-effect free on import; `initializeAuth` with IndexedDB/localStorage persistence and no popup/redirect resolver. Kotlin side: `WebFirebaseExternals.kt` (`@JsModule`), `WebFirebase.ensureStarted()` (lazy start from the generated web options + shared emulator constants)
+- [x] `WebAuthRepository` (ported from `IosAuthRepository`, same state machine) over a `WebAuthBridge` interface (`JsWebAuthBridge` in production) + `WebFirebaseAuthErrorMapper`: JS `auth/...` codes → `AuthError`, same cases as the iOS table; diagnostics logged to the console before collapsing to `Unknown`. Web-only step: `restoreSession()` waits for `authStateReady()` before reading `currentUser`
+- [x] Wrapped in `SessionAuthRepository`; `WebSessionCleanup`: durable marker in `localStorage` (write failure → `CleanupFailed`), `clear()` calls the bridge's `clearSessionData()`, which has nothing to clear yet (no data clients until Phase 3 adds Firestore terminate-and-recreate, D4; Phase 4 adds Storage task cancellation)
+- [x] Sign in, session restore on reload, password reset, sign out work against the Auth emulator (2026-10-07, see Verification)
+- [ ] Same flows against the dev project with the owner's account (owner action: needs the real password)
+- [x] Tests for error mapping (`WebFirebaseAuthErrorMapperTest`), plus `WebAuthRepositoryTest` (iOS matrix ported + persistence wait + wrapped-session gating), `WebSessionCleanupTest`, `WebPlatformModuleTest` (graph resolves without starting Firebase)
+- [x] Session starts at `Unresolved` and resolves only via `restoreSession()` (Phase 0 review follow-up): `WebAuthRepository` starts `Unresolved`; the `SessionAuthRepository` wrapper ignores raw listener states until `restoreSession()`/sign-in — covered by `theWrappedSessionStaysUnresolvedUntilRestoreEvenWhenTheListenerReports`
+- Temporary: `PendingWebListRepository`/`PendingWebItemRepository` (empty reads, writes fail with a retryable error) so the signed-in dashboard renders and sign-out is reachable. Removed in Phase 3.
+
+Verification (2026-10-07): wasm tests 253/253 (was 222), Android unit tests 265/265, `assembleDebug`, iOS `compileKotlinIosSimulatorArm64` (no `commonMain` change in this phase), production bundle builds — 13.9 MB raw, **4.72 MB gzip** (+0.3 MB for Firebase Auth); no emulator host in the production JS. Auth emulator (started with the web config's project ID, test user created through the emulator REST API) with a `-Pfluxit.firebase.emulator.enabled=true` dev bundle at 375×812: cold load → sign-in screen; wrong password → "That email and password do not match." (console: `auth/wrong-password` → `InvalidCredentials`); correct password → dashboard; reload → still signed in; sign out → sign-in screen, cleanup marker removed, reload stays signed out; password reset → confirmation shown and the emulator recorded one `PASSWORD_RESET` code.
+
+Also in this phase (review note): the production webpack task refuses `fluxit.firebase.emulator.enabled=true`.
+
+Known gaps: `firebase-bridge.mjs` is also copied raw into the distribution (unused there; harmless, exclude in Phase 6). Compose canvas text input in automated testing occasionally dropped or delayed typed characters; not seen by the owner on a real phone in Phase 0.
 
 ### Phase 3 — Lists and items on web · ⬜
 
@@ -157,6 +165,8 @@ Also fixed in this phase:
 | 2026-10-07 | 1 | Feature flags hide sign-up and seeding on web; web Firebase config loader + template + README; Wasm incremental-compile crash worked around. |
 | 2026-10-07 | 1 | Review 1 FAIL (config value leak on malformed JSON) → fixed → review 2 PASS WITH NOTES. |
 | 2026-10-07 | 1 | Owner added the real web config; generator validates it. Session paused; Phase 2 starts in a new session. |
+| 2026-10-07 | 2 | Firebase JS SDK + auth bridge; `WebAuthRepository` (iOS port) wrapped in `SessionAuthRepository`; `WebSessionCleanup`; sign-in/restore/reset/sign-out verified against the Auth emulator. Dev-project check left to the owner. |
+| 2026-10-07 | 2 | Review PASS WITH NOTES; wording and emulator-flag guard fixed. |
 
 ## Review log
 
@@ -165,6 +175,7 @@ Also fixed in this phase:
 | 2026-10-07 | 0 | PASS WITH NOTES | Re-ran wasm tests (213), Android unit tests (257), iOS simulator tests (326), production bundle; no secrets. Fixed: misleading build comment, `FakeAuthRepository.authenticate` KDoc. Carried forward: Phase 2 — real `WebAuthRepository` must start at `Unresolved` (spike stub starts at SignedOut); Phase 6 — exclude `composeApp.js.map` from Hosting. Browser render check accepted as implementer claim; phone check still owner action. |
 | 2026-10-07 | 1 | FAIL | Blocking: malformed `firebase-web-config.json` (e.g. the console's JS snippet) made Groovy's JSON error echo the offending line, including values. Fixed: parse errors replaced by a value-free message with no chained cause. |
 | 2026-10-07 | 1 | PASS WITH NOTES | Re-review: leak fixed; wasm 222, Android 265 re-run; iOS 334 and `npm run check` 4/4 from review 1 (sources unchanged since). Note: `DebugSeeder` single still declared in `appModule` but never resolved on web — acceptable. Browser check and file-based generator checks accepted as implementer claims. |
+| 2026-10-07 | 2 | PASS WITH NOTES | Re-ran wasm 253, production bundle (no emulator host in JS or wasm), Android 265 + `assembleDebug`, iOS main+test compile; secret scan of tracked/untracked files against the local web config: 0 hits; yarn.lock only adds the `firebase@12.19.0` tree. Fixed: mapper KDoc overstated iOS parity (phone-auth `sessionExpired` has no web code; `auth/invalid-login-credentials` is legacy); production webpack now refuses the emulator flag; blocked-`localStorage` fail-closed noted under Risks. Carried to Phase 3: `clearSessionData` must terminate-and-recreate Firestore (D4) and real repos must be wrapped in `SessionListRepository`/`SessionItemRepository`; consider a `demo-*` project ID for web emulator runs. Phase 6: exclude raw `firebase-bridge.mjs` from Hosting. Emulator browser check accepted as implementer claim; dev-project check is an owner action. |
 
 ## Run the web build
 
@@ -175,6 +186,19 @@ python3 -m http.server 8090 --directory composeApp/build/dist/wasmJs/productionE
 ./gradlew :composeApp:wasmJsBrowserTest             # shared tests in headless Chrome
 ```
 
+Against the local Auth emulator (from Phase 2): start it under the web config's project ID,
+then build with the emulator flag and serve the development distribution on `localhost`:
+
+```sh
+FLUXIT_PROJECT_ID=$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync("composeApp/firebase-web-config.json")).projectId)')
+firebase/node_modules/.bin/firebase --config firebase.json --project "$FLUXIT_PROJECT_ID" emulators:start --only auth
+./gradlew :composeApp:wasmJsBrowserDevelopmentExecutableDistribution -Pfluxit.firebase.emulator.enabled=true
+python3 -m http.server 8091 --bind 127.0.0.1 --directory composeApp/build/dist/wasmJs/developmentExecutable
+```
+
+The production bundle (`wasmJsBrowserDistribution`) refuses to build with the flag on. Create test users in the emulator UI
+(http://127.0.0.1:4000/auth); the app itself cannot sign up on web.
+
 To try it on a phone on the same Wi-Fi, serve with `--bind 0.0.0.0` and open
 `http://<your-mac-LAN-IP>:8090`. Plain `http://` on a LAN address is not a secure
 context; that is fine for the spike, but Firebase Auth testing from Phase 2 on should
@@ -182,6 +206,7 @@ use `localhost` or the deployed HTTPS site.
 
 ## Risks and open questions
 
+- If a browser blocks site data (`localStorage`), the cleanup marker cannot be written, so web sign-in fails closed with the generic cleanup error. Same policy as mobile; consider a specific message in Phase 5.
 - Wasm incremental compilation is disabled (Kotlin 2.3.20 crash, see Phase 1). Re-enable both `kotlin.incremental.js*` flags after a Kotlin upgrade and re-test an edit-recompile cycle.
 
 - Compose for Web is Beta and canvas-rendered: password-manager autofill, text selection and accessibility are weaker than HTML.
