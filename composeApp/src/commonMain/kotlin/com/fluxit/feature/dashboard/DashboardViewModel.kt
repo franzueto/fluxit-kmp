@@ -14,9 +14,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -126,6 +129,15 @@ class DashboardViewModel(
      * same shape `ItemDetailViewModel`'s `pendingReplaceBytes`/`pendingRemoveRef` use for FB-306.
      */
     private var pendingRetryListId: String? = null
+
+    private val _deleteFailures = MutableSharedFlow<String>(extraBufferCapacity = 8)
+
+    /**
+     * Emits the id of a list whose delete just failed, so its swiped-away row can return to rest
+     * (see `SwipeToDeleteContainer.resetSignal`). A one-shot event, not state: a repeated failure
+     * for the same id must signal again.
+     */
+    val deleteFailures: SharedFlow<String> = _deleteFailures.asSharedFlow()
 
     /**
      * `FB-404`: merges the list observation with the auth session so a [ScreenLoadState] is
@@ -295,6 +307,7 @@ class DashboardViewModel(
                 pendingRetryListId = listId
                 operationError.value =
                     DashboardOperationError(DashboardOperation.DELETE_LIST, failure.toRepositoryApplicationError())
+                _deleteFailures.tryEmit(listId)
             } finally {
                 pendingListIds.update { it - listId }
             }

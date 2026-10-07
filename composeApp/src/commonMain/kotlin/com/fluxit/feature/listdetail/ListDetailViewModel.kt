@@ -15,9 +15,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -142,6 +145,11 @@ class ListDetailViewModel(
      * live at a time, since [_operationError] itself is a single slot. */
     private var pendingRetryAddTitle: String? = null
     private var pendingRetryItemId: String? = null
+
+    private val _itemDeleteFailures = MutableSharedFlow<String>(extraBufferCapacity = 8)
+
+    /** Emits the id of an item whose delete just failed; see `DashboardViewModel.deleteFailures`. */
+    val itemDeleteFailures: SharedFlow<String> = _itemDeleteFailures.asSharedFlow()
     private var pendingRetryToggleTarget: Boolean? = null
 
     /**
@@ -307,6 +315,7 @@ class ListDetailViewModel(
                 pendingRetryItemId = itemId
                 _operationError.value =
                     ListDetailOperationError(ListDetailOperation.DELETE_ITEM, failure.toRepositoryApplicationError())
+                _itemDeleteFailures.tryEmit(itemId)
             } finally {
                 _pendingItemIds.update { it - itemId }
             }

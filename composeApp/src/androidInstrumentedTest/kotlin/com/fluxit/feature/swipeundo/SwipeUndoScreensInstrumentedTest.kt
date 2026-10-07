@@ -107,6 +107,50 @@ class SwipeUndoScreensInstrumentedTest {
         assertTrue(lists.softDeleteCalls >= 2)
     }
 
+    private fun rowX(text: String): Float =
+        composeRule.onNodeWithText(text).fetchSemanticsNode().positionInRoot.x
+
+    @Test
+    fun dashboardFailedSwipeDeleteReturnsTheRowToRest() {
+        val lists = InMemoryListRepository(listOf(list("l1", "zzpm02 First")))
+        lists.failSoftDelete = IllegalStateException("boom")
+        val viewModel = DashboardViewModel(lists, DebugSeeder(lists, InMemoryItemRepository()), authenticated())
+        setContent {
+            MaterialTheme {
+                DashboardScreen(onOpenList = {}, onCreateList = {}, viewModel = viewModel)
+            }
+        }
+
+        awaitText("zzpm02 First")
+        composeRule.onNodeWithText("zzpm02 First").performTouchInput { swipeLeft() }
+        composeRule.waitUntil(timeoutMillis = 10_000) { lists.softDeleteCalls == 1 }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("zzpm02 First").assertIsDisplayed()
+        assertTrue(rowX("zzpm02 First") >= -1f, "a failed delete must return the row to rest")
+    }
+
+    @Test
+    fun listDetailFailedSwipeDeleteReturnsTheRowToRest() {
+        val lists = InMemoryListRepository(listOf(list("l1", "zzpm02 List")))
+        val items = InMemoryItemRepository(listOf(item("i1", "zzpm02 active", completed = false, order = 1.0)))
+        items.failSoftDelete = IllegalStateException("boom")
+        val viewModel = ListDetailViewModel("l1", lists, items, authenticated())
+        setContent {
+            MaterialTheme {
+                ListDetailScreen(listId = "l1", onBack = {}, onEditList = {}, onOpenItem = {}, viewModel = viewModel)
+            }
+        }
+
+        awaitText("zzpm02 active")
+        composeRule.onNodeWithText("zzpm02 active").performTouchInput { swipeLeft() }
+        composeRule.waitUntil(timeoutMillis = 10_000) { items.softDeleteCalls == 1 }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("zzpm02 active").assertIsDisplayed()
+        assertTrue(rowX("zzpm02 active") >= -1f, "a failed delete must return the row to rest")
+    }
+
     @Test
     fun listDetailItemUndoRestoresDisplayedActiveAndCompletedRows() {
         val lists = InMemoryListRepository(listOf(list("l1", "zzfb710 List")))
@@ -164,6 +208,7 @@ private class InMemoryListRepository(initial: List<FluxList>) : ListRepository {
     private val rows = MutableStateFlow(initial.map { Row(it) })
     var softDeleteCalls = 0
     var restoreCalls = 0
+    var failSoftDelete: Throwable? = null
 
     override fun observeListSummaries(): Flow<List<FluxListSummary>> =
         rows.map { all -> all.filter { !it.deleted }.sortedBy { it.list.sortOrder }.map { FluxListSummary(it.list, 0, 0) } }
@@ -176,6 +221,7 @@ private class InMemoryListRepository(initial: List<FluxList>) : ListRepository {
 
     override suspend fun softDeleteList(listId: String) {
         softDeleteCalls++
+        failSoftDelete?.let { throw it }
         rows.value = rows.value.map { if (it.list.id == listId) it.copy(deleted = true) else it }
     }
 
@@ -192,6 +238,8 @@ private class InMemoryItemRepository(initial: List<FluxItem> = emptyList()) : It
 
     private val rows = MutableStateFlow(initial.map { Row(it) })
     var restoreCalls = 0
+    var softDeleteCalls = 0
+    var failSoftDelete: Throwable? = null
 
     override fun observeItems(listId: String): Flow<List<FluxItem>> =
         rows.map { all -> all.filter { !it.deleted && it.item.listId == listId }.sortedBy { it.item.sortOrder }.map { it.item } }
@@ -205,6 +253,8 @@ private class InMemoryItemRepository(initial: List<FluxItem> = emptyList()) : It
     override suspend fun setPhotoRef(listId: String, itemId: String, photoRef: String?) = Unit
 
     override suspend fun softDeleteItem(listId: String, itemId: String) {
+        softDeleteCalls++
+        failSoftDelete?.let { throw it }
         rows.value = rows.value.map { if (it.item.id == itemId) it.copy(deleted = true) else it }
     }
 

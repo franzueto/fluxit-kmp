@@ -66,6 +66,8 @@ import com.fluxit.ui.theme.FluxCardShape
 import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
 import fluxit.composeapp.generated.resources.*
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -262,6 +264,9 @@ fun ListDetailScreen(
                         SwipeToDeleteContainer(
                             onDelete = { viewModel.deleteItem(item.id) },
                             enabled = item.id !in pendingItemIds && !isDeletingList,
+                            resetSignal = remember(item.id, viewModel) {
+                                viewModel.itemDeleteFailures.filter { it == item.id }.map { }
+                            },
                         ) {
                             ItemRow(
                                 item = item,
@@ -297,6 +302,9 @@ fun ListDetailScreen(
                             SwipeToDeleteContainer(
                                 onDelete = { viewModel.deleteItem(item.id) },
                                 enabled = item.id !in pendingItemIds && !isDeletingList,
+                                resetSignal = remember(item.id, viewModel) {
+                                    viewModel.itemDeleteFailures.filter { it == item.id }.map { }
+                                },
                             ) {
                                 ItemRow(
                                     item = item,

@@ -117,6 +117,32 @@ class DashboardViewModelTest {
     }
 
     @Test
+    fun deleteListFailureEmitsADeleteFailureForThatListAndSuccessDoesNot() = runTest(dispatcher) {
+        val id = lists.createList("Supermarket", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        val failures = mutableListOf<String>()
+        val failureJob = launch { vm.deleteFailures.collect { failures += it } }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        lists.failSoftDeleteList = IllegalStateException("boom")
+        vm.deleteList(id)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(id), failures, "a failed delete must signal its row to return to rest")
+
+        vm.deleteList(id)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(id, id), failures, "a repeated failure must signal again")
+
+        lists.failSoftDeleteList = null
+        vm.deleteList(id)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(id, id), failures, "a successful delete must not signal")
+        failureJob.cancel()
+        collectJob.cancel()
+    }
+
+    @Test
     fun deleteListFailureSurfacesTheRepositoryExceptionsMappedErrorAndRetryability() = runTest(dispatcher) {
         for (code in MAPPED_ERROR_CODES) {
             val failingLists = FakeListRepository()
@@ -477,6 +503,30 @@ class ListDetailViewModelTest {
 
         assertEquals(listOf("Bread"), vm.uiState.value.activeItems.map { it.title })
         assertTrue(vm.uiState.value.completedItems.isEmpty())
+        collectJob.cancel()
+    }
+
+    @Test
+    fun deleteItemFailureEmitsADeleteFailureForThatItemAndSuccessDoesNot() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val itemId = items.observeItems(listId).first().first().id
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        val failures = mutableListOf<String>()
+        val failureJob = launch { vm.itemDeleteFailures.collect { failures += it } }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        items.failSoftDeleteItem = IllegalStateException("boom")
+        vm.deleteItem(itemId)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(itemId), failures, "a failed delete must signal its row to return to rest")
+
+        items.failSoftDeleteItem = null
+        vm.deleteItem(itemId)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(itemId), failures, "a successful delete must not signal")
+        failureJob.cancel()
         collectJob.cancel()
     }
 

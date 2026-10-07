@@ -61,6 +61,8 @@ import com.fluxit.ui.theme.FluxSpacing
 import com.fluxit.ui.theme.FluxType
 import com.fluxit.ui.theme.toColor
 import fluxit.composeapp.generated.resources.*
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -281,6 +283,9 @@ fun DashboardScreen(
                         SwipeToDeleteContainer(
                             onDelete = { viewModel.deleteList(summary.list.id) },
                             enabled = summary.list.id !in state.pendingListIds,
+                            resetSignal = remember(summary.list.id, viewModel) {
+                                viewModel.deleteFailures.filter { it == summary.list.id }.map { }
+                            },
                         ) {
                             ListRow(summary = summary, onClick = { onOpenList(summary.list.id) })
                         }
