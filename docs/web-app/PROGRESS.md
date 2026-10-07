@@ -6,7 +6,7 @@ the next phase.
 
 - **Branch:** `web/wasm-app`
 - **Started:** 2026-10-07
-- **Current phase:** Phase 3 — Lists and items on web (next; not started). Phase 2 owner check against the dev project still open.
+- **Current phase:** Phase 4 — Photos on web (next; not started)
 
 ## Goal
 
@@ -108,7 +108,7 @@ Also fixed in this phase:
 - [x] `WebAuthRepository` (ported from `IosAuthRepository`, same state machine) over a `WebAuthBridge` interface (`JsWebAuthBridge` in production) + `WebFirebaseAuthErrorMapper`: JS `auth/...` codes → `AuthError`, same cases as the iOS table; diagnostics logged to the console before collapsing to `Unknown`. Web-only step: `restoreSession()` waits for `authStateReady()` before reading `currentUser`
 - [x] Wrapped in `SessionAuthRepository`; `WebSessionCleanup`: durable marker in `localStorage` (write failure → `CleanupFailed`), `clear()` calls the bridge's `clearSessionData()`, which has nothing to clear yet (no data clients until Phase 3 adds Firestore terminate-and-recreate, D4; Phase 4 adds Storage task cancellation)
 - [x] Sign in, session restore on reload, password reset, sign out work against the Auth emulator (2026-10-07, see Verification)
-- [ ] Same flows against the dev project with the owner's account (owner action: needs the real password)
+- [x] Same flows against the dev project with the owner's account (owner action, done 2026-10-07: sign in, reload, password reset, sign out)
 - [x] Tests for error mapping (`WebFirebaseAuthErrorMapperTest`), plus `WebAuthRepositoryTest` (iOS matrix ported + persistence wait + wrapped-session gating), `WebSessionCleanupTest`, `WebPlatformModuleTest` (graph resolves without starting Firebase)
 - [x] Session starts at `Unresolved` and resolves only via `restoreSession()` (Phase 0 review follow-up): `WebAuthRepository` starts `Unresolved`; the `SessionAuthRepository` wrapper ignores raw listener states until `restoreSession()`/sign-in — covered by `theWrappedSessionStaysUnresolvedUntilRestoreEvenWhenTheListenerReports`
 - Temporary: `PendingWebListRepository`/`PendingWebItemRepository` (empty reads, writes fail with a retryable error) so the signed-in dashboard renders and sign-out is reachable. Removed in Phase 3.
@@ -119,14 +119,19 @@ Also in this phase (review note): the production webpack task refuses `fluxit.fi
 
 Known gaps: `firebase-bridge.mjs` is also copied raw into the distribution (unused there; harmless, exclude in Phase 6). Compose canvas text input in automated testing occasionally dropped or delayed typed characters; not seen by the owner on a real phone in Phase 0.
 
-### Phase 3 — Lists and items on web · ⬜
+### Phase 3 — Lists and items on web · ✅
 
-- [ ] Firestore part of the JS bridge: listeners with metadata, batch, transaction, field update, clear-completed query
-- [ ] `FirebaseValue` ⇄ JS encoding (incl. server timestamps, pending timestamps, increments)
-- [ ] `WebFirebaseListRepository`, `WebFirebaseItemRepository` (ported from iOS), including counter transactions
-- [ ] All list/item flows work against the Firestore emulator with the deployed rules
-- [ ] Cross-client check: changes from web appear on Android and vice versa
-- [ ] Tests for value encoding and error mapping
+- [x] Firestore part of the JS bridge (`firebase-bridge.mjs`): collection/document listeners with snapshot metadata (separate `includeMetadataChanges` listener, as iOS), whole-document create, field-scoped `updateDoc`, add-item batch with `totalItems` increment, counter transaction (`runTransaction`, Kotlin `decide` called inside it; iOS's permission-denied re-read-and-retry rule), clear-completed chunk query + batch. Path segments are validated (no empty or `/`-containing IDs). In-memory cache only (D4)
+- [x] `FirebaseValue` ⇄ JS encoding: `WebFirestoreCodec` (Kotlin) + `wireToFirestoreData`/`firestoreDataToWire` (JS) over `{ key, type, text, bool, number }` entries; writes cover null/text/bool/number/timestamp/`serverTimestamp()`/`increment()`; reads use `serverTimestamps: "estimate"` and decode like the iOS bridge (numbers truncated, unsupported types left out)
+- [x] `WebFirebaseListRepository`, `WebFirebaseItemRepository` ported from iOS (mechanical port: same counter policy, chunking, ordering, uid-per-call), over `WebFirestoreListBridge`/`WebFirestoreItemBridge` (same methods as the iOS protocols) with `JsWebFirestore*Bridge` implementations; wrapped in `SessionListRepository`/`SessionItemRepository`. `clearSessionData()` now terminates the Firestore instance (kept for retry on failure) and the next use creates a fresh one (Phase 2 carry-over)
+- [x] All list/item flows work against the Firestore emulator with the repo's rules (2026-10-07, see Verification)
+- [x] Cross-client check: changes from web appear on Android and vice versa (Android debug build with the emulator flag on the owner's Pixel_10a AVD, owner-approved; afterwards reinstalled a normal dev build with app data cleared)
+- [x] Tests for value encoding and error mapping: `WebFirestoreCodecTest` (Kotlin → real Firestore values checked in JS through a test-only module, real Firestore data → Kotlin, round trip), `WebFirestoreErrorMappingTest`; plus the iOS suites ported: `WebFirebaseListRepositoryTest`, `WebFirebaseItemRepositoryTest`, `WebFirebaseItemRepositoryChunkSizeTest`; `WebPlatformModuleTest` checks the session wrapping
+- Temporary: `PendingWebPhotoPicker`/`PendingWebPhotoStorage` (picking does nothing; storage fails with a retryable error) so item detail opens. Replaced in Phase 4. The Phase 2 list/item placeholders are removed.
+
+Verification (2026-10-07): wasm tests 320/320 (was 253), Android unit tests 265/265, `assembleDebug`, iOS `compileKotlinIosSimulatorArm64` + `compileTestKotlinIosSimulatorArm64` (no `commonMain` change), production bundle 14.6 MB raw / **4.91 MB gzip** (+0.19 MB for Firestore), no emulator host in the production JS. Auth + Firestore emulators (web config's project ID, repo rules) with a dev bundle at 375×812; after each step the stored documents were read back from the emulator REST API: create list (name, colour) → list detail; add 3 items (`totalItems` 3); complete one (`completedItems` 1, transaction); edit an item's description; swipe-delete an item (tombstone, `totalItems` −1) and swipe-delete + Undo another (restored, counters net zero); clear completed (tombstoned, both counters −1); edit list icon/colour; swipe-delete the list + Undo; hard-delete an item from item detail (document gone, counters −1). Web → Android: the list with its web edits and item count showed on Android. Android → web: an item added and one completed on Android appeared live on the open web list (1/2). Web sign-out (Firestore terminated) → sign-in → data reloads on a fresh instance. No console errors; all Firestore traffic went to the local emulator.
+
+Known gaps: until Phase 4, removing a photo or hard-deleting an item that has a photo (e.g. one added on Android) from web clears `photoRef`/deletes the item but cannot delete the Storage object (the placeholder fails and the screen ignores that failure), leaving an orphaned photo; avoid those two actions on web against the dev project until Phase 4. `clearSessionData()`'s terminate-and-retry path is covered only by the manual sign-out → sign-in run, not by an automated test. The first Undo attempt in testing came after the snackbar's short timeout (behaviour shared with mobile, not a web bug). The raw `firebase-bridge.mjs` in the distribution now also ships the Firestore code (still unused there; exclude in Phase 6).
 
 ### Phase 4 — Photos on web · ⬜
 
@@ -167,6 +172,9 @@ Known gaps: `firebase-bridge.mjs` is also copied raw into the distribution (unus
 | 2026-10-07 | 1 | Owner added the real web config; generator validates it. Session paused; Phase 2 starts in a new session. |
 | 2026-10-07 | 2 | Firebase JS SDK + auth bridge; `WebAuthRepository` (iOS port) wrapped in `SessionAuthRepository`; `WebSessionCleanup`; sign-in/restore/reset/sign-out verified against the Auth emulator. Dev-project check left to the owner. |
 | 2026-10-07 | 2 | Review PASS WITH NOTES; wording and emulator-flag guard fixed. |
+| 2026-10-07 | 2 | Owner verified sign-in, reload, password reset and sign-out against the dev project. |
+| 2026-10-07 | 3 | Firestore bridge + codec; list/item repositories ported from iOS and session-wrapped; Firestore terminate on sign-out; all flows and web⇄Android cross-client verified against emulators. |
+| 2026-10-07 | 3 | Review PASS WITH NOTES; cleanup edge case, Timestamp comparison and a KDoc fixed; photo-orphan caveat recorded. |
 
 ## Review log
 
@@ -176,6 +184,7 @@ Known gaps: `firebase-bridge.mjs` is also copied raw into the distribution (unus
 | 2026-10-07 | 1 | FAIL | Blocking: malformed `firebase-web-config.json` (e.g. the console's JS snippet) made Groovy's JSON error echo the offending line, including values. Fixed: parse errors replaced by a value-free message with no chained cause. |
 | 2026-10-07 | 1 | PASS WITH NOTES | Re-review: leak fixed; wasm 222, Android 265 re-run; iOS 334 and `npm run check` 4/4 from review 1 (sources unchanged since). Note: `DebugSeeder` single still declared in `appModule` but never resolved on web — acceptable. Browser check and file-based generator checks accepted as implementer claims. |
 | 2026-10-07 | 2 | PASS WITH NOTES | Re-ran wasm 253, production bundle (no emulator host in JS or wasm), Android 265 + `assembleDebug`, iOS main+test compile; secret scan of tracked/untracked files against the local web config: 0 hits; yarn.lock only adds the `firebase@12.19.0` tree. Fixed: mapper KDoc overstated iOS parity (phone-auth `sessionExpired` has no web code; `auth/invalid-login-credentials` is legacy); production webpack now refuses the emulator flag; blocked-`localStorage` fail-closed noted under Risks. Carried to Phase 3: `clearSessionData` must terminate-and-recreate Firestore (D4) and real repos must be wrapped in `SessionListRepository`/`SessionItemRepository`; consider a `demo-*` project ID for web emulator runs. Phase 6: exclude raw `firebase-bridge.mjs` from Hosting. Emulator browser check accepted as implementer claim; dev-project check is an owner action. |
+| 2026-10-07 | 3 | PASS WITH NOTES | Re-ran wasm 320 (`--rerun`), production bundle (4.90 MB gzip; no emulator host in JS or wasm; test-support module not shipped), Android 265 + `assembleDebug`, iOS main+test compile; secret scan of tracked/untracked/staged files: 0 hits; only wasmJs + tracker changed. Repositories diff against iOS only in KDoc, visibility, production constructor and clock; JS bridge matches the Swift bridges (batch increment, transaction + retry rule, clear-completed query/batch, decoding, path validation). Fixed: `clearSessionData` retry now also terminates an instance created after a failed attempt; retry check compares `deletedAt` with `Timestamp.isEqual` like Swift; KDoc test pointer. Recorded: photo orphaning on web until Phase 4; no automated test for terminate/retry; `demo-*` project ID for emulator runs (Risks). Emulator and cross-client checks accepted as implementer claims. |
 
 ## Run the web build
 
@@ -206,6 +215,7 @@ use `localhost` or the deployed HTTPS site.
 
 ## Risks and open questions
 
+- Web emulator runs use the dev project's ID (the web config has no override), so a client not routed to the emulator would reach the real project. The production bundle refuses the emulator flag; consider a `demo-*` project override for emulator builds.
 - If a browser blocks site data (`localStorage`), the cleanup marker cannot be written, so web sign-in fails closed with the generic cleanup error. Same policy as mobile; consider a specific message in Phase 5.
 - Wasm incremental compilation is disabled (Kotlin 2.3.20 crash, see Phase 1). Re-enable both `kotlin.incremental.js*` flags after a Kotlin upgrade and re-test an edit-recompile cycle.
 

@@ -1,20 +1,26 @@
 package com.fluxit.di
 
 import com.fluxit.config.AppFeatures
+import com.fluxit.data.PhotoPicker
+import com.fluxit.data.PhotoStorage
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.domain.session.SessionAuthRepository
 import com.fluxit.domain.session.SessionCleanup
+import com.fluxit.domain.session.SessionItemRepository
+import com.fluxit.domain.session.SessionListRepository
 import com.fluxit.domain.session.SessionWork
 import com.fluxit.firebase.auth.WebAuthRepository
+import com.fluxit.firebase.item.WebFirebaseItemRepository
+import com.fluxit.firebase.list.WebFirebaseListRepository
 import com.fluxit.firebase.session.WebSessionCleanup
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
 /**
- * Web bindings. Auth is Firebase-backed from Phase 2; the list, item and photo bindings
- * arrive in Phases 3–4 (docs/web-app/PROGRESS.md). Firebase starts on first use, not here.
+ * Web bindings: Firebase Auth and Firestore from Phases 2–3; photos arrive in Phase 4
+ * (docs/web-app/PROGRESS.md). Firebase starts on first use, not here.
  */
 actual fun platformModule(): Module = module {
     single { AppFeatures.Web }
@@ -25,7 +31,12 @@ actual fun platformModule(): Module = module {
     // through restoreSession() or an interactive sign-in.
     single<AuthRepository> { SessionAuthRepository(WebAuthRepository(), get(), get()) }
 
-    // Phase 2 placeholders until the Firestore bridge lands in Phase 3.
-    single<ListRepository> { PendingWebListRepository() }
-    single<ItemRepository> { PendingWebItemRepository() }
+    // Firestore-backed, gated by the session like Android and iOS. Constructors stay lazy
+    // with respect to uid paths and listeners.
+    single<ListRepository> { SessionListRepository(WebFirebaseListRepository(), get()) }
+    single<ItemRepository> { SessionItemRepository(WebFirebaseItemRepository(), get()) }
+
+    // Phase 3 placeholders until the Storage bridge lands in Phase 4.
+    single<PhotoPicker> { PendingWebPhotoPicker() }
+    single<PhotoStorage> { PendingWebPhotoStorage() }
 }

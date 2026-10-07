@@ -28,6 +28,7 @@ internal external fun initializeFirebase(
     appId: String,
     emulatorHost: String?,
     authPort: Int,
+    firestorePort: Int,
 )
 
 internal external fun authCurrentUser(): JsAuthUser?
@@ -49,3 +50,63 @@ internal external fun authSendPasswordResetEmail(email: String, done: (JsBridgeE
 internal external fun authSignOut(done: (JsBridgeError?) -> Unit)
 
 internal external fun clearSessionData(done: (JsBridgeError?) -> Unit)
+
+/** One Firestore field in the bridge's wire format; see [WebFirestoreCodec]. */
+internal external interface JsWireField : JsAny {
+    val key: String
+    val type: String
+    val text: String?
+    val bool: Boolean
+    val number: Double
+}
+
+internal external interface JsFirestoreDocument : JsAny {
+    val id: String
+    val fields: JsArray<JsWireField>
+}
+
+internal external fun fsObserveCollection(
+    uid: String,
+    listId: String?,
+    includeMetadataChanges: Boolean,
+    onSnapshotDocs: (JsArray<JsFirestoreDocument>, Boolean, Boolean) -> Unit,
+    onError: (JsBridgeError) -> Unit,
+): JsAny
+
+internal external fun fsObserveDocument(
+    uid: String,
+    listId: String,
+    itemId: String?,
+    onSnapshotDoc: (JsFirestoreDocument?) -> Unit,
+    onError: (JsBridgeError) -> Unit,
+): JsAny
+
+internal external fun fsRemoveListener(handle: JsAny)
+
+internal external fun fsCreateList(uid: String, wire: JsArray<JsWireField>, done: (String?, JsBridgeError?) -> Unit)
+
+internal external fun fsUpdateFields(
+    uid: String,
+    listId: String,
+    itemId: String?,
+    wire: JsArray<JsWireField>,
+    done: (JsBridgeError?) -> Unit,
+)
+
+internal external fun fsAddItem(uid: String, listId: String, wire: JsArray<JsWireField>, done: (String?, JsBridgeError?) -> Unit)
+
+internal external fun fsMutateItemWithCounters(
+    uid: String,
+    listId: String,
+    itemId: String,
+    decide: (JsArray<JsWireField>?) -> JsAny,
+    done: (JsBridgeError?) -> Unit,
+)
+
+internal external fun fsClearCompletedChunk(
+    uid: String,
+    listId: String,
+    chunkSize: Int,
+    patchWire: JsArray<JsWireField>,
+    done: (Int, JsBridgeError?) -> Unit,
+)
