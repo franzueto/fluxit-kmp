@@ -223,7 +223,7 @@ class IosPhotoStorage(
  * Builds an [NSData] view over [this] array's bytes, the same conversion the `FB-302` local-
  * file stub used to persist bytes to disk - reused unmodified as the wire type
  * [IosFirebaseStorageBridge.uploadData] crosses to Swift. `internal` (not `private`) so
- * [com.fluxit.firebase.storage.IosPhotoStorageIntegrationCheck] can reuse it for its raw,
+ * `IosPhotoStorageIntegrationCheck` (parity-only) can reuse it for its raw,
  * [IosPhotoStorage]-bypassing cross-user write-denial check, rather than duplicating this
  * cinterop conversion a third time.
  */

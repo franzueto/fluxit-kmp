@@ -138,6 +138,7 @@ enum FirebaseBootstrap {
 
     #endif
 
+    #if FLUXIT_PARITY
     /// FB-203 evidence hook: same shape as [runAuthSelfCheckIfRequested], for the
     /// Firestore list adapter. Guarded the same way: `-FluxItFirestoreListSelfCheck` on
     /// the launch arguments, plus the Kotlin check's own emulator-enabled refusal.
@@ -281,6 +282,7 @@ enum FirebaseBootstrap {
             }
         }
     }
+    #endif
 
     private static func connectToEmulators() {
         // Passed through verbatim: the iOS simulator shares the host network stack,
@@ -336,7 +338,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         #endif
         #if FLUXIT_PARITY
         FirebaseBootstrap.runAuthSelfCheckIfRequested()
-        #endif
         FirebaseBootstrap.runFirestoreListSelfCheckIfRequested()
         FirebaseBootstrap.runFirestoreItemSelfCheckIfRequested()
         FirebaseBootstrap.runCrossClientSelfCheckIfRequested()
@@ -345,6 +346,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseBootstrap.runPhotoStorageCrossDevicePublishIfRequested()
         FirebaseBootstrap.runPhotoStorageCrossDeviceSubscribeIfRequested()
         FirebaseBootstrap.runDashboardListenerCrashSelfCheckIfRequested()
+        #endif
         return true
     }
 }

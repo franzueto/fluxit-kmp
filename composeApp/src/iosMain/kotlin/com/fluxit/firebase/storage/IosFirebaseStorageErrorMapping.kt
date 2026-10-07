@@ -27,7 +27,7 @@ internal const val STORAGE_ERROR_OBJECT_NOT_FOUND: Long = -13010L
 /**
  * `FIRStorageErrorCode.unauthorized`'s raw value (`-13021`) - the code a real owner-only
  * Storage Rules denial surfaces as, distinct from [STORAGE_ERROR_OBJECT_NOT_FOUND]. Used only
- * by [IosPhotoStorageIntegrationCheck]'s cross-user denial assertion, mirroring Android's
+ * by `IosPhotoStorageIntegrationCheck`'s (parity-only) cross-user denial assertion, mirroring Android's
  * `StorageException.ERROR_NOT_AUTHORIZED` assertion in
  * `PhotoStorageEmulatorIntegrationTest.assertDenied`. Production code
  * ([com.fluxit.data.IosPhotoStorage]) never branches on this value, only on

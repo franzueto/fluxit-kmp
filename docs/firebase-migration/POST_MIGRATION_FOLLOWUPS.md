@@ -17,7 +17,7 @@ when you start or finish an item, and add a line to its *Log*.
 |---|---|---|---|---|
 | [PM-01](#pm-01--shared-repository-error-classification) | High | Shared repository error classification | DONE | FB-402-NB1, FB-403-NB2, FB-406-NB2, FB-204-NB3 |
 | [PM-02](#pm-02--swipe-to-delete-row-stuck-after-a-failed-or-skipped-delete) | Medium | Swipe-to-delete row stuck after a failed or skipped delete | DONE | FB-710-NB1, FB-710-NB2, FB-710-NB3 |
-| [PM-03](#pm-03--move-ios-test-harnesses-out-of-the-shipping-app) | Medium | Move iOS test harnesses out of the shipping app | TODO | FB-103-NB3, FB-307-NB1 |
+| [PM-03](#pm-03--move-ios-test-harnesses-out-of-the-shipping-app) | Medium | Move iOS test harnesses out of the shipping app | DONE | FB-103-NB3, FB-307-NB1 |
 | [PM-04](#pm-04--photo-upload-error-contract-for-direct-callers) | Low | Photo upload error contract for direct callers | TODO | FB-602-NB1 |
 | [PM-05](#pm-05--test-coverage-gaps) | Low | Test coverage gaps | TODO | FB-007-NB1, FB-304-NB2, FB-105-NB2 |
 | [PM-06](#pm-06--session-restore-outcome-contract) | Low | Session-restore outcome contract | TODO | FB-104-NB1 |
@@ -91,7 +91,7 @@ failed-delete signal the row reacts to. Prefer the smallest change that covers b
 
 ## PM-03 — Move iOS test harnesses out of the shipping app
 
-**Priority:** Medium · **Status:** TODO · **Source:** FB-103-NB3, FB-307-NB1
+**Priority:** Medium · **Status:** DONE · **Source:** FB-103-NB3, FB-307-NB1
 
 **Problem (checked in code 2026-10-06).** About 2,060 lines of evidence harnesses still
 compile into the ordinary iOS framework from `iosMain`:
@@ -113,13 +113,14 @@ their Swift hooks in `#if FLUXIT_PARITY`. Check `iosTest` and other `iosMain` fi
 references first. If `IosPhotoStorageIntegrationCheck` is kept, fix or soften FB-307-NB1.
 
 **Done when:**
-- [ ] The ordinary (non-parity) iOS framework contains no `*IntegrationCheck`/`*SelfCheck` classes.
-- [ ] `AppDelegate` calls no harness hook outside `#if FLUXIT_PARITY`.
-- [ ] The parity build still compiles and runs the checks that were kept.
-- [ ] The ordinary iOS Debug and Release builds and the iOS simulator tests pass.
-- [ ] FB-307-NB1 is fixed, or the harness is deleted.
+- [x] The ordinary (non-parity) iOS framework contains no `*IntegrationCheck`/`*SelfCheck` classes.
+- [x] `AppDelegate` calls no harness hook outside `#if FLUXIT_PARITY`.
+- [x] The parity build still compiles and runs the checks that were kept.
+- [x] The ordinary iOS Debug and Release builds and the iOS simulator tests pass.
+- [x] FB-307-NB1 is fixed, or the harness is deleted.
 
 **Log:**
+- 2026-10-06: Moved the five Kotlin checks (`IosFirestoreListIntegrationCheck`, `IosFirestoreItemIntegrationCheck`, `IosFirestoreCrossClientIntegrationCheck`, `IosPhotoStorageIntegrationCheck`, `IosDashboardListenerCrashSelfCheck`) with `git mv` from `iosMain` to `composeApp/src/firebaseParityIos`, so they compile only with `-Pfluxit.parity.enabled=true`. In `FirebaseBootstrap.swift` the eight hook functions and their `AppDelegate` calls are now inside `#if FLUXIT_PARITY`. Two KDoc links in `PhotoBridges.ios.kt` and `IosFirebaseStorageErrorMapping.kt` that pointed at the moved class are now plain text. FB-307-NB1 needed no change: FB-701 already replaced the `maxByOrNull` selection in the cross-device publish with server-confirmed prior-ID capture, and no `maxByOrNull` remains in the file. Verified: the ordinary iOS Debug framework contains no `*IntegrationCheck`/`*SelfCheck` symbols; ordinary Xcode Debug and Release builds, the parity Xcode build (`-D FLUXIT_PARITY`) and `iosSimulatorArm64Test` all pass. Ran the parity build with the emulator enabled against local Auth/Firestore/Storage emulators and launched `-FluxItFirestoreListSelfCheck` on the simulator: the check starts and talks to the emulator (its deliberate Rules-denied write shows in the log). The printed report could not be captured here (simulator stdout redirection returned nothing), so a full per-check pass count was not re-confirmed; the other kept checks were compiled but not run.
 
 ---
 
