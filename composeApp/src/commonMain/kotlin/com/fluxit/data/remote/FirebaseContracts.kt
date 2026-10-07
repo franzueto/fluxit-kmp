@@ -242,6 +242,23 @@ data class ApplicationError(
     val requiresFreshSession: Boolean = false,
 )
 
+/**
+ * Thrown by the list and item repository adapters (from a `suspend` function or by closing a
+ * `callbackFlow`) instead of letting a platform SDK exception escape. Lives in `commonMain`
+ * so shared callers can read the mapped [error]; [com.fluxit.data.PhotoStorageException] is
+ * the equivalent for photo storage.
+ */
+class RepositoryException(val error: ApplicationError) : Exception()
+
+/**
+ * The [ApplicationError] a repository failure carries: the mapped error of a
+ * [RepositoryException], or [RepositoryErrorCode.UNKNOWN] (retryable) for any other throwable.
+ */
+fun Throwable.toRepositoryApplicationError(): ApplicationError = when (this) {
+    is RepositoryException -> error
+    else -> RepositoryErrorCode.UNKNOWN.toApplicationError()
+}
+
 fun RepositoryErrorCode.toApplicationError(): ApplicationError = when (this) {
     RepositoryErrorCode.SESSION_REQUIRED -> ApplicationError(this, canRetry = false, requiresFreshSession = true)
     RepositoryErrorCode.OFFLINE, RepositoryErrorCode.TIMEOUT, RepositoryErrorCode.UNKNOWN ->

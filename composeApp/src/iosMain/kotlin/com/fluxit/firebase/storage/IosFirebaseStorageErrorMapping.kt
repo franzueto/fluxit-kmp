@@ -67,10 +67,10 @@ internal fun NSError.isStorageUnauthorized(): Boolean =
 /**
  * Thrown by [com.fluxit.data.IosPhotoStorage] instead of ever letting a raw Storage [NSError]
  * escape into `commonMain`-visible code - exact counterpart of
- * `com.fluxit.firebase.list.ListRepositoryException`, scoped to Storage.
+ * `com.fluxit.data.remote.RepositoryException`, scoped to Storage.
  *
  * `FB-401` discharges `FB-305-NB2`: [toApplicationError] below now gives this a neutral
- * `ApplicationError` mapping, the way `ListRepositoryException` already has one. `PhotoStorage`
+ * `ApplicationError` mapping, the way `RepositoryException` already has one. `PhotoStorage`
  * (the `commonMain` contract [com.fluxit.data.IosPhotoStorage] implements) still declares no
  * error taxonomy of its own beyond "missing returns null/no-ops, everything else propagates" -
  * this class is still thrown unchanged from every existing `IosPhotoStorage` call site (that

@@ -55,17 +55,17 @@ class FirestoreErrorMappingTest {
     }
 
     @Test
-    fun aFirestoreExceptionBecomesAListRepositoryExceptionCarryingTheMappedApplicationError() {
+    fun aFirestoreExceptionBecomesARepositoryExceptionCarryingTheMappedApplicationError() {
         val sdkException = FirebaseFirestoreException("nope", FirebaseFirestoreException.Code.PERMISSION_DENIED)
 
-        val mapped = (sdkException as Throwable).toListRepositoryException()
+        val mapped = (sdkException as Throwable).toRepositoryException()
 
         assertEquals(RepositoryErrorCode.FORBIDDEN, mapped.error.code)
     }
 
     @Test
     fun aNonFirestoreThrowableMapsToUnknownRatherThanLeaking() {
-        val mapped = IOException("network down").toListRepositoryException()
+        val mapped = IOException("network down").toRepositoryException()
 
         assertEquals(RepositoryErrorCode.UNKNOWN, mapped.error.code)
     }

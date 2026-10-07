@@ -372,7 +372,7 @@ class CrossClientItemEmulatorIntegrationTest {
         // Completing now would violate completedItems <= totalItems; no item changed.
         listDocOn(firestoreA, listId).update("totalItems", 0L).awaitResult()
         val failure = runCatching { clientA.setCompleted(listId, itemId, true) }.exceptionOrNull()
-        val mapped = kotlin.test.assertIs<com.fluxit.firebase.list.ListRepositoryException>(failure)
+        val mapped = kotlin.test.assertIs<com.fluxit.data.remote.RepositoryException>(failure)
         assertEquals(com.fluxit.data.remote.RepositoryErrorCode.FORBIDDEN, mapped.error.code)
         assertEquals(false, itemsCollectionOn(firestoreA, listId).document(itemId).get().awaitResult().getBoolean("isCompleted"))
         assertEquals(0L, listDocOn(firestoreA, listId).get().awaitResult().getLong("completedItems"))

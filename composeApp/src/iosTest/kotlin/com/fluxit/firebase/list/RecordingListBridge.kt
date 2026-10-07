@@ -2,6 +2,7 @@ package com.fluxit.firebase.list
 
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.data.remote.toApplicationError
 import platform.Foundation.NSError
 
@@ -173,7 +174,7 @@ internal class RecordingListBridge : IosFirestoreListBridge {
 
 /** [CurrentUidProvider] test double that never touches the real Auth bridge. */
 internal class FixedUidProvider(private val uid: String? = "uid-1") : CurrentUidProvider {
-    override fun currentUid(): String = uid ?: throw ListRepositoryException(
+    override fun currentUid(): String = uid ?: throw RepositoryException(
         RepositoryErrorCode.SESSION_REQUIRED.toApplicationError(),
     )
 }

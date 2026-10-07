@@ -5,7 +5,7 @@ import com.fluxit.config.FirebaseEmulatorConfig
 import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.domain.FluxItem
 import com.fluxit.firebase.list.CurrentUidProvider
-import com.fluxit.firebase.list.ListRepositoryException
+import com.fluxit.data.remote.RepositoryException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -464,7 +464,7 @@ class FirestoreItemEmulatorIntegrationTest {
         val failure = runCatching { crossUserRepository.addItem(listId, "Not mine") }
 
         assertTrue(failure.isFailure)
-        val exception = assertIs<ListRepositoryException>(failure.exceptionOrNull())
+        val exception = assertIs<RepositoryException>(failure.exceptionOrNull())
         assertEquals(RepositoryErrorCode.FORBIDDEN, exception.error.code)
     }
 

@@ -50,7 +50,7 @@ import org.junit.runner.RunWith
  * This is the same crash mechanism [DashboardViewModelEmulatorIntegrationTest]'s KDoc already
  * documents as live-reproduced during `FB-405`'s development ("an earlier version of this test
  * ... crashed the real instrumented-test app process ... real TestRunner/logcat evidence:
- * `Process: com.fluxit ... FATAL EXCEPTION ... ListRepositoryException ...
+ * `Process: com.fluxit ... FATAL EXCEPTION ... RepositoryException ...
  * Dispatchers.Main.immediate`") - that file deliberately does not keep a crashing test in its own
  * suite (a crash there would poison every other instrumented test's run). This file exists
  * specifically to reproduce that same crash live, on demand, against the real Auth+Firestore
@@ -63,13 +63,13 @@ import org.junit.runner.RunWith
  * the one actually signed in. Under this repo's owner-only Firestore Rules
  * (`request.auth.uid == uid`), `observeListSummariesSnapshot()`'s `addSnapshotListener` then
  * receives a genuine `PERMISSION_DENIED` from the real Firestore emulator and calls
- * `close(error.toListRepositoryException())` - exactly `FB-405`'s headline finding's trigger,
+ * `close(error.toRepositoryException())` - exactly `FB-405`'s headline finding's trigger,
  * live.
  *
  * **Pre-fix / post-fix usage (see the `FB-408` developer report for the exact commands run):**
  * run [crossUidObservationEitherCrashesOrSurfacesFatalSession] once against the pre-`FB-408`
  * `DashboardViewModel.kt` (no `.catch`) with logcat capturing, which is expected to fail this
- * test process with an uncaught `ListRepositoryException`/`FATAL EXCEPTION`; then run it again
+ * test process with an uncaught `RepositoryException`/`FATAL EXCEPTION`; then run it again
  * against the post-`FB-408` `DashboardViewModel.kt` (with `.catch`), which is expected to pass,
  * with [DashboardUiState.loadState] observed as [ScreenLoadState.FatalSession].
  */

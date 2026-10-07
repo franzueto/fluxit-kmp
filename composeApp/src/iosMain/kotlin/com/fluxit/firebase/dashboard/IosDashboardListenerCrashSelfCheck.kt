@@ -39,7 +39,7 @@ import platform.Foundation.NSUUID
  * one actually signed in. Under this repo's owner-only `firestore.rules`
  * (`request.auth.uid == uid`), `observeListSummariesSnapshot()`'s real Firestore listener then
  * receives a genuine `PERMISSION_DENIED` from the live emulator and calls
- * `close(error.toListRepositoryException())` - exactly `FB-405`'s reproduced trigger, live.
+ * `close(error.toRepositoryException())` - exactly `FB-405`'s reproduced trigger, live.
  *
  * **Why this function's own `run()` try/catch (mirroring [IosFirestoreListIntegrationCheck])
  * does not, and cannot, mask the crash this check exists to prove/guard against:** the crash

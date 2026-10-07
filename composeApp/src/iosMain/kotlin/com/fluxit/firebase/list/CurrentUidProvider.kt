@@ -1,6 +1,7 @@
 package com.fluxit.firebase.list
 
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.data.remote.toApplicationError
 import com.fluxit.firebase.auth.IosAuthBridge
 import com.fluxit.firebase.auth.IosAuthBridgeRegistry
@@ -26,7 +27,7 @@ fun interface CurrentUidProvider {
 }
 
 /**
- * Production [CurrentUidProvider]. Throws [ListRepositoryException] with
+ * Production [CurrentUidProvider]. Throws [RepositoryException] with
  * [RepositoryErrorCode.SESSION_REQUIRED] - rather than returning null - when nobody is
  * signed in or the Auth bridge has not been registered yet, so every call site in
  * [IosFirebaseListRepository] gets the same neutral-error treatment as any other
@@ -37,5 +38,5 @@ internal class IosAuthBridgeCurrentUidProvider(
 ) : CurrentUidProvider {
     override fun currentUid(): String =
         bridgeProvider()?.currentUser()?.uid
-            ?: throw ListRepositoryException(RepositoryErrorCode.SESSION_REQUIRED.toApplicationError())
+            ?: throw RepositoryException(RepositoryErrorCode.SESSION_REQUIRED.toApplicationError())
 }

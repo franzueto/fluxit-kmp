@@ -4,8 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fluxit.data.DebugSeeder
 import com.fluxit.data.remote.ApplicationError
-import com.fluxit.data.remote.RepositoryErrorCode
-import com.fluxit.data.remote.toApplicationError
+import com.fluxit.data.remote.toRepositoryApplicationError
 import com.fluxit.domain.FluxListSummary
 import com.fluxit.domain.ListRepository
 import com.fluxit.domain.ScreenLoadState
@@ -241,7 +240,7 @@ class DashboardViewModel(
             } catch (failure: Throwable) {
                 operationError.value = DashboardOperationError(
                     DashboardOperation.SEED_SAMPLE_DATA,
-                    failure.toDashboardApplicationError(),
+                    failure.toRepositoryApplicationError(),
                 )
             } finally {
                 isSeeding.value = false
@@ -295,7 +294,7 @@ class DashboardViewModel(
             } catch (failure: Throwable) {
                 pendingRetryListId = listId
                 operationError.value =
-                    DashboardOperationError(DashboardOperation.DELETE_LIST, failure.toDashboardApplicationError())
+                    DashboardOperationError(DashboardOperation.DELETE_LIST, failure.toRepositoryApplicationError())
             } finally {
                 pendingListIds.update { it - listId }
             }
@@ -315,7 +314,7 @@ class DashboardViewModel(
             } catch (failure: Throwable) {
                 pendingRetryListId = listId
                 operationError.value =
-                    DashboardOperationError(DashboardOperation.RESTORE_LIST, failure.toDashboardApplicationError())
+                    DashboardOperationError(DashboardOperation.RESTORE_LIST, failure.toRepositoryApplicationError())
             } finally {
                 pendingListIds.update { it - listId }
             }
@@ -326,18 +325,3 @@ class DashboardViewModel(
         if (operationError.value?.operation == operation) operationError.value = null
     }
 }
-
-/**
- * `FB-402`: [ListRepository] failures carry no `commonMain`-visible error code today. Each
- * platform's Firestore adapter maps its SDK exception to FB-401's neutral [ApplicationError]
- * internally (see the `internal class ListRepositoryException` in the `androidMain`/`iosMain`
- * `firebase/list` packages), but that type is `internal` to its own platform source set and
- * structurally cannot be referenced from this shared `commonMain` ViewModel - a `commonMain`
- * file compiles against every target, including ones where the class does not exist at all.
- * Until that boundary is widened to a `commonMain`-visible type - the same gap `FB-401-NB1`/
- * `FB-401-NB2` already tracked for `PhotoStorage`, owned by `FB-403` - any failure caught here
- * is conservatively reported as [RepositoryErrorCode.UNKNOWN] (`canRetry = true`) rather than a
- * more specific code this layer cannot actually know.
- */
-private fun Throwable.toDashboardApplicationError(): ApplicationError =
-    RepositoryErrorCode.UNKNOWN.toApplicationError()

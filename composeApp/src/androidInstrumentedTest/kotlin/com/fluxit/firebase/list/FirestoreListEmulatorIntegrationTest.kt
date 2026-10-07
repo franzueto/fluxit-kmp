@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.fluxit.config.FirebaseEmulatorConfig
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.domain.FluxListSummary
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
@@ -225,7 +226,7 @@ class FirestoreListEmulatorIntegrationTest {
         }
 
         assertTrue(failure.isFailure)
-        val exception = assertIs<ListRepositoryException>(failure.exceptionOrNull())
+        val exception = assertIs<RepositoryException>(failure.exceptionOrNull())
         assertEquals(RepositoryErrorCode.FORBIDDEN, exception.error.code)
     }
 

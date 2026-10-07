@@ -18,7 +18,7 @@ import com.fluxit.firebase.auth.IosAuthBridgeRegistry
 import com.fluxit.firebase.auth.IosAuthRepository
 import com.fluxit.firebase.item.IosFirebaseItemRepository
 import com.fluxit.firebase.list.IosFirebaseListRepository
-import com.fluxit.firebase.list.ListRepositoryException
+import com.fluxit.data.remote.RepositoryException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.io.encoding.Base64
@@ -716,13 +716,13 @@ object IosPhotoStorageIntegrationCheck {
         else -> false
     }
 
-    /** `FB-307` diagnostic-only helper: [ListRepositoryException]/[PhotoStorageException]
+    /** `FB-307` diagnostic-only helper: [RepositoryException]/[PhotoStorageException]
      * never carry a [Throwable.message] (they wrap a neutral
      * [com.fluxit.data.remote.ApplicationError] in their own `error` field instead), so the
      * bare `THREW ...: null` a plain `.message` read produces on these three new entry points'
      * catch blocks is uninformative - this surfaces the actual error code/detail instead. */
     private fun Throwable.diagnosticDetail(): String = when (this) {
-        is ListRepositoryException -> "error=$error"
+        is RepositoryException -> "error=$error"
         is PhotoStorageException -> "error=$error"
         else -> "$message"
     }

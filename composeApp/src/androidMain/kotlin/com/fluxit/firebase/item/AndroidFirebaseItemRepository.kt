@@ -11,7 +11,7 @@ import com.fluxit.domain.RepositorySnapshot
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.FirebaseAuthCurrentUidProvider
 import com.fluxit.firebase.list.FirestoreValueCodec
-import com.fluxit.firebase.list.toListRepositoryException
+import com.fluxit.firebase.list.toRepositoryException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
@@ -45,7 +45,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * - [CurrentUidProvider]/[FirebaseAuthCurrentUidProvider] - uid resolution has nothing to
  *   do with lists vs. items, reused unmodified. Resolved fresh per call (never cached),
  *   same Phase 1 constraint [com.fluxit.firebase.list.AndroidFirebaseListRepository] documents.
- * - `FirestoreErrorMapping.kt`'s `toListRepositoryException()`/[com.fluxit.firebase.list.ListRepositoryException]
+ * - `FirestoreErrorMapping.kt`'s `toRepositoryException()`/[com.fluxit.data.remote.RepositoryException]
  *   reused unmodified rather than duplicated into an `ItemRepositoryException`: nothing in
  *   this codebase yet catches by that class name specifically (only [com.fluxit.data.remote.ApplicationError]
  *   is a cross-platform-visible concept - see `FirebaseContracts.kt`), so a same-named,
@@ -120,7 +120,7 @@ class AndroidFirebaseItemRepository(
         val uid = currentUid.currentUid()
         val registration = itemsCollection(uid, listId).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
@@ -140,7 +140,7 @@ class AndroidFirebaseItemRepository(
         val uid = currentUid.currentUid()
         val registration = itemsCollection(uid, listId).addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
@@ -170,7 +170,7 @@ class AndroidFirebaseItemRepository(
         val uid = currentUid.currentUid()
         val registration = itemsCollection(uid, listId).document(itemId).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null || !snapshot.exists()) {
@@ -434,7 +434,7 @@ class AndroidFirebaseItemRepository(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (throwable: Throwable) {
-            throw throwable.toListRepositoryException()
+            throw throwable.toRepositoryException()
         }
     }
 
@@ -444,7 +444,7 @@ class AndroidFirebaseItemRepository(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (throwable: Throwable) {
-            throw throwable.toListRepositoryException()
+            throw throwable.toRepositoryException()
         }
     }
 
@@ -488,7 +488,7 @@ class AndroidFirebaseItemRepository(
                         continue
                     }
                 }
-                throw throwable.toListRepositoryException()
+                throw throwable.toRepositoryException()
             }
         }
     }

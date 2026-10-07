@@ -49,8 +49,8 @@ class IosFirestoreErrorMappingTest {
     }
 
     @Test
-    fun aFirestoreDomainErrorBecomesAListRepositoryExceptionCarryingTheMappedApplicationError() {
-        val mapped = firestoreError(7L).toListRepositoryException() // permissionDenied
+    fun aFirestoreDomainErrorBecomesARepositoryExceptionCarryingTheMappedApplicationError() {
+        val mapped = firestoreError(7L).toRepositoryException() // permissionDenied
 
         assertEquals(RepositoryErrorCode.FORBIDDEN, mapped.error.code)
     }
@@ -59,7 +59,7 @@ class IosFirestoreErrorMappingTest {
     fun anErrorOutsideTheFirestoreDomainMapsToUnknownRatherThanLeaking() {
         val transportError = NSError.errorWithDomain(domain = "NSURLErrorDomain", code = -1009L, userInfo = null)
 
-        val mapped = transportError.toListRepositoryException()
+        val mapped = transportError.toRepositoryException()
 
         assertEquals(RepositoryErrorCode.UNKNOWN, mapped.error.code)
     }

@@ -8,7 +8,7 @@ import platform.Foundation.NSError
 /**
  * FB-205's wire-format document type is FB-203's [IosFirestoreListDocument] verbatim -
  * `id` + `fields: Map<String, FirebaseValue>` is exactly as list-agnostic as
- * `com.fluxit.firebase.list.ListRepositoryException`, which FB-204 already reused
+ * `com.fluxit.data.remote.RepositoryException`, which FB-204 already reused
  * unmodified on Android for the identical "the name says list, the shape doesn't care"
  * reason (see `AndroidFirebaseItemRepository`'s KDoc, `FB-204-NB3`). A parallel
  * `IosFirestoreItemDocument` data class with the same two fields would be pure

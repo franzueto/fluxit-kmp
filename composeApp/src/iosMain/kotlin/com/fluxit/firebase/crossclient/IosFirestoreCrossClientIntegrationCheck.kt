@@ -204,7 +204,7 @@ object IosFirestoreCrossClientIntegrationCheck {
             check(parentEdit.await() == null)
             val stableFailure = runCatching { clientAItems.setCompleted(raceList, deniedItem, true) }.exceptionOrNull()
             report.check("stable counter validation denial remains FORBIDDEN",
-                (stableFailure as? com.fluxit.firebase.list.ListRepositoryException)?.error?.code ==
+                (stableFailure as? com.fluxit.data.remote.RepositoryException)?.error?.code ==
                     com.fluxit.data.remote.RepositoryErrorCode.FORBIDDEN, "")
             report.check("denied transaction did not complete the item",
                 withTimeoutObserveFirst(clientAItems, raceList) { it.singleOrNull() }?.isCompleted == false, "")

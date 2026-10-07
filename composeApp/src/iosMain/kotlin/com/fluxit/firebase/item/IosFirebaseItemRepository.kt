@@ -13,7 +13,7 @@ import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.RepositorySnapshot
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.IosAuthBridgeCurrentUidProvider
-import com.fluxit.firebase.list.toListRepositoryException
+import com.fluxit.firebase.list.toRepositoryException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.channels.awaitClose
@@ -37,8 +37,8 @@ import platform.posix.time
  *   to do with lists vs. items, reused unmodified. Resolved fresh per call (never
  *   cached), same Phase 1 constraint [com.fluxit.firebase.list.IosFirebaseListRepository]
  *   documents.
- * - `IosFirestoreErrorMapping.kt`'s `toListRepositoryException()`/
- *   [com.fluxit.firebase.list.ListRepositoryException] reused unmodified rather than
+ * - `IosFirestoreErrorMapping.kt`'s `toRepositoryException()`/
+ *   [com.fluxit.data.remote.RepositoryException] reused unmodified rather than
  *   duplicated into an iOS `ItemRepositoryException`, for the identical reason FB-204
  *   gave on Android (`FB-204-NB3`, carried forward here rather than re-litigated).
  * - [IosFirestoreItemDocument] is FB-203's [com.fluxit.firebase.list.IosFirestoreListDocument]
@@ -95,7 +95,7 @@ class IosFirebaseItemRepository internal constructor(
                     .sortedWith(FirebaseDocumentMapper.itemOrdering)
                 trySend(items)
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
@@ -120,7 +120,7 @@ class IosFirebaseItemRepository internal constructor(
                     .sortedWith(FirebaseDocumentMapper.itemOrdering)
                 trySend(RepositorySnapshot(items, snapshot.isFromCache, snapshot.hasPendingWrites))
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
@@ -140,7 +140,7 @@ class IosFirebaseItemRepository internal constructor(
                     trySend(item)
                 }
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
@@ -163,7 +163,7 @@ class IosFirebaseItemRepository internal constructor(
         suspendCancellableCoroutine<Unit> { continuation ->
             bridgeProvider().addItem(uid, listId, initialFields) { _, error ->
                 if (error != null) {
-                    continuation.resumeWithException(error.toListRepositoryException())
+                    continuation.resumeWithException(error.toRepositoryException())
                 } else {
                     continuation.resume(Unit)
                 }
@@ -205,7 +205,7 @@ class IosFirebaseItemRepository internal constructor(
         suspendCancellableCoroutine<Unit> { continuation ->
             bridgeProvider().updateItemFields(uid, listId, itemId, patch.fields) { error ->
                 if (error != null) {
-                    continuation.resumeWithException(error.toListRepositoryException())
+                    continuation.resumeWithException(error.toRepositoryException())
                 } else {
                     continuation.resume(Unit)
                 }
@@ -303,7 +303,7 @@ class IosFirebaseItemRepository internal constructor(
         suspendCancellableCoroutine<Unit> { continuation ->
             bridgeProvider().mutateItemWithCounters(uid, listId, itemId, decide) { error ->
                 if (error != null) {
-                    continuation.resumeWithException(error.toListRepositoryException())
+                    continuation.resumeWithException(error.toRepositoryException())
                 } else {
                     continuation.resume(Unit)
                 }
@@ -339,7 +339,7 @@ class IosFirebaseItemRepository internal constructor(
             val chunkCount = suspendCancellableCoroutine<Int> { continuation ->
                 bridgeProvider().clearCompletedChunk(uid, listId, clearCompletedChunkSize, itemPatch) { count, error ->
                     if (error != null) {
-                        continuation.resumeWithException(error.toListRepositoryException())
+                        continuation.resumeWithException(error.toRepositoryException())
                     } else {
                         continuation.resume(count)
                     }

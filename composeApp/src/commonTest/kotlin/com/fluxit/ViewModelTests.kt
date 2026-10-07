@@ -6,6 +6,8 @@ import com.fluxit.data.PhotoRejected
 import com.fluxit.data.PhotoStorageException
 import com.fluxit.data.remote.ApplicationError
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
+import com.fluxit.data.remote.toApplicationError
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.domain.ScreenLoadState
@@ -34,6 +36,9 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+
+/** Mapped failures the repository adapters can raise: a denied write, offline and a timeout. */
+private val MAPPED_ERROR_CODES = listOf(RepositoryErrorCode.FORBIDDEN, RepositoryErrorCode.OFFLINE, RepositoryErrorCode.TIMEOUT)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardViewModelTest {
@@ -109,6 +114,26 @@ class DashboardViewModelTest {
         dispatcher.scheduler.advanceTimeBy(5_100)
         dispatcher.scheduler.runCurrent()
         assertEquals(null, vm.undoListId.value)
+    }
+
+    @Test
+    fun deleteListFailureSurfacesTheRepositoryExceptionsMappedErrorAndRetryability() = runTest(dispatcher) {
+        for (code in MAPPED_ERROR_CODES) {
+            val failingLists = FakeListRepository()
+            val id = failingLists.createList("Supermarket", ListIcon.CART, ListColor.ORANGE)
+            val vm = DashboardViewModel(failingLists, DebugSeeder(failingLists, items), auth)
+            val collectJob = launch { vm.uiState.collect {} }
+            dispatcher.scheduler.advanceUntilIdle()
+
+            failingLists.failSoftDeleteList = RepositoryException(code.toApplicationError())
+            vm.deleteList(id)
+            dispatcher.scheduler.runCurrent()
+
+            val error = assertNotNull(vm.uiState.value.operationError, "$code")
+            assertEquals(code, error.error.code)
+            assertEquals(code != RepositoryErrorCode.FORBIDDEN, error.error.canRetry, "$code")
+            collectJob.cancel()
+        }
     }
 
     // --- FB-402: try/finally flag resets, retryable errors, duplicate-submit guards ---
@@ -453,6 +478,25 @@ class ListDetailViewModelTest {
         assertEquals(listOf("Bread"), vm.uiState.value.activeItems.map { it.title })
         assertTrue(vm.uiState.value.completedItems.isEmpty())
         collectJob.cancel()
+    }
+
+    @Test
+    fun addItemFailureSurfacesTheRepositoryExceptionsMappedErrorAndRetryability() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        for (code in MAPPED_ERROR_CODES) {
+            val vm = viewModel()
+            val collectJob = launch { vm.uiState.collect {} }
+            vm.onComposerChange("Milk")
+
+            items.failAddItem = RepositoryException(code.toApplicationError())
+            vm.submitComposer()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val error = assertNotNull(vm.operationError.value, "$code")
+            assertEquals(code, error.error.code)
+            assertEquals(code != RepositoryErrorCode.FORBIDDEN, error.error.canRetry, "$code")
+            collectJob.cancel()
+        }
     }
 
     // --- FB-403: try/finally flag reset, retryable error, duplicate-submit guard ---
@@ -933,6 +977,22 @@ class CreateListViewModelTest {
         assertFalse(vm.uiState.value.isDirty)
         vm.onNameChange("Trip to Japan")
         assertTrue(vm.uiState.value.isDirty)
+    }
+
+    @Test
+    fun saveFailureSurfacesTheRepositoryExceptionsMappedErrorAndRetryability() = runTest(dispatcher) {
+        for (code in MAPPED_ERROR_CODES) {
+            val vm = CreateListViewModel(null, lists)
+            vm.onNameChange("Trip")
+
+            lists.failCreateList = RepositoryException(code.toApplicationError())
+            vm.save()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val error = assertNotNull(vm.uiState.value.error, "$code")
+            assertEquals(code, error.code)
+            assertEquals(code != RepositoryErrorCode.FORBIDDEN, error.canRetry, "$code")
+        }
     }
 
     // --- FB-402: try/finally flag reset, retryable error, duplicate-submit guard ---
@@ -1494,6 +1554,26 @@ class ItemDetailViewModelTest {
 
         assertNull(vm.uiState.value.saveError)
         assertFalse(vm.uiState.value.closed)
+    }
+
+    @Test
+    fun saveFailureSurfacesTheRepositoryExceptionsMappedErrorAndRetryability() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        itemId = items.observeItems(listId).first().first().id
+        for (code in MAPPED_ERROR_CODES) {
+            val vm = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.onTitleChange("Whole milk")
+
+            items.failUpdateItem = RepositoryException(code.toApplicationError())
+            vm.save()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val error = assertNotNull(vm.uiState.value.saveError, "$code")
+            assertEquals(code, error.code)
+            assertEquals(code != RepositoryErrorCode.FORBIDDEN, error.canRetry, "$code")
+        }
     }
 
     /**

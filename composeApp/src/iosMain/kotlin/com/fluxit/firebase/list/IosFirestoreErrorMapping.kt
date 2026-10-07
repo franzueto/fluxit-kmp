@@ -3,17 +3,10 @@ package com.fluxit.firebase.list
 import com.fluxit.data.remote.ApplicationError
 import com.fluxit.data.remote.BackendErrorCode
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.data.remote.toApplicationError
 import com.fluxit.data.remote.toRepositoryError
 import platform.Foundation.NSError
-
-/**
- * Thrown by [IosFirebaseListRepository] - from a `suspend` function or by closing a
- * `callbackFlow` - instead of ever letting a raw Firestore [NSError] escape into
- * `commonMain`-visible code. Callers only ever see FB-201's neutral [ApplicationError].
- * Exact counterpart of Android's `ListRepositoryException` in `FirestoreErrorMapping.kt`.
- */
-internal class ListRepositoryException(val error: ApplicationError) : Exception()
 
 /**
  * `FIRFirestoreErrorDomain`, spelled out so no Firebase symbol is referenced from
@@ -60,6 +53,6 @@ internal fun NSError.toApplicationError(): ApplicationError =
         RepositoryErrorCode.UNKNOWN.toApplicationError()
     }
 
-/** Converts any Firestore-originated [NSError] into a [ListRepositoryException]. */
-internal fun NSError.toListRepositoryException(): ListRepositoryException =
-    ListRepositoryException(toApplicationError())
+/** Converts any Firestore-originated [NSError] into a [RepositoryException]. */
+internal fun NSError.toRepositoryException(): RepositoryException =
+    RepositoryException(toApplicationError())

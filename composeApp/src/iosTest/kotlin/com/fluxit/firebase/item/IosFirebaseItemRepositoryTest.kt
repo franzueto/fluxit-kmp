@@ -5,7 +5,7 @@ import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.FixedUidProvider
-import com.fluxit.firebase.list.ListRepositoryException
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.firebase.list.firestoreError
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -188,7 +188,7 @@ class IosFirebaseItemRepositoryTest {
         bridge.emitItemsError(firestoreError(7L)) // permissionDenied
         job.join()
 
-        val failure = assertIs<ListRepositoryException>(caught)
+        val failure = assertIs<RepositoryException>(caught)
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
     }
 
@@ -279,7 +279,7 @@ class IosFirebaseItemRepositoryTest {
         bridge.emitItemsSnapshotError(firestoreError(7L)) // permissionDenied
         job.join()
 
-        val failure = assertIs<ListRepositoryException>(caught)
+        val failure = assertIs<RepositoryException>(caught)
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
     }
 
@@ -321,7 +321,7 @@ class IosFirebaseItemRepositoryTest {
         bridge.addFailure = firestoreError(16L) // unauthenticated
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.addItem("list-1", "Milk")
         }
         assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)
@@ -369,7 +369,7 @@ class IosFirebaseItemRepositoryTest {
         bridge.updateFailure = firestoreError(7L) // permissionDenied
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.updateItem("list-1", "item-1", "x", null)
         }
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
@@ -536,7 +536,7 @@ class IosFirebaseItemRepositoryTest {
         bridge.counterMutationFailure = firestoreError(14L) // unavailable
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.setCompleted("list-1", "item-1", true)
         }
         assertEquals(RepositoryErrorCode.OFFLINE, failure.error.code)
@@ -575,7 +575,7 @@ class IosFirebaseItemRepositoryTest {
         bridge.clearChunkFailure = firestoreError(8L) // resourceExhausted
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.clearCompleted("list-1")
         }
         assertEquals(RepositoryErrorCode.QUOTA, failure.error.code)
@@ -588,7 +588,7 @@ class IosFirebaseItemRepositoryTest {
         val bridge = RecordingItemBridge()
         val repository = repositoryFor(bridge, FixedUidProvider(uid = null))
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.addItem("list-1", "Milk")
         }
         assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)

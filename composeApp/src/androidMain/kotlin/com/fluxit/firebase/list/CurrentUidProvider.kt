@@ -1,6 +1,7 @@
 package com.fluxit.firebase.list
 
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.data.remote.toApplicationError
 import com.google.firebase.auth.FirebaseAuth
 
@@ -26,7 +27,7 @@ fun interface CurrentUidProvider {
  * current-user snapshot (no network call - the same local check [AndroidAuthRepository]
  * uses).
  *
- * Throws [ListRepositoryException] with [RepositoryErrorCode.SESSION_REQUIRED] rather
+ * Throws [RepositoryException] with [RepositoryErrorCode.SESSION_REQUIRED] rather
  * than returning null when nobody is signed in, so every call site in
  * [AndroidFirebaseListRepository] gets the same neutral-error treatment as any other
  * Firestore failure, without a separate null-uid branch to remember at each use.
@@ -36,5 +37,5 @@ internal class FirebaseAuthCurrentUidProvider(
 ) : CurrentUidProvider {
     override fun currentUid(): String =
         auth.currentUser?.uid
-            ?: throw ListRepositoryException(RepositoryErrorCode.SESSION_REQUIRED.toApplicationError())
+            ?: throw RepositoryException(RepositoryErrorCode.SESSION_REQUIRED.toApplicationError())
 }

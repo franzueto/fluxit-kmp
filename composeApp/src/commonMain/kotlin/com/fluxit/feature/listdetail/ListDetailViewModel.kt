@@ -3,8 +3,7 @@ package com.fluxit.feature.listdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fluxit.data.remote.ApplicationError
-import com.fluxit.data.remote.RepositoryErrorCode
-import com.fluxit.data.remote.toApplicationError
+import com.fluxit.data.remote.toRepositoryApplicationError
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.FluxList
 import com.fluxit.domain.ItemRepository
@@ -239,7 +238,7 @@ class ListDetailViewModel(
             } catch (failure: Throwable) {
                 pendingRetryAddTitle = title
                 _operationError.value =
-                    ListDetailOperationError(ListDetailOperation.ADD_ITEM, failure.toListDetailApplicationError())
+                    ListDetailOperationError(ListDetailOperation.ADD_ITEM, failure.toRepositoryApplicationError())
             } finally {
                 _isAddingItem.value = false
             }
@@ -264,7 +263,7 @@ class ListDetailViewModel(
                 pendingRetryItemId = itemId
                 pendingRetryToggleTarget = target
                 _operationError.value =
-                    ListDetailOperationError(ListDetailOperation.TOGGLE_COMPLETED, failure.toListDetailApplicationError())
+                    ListDetailOperationError(ListDetailOperation.TOGGLE_COMPLETED, failure.toRepositoryApplicationError())
             } finally {
                 _pendingItemIds.update { it - itemId }
             }
@@ -307,7 +306,7 @@ class ListDetailViewModel(
             } catch (failure: Throwable) {
                 pendingRetryItemId = itemId
                 _operationError.value =
-                    ListDetailOperationError(ListDetailOperation.DELETE_ITEM, failure.toListDetailApplicationError())
+                    ListDetailOperationError(ListDetailOperation.DELETE_ITEM, failure.toRepositoryApplicationError())
             } finally {
                 _pendingItemIds.update { it - itemId }
             }
@@ -334,7 +333,7 @@ class ListDetailViewModel(
             } catch (failure: Throwable) {
                 pendingRetryItemId = itemId
                 _operationError.value =
-                    ListDetailOperationError(ListDetailOperation.RESTORE_ITEM, failure.toListDetailApplicationError())
+                    ListDetailOperationError(ListDetailOperation.RESTORE_ITEM, failure.toRepositoryApplicationError())
             } finally {
                 _pendingItemIds.update { it - itemId }
             }
@@ -362,7 +361,7 @@ class ListDetailViewModel(
                 throw cancellation
             } catch (failure: Throwable) {
                 _operationError.value =
-                    ListDetailOperationError(ListDetailOperation.CLEAR_COMPLETED, failure.toListDetailApplicationError())
+                    ListDetailOperationError(ListDetailOperation.CLEAR_COMPLETED, failure.toRepositoryApplicationError())
             } finally {
                 _isClearingCompleted.value = false
             }
@@ -410,7 +409,7 @@ class ListDetailViewModel(
      *
      * Previously this was a bare `viewModelScope.launch { listRepository.softDeleteList(listId);
      * listDeleted.value = true }` with no guard at all: a real Firestore failure (e.g.
-     * `PERMISSION_DENIED` after session invalidation) rethrew as `ListRepositoryException`
+     * `PERMISSION_DENIED` after session invalidation) rethrew as `RepositoryException`
      * uncaught through `viewModelScope`, crashing the app process - the identical crash class
      * `DEC-008`/`FB-408` fixed for this screen's listener-observation chain ([itemsLoadState]),
      * just on this mutation path instead (`FB-406-B1`/`DEC-009`). On failure, [_isDeletingList]
@@ -430,20 +429,10 @@ class ListDetailViewModel(
                 throw cancellation
             } catch (failure: Throwable) {
                 _operationError.value =
-                    ListDetailOperationError(ListDetailOperation.DELETE_LIST, failure.toListDetailApplicationError())
+                    ListDetailOperationError(ListDetailOperation.DELETE_LIST, failure.toRepositoryApplicationError())
             } finally {
                 _isDeletingList.value = false
             }
         }
     }
 }
-
-/**
- * `FB-403`: see the identically-documented helper in `DashboardViewModel.kt`/
- * `CreateListViewModel.kt` (`FB-402`) - this ViewModel only ever calls [ItemRepository]/
- * [ListRepository], both of which have the same `commonMain`/platform-`internal` visibility
- * gap (`FB-402-NB1`, not this task's scope to close). Conservatively reported as
- * [RepositoryErrorCode.UNKNOWN] (`canRetry = true`) rather than a guessed, more specific code.
- */
-private fun Throwable.toListDetailApplicationError(): ApplicationError =
-    RepositoryErrorCode.UNKNOWN.toApplicationError()

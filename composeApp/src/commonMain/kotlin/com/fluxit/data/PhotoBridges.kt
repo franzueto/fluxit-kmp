@@ -101,11 +101,8 @@ interface PhotoStorage {
  * what each adapter now wraps that mapped [ApplicationError] in before throwing, so a
  * `commonMain` caller (`ItemDetailViewModel`, [replacePhoto]) only ever needs to understand
  * this one neutral type - never a platform-specific exception class - to react to a
- * photo-storage failure. Exactly the shape `com.fluxit.firebase.list.ListRepositoryException`
- * already established for `ListRepository`, except deliberately promoted to `commonMain`
- * (rather than kept `internal` to one platform source set) precisely so callers here *can*
- * decode the [error] payload - `ListRepositoryException`'s platform-`internal` visibility is
- * exactly the still-open gap `FB-402-NB1` tracks for list operations, not repeated here.
+ * photo-storage failure. The photo-storage counterpart of
+ * [com.fluxit.data.remote.RepositoryException], which does the same for list and item operations.
  */
 class PhotoStorageException(val error: ApplicationError) : Exception()
 

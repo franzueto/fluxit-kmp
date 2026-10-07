@@ -3,8 +3,7 @@ package com.fluxit.feature.createlist
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fluxit.data.remote.ApplicationError
-import com.fluxit.data.remote.RepositoryErrorCode
-import com.fluxit.data.remote.toApplicationError
+import com.fluxit.data.remote.toRepositoryApplicationError
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.domain.ListRepository
@@ -105,7 +104,7 @@ class CreateListViewModel(
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (failure: Throwable) {
-                _uiState.value = _uiState.value.copy(error = failure.toCreateListApplicationError())
+                _uiState.value = _uiState.value.copy(error = failure.toRepositoryApplicationError())
             } finally {
                 _uiState.value = _uiState.value.copy(isSaving = false)
             }
@@ -123,12 +122,3 @@ class CreateListViewModel(
         _uiState.value = _uiState.value.copy(error = null)
     }
 }
-
-/**
- * `FB-402`: see the identically-documented helper in `DashboardViewModel.kt` - the same
- * `commonMain`/platform-`internal` boundary gap applies here, since [CreateListViewModel] also
- * only ever calls [ListRepository]. Conservatively reported as [RepositoryErrorCode.UNKNOWN]
- * (`canRetry = true`) rather than a guessed, more specific code.
- */
-private fun Throwable.toCreateListApplicationError(): ApplicationError =
-    RepositoryErrorCode.UNKNOWN.toApplicationError()

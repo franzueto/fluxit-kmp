@@ -75,7 +75,7 @@ class AndroidFirebaseListRepository(
         val uid = currentUid.currentUid()
         val registration = listsCollection(uid).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
@@ -105,7 +105,7 @@ class AndroidFirebaseListRepository(
         val uid = currentUid.currentUid()
         val registration = listsCollection(uid).addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
@@ -135,7 +135,7 @@ class AndroidFirebaseListRepository(
         val uid = currentUid.currentUid()
         val registration = listsCollection(uid).document(listId).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null || !snapshot.exists()) {
@@ -220,7 +220,7 @@ class AndroidFirebaseListRepository(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (throwable: Throwable) {
-            throw throwable.toListRepositoryException()
+            throw throwable.toRepositoryException()
         }
     }
 }

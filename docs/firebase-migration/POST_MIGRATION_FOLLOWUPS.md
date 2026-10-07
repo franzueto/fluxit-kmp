@@ -15,7 +15,7 @@ when you start or finish an item, and add a line to its *Log*.
 
 | ID | Priority | Item | Status | Source findings |
 |---|---|---|---|---|
-| [PM-01](#pm-01--shared-repository-error-classification) | High | Shared repository error classification | TODO | FB-402-NB1, FB-403-NB2, FB-406-NB2, FB-204-NB3 |
+| [PM-01](#pm-01--shared-repository-error-classification) | High | Shared repository error classification | DONE | FB-402-NB1, FB-403-NB2, FB-406-NB2, FB-204-NB3 |
 | [PM-02](#pm-02--swipe-to-delete-row-stuck-after-a-failed-or-skipped-delete) | Medium | Swipe-to-delete row stuck after a failed or skipped delete | TODO | FB-710-NB1, FB-710-NB2, FB-710-NB3 |
 | [PM-03](#pm-03--move-ios-test-harnesses-out-of-the-shipping-app) | Medium | Move iOS test harnesses out of the shipping app | TODO | FB-103-NB3, FB-307-NB1 |
 | [PM-04](#pm-04--photo-upload-error-contract-for-direct-callers) | Low | Photo upload error contract for direct callers | TODO | FB-602-NB1 |
@@ -31,7 +31,7 @@ PM-08 goes last, once everything above is `DONE` or `WONTFIX`.
 
 ## PM-01 — Shared repository error classification
 
-**Priority:** High · **Status:** TODO · **Source:** FB-402-NB1, FB-403-NB2, FB-406-NB2, FB-204-NB3
+**Priority:** High · **Status:** DONE · **Source:** FB-402-NB1, FB-403-NB2, FB-406-NB2, FB-204-NB3
 
 **Problem (checked in code 2026-10-06).** `ListRepositoryException` is `internal` to each
 platform source set (`androidMain/.../firebase/list/FirestoreErrorMapping.kt:16`,
@@ -50,12 +50,13 @@ and have the ViewModels' error helpers read its `ApplicationError` instead of fa
 to `UNKNOWN`. Keep `UNKNOWN` only for truly unrecognised throwables.
 
 **Done when:**
-- [ ] List and item adapters on both platforms throw a `commonMain`-visible exception carrying the mapped `ApplicationError`.
-- [ ] The four ViewModels surface the mapped code; permission-denied is shown as not retryable.
-- [ ] Shared tests cover at least permission-denied, offline/timeout and unknown for list and item operations.
-- [ ] Android unit, iOS simulator and the affected instrumented tests pass.
+- [x] List and item adapters on both platforms throw a `commonMain`-visible exception carrying the mapped `ApplicationError`.
+- [x] The four ViewModels surface the mapped code; permission-denied is shown as not retryable.
+- [x] Shared tests cover at least permission-denied, offline/timeout and unknown for list and item operations.
+- [x] Android unit, iOS simulator and the affected instrumented tests pass.
 
 **Log:**
+- 2026-10-06: Added `RepositoryException(error: ApplicationError)` to `commonMain` (`data/remote/FirebaseContracts.kt`) and removed both platform-`internal` `ListRepositoryException` classes; list and item adapters (and `toListRepositoryException()`, now `toRepositoryException()`) use it, which also settles FB-204-NB3. Added shared `Throwable.toRepositoryApplicationError()`; the four ViewModels use it (`ItemDetailViewModel` keeps its extra `PhotoStorageException` branch) and their per-ViewModel `UNKNOWN` helpers are gone. New tests: forbidden/offline/timeout for Dashboard, CreateList, ListDetail and ItemDetail, plus a mapper unit test. Two instrumented tests that asserted the old retryable-`UNKNOWN` behaviour now assert `FORBIDDEN`, not retryable (`DashboardViewModelEmulatorIntegrationTest`, `ListDetailViewModelDeleteListCrashInstrumentedTest`). Verified: Android Debug and Release unit tests, iOS simulator tests, and the instrumented suite against the local emulators (89 tests; the one failure was the stale assertion above, fixed and re-run green).
 
 ---
 

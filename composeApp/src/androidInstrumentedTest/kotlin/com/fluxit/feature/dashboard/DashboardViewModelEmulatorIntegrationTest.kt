@@ -26,6 +26,7 @@ import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -75,7 +76,7 @@ import org.junit.runner.RunWith
  * the *next* test's freshly-signed-in user's own uid path under the *previous* test's now-stale
  * auth token, drew a genuine `PERMISSION_DENIED` on a listener [DashboardViewModel] never guards
  * with a `.catch`, and crashed the whole instrumented-test app process. See
- * [crossUserDeleteIsDeniedButDashboardCurrentlyReportsItAsUnknownRetryablePerFb402Nb1]'s KDoc for
+ * [crossUserDeleteIsDeniedAndDashboardReportsItAsForbiddenNotRetryable]'s KDoc for
  * why that underlying crash mechanism is real and reported to the `FB-405` matrix, but is not
  * itself fixed or kept as a permanently-crashing test here.
  */
@@ -195,17 +196,9 @@ class DashboardViewModelEmulatorIntegrationTest {
     }
 
     /**
-     * `FB-405` leg 3 (denied write), at the ViewModel layer. Demonstrates the currently-real
-     * consequence of the already-tracked, `OPEN` `FB-402-NB1`/`FB-403-NB2` gap: because
-     * `ListRepositoryException` is platform-`internal` and unreachable from
-     * `commonMain`, [DashboardViewModel] cannot distinguish a genuine `PERMISSION_DENIED`
-     * from any other repository failure, and reports every one as
-     * [RepositoryErrorCode.UNKNOWN] with `canRetry = true` - exactly the
-     * "mis-reported as retryable" outcome `FB-402`'s own reviewer predicted when opening
-     * `FB-402-NB1`. This test asserts the actual, current, observed mapping (not the
-     * desired one) so the `FB-405` matrix has a live-reproduced, non-fabricated basis for
-     * reporting that acceptance-criterion leg as failing until `FB-402-NB1`/`FB-403-NB2` are
-     * closed - it is intentionally NOT a fix, per `FB-405`'s scope boundary.
+     * `FB-405` leg 3 (denied write), at the ViewModel layer: a real `PERMISSION_DENIED` write
+     * reaches [DashboardUiState] as [RepositoryErrorCode.FORBIDDEN] with `canRetry = false`
+     * (PM-01; it was previously collapsed to a retryable `UNKNOWN`).
      *
      * **Why [ObserveOwnUidButWriteAsAnotherUidListRepository] splits observe/write, rather than
      * one plain cross-user repository:** an earlier version of this test built the whole
@@ -215,13 +208,13 @@ class DashboardViewModelEmulatorIntegrationTest {
      * the whole ViewModel rather than one call). Under this codebase's current owner-only
      * Rules, a uid path is symmetrically denied for both reads and writes, so
      * `observeListSummariesSnapshot()` itself received the exact same `PERMISSION_DENIED` and
-     * called `close(error.toListRepositoryException())` (`AndroidFirebaseListRepository.kt`).
+     * called `close(error.toRepositoryException())` (`AndroidFirebaseListRepository.kt`).
      * That closes the `callbackFlow` with an exception `DashboardViewModel`'s
      * `listLoadState`/`uiState` `combine` chain never catches (`FB-404` added no `.catch` to
      * it), which propagates uncaught through `viewModelScope` (`Dispatchers.Main.immediate`)
      * and **crashed the real instrumented-test app process** - reproduced live, real
      * `TestRunner`/logcat evidence: `Process: com.fluxit ... FATAL EXCEPTION ...
-     * com.fluxit.firebase.list.ListRepositoryException ... Suppressed:
+     * com.fluxit.data.remote.RepositoryException ... Suppressed:
      * ...StandaloneCoroutine{Cancelling}@...,Dispatchers.Main.immediate]`. That is a real,
      * independently significant finding reported alongside this task's matrix (see the
      * `FB-405` ledger evidence), but it is **not reproducible as a passing/failing JUnit
@@ -238,7 +231,7 @@ class DashboardViewModelEmulatorIntegrationTest {
      * exactly as it would be for any other mutation failure in production today.
      */
     @Test
-    fun crossUserDeleteIsDeniedButDashboardCurrentlyReportsItAsUnknownRetryablePerFb402Nb1(): Unit = runBlocking {
+    fun crossUserDeleteIsDeniedAndDashboardReportsItAsForbiddenNotRetryable(): Unit = runBlocking {
         val store = ViewModelStore()
         try {
             val someoneElsesUid = "not-$uid"
@@ -255,13 +248,8 @@ class DashboardViewModelEmulatorIntegrationTest {
             val operationError = requireNotNull(failed.operationError)
             assertEquals(DashboardOperation.DELETE_LIST, operationError.operation)
 
-            // The FB-402-NB1-tracked gap, reproduced live: a real PERMISSION_DENIED write
-            // (proved to reach RepositoryErrorCode.FORBIDDEN/canRetry=false at the repository
-            // boundary by FirestoreListEmulatorIntegrationTest.
-            // aCrossUserWriteIsDeniedAndSurfacesAsAForbiddenApplicationErrorNotAnSdkException)
-            // collapses to UNKNOWN/canRetry=true by the time it reaches DashboardUiState.
-            assertEquals(RepositoryErrorCode.UNKNOWN, operationError.error.code)
-            assertTrue(operationError.error.canRetry, "FB-402-NB1: DashboardViewModel currently reports every repository failure as retryable")
+            assertEquals(RepositoryErrorCode.FORBIDDEN, operationError.error.code)
+            assertFalse(operationError.error.canRetry, "a permission-denied write must not be offered as retryable")
 
             collector.cancel()
         } finally {
@@ -302,7 +290,7 @@ class DashboardViewModelEmulatorIntegrationTest {
 
 /**
  * Test-only [ListRepository] decorator - see
- * [DashboardViewModelEmulatorIntegrationTest.crossUserDeleteIsDeniedButDashboardCurrentlyReportsItAsUnknownRetryablePerFb402Nb1]'s
+ * [DashboardViewModelEmulatorIntegrationTest.crossUserDeleteIsDeniedAndDashboardReportsItAsForbiddenNotRetryable]'s
  * KDoc for why observation and the mutation under test are deliberately split across two real
  * [AndroidFirebaseListRepository] instances rather than sharing one. `updateList`/`createList`/
  * `restoreList` are wired to [writeOnly] too, for consistency, though only `softDeleteList` is

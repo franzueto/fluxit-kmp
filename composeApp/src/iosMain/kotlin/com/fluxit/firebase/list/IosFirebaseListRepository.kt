@@ -9,6 +9,7 @@ import com.fluxit.data.remote.FirebaseDocumentMapper
 import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.data.remote.toApplicationError
 import com.fluxit.domain.FluxList
 import com.fluxit.domain.FluxListSummary
@@ -84,7 +85,7 @@ class IosFirebaseListRepository internal constructor(
                     .sortedWith(FirebaseDocumentMapper.listOrdering)
                 trySend(summaries)
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
@@ -107,7 +108,7 @@ class IosFirebaseListRepository internal constructor(
                     .sortedWith(FirebaseDocumentMapper.listOrdering)
                 trySend(RepositorySnapshot(summaries, snapshot.isFromCache, snapshot.hasPendingWrites))
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
@@ -126,7 +127,7 @@ class IosFirebaseListRepository internal constructor(
                     trySend(list)
                 }
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
@@ -147,10 +148,10 @@ class IosFirebaseListRepository internal constructor(
         return suspendCancellableCoroutine { continuation ->
             bridgeProvider().createList(uid, initialFields) { id, error ->
                 when {
-                    error != null -> continuation.resumeWithException(error.toListRepositoryException())
+                    error != null -> continuation.resumeWithException(error.toRepositoryException())
                     id != null -> continuation.resume(id)
                     else -> continuation.resumeWithException(
-                        ListRepositoryException(RepositoryErrorCode.UNKNOWN.toApplicationError()),
+                        RepositoryException(RepositoryErrorCode.UNKNOWN.toApplicationError()),
                     )
                 }
             }
@@ -197,7 +198,7 @@ class IosFirebaseListRepository internal constructor(
         suspendCancellableCoroutine<Unit> { continuation ->
             bridgeProvider().updateListFields(uid, listId, patch.fields) { error ->
                 if (error != null) {
-                    continuation.resumeWithException(error.toListRepositoryException())
+                    continuation.resumeWithException(error.toRepositoryException())
                 } else {
                     continuation.resume(Unit)
                 }

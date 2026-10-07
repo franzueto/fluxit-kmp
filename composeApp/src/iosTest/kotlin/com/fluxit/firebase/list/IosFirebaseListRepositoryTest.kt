@@ -3,6 +3,7 @@ package com.fluxit.firebase.list
 import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import kotlin.test.Test
@@ -189,7 +190,7 @@ class IosFirebaseListRepositoryTest {
         bridge.emitSummariesError(firestoreError(7L)) // permissionDenied
         job.join()
 
-        val failure = assertIs<ListRepositoryException>(caught)
+        val failure = assertIs<RepositoryException>(caught)
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
     }
 
@@ -304,7 +305,7 @@ class IosFirebaseListRepositoryTest {
         bridge.emitSummariesSnapshotError(firestoreError(7L)) // permissionDenied
         job.join()
 
-        val failure = assertIs<ListRepositoryException>(caught)
+        val failure = assertIs<RepositoryException>(caught)
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
     }
 
@@ -347,7 +348,7 @@ class IosFirebaseListRepositoryTest {
         bridge.createFailure = firestoreError(16L) // unauthenticated
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.createList("Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
         }
         assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)
@@ -407,7 +408,7 @@ class IosFirebaseListRepositoryTest {
         bridge.updateFailure = firestoreError(7L) // permissionDenied
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.updateList("list-1", "x", ListIcon.CART, ListColor.PRIMARY_BLUE)
         }
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
@@ -435,7 +436,7 @@ class IosFirebaseListRepositoryTest {
         val bridge = RecordingListBridge()
         val repository = repositoryFor(bridge, FixedUidProvider(uid = null))
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.createList("Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
         }
         assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.fluxit.config.FirebaseEmulatorConfig
+import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.domain.auth.AuthResult
 import com.fluxit.domain.auth.AuthSession
@@ -59,11 +60,11 @@ import org.junit.runner.RunWith
  * Firestore emulator - exactly `FB-406-B1`'s finding, live.
  *
  * **Pre-fix / post-fix usage (see the `FB-409` developer report for the exact commands run):**
- * run [deleteListFailureSurfacesARetryableErrorInsteadOfCrashing] once against the pre-`FB-409`
+ * run [deleteListFailureSurfacesAForbiddenErrorInsteadOfCrashing] once against the pre-`FB-409`
  * `ListDetailViewModel.kt` (bare `launch`, no guard), which is expected to fail this test
- * process with an uncaught `ListRepositoryException`/`FATAL EXCEPTION`; then run it again
+ * process with an uncaught `RepositoryException`/`FATAL EXCEPTION`; then run it again
  * against the post-`FB-409` `ListDetailViewModel.kt` (with the try/catch/finally +
- * duplicate-submit guard), which is expected to pass, with a retryable [ListDetailOperationError]
+ * duplicate-submit guard), which is expected to pass, with a non-retryable [ListDetailOperationError]
  * observed instead of a crash.
  */
 @RunWith(AndroidJUnit4::class)
@@ -128,7 +129,7 @@ class ListDetailViewModelDeleteListCrashInstrumentedTest {
      * since a test cannot assert its own pre-fix crash - the crash itself, and the logcat
      * `FATAL EXCEPTION` it produces, is the pre-fix evidence, captured out-of-band. */
     @Test
-    fun deleteListFailureSurfacesARetryableErrorInsteadOfCrashing(): Unit = runBlocking {
+    fun deleteListFailureSurfacesAForbiddenErrorInsteadOfCrashing(): Unit = runBlocking {
         val someoneElsesUid = "not-$uid"
         val crossUidListRepository = AndroidFirebaseListRepository(firestore, CurrentUidProvider { someoneElsesUid })
         val crossUidItemRepository = AndroidFirebaseItemRepository(firestore, CurrentUidProvider { someoneElsesUid })
@@ -149,10 +150,12 @@ class ListDetailViewModelDeleteListCrashInstrumentedTest {
                 awaitOperationError(vm)
             }
 
-            assertTrue(
-                error.error.canRetry,
-                "a real PERMISSION_DENIED mutation failure must surface as a retryable operation error, not crash the process",
+            assertEquals(
+                RepositoryErrorCode.FORBIDDEN,
+                error.error.code,
+                "a real PERMISSION_DENIED mutation failure must surface as a FORBIDDEN operation error, not crash the process",
             )
+            assertFalse(error.error.canRetry, "a permission-denied delete must not be offered as retryable")
             assertEquals(ListDetailOperation.DELETE_LIST, error.operation)
             assertFalse(vm.isDeletingList.value, "isDeletingList must reset on failure (finally)")
             assertFalse(vm.uiState.value.listDeleted, "a failed delete must not close the screen")

@@ -9,7 +9,7 @@ import com.fluxit.data.PhotoStorageException
 import com.fluxit.data.preparePhotoForUpload
 import com.fluxit.data.remote.ApplicationError
 import com.fluxit.data.remote.RepositoryErrorCode
-import com.fluxit.data.remote.toApplicationError
+import com.fluxit.data.remote.toRepositoryApplicationError
 import com.fluxit.data.replacePhoto
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.ItemRepository
@@ -100,8 +100,9 @@ data class ItemDetailUiState(
      * keeps compiling unchanged, matching `FB-402`'s established "new fields are purely
      * additive" precedent. `AndroidPhotoStorage`/`IosPhotoStorage` now throw
      * [com.fluxit.data.PhotoStorageException] carrying exactly this type (`FB-403`, discharging
-     * `FB-401-NB1`/`FB-401-NB2`); any other failure (e.g. an `ItemRepository` Firestore write)
-     * conservatively falls back to [RepositoryErrorCode.UNKNOWN] - see [toItemDetailApplicationError].
+     * `FB-401-NB1`/`FB-401-NB2`); an `ItemRepository` failure carries the error of its
+     * [com.fluxit.data.remote.RepositoryException], and anything else falls back to
+     * [RepositoryErrorCode.UNKNOWN] - see [toItemDetailApplicationError].
      */
     val photoOperationError: ApplicationError? = null,
     val closed: Boolean = false,
@@ -477,17 +478,8 @@ class ItemDetailViewModel(
     }
 }
 
-/**
- * `FB-403`: `PhotoStorage` failures now surface FB-401's neutral [ApplicationError] directly via
- * [PhotoStorageException] (`AndroidPhotoStorage`/`IosPhotoStorage`, discharging
- * `FB-401-NB1`/`FB-401-NB2`) - extracted here without loss. `ItemRepository`'s Firestore-backed
- * write failures (e.g. `updateItem`/`setPhotoRef`/`deleteItem`) have no such `commonMain`-visible
- * mapping yet - the same `ListRepositoryException` platform-`internal`-visibility gap
- * `FB-402-NB1` already tracks for `ListRepository`/`ItemRepository`, not this task's scope to
- * close - so those conservatively fall back to [RepositoryErrorCode.UNKNOWN] (`canRetry = true`)
- * rather than a guessed, more specific code.
- */
+/** Photo-storage failures carry their own mapped error; everything else is a repository failure. */
 private fun Throwable.toItemDetailApplicationError(): ApplicationError = when (this) {
     is PhotoStorageException -> error
-    else -> RepositoryErrorCode.UNKNOWN.toApplicationError()
+    else -> toRepositoryApplicationError()
 }

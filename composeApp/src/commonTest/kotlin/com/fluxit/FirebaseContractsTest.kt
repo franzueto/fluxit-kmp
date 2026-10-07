@@ -12,6 +12,8 @@ import com.fluxit.data.remote.FirebaseDocumentMapper
 import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
+import com.fluxit.data.remote.toRepositoryApplicationError
 import com.fluxit.data.remote.applyFieldPatches
 import com.fluxit.data.remote.toRepositoryError
 import com.fluxit.data.remote.toApplicationError
@@ -21,6 +23,20 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 
 class FirebaseContractsTest {
+    @Test
+    fun repositoryExceptionCarriesItsMappedErrorAndOtherThrowablesAreUnknownAndRetryable() {
+        val denied = RepositoryException(RepositoryErrorCode.FORBIDDEN.toApplicationError())
+        assertEquals(RepositoryErrorCode.FORBIDDEN, denied.toRepositoryApplicationError().code)
+        assertEquals(false, denied.toRepositoryApplicationError().canRetry)
+
+        assertEquals(RepositoryErrorCode.OFFLINE, RepositoryException(RepositoryErrorCode.OFFLINE.toApplicationError()).toRepositoryApplicationError().code)
+        assertEquals(RepositoryErrorCode.TIMEOUT, RepositoryException(RepositoryErrorCode.TIMEOUT.toApplicationError()).toRepositoryApplicationError().code)
+
+        val unknown = IllegalStateException("boom").toRepositoryApplicationError()
+        assertEquals(RepositoryErrorCode.UNKNOWN, unknown.code)
+        assertEquals(true, unknown.canRetry)
+    }
+
     @Test
     fun malformedRequiredFieldReturnsTypedContractError() {
         val result = FirebaseDocumentMapper.item(

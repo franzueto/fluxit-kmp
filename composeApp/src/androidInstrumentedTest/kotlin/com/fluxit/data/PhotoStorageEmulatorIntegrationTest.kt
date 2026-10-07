@@ -11,7 +11,7 @@ import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.FirebaseAuthCurrentUidProvider
-import com.fluxit.firebase.list.ListRepositoryException
+import com.fluxit.data.remote.RepositoryException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -260,7 +260,7 @@ class PhotoStorageEmulatorIntegrationTest {
         val signedOutClient = AndroidPhotoStorage(storageA, FirebaseAuthCurrentUidProvider(authA))
         val itemId = UUID.randomUUID().toString()
 
-        val failure = assertFailsWith<ListRepositoryException>(
+        val failure = assertFailsWith<RepositoryException>(
             "uploadPhoto must fail fast, before ever reaching Storage, when nobody is signed in",
         ) {
             signedOutClient.uploadPhoto(itemId, samplePngBytes())
