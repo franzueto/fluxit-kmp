@@ -19,7 +19,7 @@ when you start or finish an item, and add a line to its *Log*.
 | [PM-02](#pm-02--swipe-to-delete-row-stuck-after-a-failed-or-skipped-delete) | Medium | Swipe-to-delete row stuck after a failed or skipped delete | DONE | FB-710-NB1, FB-710-NB2, FB-710-NB3 |
 | [PM-03](#pm-03--move-ios-test-harnesses-out-of-the-shipping-app) | Medium | Move iOS test harnesses out of the shipping app | DONE | FB-103-NB3, FB-307-NB1 |
 | [PM-04](#pm-04--photo-upload-error-contract-for-direct-callers) | Low | Photo upload error contract for direct callers | DONE | FB-602-NB1 |
-| [PM-05](#pm-05--test-coverage-gaps) | Low | Test coverage gaps | TODO | FB-007-NB1, FB-304-NB2, FB-105-NB2 |
+| [PM-05](#pm-05--test-coverage-gaps) | Low | Test coverage gaps | DONE | FB-007-NB1, FB-304-NB2, FB-105-NB2 |
 | [PM-06](#pm-06--session-restore-outcome-contract) | Low | Session-restore outcome contract | TODO | FB-104-NB1 |
 | [PM-07](#pm-07--continuous-integration-optional) | Optional | Continuous integration | TODO | FB-206-NB2 |
 | [PM-08](#pm-08--remove-migration-tracking-references-from-code-and-docs) | Last | Remove migration-tracking references from code and docs | TODO (after PM-01…PM-07) | — |
@@ -148,15 +148,16 @@ so it surfaces as `PhotoStorageException`. Pick one and test it.
 
 ## PM-05 — Test coverage gaps
 
-**Priority:** Low · **Status:** TODO · **Source:** FB-007-NB1, FB-304-NB2, FB-105-NB2
+**Priority:** Low · **Status:** DONE · **Source:** FB-007-NB1, FB-304-NB2, FB-105-NB2
 
 Independent small tasks; tick them off separately.
 
-- [ ] **FB-007-NB1:** add an `iosTest` asserting `IosFirebaseEmulatorSettings` matches `FirebaseEmulatorConfig` (guards against Android's `10.0.2.2` host translation leaking into iOS).
-- [ ] **FB-304-NB2:** add an Android on-device boundary-value test for the real `BitmapFactory`-backed `ImageTransform.android.kt` (exact size limit, unsupported type, corrupt image). iOS already has `ImageTransformIosTest`.
-- [ ] **FB-105-NB2:** add a Compose UI test for the account-switch path in `SessionGate.kt`, where `remember(...) { scopedStores.ownerFor(...) }` clears the old `ViewModelStore` during composition. A Compose UI test setup now exists in `iosTest` (FB-710).
+- [x] **FB-007-NB1:** add an `iosTest` asserting `IosFirebaseEmulatorSettings` matches `FirebaseEmulatorConfig` (guards against Android's `10.0.2.2` host translation leaking into iOS).
+- [x] **FB-304-NB2:** add an Android on-device boundary-value test for the real `BitmapFactory`-backed `ImageTransform.android.kt` (exact size limit, unsupported type, corrupt image). iOS already has `ImageTransformIosTest`.
+- [x] **FB-105-NB2:** add a Compose UI test for the account-switch path in `SessionGate.kt`, where `remember(...) { scopedStores.ownerFor(...) }` clears the old `ViewModelStore` during composition. A Compose UI test setup now exists in `iosTest` (FB-710).
 
 **Log:**
+- 2026-10-07: **FB-007-NB1** needed no work: `IosFirebaseEmulatorSettingsTest` already exists (added in FB-203) and asserts every field equals `FirebaseEmulatorConfig` verbatim, including that no `10.0.2.2` translation is applied. **FB-304-NB2:** added `ImageTransformInstrumentedTest` (Android, no emulator suite needed) covering real `BitmapFactory` decode/resize for PNG/JPEG/WebP and `preparePhotoForUpload` boundaries: long edge 2048 vs 2049, size exactly `MAX_UPLOAD_BYTES` vs +1, source exactly `MAX_SOURCE_BYTES` vs +1, unsupported GIF/BMP, and corrupt data with a valid PNG signature. 12/12 pass on the Pixel_10a AVD. **FB-105-NB2:** added `SessionGateAccountSwitchIosTest` (iOS `compose.uiTest`), composing the real `SessionGate`, `appModule` and `AppNavHost` with in-memory fakes. It switches user A to user B directly and asserts B gets a second `DashboardViewModel` and that A's listener is released. Checked it can fail: with the gate temporarily providing the root `ViewModelStoreOwner` instead of the scoped one, the test fails (timeout waiting for B's listener); the change was reverted. Verified: full `iosSimulatorArm64Test` 326 tests, 0 failures.
 
 ---
 
