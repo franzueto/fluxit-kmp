@@ -20,8 +20,8 @@ when you start or finish an item, and add a line to its *Log*.
 | [PM-03](#pm-03--move-ios-test-harnesses-out-of-the-shipping-app) | Medium | Move iOS test harnesses out of the shipping app | DONE | FB-103-NB3, FB-307-NB1 |
 | [PM-04](#pm-04--photo-upload-error-contract-for-direct-callers) | Low | Photo upload error contract for direct callers | DONE | FB-602-NB1 |
 | [PM-05](#pm-05--test-coverage-gaps) | Low | Test coverage gaps | DONE | FB-007-NB1, FB-304-NB2, FB-105-NB2 |
-| [PM-06](#pm-06--session-restore-outcome-contract) | Low | Session-restore outcome contract | TODO | FB-104-NB1 |
-| [PM-07](#pm-07--continuous-integration-optional) | Optional | Continuous integration | TODO | FB-206-NB2 |
+| [PM-06](#pm-06--session-restore-outcome-contract) | Low | Session-restore outcome contract | WONTFIX | FB-104-NB1 |
+| [PM-07](#pm-07--continuous-integration-optional) | Optional | Continuous integration | DONE | FB-206-NB2 |
 | [PM-08](#pm-08--remove-migration-tracking-references-from-code-and-docs) | Last | Remove migration-tracking references from code and docs | TODO (after PM-01…PM-07) | — |
 
 Suggested order: PM-01 → PM-02 → PM-03, then the low-priority items as time allows.
@@ -163,7 +163,7 @@ Independent small tasks; tick them off separately.
 
 ## PM-06 — Session-restore outcome contract
 
-**Priority:** Low · **Status:** TODO · **Source:** FB-104-NB1
+**Priority:** Low · **Status:** WONTFIX · **Source:** FB-104-NB1
 
 **Problem.** `AuthRepository.restoreSession()` returns `Unit`
 (`commonMain/.../domain/auth/AuthRepository.kt:41`), so `SessionGateViewModel` can only
@@ -181,12 +181,13 @@ contract for another reason, or close it as `WONTFIX`.
 - [ ] `SessionGateViewModel` no longer relies on `yield()` ordering; its tests pass.
 
 **Log:**
+- 2026-10-07: Closed as `WONTFIX`. The page's own condition for doing it (touching the auth contract for another reason) has not come up, and the change is a contract edit across both adapters, `SessionAuthRepository`, the shared fakes and about a dozen test overrides (`override suspend fun restoreSession() = Unit`) for a risk that only a future adapter could create. Checked that there is no bug today: `AndroidAuthRepository` and `IosAuthRepository` set the session state before returning, and `SessionAuthRepository` (the adapter the app actually uses) already waits for `delegate.session.first { it != Unresolved }` and publishes the resolved value before it returns, so the `yield()` in `SessionGateViewModel.awaitInitialResolution` is only a backstop. The gate also never grants `Ready` from an unvalidated credential in the meantime. Revisit if a third `AuthRepository` implementation is added or the auth contract is changed for another reason; the limitation stays documented in the `awaitInitialResolution` KDoc.
 
 ---
 
 ## PM-07 — Continuous integration (optional)
 
-**Priority:** Optional · **Status:** TODO · **Source:** FB-206-NB2
+**Priority:** Optional · **Status:** DONE · **Source:** FB-206-NB2
 
 The repository has no CI (`.github/workflows` does not exist). A first workflow could run
 the Android unit tests (Debug/Release), the Rules/config tests and the Cloud Functions tests
@@ -196,10 +197,11 @@ Firebase mobile config files are gitignored, so CI needs a strategy for them (fo
 the emulator-only demo project, or encrypted secrets). Never commit real config or keys.
 
 **Done when:**
-- [ ] A workflow runs at least the Android unit tests on pull requests to `main`.
-- [ ] No Firebase config or credential is committed.
+- [x] A workflow runs at least the Android unit tests on pull requests to `main`.
+- [x] No Firebase config or credential is committed.
 
 **Log:**
+- 2026-10-07: Added `.github/workflows/ci.yml`, three jobs on pull requests to `main`: Android Debug and Release unit tests (JDK 17), `firebase` config checks plus Rules/query tests under the `demo-fluxit` emulators (`npm test`, JDK 21, Node 22), and Cloud Functions build and unit tests (`npm run check`). The Google Services plugin needs a `google-services.json`, which is gitignored, so the Android job copies `.github/ci/placeholder-google-services.json` (fake `demo-fluxit` project, package `com.fluxit`, dummy key) into `composeApp/`; the unit tests use fakes and never contact Firebase. Nothing real is committed. Not in CI on purpose: the Functions emulator tests (`npm run test:emulator`), the Android instrumented suite and the iOS simulator tests (heavy; the reconnect tests use wall-clock timeouts of up to 30 s, FB-206-NB2). Verified locally, not on GitHub: in a clean `git worktree` with no real config and only the placeholder, `testDebugUnitTest testReleaseUnitTest` passed, `firebase` `npm ci && npm test` passed (4 config + 60 Rules/query tests) and `functions` `npm ci && npm run check` passed. The workflow itself has not run on GitHub yet, so the first PR is its real test (action versions and runner Java/Node are the likely friction).
 
 ---
 

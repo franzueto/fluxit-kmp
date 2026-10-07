@@ -1,0 +1,17 @@
+{
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "demo-fluxit",
+    "storage_bucket": "demo-fluxit.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": { "package_name": "com.fluxit" }
+      },
+      "api_key": [{ "current_key": "ci-placeholder-not-a-real-key" }]
+    }
+  ],
+  "configuration_version": "1"
+}
