@@ -27,8 +27,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * Android [ListRepository] backed by the official Firebase Android Firestore SDK
- * (FB-202), against the `users/{uid}/lists/{listId}` path from the plan's "Proposed
- * Firebase model".
+ * against the `users/{uid}/lists/{listId}` path.
  *
  * Design notes:
  *
@@ -44,7 +43,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * - Every listener is registered inside `callbackFlow` and removed from `awaitClose`,
  *   so cancelling a collector genuinely releases the underlying Firestore listener
  *   (mirrors [com.fluxit.firebase.auth.AndroidAuthRepository]'s `session` flow).
- * - Ordering and tombstone filtering are entirely FB-201's: every document is passed
+ * - Ordering and tombstone filtering are entirely the: every document is passed
  *   through [FirebaseDocumentMapper.list] (which drops tombstoned/malformed documents)
  *   and the survivors are sorted with [FirebaseDocumentMapper.listOrdering]. No
  *   server-side `orderBy`/`whereEqualTo` is used for this, deliberately: a pending
@@ -52,12 +51,12 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  *   SDK's local index until the server confirms it, which would make the visible order
  *   briefly non-deterministic. Client-side sorting over the whole (per-user, expected
  *   small) collection keeps `(createdAt, documentId)` the single source of truth for
- *   order, exactly as FB-201 defines it.
+ * order, exactly as defines it.
  * - Every mutation is a field-scoped [FieldPatch] applied through Firestore's `update()`
  *   (which only ever touches the keys present in the map) - never `set()` - per
- *   DEC-003d. The one exception is [createList]: a brand-new document has no existing
+ *   the field-level last-write-wins policy. The one exception is [createList]: a brand-new document has no existing
  *   state to conflict with, so writing its full initial field set with `set()` does not
- *   contradict DEC-003d's last-write-wins/field-merge concern, which is specifically
+ *   contradict the field-level last-write-wins policy last-write-wins/field-merge concern, which is specifically
  *   about concurrent edits to a document that already exists.
  */
 class AndroidFirebaseListRepository(
@@ -75,7 +74,7 @@ class AndroidFirebaseListRepository(
         val uid = currentUid.currentUid()
         val registration = listsCollection(uid).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
@@ -85,7 +84,7 @@ class AndroidFirebaseListRepository(
     }
 
     /**
-     * `FB-407`: same query as [observeListSummaries], but registered with
+     * Same query as [observeListSummaries], but registered with
      * [MetadataChanges.INCLUDE] and additionally reporting [RepositorySnapshot]'s real
      * `isFromCache`/`hasPendingWrites` metadata from [QuerySnapshot.getMetadata]. This is
      * a genuinely separate listener registration, not a shared one with
@@ -105,7 +104,7 @@ class AndroidFirebaseListRepository(
         val uid = currentUid.currentUid()
         val registration = listsCollection(uid).addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
@@ -120,7 +119,7 @@ class AndroidFirebaseListRepository(
         awaitClose { registration.remove() }
     }
 
-    /** FB-201 mapping/ordering, shared by [observeListSummaries] and [observeListSummariesSnapshot]. */
+    /** mapping/ordering, shared by [observeListSummaries] and [observeListSummariesSnapshot]. */
     private fun mapSummaries(snapshot: QuerySnapshot): List<FluxListSummary> {
         val now = System.currentTimeMillis()
         return snapshot.documents
@@ -135,7 +134,7 @@ class AndroidFirebaseListRepository(
         val uid = currentUid.currentUid()
         val registration = listsCollection(uid).document(listId).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null || !snapshot.exists()) {
@@ -183,7 +182,7 @@ class AndroidFirebaseListRepository(
         )
     }
 
-    /** DEC-003d field-scoped tombstone patch: touches only `deletedAt`. */
+    /** Field-scoped tombstone patch: touches only `deletedAt`. */
     override suspend fun softDeleteList(listId: String) {
         applyPatch(
             listId,
@@ -191,7 +190,7 @@ class AndroidFirebaseListRepository(
         )
     }
 
-    /** DEC-003d field-scoped patch clearing only `deletedAt`. */
+    /** Field-scoped patch clearing only `deletedAt`. */
     override suspend fun restoreList(listId: String) {
         applyPatch(listId, FieldPatch(mapOf(FirebaseSchema.Fields.DELETED_AT to FirebaseValue.Null)))
     }
@@ -199,11 +198,10 @@ class AndroidFirebaseListRepository(
     /**
      * Deliberately a no-op.
      *
-     * DEC-003c places tombstone purge in Phase 5's scheduled server-side (Cloud
-     * Functions) cleanup job, not client-owned code - the plan explicitly prefers
-     * removing client-owned cleanup once server-side cleanup exists. Implementing a
-     * client-side bulk delete here would duplicate that future backend job and is out
-     * of FB-202's scope (list CRUD/listen/soft-delete/restore only). Kept only so this
+     * Tombstone purge belongs to the scheduled server-side (Cloud
+     * Functions) cleanup job, not client-owned code. Implementing a
+     * client-side bulk delete here would duplicate that backend job and is out
+     * of scope (list CRUD/listen/soft-delete/restore only). Kept only so this
      * repository satisfies [ListRepository]'s existing shape without changing it.
      */
     override suspend fun purgeExpired() = Unit
@@ -220,7 +218,7 @@ class AndroidFirebaseListRepository(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (throwable: Throwable) {
-            throw throwable.toListRepositoryException()
+            throw throwable.toRepositoryException()
         }
     }
 }

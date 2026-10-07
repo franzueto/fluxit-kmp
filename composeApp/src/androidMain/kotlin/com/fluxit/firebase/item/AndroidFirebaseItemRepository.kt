@@ -11,7 +11,7 @@ import com.fluxit.domain.RepositorySnapshot
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.FirebaseAuthCurrentUidProvider
 import com.fluxit.firebase.list.FirestoreValueCodec
-import com.fluxit.firebase.list.toListRepositoryException
+import com.fluxit.firebase.list.toRepositoryException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
@@ -32,12 +32,12 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
- * Android [ItemRepository] backed by the official Firebase Android Firestore SDK (FB-204),
- * against the `users/{uid}/lists/{listId}/items/{itemId}` path (`PLAN-006`/`PLAN-007`;
- * [FirebaseSchema.itemPath]).
+ * Android [ItemRepository] backed by the official Firebase Android Firestore SDK,
+ * against the `users/{uid}/lists/{listId}/items/{itemId}` path
+ * ([FirebaseSchema.itemPath]).
  *
  * Reuse decisions (module-scoped `internal` reuse from [com.fluxit.firebase.list], the
- * FB-202 sibling package, per FB-204's task brief - none of this is re-derived here):
+ * sibling package - none of this is re-derived here):
  *
  * - [com.fluxit.firebase.list.FirestoreValueCodec] - pure value translation, entirely
  *   list-agnostic, reused unmodified for both single-value/[FieldPatch] encoding and raw
@@ -45,16 +45,16 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * - [CurrentUidProvider]/[FirebaseAuthCurrentUidProvider] - uid resolution has nothing to
  *   do with lists vs. items, reused unmodified. Resolved fresh per call (never cached),
  *   same Phase 1 constraint [com.fluxit.firebase.list.AndroidFirebaseListRepository] documents.
- * - `FirestoreErrorMapping.kt`'s `toListRepositoryException()`/[com.fluxit.firebase.list.ListRepositoryException]
+ * - `FirestoreErrorMapping.kt`'s `toRepositoryException()`/[com.fluxit.data.remote.RepositoryException]
  *   reused unmodified rather than duplicated into an `ItemRepositoryException`: nothing in
  *   this codebase yet catches by that class name specifically (only [com.fluxit.data.remote.ApplicationError]
  *   is a cross-platform-visible concept - see `FirebaseContracts.kt`), so a same-named,
  *   differently-scoped wrapper class would add indirection with no behavioral or
- *   call-site benefit. If a future phase (FB-401's error taxonomy) starts catching by
+ * call-site benefit. If a future phase (the error taxonomy) starts catching by
  *   this class name specifically, renaming it to something list/item-neutral (e.g.
  *   `FirestoreRepositoryException`) becomes the right fix - not forking it here.
  *
- * Counter atomicity/idempotency (FB-204's core acceptance criterion): every mutation that
+ * Counter atomicity/idempotency (the core acceptance criterion): every mutation that
  * can change `totalItems`/`completedItems` reads the item's *current* field values first
  * (`Transaction.get`, always before any write in the same transaction, per the SDK's own
  * rule) and computes a delta from that live state, never a blind `+1`/`-1`. Two important
@@ -80,12 +80,12 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * longer exists, rather than surfacing a `NOT_FOUND` [com.fluxit.data.remote.ApplicationError].
  * This is also what makes retrying any of these calls after a concurrent hard delete safe.
  * [updateItem]/[setPhotoRef] do **not** get this treatment - they are plain field-scoped
- * `update()` calls (no transaction, no counters, DEC-003d), and Firestore's bare
+ * `update()` calls (no transaction, no counters, per the field-level last-write-wins policy), and Firestore's bare
  * `DocumentReference.update()` throws `NOT_FOUND` on a missing document by design. This
  * mirrors [com.fluxit.firebase.list.AndroidFirebaseListRepository]'s `updateList`/
  * `softDeleteList`/`restoreList`, which have the same bare-`update()`-throws-NOT_FOUND
  * behavior against Room's originally-silent-no-op `ListDao.setDeletedAt` - an asymmetry
- * already accepted at FB-202, not a new one introduced here. Flagged for the reviewer.
+ * already accepted at the time, not a new one introduced here.
  */
 class AndroidFirebaseItemRepository(
     firestore: FirebaseFirestore? = null,
@@ -114,13 +114,13 @@ class AndroidFirebaseItemRepository(
     private fun itemsCollection(uid: String, listId: String): CollectionReference =
         listDoc(uid, listId).collection(FirebaseSchema.ITEMS)
 
-    // --- listeners (FB-201 mapping/ordering, unmodified) -----------------------------
+    // --- listeners (mapping/ordering, unmodified) -----------------------------
 
     override fun observeItems(listId: String): Flow<List<FluxItem>> = callbackFlow {
         val uid = currentUid.currentUid()
         val registration = itemsCollection(uid, listId).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
@@ -130,7 +130,7 @@ class AndroidFirebaseItemRepository(
     }
 
     /**
-     * `FB-407`: same shape as `AndroidFirebaseListRepository.observeListSummariesSnapshot`
+     * Same shape as `AndroidFirebaseListRepository.observeListSummariesSnapshot`
      * - a genuinely separate listener registered with [MetadataChanges.INCLUDE], reporting
      * the real [QuerySnapshot.getMetadata] `isFromCache`/`hasPendingWrites` into
      * [RepositorySnapshot], while [observeItems] keeps its own unmodified default-metadata
@@ -140,7 +140,7 @@ class AndroidFirebaseItemRepository(
         val uid = currentUid.currentUid()
         val registration = itemsCollection(uid, listId).addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null) return@addSnapshotListener
@@ -155,7 +155,7 @@ class AndroidFirebaseItemRepository(
         awaitClose { registration.remove() }
     }
 
-    /** FB-201 mapping/ordering, shared by [observeItems] and [observeItemsSnapshot]. */
+    /** mapping/ordering, shared by [observeItems] and [observeItemsSnapshot]. */
     private fun mapItems(listId: String, snapshot: QuerySnapshot): List<FluxItem> {
         val now = System.currentTimeMillis()
         return snapshot.documents
@@ -170,7 +170,7 @@ class AndroidFirebaseItemRepository(
         val uid = currentUid.currentUid()
         val registration = itemsCollection(uid, listId).document(itemId).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error.toListRepositoryException())
+                close(error.toRepositoryException())
                 return@addSnapshotListener
             }
             if (snapshot == null || !snapshot.exists()) {
@@ -185,7 +185,7 @@ class AndroidFirebaseItemRepository(
         awaitClose { registration.remove() }
     }
 
-    // --- creation: full-initial-field-set `.set()`, DEC-003d-1 exemption -------------
+    // --- creation: full-initial-field-set `.set()`, exempt from field-scoped patches since the document is new -------------
 
     override suspend fun addItem(listId: String, title: String) {
         val uid = currentUid.currentUid()
@@ -211,7 +211,7 @@ class AndroidFirebaseItemRepository(
         }
     }
 
-    // --- field-scoped, no counters (DEC-003d) -----------------------------------------
+    // --- field-scoped, no counters -----------------------------------------
 
     override suspend fun updateItem(listId: String, itemId: String, title: String, description: String?) {
         applyPatch(
@@ -434,7 +434,7 @@ class AndroidFirebaseItemRepository(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (throwable: Throwable) {
-            throw throwable.toListRepositoryException()
+            throw throwable.toRepositoryException()
         }
     }
 
@@ -444,7 +444,7 @@ class AndroidFirebaseItemRepository(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (throwable: Throwable) {
-            throw throwable.toListRepositoryException()
+            throw throwable.toRepositoryException()
         }
     }
 
@@ -488,7 +488,7 @@ class AndroidFirebaseItemRepository(
                         continue
                     }
                 }
-                throw throwable.toListRepositoryException()
+                throw throwable.toRepositoryException()
             }
         }
     }
@@ -506,7 +506,7 @@ internal const val MAX_BATCH_WRITES = 500
 internal const val DEFAULT_CLEAR_COMPLETED_CHUNK_SIZE = 400
 
 /**
- * The pure invariant behind FB-204's `>500-item chunk strategy`: a `clearCompleted` batch
+ * The pure invariant behind the `>500-item chunk strategy`: a `clearCompleted` batch
  * always pairs up to [chunkSize] item-tombstone writes with exactly one trailing
  * list-counter-update write in the same [com.google.firebase.firestore.WriteBatch], so
  * `chunkSize + 1` must never exceed Firestore's hard per-batch write cap. Extracted as a
@@ -529,7 +529,7 @@ internal fun requireValidClearCompletedChunkSize(chunkSize: Int, maxBatchWrites:
  * - needed here because `runTransaction`/query `.get()` return `Task<T>` for a non-`Void`
  * `T` (the transaction's result, or a [QuerySnapshot]), which that `Void`-only helper
  * cannot express. Kept local rather than widening the existing helper's visibility, to
- * avoid touching FB-202's file for an FB-204 concern.
+ * avoid touching the file for an concern.
  */
 private suspend fun <T> Task<T>.awaitTaskResult(): T = suspendCancellableCoroutine { continuation ->
     addOnCompleteListener { task ->

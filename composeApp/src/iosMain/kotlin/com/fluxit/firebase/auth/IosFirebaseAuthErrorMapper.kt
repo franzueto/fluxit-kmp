@@ -8,7 +8,7 @@ import platform.Foundation.NSURLErrorDomain
 /**
  * Platform-side diagnostics sink for Firebase Auth failures on iOS.
  *
- * FB-101-NB2: `AuthError.Unknown` deliberately carries no payload, so the original SDK
+ * `AuthError.Unknown` deliberately carries no payload, so the original SDK
  * error domain/code/message is invisible from `commonMain`. It must therefore be logged
  * *here*, before the failure is collapsed into the shared taxonomy, or the detail is
  * lost with no way to recover it. Mirrors `AuthDiagnostics` in `androidMain`.
@@ -59,7 +59,7 @@ internal const val FIREBASE_AUTH_ERROR_DOMAIN: String = "FIRAuthErrorDomain"
  * code is not one FluxIt models.
  *
  * Values are the raw values of the Apple SDK's `AuthErrorCode`. They are written as
- * literals rather than referenced through the SDK because, per PLAN-008, this file is
+ * literals rather than referenced through the SDK because, per the Swift-only Firebase boundary on iOS, this file is
  * Kotlin and cannot see `FirebaseAuth`. Kept as a pure `Long` -> [AuthError] function so
  * the whole table is unit-testable without constructing SDK errors.
  */

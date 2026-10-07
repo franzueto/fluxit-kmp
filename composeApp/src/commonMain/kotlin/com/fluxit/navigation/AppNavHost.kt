@@ -46,7 +46,7 @@ private val navigationSavedStateConfiguration = SavedStateConfiguration {
 /**
  * The authenticated navigation graph.
  *
- * FB-104: this is composed only from the `SessionGate`'s `Ready` branch, so every
+ * This is composed only from the `SessionGate`'s `Ready` branch, so every
  * ViewModel and repository listener reachable from here is created strictly after
  * session resolution. [accountEmail] and [onSignOut] come from the resolved session;
  * they are passed down rather than re-resolved so no screen below needs its own

@@ -9,13 +9,13 @@ import kotlin.test.assertTrue
 import platform.Foundation.NSURLErrorDomain
 
 /**
- * FB-103 mapping table tests. Kept separate from the adapter tests so the whole
+ * mapping table tests. Kept separate from the adapter tests so the whole
  * `FIRAuthErrorDomain` code -> [AuthError] table is checkable without constructing a
- * repository, exactly as FB-102 did for the Android string codes.
+ * repository, exactly as did for the Android string codes.
  *
  * Honest bound: these assert the *mapping*, not that the Apple SDK emits these codes for
  * these situations. The subset confirmed against real emulator-emitted codes is recorded
- * in the FB-103 evidence.
+ * in the evidence.
  */
 class IosFirebaseAuthErrorMapperTest {
 

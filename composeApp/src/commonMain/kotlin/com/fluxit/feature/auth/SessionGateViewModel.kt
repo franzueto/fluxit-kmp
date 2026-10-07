@@ -23,7 +23,7 @@ import kotlinx.coroutines.yield
  * What the application root is allowed to show, derived from [AuthSession].
  *
  * The whole point of this type is that [Resolving] and [SignedOut] are *different*
- * states, mirroring `AuthSession.Unresolved` vs `AuthSession.SignedOut` (FB-101). Only
+ * states, mirroring `AuthSession.Unresolved` vs `AuthSession.SignedOut`. Only
  * [Ready] permits user-scoped work; every other state must render a screen that starts
  * no listener and reads no uid.
  */
@@ -39,7 +39,7 @@ sealed interface SessionGateState {
     data class Ready(val user: AuthUser) : SessionGateState
 
     /**
-     * Session resolution itself failed. Retrying is meaningful, but per FB-102-NB2 and
+     * Session resolution itself failed. Retrying is meaningful, but per and
      * its iOS mirror a hard failure (notably [AuthError.SessionExpired]) has **no
      * automatic path back to signed-out**, so the UI must also offer an explicit
      * sign-out-and-retry escape hatch.
@@ -60,14 +60,14 @@ fun AuthSession.toGateState(): SessionGateState = when (this) {
 }
 
 /**
- * The application root session gate (FB-104).
+ * The application root session gate.
  *
  * It owns exactly one responsibility: turn [AuthRepository.session] into a
  * [SessionGateState] and kick off session restoration once. It never touches
  * user-scoped data itself, and the composable that renders it must not compose any
  * user-scoped screen unless the state is [SessionGateState.Ready].
  *
- * ## Why the initial restoration gates everything (FB-104-B1)
+ * ## Why the initial restoration gates everything
  *
  * Both platform adapters register an SDK auth-state listener when [AuthRepository.session]
  * is first collected, and that listener fires straight away with whatever credential is
@@ -81,20 +81,20 @@ fun AuthSession.toGateState(): SessionGateState = when (this) {
  * has *returned*, staying [SessionGateState.Resolving] for that whole window, and mirrors the
  * session flow normally from then on. "Resolved" means resolution actually finished, not that
  * a cached value was available. This sequencing lives here rather than in either adapter: the
- * adapters are correct as written (FB-101's contract makes `session` the live truth and
- * `restoreSession` the resolver), and FB-102/FB-103 stay untouched.
+ * adapters are correct as written (the contract makes `session` the live truth and
+ * `restoreSession` the resolver), and stay untouched.
  *
  * Restoration is started from `init` rather than from a composable side effect so that
  * it happens exactly once per gate lifetime and is independent of composition on either
  * platform. On iOS this runs after Koin's existing start point
  * (`MainViewController.kt`), which is itself after `FirebaseApp.configure()` and Auth
- * bridge registration in `AppDelegate` - the ordering FB-103 established, unchanged.
+ * bridge registration in `AppDelegate` - the ordering established, unchanged.
  *
- * ## Why that window is bounded (FB-104-NB2, settled by DEC-006)
+ * ## Why that window is bounded
  *
  * Blocking on restoration is what makes `Ready` trustworthy, but it also means a
- * restoration that never completes would leave the app on the spinner forever. Per
- * DEC-006 the wait is bounded by [InitialRestorationTimeout]; on expiry the gate falls
+ * restoration that never completes would leave the app on the spinner forever. So
+ * the wait is bounded by [InitialRestorationTimeout] (10 seconds); on expiry the gate falls
  * back to [SessionGateState.SignedOut] and [restoreTimedOut] turns true so the auth
  * screen can explain why and offer [retryInitialRestoration]. The fallback is signed-out
  * rather than an error screen deliberately: it is a resolved state that shows no user
@@ -116,7 +116,7 @@ class SessionGateViewModel(
 
     /**
      * True when the initial restoration exceeded [InitialRestorationTimeout] and the gate
-     * fell back to [SessionGateState.SignedOut] (DEC-006). The auth screen uses it to show
+     * fell back to [SessionGateState.SignedOut]. The auth screen uses it to show
      * a non-alarming notice and a retry affordance; it clears itself as soon as the
      * session resolves for real, whether by [retryInitialRestoration] or by a late
      * emission from the restoration that was still in flight.
@@ -154,7 +154,7 @@ class SessionGateViewModel(
     }
 
     /**
-     * Runs the initial restoration under the DEC-006 budget and publishes its outcome.
+     * Runs the initial restoration under the 10-second restoration timeout and publishes its outcome.
      *
      * Replaces any restoration already in flight, so a retry after a timeout cannot race
      * the attempt it is replacing.
@@ -185,7 +185,7 @@ class SessionGateViewModel(
     /**
      * Waits for restoration's outcome to be observable on [latestSession].
      *
-     * FB-104-NB1, narrowed but explicitly **not closed**. `restoreSession()` returns
+     * This narrows a known gap but deliberately does **not** close it. `restoreSession` returns
      * `Unit`, so its outcome is only observable through the session flow. Two separate
      * gaps follow, and they need different treatment:
      *
@@ -195,14 +195,15 @@ class SessionGateViewModel(
      *   after the yield; the next emission then corrects the gate, and the gate never
      *   granted `Ready` on an unvalidated credential in the meantime.
      * - *Nothing has resolved at all yet.* Here waiting is unambiguously correct, so the
-     *   gate waits, bounded by the same DEC-006 budget as the call itself.
+     *   gate waits, bounded by the same 10-second timeout as the call itself.
      *
      * What deliberately is **not** done is waiting for a *new* emission after
      * restoration returns. That looks stronger and is in fact wrong: when restoration
      * confirms an already-cached credential, the adapters' `distinctUntilChanged` flow
      * emits nothing at all, so such a wait would stall every ordinary cold start until
      * the timeout. Closing the gap properly needs `restoreSession()` to return its own
-     * outcome - an FB-101 contract change, out of scope here (see the FB-105 report).
+     * outcome - a change to the [AuthRepository] contract that was judged not worth making
+     * while both adapters publish before returning.
      */
     private suspend fun awaitInitialResolution() {
         yield()
@@ -222,7 +223,7 @@ class SessionGateViewModel(
             (latestSession.value as? AuthSession.ResolutionFailed)?.error == AuthError.CleanupFailed ->
                 SessionGateState.ResolutionFailed(AuthError.CleanupFailed)
             !initialRestorationComplete -> SessionGateState.Resolving
-            // DEC-006: a timed-out restoration resolves to signed-out regardless of what
+            // A timed-out restoration resolves to signed-out regardless of what
             // the underlying flow last said, because whatever it said was never validated.
             _restoreTimedOut.value -> SessionGateState.SignedOut
             else -> latestSession.value.toGateState()
@@ -231,7 +232,7 @@ class SessionGateViewModel(
     }
 
     /**
-     * Retry offered on the signed-out screen after [restoreTimedOut] (DEC-006).
+     * Retry offered on the signed-out screen after [restoreTimedOut].
      *
      * Distinct from [retryResolution]: that one retries a *resolved* failure without
      * reopening the gate, whereas this restarts the whole initial-restoration sequence -
@@ -244,7 +245,7 @@ class SessionGateViewModel(
     }
 
     /**
-     * Retries session resolution. Safe per the FB-101 contract, and sufficient for a
+     * Retries session resolution. Safe per the contract, and sufficient for a
      * transient failure (for example [AuthError.NetworkUnavailable]).
      */
     fun retryResolution() {
@@ -300,10 +301,10 @@ class SessionGateViewModel(
 
         /**
          * How long the gate waits for the initial session restoration before falling
-         * back to the signed-out screen (DEC-006).
+         * back to the signed-out screen.
          *
          * A product constant, not a correctness threshold: it may be retuned without
-         * reopening DEC-006, and nothing below it depends on the exact value. It is
+         * revisiting the timeout design, and nothing below it depends on the exact value. It is
          * named and public so tests drive the same number the app ships.
          */
         val InitialRestorationTimeout: Duration = 10.seconds

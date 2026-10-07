@@ -42,11 +42,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * FB-206 Android cross-client checks for [AndroidFirebaseItemRepository]: counter
+ * Android cross-client checks for [AndroidFirebaseItemRepository]: counter
  * consistency, conflict (field-level LWW plus the counter-exempt-from-LWW rule),
  * malformed-document, and pending-write/reconnect, against the same real Firestore
- * emulator [com.fluxit.firebase.list.FirestoreListEmulatorIntegrationTest] (FB-202)
- * exercises. Also exercises `FB-204-NB1`'s documented `clearCompleted` chunk-window
+ * emulator [com.fluxit.firebase.list.FirestoreListEmulatorIntegrationTest]
+ * exercises. Also exercises the documented `clearCompleted` chunk-window
  * caveat explicitly, per this task's brief.
  *
  * "Cross-client" here is two genuinely independent Firebase SDK connections (two
@@ -75,8 +75,8 @@ class CrossClientItemEmulatorIntegrationTest {
     @Before
     fun connectTwoIndependentClientsAsTheSameUser(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val (builtAuthA, builtFirestoreA) = buildClientApp(context, "fb206-item-client-a")
-        val (builtAuthB, builtFirestoreB) = buildClientApp(context, "fb206-item-client-b")
+        val (builtAuthA, builtFirestoreA) = buildClientApp(context, "xclient-item-client-a")
+        val (builtAuthB, builtFirestoreB) = buildClientApp(context, "xclient-item-client-b")
         authA = builtAuthA
         authB = builtAuthB
         firestoreA = builtFirestoreA
@@ -108,7 +108,7 @@ class CrossClientItemEmulatorIntegrationTest {
         clientA.addItem(listId, "Milk")
         val itemId = waitForItems(clientA, listId, 1).single().id
 
-        // Unlike FB-204's own single-instance concurrency test (six coroutines racing on
+        // Unlike the own single-instance concurrency test (six coroutines racing on
         // one Firestore SDK connection), this races two *independent* SDK connections -
         // proving the SDK's transaction-retry-on-contention converges across connections,
         // not merely across coroutines sharing one.
@@ -134,7 +134,7 @@ class CrossClientItemEmulatorIntegrationTest {
         assertEquals(2L, listDocOn(firestoreA, listId).get().awaitResult().getLong("totalItems"))
     }
 
-    // --- conflict: DEC-003d field-level LWW, counters explicitly exempt ---------------
+    // --- conflict: field-level LWW, counters explicitly exempt ---------------
 
     /** `updateItem` (title+description) and `setPhotoRef` (photoRef) are disjoint field-scoped patches. */
     @Test
@@ -171,12 +171,12 @@ class CrossClientItemEmulatorIntegrationTest {
         assertEquals(
             "Client B's title",
             raw.getString("title"),
-            "the later writer must silently win a same-field collision, per DEC-003d",
+            "the later writer must silently win a same-field collision, per the field-level last-write-wins policy",
         )
     }
 
     /**
-     * Counters are explicitly exempt from LWW (`DEC-003d`): they never "collide" the
+     * Counters are explicitly exempt from LWW: they never "collide" the
      * way a text field does, because increments commute. Two clients concurrently
      * toggling completion on two *different* items must both be reflected exactly,
      * never one clobbering the other the way a naive `set()` of a stale counter value
@@ -197,10 +197,10 @@ class CrossClientItemEmulatorIntegrationTest {
         assertEquals(2L, listDocOn(firestoreA, listId).get().awaitResult().getLong("completedItems"))
     }
 
-    // --- FB-204-NB1: clearCompleted's chunk sweep is per-chunk-atomic, not whole-sweep -
+    // --- ClearCompleted's chunk sweep is per-chunk-atomic, not whole-sweep -
 
     /**
-     * Exercises the exact window `FB-204-NB1` documents: `clearCompleted`'s chunked
+     * Exercises the exact window documents: `clearCompleted`'s chunked
      * sweep commits one real [com.google.firebase.firestore.WriteBatch] per chunk, so an
      * item concurrently un-completed mid-sweep can still be counted/tombstoned within
      * whichever chunk had already read it. With `clearCompletedChunkSize = 1` there is a
@@ -242,7 +242,7 @@ class CrossClientItemEmulatorIntegrationTest {
         if (wasTombstoned) {
             // Outcome A: clearCompleted's chunk already read the item as completed
             // before client B's un-complete landed - it was swept up anyway, exactly
-            // the documented FB-204-NB1 window.
+            // the documented window.
             assertTrue(totalItems in 0..1, "tombstoned outcome: totalItems=$totalItems")
         } else {
             // Outcome B: client B's un-complete won the race - the item survives,
@@ -339,7 +339,7 @@ class CrossClientItemEmulatorIntegrationTest {
         assertTrue(items.none { it.id == badId }, "an item whose listId field disagrees with its actual path must be excluded, not crash")
     }
 
-    // FB-701: hardened-Rules contention regression beyond completion.
+    // Hardened-Rules contention regression beyond completion.
     @Test
     fun concurrentSoftDeleteRestoreAndHardDeleteRecomputeOnlyChangedItemState(): Unit = runBlocking {
         val listId = bootstrapList()
@@ -372,7 +372,7 @@ class CrossClientItemEmulatorIntegrationTest {
         // Completing now would violate completedItems <= totalItems; no item changed.
         listDocOn(firestoreA, listId).update("totalItems", 0L).awaitResult()
         val failure = runCatching { clientA.setCompleted(listId, itemId, true) }.exceptionOrNull()
-        val mapped = kotlin.test.assertIs<com.fluxit.firebase.list.ListRepositoryException>(failure)
+        val mapped = kotlin.test.assertIs<com.fluxit.data.remote.RepositoryException>(failure)
         assertEquals(com.fluxit.data.remote.RepositoryErrorCode.FORBIDDEN, mapped.error.code)
         assertEquals(false, itemsCollectionOn(firestoreA, listId).document(itemId).get().awaitResult().getBoolean("isCompleted"))
         assertEquals(0L, listDocOn(firestoreA, listId).get().awaitResult().getLong("completedItems"))
@@ -442,7 +442,7 @@ class CrossClientItemEmulatorIntegrationTest {
                 FirebaseOptions.Builder()
                     // Throwaway values: both emulators accept any key/app id, and a
                     // `demo-` project id can never resolve to a real Firebase project.
-                    .setApiKey("fb206-instrumented-test-key")
+                    .setApiKey("xclient-instrumented-test-key")
                     .setApplicationId("1:0:android:$appName")
                     .setProjectId("demo-fluxit")
                     .build(),
@@ -467,7 +467,7 @@ class CrossClientItemEmulatorIntegrationTest {
         return auth to firestore
     }
 
-    private fun uniqueEmail(): String = "fb206-item-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(): String = "xclient-item-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -476,7 +476,7 @@ class CrossClientItemEmulatorIntegrationTest {
 
     private companion object {
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb206-emulator-only"
+        const val PASSWORD = "xclient-emulator-only"
         const val TIMEOUT_MS = 30_000L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"
 

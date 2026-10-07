@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.fluxit.config.FirebaseEmulatorConfig
+import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.domain.auth.AuthResult
 import com.fluxit.domain.auth.AuthSession
@@ -39,13 +40,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * `FB-409` live, real-emulator reproduction of `FB-406-B1`/`DEC-009`'s finding (a real Firestore
+ * live, real-emulator reproduction of the finding (a real Firestore
  * mutation failure - `PERMISSION_DENIED` - crashing the app process because
  * [ListDetailViewModel.deleteList] was a bare `viewModelScope.launch { ... }` with no
  * `try/catch/finally` at all) and this task's fix.
  *
  * Exact counterpart of [com.fluxit.feature.dashboard.DashboardViewModelListenerCrashInstrumentedTest]
- * (`FB-408`), except the trigger is a one-shot mutation (`softDeleteList`) rather than a
+ * - except the trigger is a one-shot mutation (`softDeleteList`) rather than a
  * continuously-collected listener - see that class's KDoc for the full rationale of the
  * cross-uid trigger technique and why a crashing pre-fix run is not kept in the regular
  * `connectedDebugAndroidTest` suite. This file must only ever be run on its own (`--tests`
@@ -56,14 +57,14 @@ import org.junit.runner.RunWith
  * points at a *different* uid than the one actually signed in. Under this repo's owner-only
  * Firestore Rules (`request.auth.uid == uid`), `deleteList()`'s `softDeleteList(listId)` call
  * (`applyPatch` -> `update()`) then receives a genuine `PERMISSION_DENIED` from the real
- * Firestore emulator - exactly `FB-406-B1`'s finding, live.
+ * Firestore emulator - exactly the finding, live.
  *
- * **Pre-fix / post-fix usage (see the `FB-409` developer report for the exact commands run):**
- * run [deleteListFailureSurfacesARetryableErrorInsteadOfCrashing] once against the pre-`FB-409`
+ * **Pre-fix / post-fix usage:**
+ * run [deleteListFailureSurfacesAForbiddenErrorInsteadOfCrashing] once against the pre-fix
  * `ListDetailViewModel.kt` (bare `launch`, no guard), which is expected to fail this test
- * process with an uncaught `ListRepositoryException`/`FATAL EXCEPTION`; then run it again
- * against the post-`FB-409` `ListDetailViewModel.kt` (with the try/catch/finally +
- * duplicate-submit guard), which is expected to pass, with a retryable [ListDetailOperationError]
+ * process with an uncaught `RepositoryException`/`FATAL EXCEPTION`; then run it again
+ * against the post-fix `ListDetailViewModel.kt` (with the try/catch/finally +
+ * duplicate-submit guard), which is expected to pass, with a non-retryable [ListDetailOperationError]
  * observed instead of a crash.
  */
 @RunWith(AndroidJUnit4::class)
@@ -82,8 +83,8 @@ class ListDetailViewModelDeleteListCrashInstrumentedTest {
             ?: FirebaseApp.initializeApp(
                 context,
                 FirebaseOptions.Builder()
-                    .setApiKey("fb409-instrumented-test-key")
-                    .setApplicationId("1:0:android:fb409")
+                    .setApiKey("deletelist-instrumented-test-key")
+                    .setApplicationId("1:0:android:deletelist")
                     .setProjectId("demo-fluxit")
                     .build(),
                 APP_NAME,
@@ -123,19 +124,19 @@ class ListDetailViewModelDeleteListCrashInstrumentedTest {
         override suspend fun signOut(): AuthResult = AuthResult.Success
     }
 
-    /** `FB-409` acceptance evidence - see this class's KDoc for the pre-fix/post-fix run
+    /** acceptance evidence - see this class's KDoc for the pre-fix/post-fix run
      * instructions. Named to describe the *post-fix* expectation (the state this test asserts),
      * since a test cannot assert its own pre-fix crash - the crash itself, and the logcat
      * `FATAL EXCEPTION` it produces, is the pre-fix evidence, captured out-of-band. */
     @Test
-    fun deleteListFailureSurfacesARetryableErrorInsteadOfCrashing(): Unit = runBlocking {
+    fun deleteListFailureSurfacesAForbiddenErrorInsteadOfCrashing(): Unit = runBlocking {
         val someoneElsesUid = "not-$uid"
         val crossUidListRepository = AndroidFirebaseListRepository(firestore, CurrentUidProvider { someoneElsesUid })
         val crossUidItemRepository = AndroidFirebaseItemRepository(firestore, CurrentUidProvider { someoneElsesUid })
         val store = ViewModelStore()
         try {
             val vm = ListDetailViewModel(
-                "fb409-cross-uid-list-id",
+                "deletelist-cross-uid-list-id",
                 crossUidListRepository,
                 crossUidItemRepository,
                 fixedAuthRepository(uid),
@@ -149,10 +150,12 @@ class ListDetailViewModelDeleteListCrashInstrumentedTest {
                 awaitOperationError(vm)
             }
 
-            assertTrue(
-                error.error.canRetry,
-                "a real PERMISSION_DENIED mutation failure must surface as a retryable operation error, not crash the process",
+            assertEquals(
+                RepositoryErrorCode.FORBIDDEN,
+                error.error.code,
+                "a real PERMISSION_DENIED mutation failure must surface as a FORBIDDEN operation error, not crash the process",
             )
+            assertFalse(error.error.canRetry, "a permission-denied delete must not be offered as retryable")
             assertEquals(ListDetailOperation.DELETE_LIST, error.operation)
             assertFalse(vm.isDeletingList.value, "isDeletingList must reset on failure (finally)")
             assertFalse(vm.uiState.value.listDeleted, "a failed delete must not close the screen")
@@ -171,7 +174,7 @@ class ListDetailViewModelDeleteListCrashInstrumentedTest {
         return requireNotNull(vm.operationError.value)
     }
 
-    private fun uniqueEmail(): String = "fb409-listdetail-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(): String = "deletelist-listdetail-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -179,9 +182,9 @@ class ListDetailViewModelDeleteListCrashInstrumentedTest {
     }
 
     private companion object {
-        const val APP_NAME = "fb409-listdetail-instrumented-test"
+        const val APP_NAME = "deletelist-listdetail-instrumented-test"
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb409-emulator-only"
+        const val PASSWORD = "deletelist-emulator-only"
         const val TIMEOUT_MS = 20_000L
         const val POLL_INTERVAL_MS = 100L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"

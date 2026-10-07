@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
 /**
- * FB-204 unit-testable proof of the `clearCompleted` chunk-size invariant
+ * unit-testable proof of the `clearCompleted` chunk-size invariant
  * ([requireValidClearCompletedChunkSize]): item writes per batch must always leave room
  * for the one trailing list-counter-update write in the same
  * [com.google.firebase.firestore.WriteBatch], so `chunkSize + 1` must never exceed

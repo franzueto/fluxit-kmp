@@ -9,7 +9,7 @@ import com.fluxit.data.PhotoStorageException
 import com.fluxit.data.preparePhotoForUpload
 import com.fluxit.data.remote.ApplicationError
 import com.fluxit.data.remote.RepositoryErrorCode
-import com.fluxit.data.remote.toApplicationError
+import com.fluxit.data.remote.toRepositoryApplicationError
 import com.fluxit.data.replacePhoto
 import com.fluxit.domain.FluxItem
 import com.fluxit.domain.ItemRepository
@@ -27,7 +27,7 @@ const val MAX_ITEM_NAME_LENGTH = 120
 const val MAX_DESCRIPTION_LENGTH = 2000
 
 /**
- * `FB-306`: which photo operation most recently failed, so [ItemDetailScreen] can show a
+ * Which photo operation most recently failed, so [ItemDetailScreen] can show a
  * failure state distinct from "no photo"/"loading" and offer a retry affordance scoped to
  * exactly the operation that failed - a replace (pick/prepare/upload/persist/delete-old) or
  * a remove (clear reference/best-effort delete).
@@ -36,7 +36,7 @@ enum class PhotoOperationKind { REPLACE, REMOVE }
 
 data class ItemDetailUiState(
     /**
-     * `FB-404`: true only until the initial load (session check + item fetch) in
+     * True only until the initial load (session check + item fetch) in
      * [ItemDetailViewModel]'s `init` block settles, one way or another. Unlike
      * [com.fluxit.feature.dashboard.DashboardViewModel]/[com.fluxit.feature.listdetail.ListDetailViewModel],
      * this screen's item/title/description fields are a one-shot form populate (deliberately
@@ -46,16 +46,16 @@ data class ItemDetailUiState(
      */
     val isLoading: Boolean = true,
     /**
-     * `FB-404`: true once the initial load found the auth session backing this screen was not
-     * [com.fluxit.domain.auth.AuthSession.Authenticated] - reused verbatim from `FB-101`/
-     * `FB-105`'s session machinery, not a parallel signal invented for this task. See
+     * True once the initial load found the auth session backing this screen was not
+     * [com.fluxit.domain.auth.AuthSession.Authenticated] - reused verbatim from /
+     * Session machinery, not a parallel signal invented for this task. See
      * `DashboardViewModel`'s identically-purposed [com.fluxit.domain.ScreenLoadState.FatalSession]
      * KDoc for why this is defense-in-depth rather than the primary mechanism that reacts to a
      * session becoming invalid.
      */
     val isFatalSession: Boolean = false,
     /**
-     * `FB-404`: true once the initial load resolved with no item at [ItemDetailViewModel]'s
+     * True once the initial load resolved with no item at [ItemDetailViewModel]'s
      * `listId`/`itemId` (deleted from another device, a stale deep link, or similar) - this
      * screen's analogue of a list-of-X screen's "loaded and genuinely empty" state: a
      * single-document view has nothing to distinguish "empty" from "not found," so this is the
@@ -73,19 +73,19 @@ data class ItemDetailUiState(
     val photoPreview: PhotoContent? = null,
     val isSaving: Boolean = false,
     /**
-     * `FB-403`: non-null when the most recent [ItemDetailViewModel.save] attempt failed and has
+     * Non-null when the most recent [ItemDetailViewModel.save] attempt failed and has
      * not since been retried successfully or dismissed via [ItemDetailViewModel.dismissSaveError].
-     * FB-401's neutral, Firebase-free [ApplicationError] - previously an uncaught exception here
-     * left [isSaving] permanently `true` with no feedback at all, the same bug `FB-402` fixed for
+     * Neutral, Firebase-free [ApplicationError] - previously an uncaught exception here
+     * left [isSaving] permanently `true` with no feedback at all, the same bug fixed for
      * `CreateListViewModel.save`.
      */
     val saveError: ApplicationError? = null,
     val isPickingPhoto: Boolean = false,
-    /** `FB-306`: true while a [ItemDetailViewModel.removePhoto] (or its retry) is in flight. */
+    /** True while a [ItemDetailViewModel.removePhoto] (or its retry) is in flight. */
     val isRemovingPhoto: Boolean = false,
     /**
-     * `FB-306`: non-null when the most recent replace or remove attempt failed and has not
-     * since been retried successfully or dismissed. Resolves `FB-302-NB3`/`FB-303-NB2`: an
+     * Non-null when the most recent replace or remove attempt failed and has not
+     * since been retried successfully or dismissed. Resolves An
      * uncaught exception from `replacePhoto`/`photoPreparer` (or now `removePhoto`'s document
      * write) used to propagate out of `viewModelScope.launch` with no user-facing state at
      * all - see [ItemDetailViewModel.pickPhoto]/[ItemDetailViewModel.removePhoto] for how it
@@ -94,21 +94,21 @@ data class ItemDetailUiState(
      */
     val photoOperationFailed: PhotoOperationKind? = null,
     /**
-     * `FB-403`: FB-401's neutral, Firebase-free [ApplicationError] paired with
+     * Neutral, Firebase-free [ApplicationError] paired with
      * [photoOperationFailed] - additive alongside the pre-existing enum field (rather than
      * replacing its type) so `ItemDetailScreen`'s existing `PhotoOperationKind`-typed rendering
-     * keeps compiling unchanged, matching `FB-402`'s established "new fields are purely
+     * keeps compiling unchanged, matching the established "new fields are purely
      * additive" precedent. `AndroidPhotoStorage`/`IosPhotoStorage` now throw
-     * [com.fluxit.data.PhotoStorageException] carrying exactly this type (`FB-403`, discharging
-     * `FB-401-NB1`/`FB-401-NB2`); any other failure (e.g. an `ItemRepository` Firestore write)
-     * conservatively falls back to [RepositoryErrorCode.UNKNOWN] - see [toItemDetailApplicationError].
+     * [com.fluxit.data.PhotoStorageException] carrying exactly this type; an `ItemRepository` failure carries the error of its
+     * [com.fluxit.data.remote.RepositoryException], and anything else falls back to
+     * [RepositoryErrorCode.UNKNOWN] - see [toItemDetailApplicationError].
      */
     val photoOperationError: ApplicationError? = null,
     val closed: Boolean = false,
-    /** `FB-403`: true while [ItemDetailViewModel.deleteItem] (or its retry) is in flight. */
+    /** True while [ItemDetailViewModel.deleteItem] (or its retry) is in flight. */
     val isDeletingItem: Boolean = false,
     /**
-     * `FB-403`: non-null when the most recent [ItemDetailViewModel.deleteItem] attempt failed
+     * Non-null when the most recent [ItemDetailViewModel.deleteItem] attempt failed
      * and has not since been retried successfully or dismissed via
      * [ItemDetailViewModel.dismissDeleteError].
      */
@@ -119,7 +119,7 @@ data class ItemDetailUiState(
         get() = item != null && (title != item.title || description != (item.description ?: ""))
     val canSave: Boolean get() = isDirty && isValid && !isSaving
 
-    /** `FB-306`: true while either a replace or a remove (including their retries) is in
+    /** True while either a replace or a remove (including their retries) is in
      * flight - the UI disables photo actions and shows progress for both under one flag. */
     val isPhotoBusy: Boolean get() = isPickingPhoto || isRemovingPhoto
 }
@@ -132,14 +132,14 @@ class ItemDetailViewModel(
     private val photoPicker: PhotoPicker,
     private val photoStorage: PhotoStorage,
     /**
-     * `FB-404`: checked once, at the start of the `init` block's one-shot load, to derive
+     * Checked once, at the start of the `init` block's one-shot load, to derive
      * [ItemDetailUiState.isFatalSession] - see that field's KDoc for why this screen checks the
      * session once rather than continuously combining it, unlike
      * [com.fluxit.feature.dashboard.DashboardViewModel]/[com.fluxit.feature.listdetail.ListDetailViewModel].
      */
     private val authRepository: AuthRepository,
     /**
-     * `FB-303`: validates and, if needed, resizes/recompresses freshly picked bytes before
+     * Validates and, if needed, resizes/recompresses freshly picked bytes before
      * [pickPhoto] ever calls [uploadPhoto]/[replacePhoto] - see `PhotoPolicy.kt`'s
      * [preparePhotoForUpload] for the enforced size/type limits and resize decision logic.
      * Defaults to the real [preparePhotoForUpload] (itself backed by the real platform
@@ -155,47 +155,46 @@ class ItemDetailViewModel(
     val uiState: StateFlow<ItemDetailUiState> = _uiState.asStateFlow()
 
     /**
-     * `FB-306`: the raw bytes returned by the most recent [photoPicker] pick, retained across
+     * The raw bytes returned by the most recent [photoPicker] pick, retained across
      * a failure so [retryPhotoOperation] can redrive the full prepare-upload-persist-delete
      * pipeline ([performReplace]) without reopening the system photo picker. Cleared once a
      * replace commits successfully or a fresh pick starts. Deliberately the *raw* picked
      * bytes, not the [photoPreparer]-prepared ones: this lets a retry correctly re-attempt a
-     * [com.fluxit.data.PhotoRejected] validation failure too (`FB-303-NB2`), not only an
-     * upload/persist failure (`FB-302-NB3`) - `photoPreparer` is a pure function of the raw
+     * [com.fluxit.data.PhotoRejected] validation failure too, not only an
+     * upload/persist failure - `photoPreparer` is a pure function of the raw
      * bytes, so recomputing it on every attempt is cheap and always correct.
      */
     private var pendingReplaceBytes: ByteArray? = null
 
     /**
-     * `FB-306`: the `photoRef` a failed [removePhoto] attempt was trying to clear, retained
+     * The `photoRef` a failed [removePhoto] attempt was trying to clear, retained
      * so [retryPhotoOperation] can redrive exactly that removal.
      */
     private var pendingRemoveRef: String? = null
 
     /**
-     * `FB-404`: initial load - session check, then item fetch. `authRepository.session.first
+     * Initial load - session check, then item fetch. `authRepository.session.first
      * { it !is AuthSession.Unresolved }` mirrors `DashboardViewModel`/`ListDetailViewModel`'s
      * `AuthSession.Authenticated` check: this ViewModel is only ever constructed once
-     * `SessionGate` has already reached `Ready` (`FB-104`/`FB-105`), so in production this
+     * `SessionGate` has already reached `Ready`, so in production this
      * resolves immediately - the wait guards the narrow, already-accepted race the sibling
      * ViewModels also guard against, not a real steady-state wait. [ItemDetailUiState.isLoading]
      * is left `true` (its default) on every path until this block reaches a terminal outcome -
      * fatal session, not-found, or a populated item - so a caller can never observe a state that
      * is neither loading nor resolved.
      *
-     * `FB-408`: `itemRepository.observeItem(listId, itemId).first()`/
+     * `itemRepository.observeItem(listId, itemId).first`/
      * `listRepository.observeList(item.listId).first()` below collect a `callbackFlow`-backed
      * repository observation exactly like `DashboardViewModel`/`ListDetailViewModel`'s
-     * `combine(...).stateIn(...)` chains, and are equally subject to `FB-405`'s headline
+     * `combine(...).stateIn(...)` chains, and are equally subject to the headline
      * finding: a terminal listener error (`close(exception)`) rethrows uncaught through
      * `viewModelScope` and crashes the app process, rather than through `Flow.catch` (that
      * operator does not apply here since these are one-shot `.first()` suspend calls, not a
      * continuously-collected `stateIn` flow) - so the fix is a plain `try`/`catch` around the
      * whole post-session-check load, mirroring this same file's [save]/[performReplace]/
-     * [deleteItem] try/catch shape rather than inventing a new pattern. The `FB-405` reviewer
-     * flagged this ViewModel as worth re-auditing but had not confirmed either way; this
-     * re-audit (`FB-408`) confirms the same defect *was* present here, in this different but
-     * equally uncaught-listener-error shape, and fixes it. Mapped to the pre-existing
+     * [deleteItem] try/catch shape rather than inventing a new pattern. This is the same
+     * uncaught-listener-error defect the sibling ViewModels guard against, in a one-shot
+     * shape. Mapped to the pre-existing
      * [ItemDetailUiState.isFatalSession] flag for the same reasons `DashboardViewModel`'s
      * `.catch` KDoc discloses for [ScreenLoadState.FatalSession] - this screen's own
      * [ItemDetailUiState.isFatalSession] already exists for exactly this "session/access is not
@@ -247,16 +246,16 @@ class ItemDetailViewModel(
     }
 
     /**
-     * `FB-403`: a second call while a save is already in flight is a no-op - [state.canSave]
+     * A second call while a save is already in flight is a no-op - [state.canSave]
      * already requires `!isSaving`, checked synchronously before [ItemDetailUiState.isSaving]
      * is itself set, so the guard always sees the first call's flag, exactly like
-     * `CreateListViewModel.save`'s identical guard (`FB-402`).
+     * `CreateListViewModel.save`'s identical guard.
      *
      * On failure, `isSaving` is still reset (`finally`) and a retryable
      * [ItemDetailUiState.saveError] is surfaced instead of the flag being left stuck `true`
      * forever with no feedback - previously an uncaught exception here left
      * [ItemDetailUiState.isSaving] permanently `true`, locking the Save button with no
-     * recourse (the exact bug `FB-402` fixed for `CreateListViewModel.save`).
+     * recourse (the exact bug fixed for `CreateListViewModel.save`).
      */
     fun save() {
         val state = _uiState.value
@@ -281,7 +280,7 @@ class ItemDetailViewModel(
         }
     }
 
-    /** `FB-403`: re-attempts [save] with the current (possibly since-edited) field values - a
+    /** Re-attempts [save] with the current (possibly since-edited) field values - a
      * no-op if nothing failed or a save is already in flight, exactly like [save] itself. */
     fun retrySave() = save()
 
@@ -293,13 +292,13 @@ class ItemDetailViewModel(
     /**
      * Picks a new photo and replaces the current one, if any, via [performReplace]. Resets
      * [ItemDetailUiState.isPickingPhoto] synchronously (before the system picker even opens,
-     * matching the pre-`FB-306` guard against a double-tap launching two concurrent pickers)
+     * matching the pre-fix guard against a double-tap launching two concurrent pickers)
      * and again once the whole attempt settles.
      *
      * If the user cancels the picker (`null` result), the operation simply ends with no
      * change and no error - cancelling is not a failure. Any other failure (a
-     * `PhotoRejected` from [photoPreparer], `FB-303-NB2`, or an upload/document-write failure
-     * from [performReplace], `FB-302-NB3`) is caught there and surfaced as
+     * `PhotoRejected` from [photoPreparer], or an upload/document-write failure
+     * from [performReplace]) is caught there and surfaced as
      * [ItemDetailUiState.photoOperationFailed] rather than propagating uncaught - see
      * [performReplace]'s KDoc for the exact failure/preservation semantics.
      */
@@ -347,7 +346,7 @@ class ItemDetailViewModel(
     }
 
     /**
-     * Validates/prepares [pickedBytes] via [photoPreparer] (`FB-303`: size/type limits and
+     * Validates/prepares [pickedBytes] via [photoPreparer] (Size/type limits and
      * resize/compression - see `PhotoPolicy.kt`), then replaces the current photo, if any,
      * following the safe-replace ordering [replacePhoto] documents (upload, then persist the
      * reference, then best-effort delete the old object - see `PhotoStorage`'s KDoc). The
@@ -403,7 +402,7 @@ class ItemDetailViewModel(
     /**
      * Clears the item's photo reference first, then best-effort deletes the now-unreferenced
      * object - mirroring [replacePhoto]'s delete-last, swallow-delete-failure policy. If
-     * clearing the reference itself fails, the failure is caught here (`FB-302-NB3`'s sibling
+     * clearing the reference itself fails, the failure is caught here (the sibling
      * gap on the remove path) rather than propagating uncaught, [ItemDetailUiState.photoRef]
      * is left exactly as it was (the old photo remains fully referenced and loadable - no
      * delete is even attempted, since it only runs after the reference clear succeeds), and
@@ -439,7 +438,7 @@ class ItemDetailViewModel(
     }
 
     /**
-     * `FB-403`: a second call while a delete is already in flight is a no-op -
+     * A second call while a delete is already in flight is a no-op -
      * [ItemDetailUiState.isDeletingItem] is set synchronously, before the coroutine is even
      * launched. On failure, the flag is still reset (`finally`) and a retryable
      * [ItemDetailUiState.deleteError] is surfaced instead of an uncaught exception from
@@ -453,7 +452,7 @@ class ItemDetailViewModel(
         viewModelScope.launch {
             try {
                 // Best-effort cleanup: a Storage hiccup must not block deleting the item itself.
-                // Reliable cascade cleanup on item deletion is FB-502/FB-503's job, not this one's.
+                // Reliable cascade cleanup on item deletion is the job, not this one's.
                 _uiState.value.photoRef?.let { ref -> runCatching { photoStorage.deletePhoto(ref) } }
                 itemRepository.deleteItem(listId, itemId)
                 _uiState.value = _uiState.value.copy(closed = true)
@@ -467,7 +466,7 @@ class ItemDetailViewModel(
         }
     }
 
-    /** `FB-403`: re-attempts [deleteItem] - a no-op if nothing failed or a delete is already in
+    /** Re-attempts [deleteItem] - a no-op if nothing failed or a delete is already in
      * flight, exactly like [deleteItem] itself. */
     fun retryDeleteItem() = deleteItem()
 
@@ -477,17 +476,8 @@ class ItemDetailViewModel(
     }
 }
 
-/**
- * `FB-403`: `PhotoStorage` failures now surface FB-401's neutral [ApplicationError] directly via
- * [PhotoStorageException] (`AndroidPhotoStorage`/`IosPhotoStorage`, discharging
- * `FB-401-NB1`/`FB-401-NB2`) - extracted here without loss. `ItemRepository`'s Firestore-backed
- * write failures (e.g. `updateItem`/`setPhotoRef`/`deleteItem`) have no such `commonMain`-visible
- * mapping yet - the same `ListRepositoryException` platform-`internal`-visibility gap
- * `FB-402-NB1` already tracks for `ListRepository`/`ItemRepository`, not this task's scope to
- * close - so those conservatively fall back to [RepositoryErrorCode.UNKNOWN] (`canRetry = true`)
- * rather than a guessed, more specific code.
- */
+/** Photo-storage failures carry their own mapped error; everything else is a repository failure. */
 private fun Throwable.toItemDetailApplicationError(): ApplicationError = when (this) {
     is PhotoStorageException -> error
-    else -> RepositoryErrorCode.UNKNOWN.toApplicationError()
+    else -> toRepositoryApplicationError()
 }

@@ -26,7 +26,7 @@ class FakeListRepository : ListRepository {
     private var counter = 0
 
     /**
-     * `FB-402`: failure injection so `DashboardViewModelTest`/`CreateListViewModelTest` can
+     * Failure injection so `DashboardViewModelTest`/`CreateListViewModelTest` can
      * exercise the try/finally-reset flags and retryable error states without a real Firebase
      * adapter - not single-shot: a test resets a `fail*` field back to `null` itself before
      * asserting a retry succeeds, mirroring [FakeItemRepository.failSetPhotoRef].
@@ -36,7 +36,7 @@ class FakeListRepository : ListRepository {
     var failSoftDeleteList: Throwable? = null
     var failRestoreList: Throwable? = null
 
-    /** `FB-402`: lets a test assert a duplicate-submit guard prevented a second real call. */
+    /** Lets a test assert a duplicate-submit guard prevented a second real call. */
     var createListCallCount = 0
         private set
     var updateListCallCount = 0
@@ -49,7 +49,7 @@ class FakeListRepository : ListRepository {
         private set
 
     /**
-     * `FB-404`: settable cache/pending-write metadata this fake reports on every
+     * Settable cache/pending-write metadata this fake reports on every
      * [observeListSummariesSnapshot] emission (not single-shot - mirrors the `fail*` fields'
      * "a test resets it back itself" convention) - lets `DashboardViewModelTest` assert
      * `DashboardUiState.isFromCache`/`hasPendingWrites` without a real Firestore snapshot. See
@@ -59,21 +59,21 @@ class FakeListRepository : ListRepository {
     var hasPendingWrites: Boolean = false
 
     /**
-     * `FB-408`: settable terminal-listener-error trigger, mirroring the real `callbackFlow`'s
+     * Settable terminal-listener-error trigger, mirroring the real `callbackFlow`'s
      * `close(exception)` contract that `AndroidFirebaseListRepository`/`IosFirebaseListRepository`
      * exercise on a genuine Firestore listener failure (`observeListSummariesSnapshot()` - see
      * those classes' KDoc). Unlike the `fail*` fields above (which fail a single `suspend`
      * call), this is a *flow itself* terminating with an exception rather than ever emitting
-     * again - exactly the shape `DashboardViewModel.listLoadState`'s `.catch` (`FB-408`) exists
+     * again - exactly the shape `DashboardViewModel.listLoadState`'s `.catch` exists
      * to guard against. `null` (the default) means the listener behaves normally.
      */
     var listenerFailure: Throwable? = null
     private val listenerFailureSignal = MutableStateFlow<Throwable?>(null)
 
-    /** `FB-408`: sets [listenerFailure] and pushes it to any live [observeListSummariesSnapshot]
+    /** Sets [listenerFailure] and pushes it to any live [observeListSummariesSnapshot]
      * collector immediately, without requiring a new [rows] emission - reproduces a listener
      * that errors with no prior successful emission at all (the stale-persisted-session-at-
-     * cold-launch trigger `FB-405` documented). */
+     * cold-launch trigger documented). */
     fun failListenerWith(throwable: Throwable) {
         listenerFailure = throwable
         listenerFailureSignal.value = throwable
@@ -98,18 +98,13 @@ class FakeListRepository : ListRepository {
     }
 
     /**
-     * `FB-409`: converted to a `callbackFlow` reacting to the same [listenerFailureSignal]
+     * Converted to a `callbackFlow` reacting to the same [listenerFailureSignal]
      * [observeListSummariesSnapshot] does (not a single-shot `fail*` field - this is a listener
-     * chain, mirroring production's shape) - found during this task's live cross-uid
-     * reproduction of `deleteList()`'s crash: `ListDetailViewModel.uiState`'s `combine(...)`
-     * collects this flow directly, with no `.catch` at all (unlike `itemsLoadState`, which
-     * `FB-408` did fix) - a real terminal Firestore listener error on the *list document*
-     * itself (e.g. the identical session-invalidation trigger `FB-405`/`FB-408` already
-     * documented, racing against or independent of the items listener) rethrows uncaught
-     * through `viewModelScope`'s `stateIn` and crashes the app process exactly like `FB-405`'s
-     * original finding - `FB-408`'s "DONE" claim for `ListDetailViewModel` covered the items
-     * listener only, not this one. Fixed alongside `FB-409`'s assigned `deleteList()` mutation
-     * fix since the same live-reproduction trigger surfaced both in the same session.
+     * chain, mirroring production's shape): `ListDetailViewModel.uiState`'s `combine(...)`
+     * collects this flow directly, so a real terminal Firestore listener error on the
+     * *list document* itself (e.g. a session invalidation, racing against or independent of
+     * the items listener) must be caught there rather than rethrown uncaught through
+     * `viewModelScope`'s `stateIn`, which would crash the app process.
      */
     override fun observeList(listId: String): Flow<FluxList?> = callbackFlow {
         val failureJob = launch {
@@ -165,7 +160,7 @@ class FakeItemRepository : ItemRepository {
     private var counter = 0
 
     /**
-     * `FB-306`: when non-null, every [setPhotoRef] call throws this instead of mutating
+     * When non-null, every [setPhotoRef] call throws this instead of mutating
      * anything - lets `ItemDetailViewModelTest` inject a document-write failure partway
      * through a replace/remove without touching `FakePhotoStorage`, mirroring
      * [FakePhotoStorage.failUpload]/[FakePhotoStorage.failDelete]'s shape (also not
@@ -174,9 +169,9 @@ class FakeItemRepository : ItemRepository {
     var failSetPhotoRef: Throwable? = null
 
     /**
-     * `FB-403`: failure injection for `ListDetailViewModelTest`/`ItemDetailViewModelTest`'s
+     * Failure injection for `ListDetailViewModelTest`/`ItemDetailViewModelTest`'s
      * try/finally-reset flags and retryable error states, mirroring
-     * [FakeListRepository]'s identically-shaped `FB-402` fields - not single-shot, and each
+     * [FakeListRepository]'s identically-shaped fields - not single-shot, and each
      * paired with a call count so a test can assert a duplicate-submit guard collapsed two
      * rapid calls into exactly one real one.
      */
@@ -203,15 +198,15 @@ class FakeItemRepository : ItemRepository {
     var clearCompletedCallCount = 0
         private set
 
-    /** `FB-404`: see [FakeListRepository]'s identically-shaped fields' KDoc - same purpose,
+    /** See [FakeListRepository]'s identically-shaped fields' KDoc - same purpose,
      * scoped to items instead of lists. */
     var isFromCache: Boolean = false
     var hasPendingWrites: Boolean = false
 
-    /** `FB-408`: see [FakeListRepository.listenerFailure]/[FakeListRepository.failListenerWith]'s
+    /** See [FakeListRepository.listenerFailure]/[FakeListRepository.failListenerWith]'s
      * identically-purposed KDoc - same mechanism, applied to [observeItemsSnapshot] and
      * [observeItem] (the latter is [com.fluxit.feature.itemdetail.ItemDetailViewModel]'s
-     * one-shot `.first()` repository observation, the other confirmed-present `FB-408` shape). */
+     * one-shot `.first` repository observation, the other confirmed-present shape). */
     var listenerFailure: Throwable? = null
     private val listenerFailureSignal = MutableStateFlow<Throwable?>(null)
 
@@ -309,11 +304,11 @@ class FakeItemRepository : ItemRepository {
 }
 
 /**
- * In-memory [PhotoStorage] test double (`FB-302`), with configurable failure injection at
+ * In-memory [PhotoStorage] test double, with configurable failure injection at
  * upload/delete time so contract tests can exercise every documented failure branch of
  * `replacePhoto`'s safe-replace ordering without touching either platform's Firebase Cloud
  * Storage adapter. Every `photoRef` it mints is built by the same [FirebaseSchema.photoRef] production
- * uses, so a test asserting on the returned ref is asserting on the real PLAN-006 shape, not
+ * uses, so a test asserting on the returned ref is asserting on the real exact-depth photoRef shape, not
  * a simplified stand-in.
  */
 class FakePhotoStorage(private val uid: String = "fake-uid") : PhotoStorage {

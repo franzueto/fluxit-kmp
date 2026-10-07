@@ -1,4 +1,4 @@
-// FB-603: execute the Android/Swift query shapes through the JS client SDK.
+// Execute the Android/Swift query shapes through the JS client SDK.
 // This checks server results and owner Rules, not native SDK integration or
 // production index enforcement. See README's query inventory.
 import test, { before, after } from 'node:test';

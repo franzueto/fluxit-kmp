@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * In-memory [AuthRepository] for shared tests and future previews.
  *
- * It models the email+password rules the real providers enforce (DEC-001) closely
+ * It models the email+password rules the real providers enforce closely
  * enough to exercise every session transition, and it deliberately contains no
  * backend-specific behaviour.
  */

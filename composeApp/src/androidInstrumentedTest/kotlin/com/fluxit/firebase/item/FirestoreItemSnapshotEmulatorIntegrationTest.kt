@@ -35,7 +35,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * `FB-407` Android instrumented/emulator-backed proof that
+ * Android instrumented/emulator-backed proof that
  * [AndroidFirebaseItemRepository.observeItemsSnapshot] reports the *real* Firestore SDK's
  * `QuerySnapshot.metadata.isFromCache`/`hasPendingWrites()` signal - the item-repository
  * counterpart of `com.fluxit.firebase.list.FirestoreListSnapshotEmulatorIntegrationTest`.
@@ -43,7 +43,7 @@ import org.junit.runner.RunWith
  *
  * Reuses the same `disableNetwork()`/`enableNetwork()` offline-simulation technique this
  * package's own `FirestoreItemEmulatorIntegrationTest.addItemQueuedWhileOfflineCommitsOnceNetworkIsRestored`
- * already established (FB-204), rather than inventing a new one.
+ * already established, rather than inventing a new one.
  *
  * Run with: `./gradlew :composeApp:connectedDebugAndroidTest`.
  */
@@ -64,8 +64,8 @@ class FirestoreItemSnapshotEmulatorIntegrationTest {
             ?: FirebaseApp.initializeApp(
                 context,
                 FirebaseOptions.Builder()
-                    .setApiKey("fb407-instrumented-test-key")
-                    .setApplicationId("1:0:android:fb407-item")
+                    .setApiKey("snapshot-instrumented-test-key")
+                    .setApplicationId("1:0:android:snapshot-item")
                     .setProjectId("demo-fluxit")
                     .build(),
                 APP_NAME,
@@ -112,15 +112,15 @@ class FirestoreItemSnapshotEmulatorIntegrationTest {
         // acknowledges it, which cannot happen while offline, so it is launched here and
         // deliberately not joined until after `enableNetwork()` below.
         firestore.disableNetwork().awaitResult()
-        val addDeferred = async(Dispatchers.IO) { repository.addItem(listId, "FB-407 Offline Item") }
+        val addDeferred = async(Dispatchers.IO) { repository.addItem(listId, "Offline Item") }
 
-        // FB-701: pending server timestamp estimates must expose the real new item.
+        // Pending server timestamp estimates must expose the real new item.
         val pendingSeen = withTimeout(TIMEOUT_MS) { awaitEmission(emissions) {
-            it.hasPendingWrites && it.value.any { item -> item.title == "FB-407 Offline Item" }
+            it.hasPendingWrites && it.value.any { item -> item.title == "Offline Item" }
         } }
-        val pendingItem = pendingSeen.value.single { it.title == "FB-407 Offline Item" }
+        val pendingItem = pendingSeen.value.single { it.title == "Offline Item" }
         val individual = withTimeout(TIMEOUT_MS) { repository.observeItem(listId, pendingItem.id).first { it != null } }
-        assertEquals("FB-407 Offline Item", individual?.title)
+        assertEquals("Offline Item", individual?.title)
         assertTrue(!addDeferred.isCompleted, "the queued creation must still await server acknowledgement")
         assertTrue(pendingSeen.hasPendingWrites, "a write held only in the local cache must report hasPendingWrites=true")
         assertTrue(pendingSeen.isFromCache, "with the SDK offline, the snapshot must also report isFromCache=true")
@@ -128,10 +128,10 @@ class FirestoreItemSnapshotEmulatorIntegrationTest {
         firestore.enableNetwork().awaitResult()
         withTimeout(TIMEOUT_MS) { addDeferred.await() }
         val acked = withTimeout(TIMEOUT_MS) {
-            awaitEmission(emissions) { !it.hasPendingWrites && it.value.any { item -> item.title == "FB-407 Offline Item" } }
+            awaitEmission(emissions) { !it.hasPendingWrites && it.value.any { item -> item.title == "Offline Item" } }
         }
         assertTrue(!acked.hasPendingWrites, "once the server acknowledges the write, hasPendingWrites must clear")
-        assertEquals(1, acked.value.count { it.title == "FB-407 Offline Item" })
+        assertEquals(1, acked.value.count { it.title == "Offline Item" })
 
         collector.cancel()
     }
@@ -167,7 +167,7 @@ class FirestoreItemSnapshotEmulatorIntegrationTest {
         return id
     }
 
-    private fun uniqueEmail(): String = "fb407-item-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(): String = "snapshot-item-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -175,9 +175,9 @@ class FirestoreItemSnapshotEmulatorIntegrationTest {
     }
 
     private companion object {
-        const val APP_NAME = "fb407-item-instrumented-test"
+        const val APP_NAME = "snapshot-item-instrumented-test"
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb407-emulator-only"
+        const val PASSWORD = "snapshot-emulator-only"
         const val TIMEOUT_MS = 20_000L
         const val POLL_INTERVAL_MS = 100L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"

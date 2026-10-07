@@ -3,6 +3,7 @@ package com.fluxit.firebase.list
 import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import kotlin.test.Test
@@ -23,14 +24,14 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 
 /**
- * FB-203 unit tests for the iOS list adapter's own logic: the `callbackFlow` listener
- * lifecycle over the Swift bridge, delegation of ordering/tombstone-filtering to FB-201's
+ * unit tests for the iOS list adapter's own logic: the `callbackFlow` listener
+ * lifecycle over the Swift bridge, delegation of ordering/tombstone-filtering to the
  * [com.fluxit.data.remote.FirebaseDocumentMapper], and the field-scoped-patch-vs-whole-
- * document-set shape required by `DEC-003d`/`DEC-003d-1`. The Swift bridge (and
+ * document-set shape required by the field-level last-write-wins policy/the new-document exemption from field patches. The Swift bridge (and
  * therefore the Firebase Apple SDK behind it) is replaced by [RecordingListBridge]; the
  * adapter code under test is the production code.
  *
- * Deliberately the same test matrix as FB-202's `AndroidFirebaseListRepository`
+ * Deliberately the same test matrix as the `AndroidFirebaseListRepository`
  * coverage where a Gradle-runnable equivalent exists, so a behavioural divergence
  * between the two platforms shows up as a failing test. What this file does NOT prove:
  * that the real Firebase Apple SDK actually reports snapshots/errors the way assumed
@@ -189,11 +190,11 @@ class IosFirebaseListRepositoryTest {
         bridge.emitSummariesError(firestoreError(7L)) // permissionDenied
         job.join()
 
-        val failure = assertIs<ListRepositoryException>(caught)
+        val failure = assertIs<RepositoryException>(caught)
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
     }
 
-    // --- FB-201 delegation: tombstone filtering + ordering -----------------------------
+    // --- delegation: tombstone filtering + ordering -----------------------------
 
     @Test
     fun tombstonedDocumentsAreFilteredAndSurvivorsAreOrderedByCreatedAtThenId() = runTest {
@@ -216,7 +217,7 @@ class IosFirebaseListRepositoryTest {
         job.cancelAndJoin()
     }
 
-    // --- FB-407: observeListSummariesSnapshot - real isFromCache/hasPendingWrites -------
+    // --- ObserveListSummariesSnapshot - real isFromCache/hasPendingWrites -------
     //
     // What this proves: IosFirebaseListRepository.observeListSummariesSnapshot correctly
     // maps whatever IosFirestoreListSnapshot the bridge hands it (mapping/ordering
@@ -304,11 +305,11 @@ class IosFirebaseListRepositoryTest {
         bridge.emitSummariesSnapshotError(firestoreError(7L)) // permissionDenied
         job.join()
 
-        val failure = assertIs<ListRepositoryException>(caught)
+        val failure = assertIs<RepositoryException>(caught)
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
     }
 
-    // --- createList: DEC-003d-1 whole-document set on a brand-new document -------------
+    // --- createList: whole-document set on a brand-new document (exempt from field patches) -------------
 
     @Test
     fun createListWritesTheFullInitialFieldSetAndReturnsTheGeneratedId() = runTest {
@@ -334,7 +335,7 @@ class IosFirebaseListRepositoryTest {
                 FirebaseSchema.Fields.SCHEMA_VERSION,
             ),
             call.fields.keys,
-            "createList must write the full initial field set (DEC-003d-1), not a partial patch",
+            "createList must write the full initial field set, not a partial patch",
         )
         assertEquals(FirebaseValue.Text("Groceries"), call.fields[FirebaseSchema.Fields.NAME])
         assertEquals(FirebaseValue.Number(0), call.fields[FirebaseSchema.Fields.TOTAL_ITEMS])
@@ -347,13 +348,13 @@ class IosFirebaseListRepositoryTest {
         bridge.createFailure = firestoreError(16L) // unauthenticated
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.createList("Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
         }
         assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)
     }
 
-    // --- update/softDelete/restore: DEC-003d field-scoped patches only ------------------
+    // --- update/softDelete/restore: field-scoped patches only ------------------
 
     @Test
     fun updateListSendsOnlyTheChangedFieldsNeverTheWholeDocument() = runTest {
@@ -373,7 +374,7 @@ class IosFirebaseListRepositoryTest {
                 FirebaseSchema.Fields.UPDATED_AT,
             ),
             call.fields.keys,
-            "updateList must be a field-scoped patch (DEC-003d) - it must never carry totalItems/completedItems",
+            "updateList must be a field-scoped patch - it must never carry totalItems/completedItems",
         )
     }
 
@@ -407,13 +408,13 @@ class IosFirebaseListRepositoryTest {
         bridge.updateFailure = firestoreError(7L) // permissionDenied
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.updateList("list-1", "x", ListIcon.CART, ListColor.PRIMARY_BLUE)
         }
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
     }
 
-    // --- purgeExpired: DEC-003c documented no-op ----------------------------------------
+    // --- purgeExpired: the scheduled server-side cleanup documented no-op ----------------------------------------
 
     @Test
     fun purgeExpiredNeverTouchesTheBridge() = runTest {
@@ -435,7 +436,7 @@ class IosFirebaseListRepositoryTest {
         val bridge = RecordingListBridge()
         val repository = repositoryFor(bridge, FixedUidProvider(uid = null))
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.createList("Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
         }
         assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)

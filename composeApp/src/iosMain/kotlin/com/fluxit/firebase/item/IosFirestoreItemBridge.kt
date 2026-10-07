@@ -6,20 +6,19 @@ import com.fluxit.firebase.list.IosFirestoreListenerHandle
 import platform.Foundation.NSError
 
 /**
- * FB-205's wire-format document type is FB-203's [IosFirestoreListDocument] verbatim -
+ * Wire-format document type is the [IosFirestoreListDocument] verbatim -
  * `id` + `fields: Map<String, FirebaseValue>` is exactly as list-agnostic as
- * `com.fluxit.firebase.list.ListRepositoryException`, which FB-204 already reused
+ * `com.fluxit.data.remote.RepositoryException`, which already reused
  * unmodified on Android for the identical "the name says list, the shape doesn't care"
- * reason (see `AndroidFirebaseItemRepository`'s KDoc, `FB-204-NB3`). A parallel
+ * reason (see `AndroidFirebaseItemRepository`'s KDoc). A parallel
  * `IosFirestoreItemDocument` data class with the same two fields would be pure
- * duplication with no behavioral difference. Flagged for reviewer, same as `FB-204-NB3`:
- * if a future error/wire-type-taxonomy pass ever renames these list-named-but-neutral
+ * duplication with no behavioral difference. If a future error/wire-type-taxonomy pass ever renames these list-named-but-neutral
  * types, this typealias moves with it for free.
  */
 typealias IosFirestoreItemDocument = IosFirestoreListDocument
 
 /**
- * `FB-407`: item-scoped counterpart of [com.fluxit.firebase.list.IosFirestoreListSnapshot]
+ * Item-scoped counterpart of [com.fluxit.firebase.list.IosFirestoreListSnapshot]
  * - see that type's KDoc for the full rationale (a dedicated data class, not two extra
  * `Boolean` closure parameters, to avoid `KotlinBoolean` boxing at the Swift call site).
  * Not reused as a second typealias of the list type: unlike [IosFirestoreItemDocument]
@@ -36,9 +35,9 @@ data class IosFirestoreItemSnapshot(
 
 /**
  * Outcome of the pure, synchronous read-then-decide policy for a counter-affecting item
- * mutation (`AndroidFirebaseItemRepository`'s FB-204 transaction body - read live
+ * mutation (`AndroidFirebaseItemRepository`'s transaction body - read live
  * `isCompleted`/`deletedAt` first, then decide - expressed as data here rather than as
- * Kotlin code operating on a live SDK `Transaction`, because per `PLAN-008` only Swift
+ * Kotlin code operating on a live SDK `Transaction`, because per the Swift-only Firebase boundary on iOS only Swift
  * can open a Firestore transaction).
  *
  * [IosFirebaseItemRepository] computes this purely from the field values Swift hands
@@ -49,7 +48,7 @@ data class IosFirestoreItemSnapshot(
  * committed field values - the same guarantee `runTransaction`'s automatic retry gives
  * Android's `Transaction.get`-then-decide body).
  *
- * `counterDelta` reuses FB-201's own [FirebaseValue.Number] rather than a raw `Long` or
+ * `counterDelta` reuses the own [FirebaseValue.Number] rather than a raw `Long` or
  * a new Kotlin/Swift-crossing numeric convention: `Map<String, FirebaseValue.Number>` is
  * a proven-safe boundary type (already crossing in [IosFirestoreItemBridge.addItem]'s and
  * [com.fluxit.firebase.list.IosFirestoreListBridge.createList]'s `fields` maps), whereas
@@ -73,12 +72,12 @@ sealed interface ItemCounterOutcome {
 }
 
 /**
- * The Swift-implemented seam through which FB-205's iOS item adapter reaches Cloud
- * Firestore's `users/{uid}/lists/{listId}/items/{itemId}` collection (PLAN-008, same
+ * The Swift-implemented seam through which the iOS item adapter reaches Cloud
+ * Firestore's `users/{uid}/lists/{listId}/items/{itemId}` collection (same
  * reason [com.fluxit.firebase.list.IosFirestoreListBridge] exists for lists -
  * `iosApp/iosApp/FirebaseItemBridge.swift`).
  *
- * Same field-mask/changed-keys surface FB-203 designed for this task to reuse: every
+ * Same field-mask/changed-keys surface as the list bridge: every
  * write-shaped method takes a `Map<String, FirebaseValue>` (or, for the counter path,
  * [ItemCounterOutcome]'s `Map<String, FirebaseValue.Number>`), identical in spirit to
  * [com.fluxit.data.remote.FieldPatch.fields]. No parallel value-encoding type is
@@ -99,7 +98,7 @@ interface IosFirestoreItemBridge {
     ): IosFirestoreListenerHandle
 
     /**
-     * `FB-407`: same shape as
+     * Same shape as
      * [com.fluxit.firebase.list.IosFirestoreListBridge.observeListSummariesSnapshot] -
      * see that method's KDoc for why this is a genuinely separate `includeMetadataChanges:
      * true` listener registration, not a shared one with [observeItems].
@@ -124,13 +123,13 @@ interface IosFirestoreItemBridge {
      * Creates a brand-new item document with an auto-generated ID and, in the same
      * atomic batched write, increments the parent list's `totalItems` by exactly 1.
      *
-     * `DEC-003d-1`: the same creation-only exemption `createList`
+     * The same creation-only exemption `createList`
      * (`IosFirestoreListBridge.createList`) uses, extended to `AndroidFirebaseItemRepository`'s
-     * FB-204 shape of "one atomic batch, not a bare `setData`" because this write also
+     * shape of "one atomic batch, not a bare `setData`" because this write also
      * has to move a sibling document's counter - a fresh auto-ID item document has no
      * prior state and no possible concurrent writer, so its whole-initial-field-set
-     * `setData(_:)` does not contradict `DEC-003d`, and the `totalItems` increment is
-     * unconditional per FB-204's own settled precedent (not re-litigated here).
+     * `setData(_:)` does not contradict the field-level last-write-wins policy, and the `totalItems` increment is
+     * unconditional per the own settled precedent (not re-litigated here).
      */
     fun addItem(
         uid: String,
@@ -161,7 +160,7 @@ interface IosFirestoreItemBridge {
      * to [decide], then applies whatever [ItemCounterOutcome] it returns - atomically,
      * with the SDK's own automatic retry-on-contention. Backs `setCompleted`,
      * `softDeleteItem`, `restoreItem`, and `deleteItem`, exactly the same four mutations
-     * `AndroidFirebaseItemRepository`'s FB-204 `runTransaction` body backs.
+     * `AndroidFirebaseItemRepository`'s `runTransaction` body backs.
      */
     fun mutateItemWithCounters(
         uid: String,

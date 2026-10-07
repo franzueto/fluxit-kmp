@@ -6,6 +6,8 @@ import com.fluxit.data.PhotoRejected
 import com.fluxit.data.PhotoStorageException
 import com.fluxit.data.remote.ApplicationError
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
+import com.fluxit.data.remote.toApplicationError
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
 import com.fluxit.domain.ScreenLoadState
@@ -35,6 +37,9 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
+/** Mapped failures the repository adapters can raise: a denied write, offline and a timeout. */
+private val MAPPED_ERROR_CODES = listOf(RepositoryErrorCode.FORBIDDEN, RepositoryErrorCode.OFFLINE, RepositoryErrorCode.TIMEOUT)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardViewModelTest {
 
@@ -48,7 +53,7 @@ class DashboardViewModelTest {
         Dispatchers.setMain(dispatcher)
         lists = FakeListRepository()
         items = FakeItemRepository()
-        // FB-404: authenticated up front - this ViewModel is only ever constructed once
+        // Authenticated up front - this ViewModel is only ever constructed once
         // SessionGate has already reached Ready in production, so every pre-existing test
         // (which exercises the already-Authenticated steady state) needs this, and the new
         // fatal-session tests below start from here and move away from it explicitly.
@@ -111,7 +116,53 @@ class DashboardViewModelTest {
         assertEquals(null, vm.undoListId.value)
     }
 
-    // --- FB-402: try/finally flag resets, retryable errors, duplicate-submit guards ---
+    @Test
+    fun deleteListFailureEmitsADeleteFailureForThatListAndSuccessDoesNot() = runTest(dispatcher) {
+        val id = lists.createList("Supermarket", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        val failures = mutableListOf<String>()
+        val failureJob = launch { vm.deleteFailures.collect { failures += it } }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        lists.failSoftDeleteList = IllegalStateException("boom")
+        vm.deleteList(id)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(id), failures, "a failed delete must signal its row to return to rest")
+
+        vm.deleteList(id)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(id, id), failures, "a repeated failure must signal again")
+
+        lists.failSoftDeleteList = null
+        vm.deleteList(id)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(id, id), failures, "a successful delete must not signal")
+        failureJob.cancel()
+        collectJob.cancel()
+    }
+
+    @Test
+    fun deleteListFailureSurfacesTheRepositoryExceptionsMappedErrorAndRetryability() = runTest(dispatcher) {
+        for (code in MAPPED_ERROR_CODES) {
+            val failingLists = FakeListRepository()
+            val id = failingLists.createList("Supermarket", ListIcon.CART, ListColor.ORANGE)
+            val vm = DashboardViewModel(failingLists, DebugSeeder(failingLists, items), auth)
+            val collectJob = launch { vm.uiState.collect {} }
+            dispatcher.scheduler.advanceUntilIdle()
+
+            failingLists.failSoftDeleteList = RepositoryException(code.toApplicationError())
+            vm.deleteList(id)
+            dispatcher.scheduler.runCurrent()
+
+            val error = assertNotNull(vm.uiState.value.operationError, "$code")
+            assertEquals(code, error.error.code)
+            assertEquals(code != RepositoryErrorCode.FORBIDDEN, error.error.canRetry, "$code")
+            collectJob.cancel()
+        }
+    }
+
+    // --- Try/finally flag resets, retryable errors, duplicate-submit guards ---
 
     @Test
     fun deleteListFailureResetsPendingFlagAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
@@ -209,7 +260,7 @@ class DashboardViewModelTest {
         collectJob.cancel()
     }
 
-    // --- FB-404: loading/empty/loaded/cached/pending-writes/fatal-session state machine ---
+    // --- Loading/empty/loaded/cached/pending-writes/fatal-session state machine ---
 
     @Test
     fun initialStateIsLoadingBeforeAnyEmission() {
@@ -302,10 +353,10 @@ class DashboardViewModelTest {
         collectJob.cancel()
     }
 
-    // --- FB-408: a terminal listener error must never crash - it must map to FatalSession ---
+    // --- A terminal listener error must never crash - it must map to FatalSession ---
 
     /**
-     * `FB-408`: reproduces `FB-405`'s headline finding at the ViewModel layer - before this
+     * Reproduces the headline finding at the ViewModel layer - before this
      * task's fix, `listLoadState`'s `combine(...)` had no `.catch`, so
      * [FakeListRepository.observeListSummariesSnapshot]'s `callbackFlow` closing with an
      * exception (exactly `AndroidFirebaseListRepository`/`IosFirebaseListRepository`'s real
@@ -335,8 +386,8 @@ class DashboardViewModelTest {
         collectJob.cancel()
     }
 
-    /** `FB-408`: a terminal listener error observed *before* the very first emission (the
-     * stale-persisted-session-at-cold-launch trigger `FB-405` documented on iOS) must resolve
+    /** A terminal listener error observed *before* the very first emission (the
+     * stale-persisted-session-at-cold-launch trigger documented on iOS) must resolve
      * straight to [ScreenLoadState.FatalSession], never leave `isLoading` stuck `true` forever. */
     @Test
     fun terminalListenerErrorBeforeFirstEmissionResolvesToFatalSessionNotStuckLoading() = runTest(dispatcher) {
@@ -351,7 +402,7 @@ class DashboardViewModelTest {
         collectJob.cancel()
     }
 
-    // FB-504: cleanup now belongs to the scheduled backend, not dashboard startup.
+    // Cleanup now belongs to the scheduled backend, not dashboard startup.
     @Test
     fun dashboardConstructionDoesNotPurgeExpiredData() = runTest(dispatcher) {
         lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
@@ -380,7 +431,7 @@ class ListDetailViewModelTest {
         Dispatchers.setMain(dispatcher)
         lists = FakeListRepository()
         items = FakeItemRepository()
-        // FB-404: authenticated up front - see `DashboardViewModelTest.setUp`'s identical
+        // Authenticated up front - see `DashboardViewModelTest.setUp`'s identical
         // rationale.
         auth = FakeAuthRepository()
         runBlocking { auth.signUp("listdetail-test@example.com", "password123") }
@@ -455,7 +506,50 @@ class ListDetailViewModelTest {
         collectJob.cancel()
     }
 
-    // --- FB-403: try/finally flag reset, retryable error, duplicate-submit guard ---
+    @Test
+    fun deleteItemFailureEmitsADeleteFailureForThatItemAndSuccessDoesNot() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        val itemId = items.observeItems(listId).first().first().id
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        val failures = mutableListOf<String>()
+        val failureJob = launch { vm.itemDeleteFailures.collect { failures += it } }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        items.failSoftDeleteItem = IllegalStateException("boom")
+        vm.deleteItem(itemId)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(itemId), failures, "a failed delete must signal its row to return to rest")
+
+        items.failSoftDeleteItem = null
+        vm.deleteItem(itemId)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(listOf(itemId), failures, "a successful delete must not signal")
+        failureJob.cancel()
+        collectJob.cancel()
+    }
+
+    @Test
+    fun addItemFailureSurfacesTheRepositoryExceptionsMappedErrorAndRetryability() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        for (code in MAPPED_ERROR_CODES) {
+            val vm = viewModel()
+            val collectJob = launch { vm.uiState.collect {} }
+            vm.onComposerChange("Milk")
+
+            items.failAddItem = RepositoryException(code.toApplicationError())
+            vm.submitComposer()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val error = assertNotNull(vm.operationError.value, "$code")
+            assertEquals(code, error.error.code)
+            assertEquals(code != RepositoryErrorCode.FORBIDDEN, error.error.canRetry, "$code")
+            collectJob.cancel()
+        }
+    }
+
+    // --- Try/finally flag reset, retryable error, duplicate-submit guard ---
 
     @Test
     fun addItemFailureResetsIsAddingItemAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
@@ -558,7 +652,7 @@ class ListDetailViewModelTest {
         // `runCurrent()`, not `advanceUntilIdle()`: the failure path never suspends on `delay`,
         // and `advanceUntilIdle()` here would also fast-forward past the 5s undo window started
         // by the *later* successful retry before this test gets to observe it - same reasoning
-        // as `DashboardViewModelTest.deleteListFailureResetsPendingFlagAndSurfacesARetryableErrorThenRetrySucceeds` (`FB-402`).
+        // as `DashboardViewModelTest.deleteListFailureResetsPendingFlagAndSurfacesARetryableErrorThenRetrySucceeds`.
         dispatcher.scheduler.runCurrent()
 
         assertTrue(vm.pendingItemIds.value.isEmpty(), "pendingItemIds must reset on failure (finally)")
@@ -666,7 +760,7 @@ class ListDetailViewModelTest {
         assertEquals(1, items.clearCompletedCallCount)
     }
 
-    // --- FB-404: loading/empty/loaded/cached/pending-writes/fatal-session state machine ---
+    // --- Loading/empty/loaded/cached/pending-writes/fatal-session state machine ---
 
     @Test
     fun initialStateIsLoadingBeforeAnyEmission() = runTest(dispatcher) {
@@ -762,12 +856,10 @@ class ListDetailViewModelTest {
         collectJob.cancel()
     }
 
-    // --- FB-408: a terminal listener error must never crash - it must map to FatalSession ---
+    // --- A terminal listener error must never crash - it must map to FatalSession ---
 
-    /** `FB-408`: exact counterpart of `DashboardViewModelTest`'s identically-named test - the
-     * `FB-405` reviewer independently found this ViewModel had the same unguarded shape
-     * (the original `FB-405` developer report only covered `DashboardViewModel`). See that
-     * test's KDoc for the full rationale. */
+    /** Exact counterpart of `DashboardViewModelTest`'s identically-named test: this ViewModel
+     * has the same listener-error shape. See that test's KDoc for the full rationale. */
     @Test
     fun terminalListenerErrorSurfacesFatalSessionInsteadOfCrashing() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
@@ -787,13 +879,13 @@ class ListDetailViewModelTest {
         collectJob.cancel()
     }
 
-    // --- FB-409: try/finally flag reset, retryable error, duplicate-submit guard for deleteList ---
+    // --- Try/finally flag reset, retryable error, duplicate-submit guard for deleteList ---
 
     /**
-     * `FB-409`/`FB-406-B1`: `deleteList()` was a bare `viewModelScope.launch { ... }` with no
+     * `deleteList` was a bare `viewModelScope.launch {... }` with no
      * `try/catch/finally` at all, zero test coverage, and no duplicate-submit guard - a real
      * Firestore failure would rethrow uncaught through `viewModelScope` and crash the app
-     * process, the identical crash class `DEC-008`/`FB-408` fixed for this screen's
+     * process, the identical crash class fixed for this screen's
      * listener-observation chain ([ScreenLoadState.FatalSession] via `itemsLoadState`), just on
      * this mutation path instead. This proves the fix: the coroutine survives, [listDeleted]
      * stays `false` (the screen must not close on a delete that did not happen), a retryable
@@ -840,16 +932,13 @@ class ListDetailViewModelTest {
         assertEquals(1, lists.softDeleteListCallCount)
     }
 
-    // --- FB-409 sibling-audit fix: the list-document listener must never crash either ---
+    // --- sibling-audit fix: the list-document listener must never crash either ---
 
     /**
-     * `FB-409`: this task's live cross-uid reproduction of `deleteList()`'s crash (run against
-     * a real Firestore emulator) surfaced a second, distinct gap in the same `uiState`
-     * `combine(...)`: `listRepository.observeList(listId)` was fed in directly with no `.catch`
-     * at all - unlike [itemsLoadState]/`itemsLoadState`'s sibling flow, which `FB-408` did fix.
-     * A terminal listener error on the *list document* itself therefore still rethrew uncaught
-     * through `viewModelScope`'s `stateIn` and crashed the process, exactly `FB-405`'s original
-     * finding, even though `FB-408` was marked `DONE` for this ViewModel. Proves the fix: the
+     * The same `uiState` `combine(...)` also collects `listRepository.observeList(listId)`,
+     * which needs its own `.catch` just like [itemsLoadState]'s sibling flow.
+     * Without it, a terminal listener error on the *list document* itself would rethrow uncaught
+     * through `viewModelScope`'s `stateIn` and crash the process. Proves the guard: the
      * coroutine survives and [ListDetailUiState.list] resolves to `null` instead.
      */
     @Test
@@ -935,7 +1024,23 @@ class CreateListViewModelTest {
         assertTrue(vm.uiState.value.isDirty)
     }
 
-    // --- FB-402: try/finally flag reset, retryable error, duplicate-submit guard ---
+    @Test
+    fun saveFailureSurfacesTheRepositoryExceptionsMappedErrorAndRetryability() = runTest(dispatcher) {
+        for (code in MAPPED_ERROR_CODES) {
+            val vm = CreateListViewModel(null, lists)
+            vm.onNameChange("Trip")
+
+            lists.failCreateList = RepositoryException(code.toApplicationError())
+            vm.save()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val error = assertNotNull(vm.uiState.value.error, "$code")
+            assertEquals(code, error.code)
+            assertEquals(code != RepositoryErrorCode.FORBIDDEN, error.canRetry, "$code")
+        }
+    }
+
+    // --- Try/finally flag reset, retryable error, duplicate-submit guard ---
 
     @Test
     fun saveFailureResetsIsSavingAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
@@ -1000,8 +1105,8 @@ class CreateListViewModelTest {
 }
 
 /**
- * FB-301-NB2 pickup: the `photoRef`/`setPhotoRef` path had zero direct `commonTest`
- * coverage. These exercise [ItemDetailViewModel]'s happy-path wiring to the FB-302-redesigned
+ * pickup: the `photoRef`/`setPhotoRef` path had zero direct `commonTest`
+ * coverage. These exercise [ItemDetailViewModel]'s happy-path wiring to the -redesigned
  * [com.fluxit.data.PhotoStorage] contract (`replacePhoto`'s ordering itself is proven
  * exhaustively, including every failure branch, by `PhotoReplaceContractTest` - these tests
  * only need to prove the ViewModel is wired to it correctly).
@@ -1025,7 +1130,7 @@ class ItemDetailViewModelTest {
         items = FakeItemRepository()
         photoStorage = FakePhotoStorage()
         photoPicker = FakePhotoPicker()
-        // FB-404: authenticated up front - see `DashboardViewModelTest.setUp`'s identical
+        // Authenticated up front - see `DashboardViewModelTest.setUp`'s identical
         // rationale.
         auth = FakeAuthRepository()
         runBlocking { auth.signUp("itemdetail-test@example.com", "password123") }
@@ -1037,7 +1142,7 @@ class ItemDetailViewModelTest {
     }
 
     /**
-     * `FB-303`: `photoPreparer` defaults to the real, platform-decoding [preparePhotoForUpload]
+     * `photoPreparer` defaults to the real, platform-decoding [preparePhotoForUpload]
      * in production; tests use an identity passthrough so existing fake picked-bytes (e.g.
      * `byteArrayOf(2)`) keep working without exercising a real image decoder (Android's
      * `testDebugUnitTest` has no Robolectric and would fail on a real `BitmapFactory` call -
@@ -1101,7 +1206,7 @@ class ItemDetailViewModelTest {
 
     @Test
     fun pickPhotoRunsBytesThroughThePhotoPreparerBeforeUploading() = runTest(dispatcher) {
-        // FB-303: proves pickPhoto() actually composes photoPreparer ahead of uploadPhoto -
+        // Proves pickPhoto() actually composes photoPreparer ahead of uploadPhoto -
         // the storage object and the preview must reflect the *prepared* bytes, not the raw
         // ones the picker returned.
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
@@ -1150,9 +1255,9 @@ class ItemDetailViewModelTest {
         assertNull(photoStorage.objects[ref])
     }
 
-    // --- FB-306: progress/retry/failure states, layered on FB-302's proven replacePhoto() ---
+    // --- Progress/retry/failure states, layered on the proven replacePhoto ---
 
-    /** `FB-302-NB3`: an upload failure must leave the old photo fully intact and surface a
+    /** An upload failure must leave the old photo fully intact and surface a
      * retryable failure, not propagate uncaught. */
     @Test
     fun pickPhotoUploadFailurePreservesTheOldPhotoAndSetsARetryableReplaceError() = runTest(dispatcher) {
@@ -1174,7 +1279,7 @@ class ItemDetailViewModelTest {
         assertEquals(1, photoStorage.objects.size, "a failed upload must never leave a new object behind")
     }
 
-    /** `FB-302-NB3`: a document-write failure (upload succeeds, `setPhotoRef` fails) must also
+    /** A document-write failure (upload succeeds, `setPhotoRef` fails) must also
      * leave the old photo referenced and intact - the newly uploaded object becomes the
      * documented, accepted, sweep-reclaimable orphan (`PhotoStorage`'s KDoc), not a lost
      * reference or a silently swallowed crash. */
@@ -1202,7 +1307,7 @@ class ItemDetailViewModelTest {
         assertEquals(listOf<Byte>(7).size, photoStorage.objects[oldRef]?.size, "old object bytes untouched")
     }
 
-    /** `FB-303-NB2`: a `photoPreparer` rejection (e.g. unsupported type/too large) must behave
+    /** A `photoPreparer` rejection (e.g. unsupported type/too large) must behave
      * exactly like an upload failure from the UI's point of view - old photo preserved,
      * retryable error surfaced, no object ever created since the rejection happens before
      * `uploadPhoto` is ever called. */
@@ -1237,7 +1342,7 @@ class ItemDetailViewModelTest {
         assertNull(photoStorage.objects[oldRef], "old object must be deleted once the retried replace commits")
     }
 
-    /** `FB-306` acceptance criterion (a): retrying after an upload failure must succeed using
+    /** acceptance criterion (a): retrying after an upload failure must succeed using
      * the same cached bytes, without ever re-invoking the system photo picker. */
     @Test
     fun retryAfterAnUploadFailureSucceedsWithoutReopeningThePicker() = runTest(dispatcher) {
@@ -1266,7 +1371,7 @@ class ItemDetailViewModelTest {
     }
 
     /**
-     * `FB-306` acceptance criterion (b), the sharper case: retrying after a *document-write*
+     * acceptance criterion (b), the sharper case: retrying after a *document-write*
      * failure (which - unlike an upload failure - already left one real, unreferenced,
      * sweep-reclaimable orphan behind per `PhotoStorage`'s documented contract) must still end
      * with the item referencing *exactly one* object, and the photo that was current *before
@@ -1308,7 +1413,7 @@ class ItemDetailViewModelTest {
         assertIs<PhotoContent.Bytes>(photoStorage.loadPhoto(finalRef))
     }
 
-    /** `FB-302-NB3`'s sibling gap on the remove path: a `setPhotoRef(null)` failure must leave
+    /** Sibling gap on the remove path: a `setPhotoRef(null)` failure must leave
      * the photo fully referenced/intact (the best-effort delete never even runs) and surface a
      * retryable failure instead of crashing the coroutine. */
     @Test
@@ -1370,7 +1475,7 @@ class ItemDetailViewModelTest {
         assertEquals(1, photoStorage.objects.size, "dismissing must not attempt another upload")
     }
 
-    /** `FB-302-NB1`-adjacent at the UI layer: a photo operation already in flight must block a
+    /** -adjacent at the UI layer: a photo operation already in flight must block a
      * second, different photo operation rather than letting them race. */
     @Test
     fun removePhotoIsIgnoredWhileAReplaceIsAlreadyInFlight() = runTest(dispatcher) {
@@ -1388,7 +1493,7 @@ class ItemDetailViewModelTest {
         assertEquals(newRef, items.observeItem(listId, itemId).first()?.photoRef)
     }
 
-    // --- FB-403: try/finally flag reset, retryable error, duplicate-submit guard (save/delete) ---
+    // --- Try/finally flag reset, retryable error, duplicate-submit guard (save/delete) ---
 
     @Test
     fun saveFailureResetsIsSavingAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
@@ -1496,8 +1601,28 @@ class ItemDetailViewModelTest {
         assertFalse(vm.uiState.value.closed)
     }
 
+    @Test
+    fun saveFailureSurfacesTheRepositoryExceptionsMappedErrorAndRetryability() = runTest(dispatcher) {
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        items.addItem(listId, "Milk")
+        itemId = items.observeItems(listId).first().first().id
+        for (code in MAPPED_ERROR_CODES) {
+            val vm = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.onTitleChange("Whole milk")
+
+            items.failUpdateItem = RepositoryException(code.toApplicationError())
+            vm.save()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val error = assertNotNull(vm.uiState.value.saveError, "$code")
+            assertEquals(code, error.code)
+            assertEquals(code != RepositoryErrorCode.FORBIDDEN, error.canRetry, "$code")
+        }
+    }
+
     /**
-     * `FB-403` (discharging the remainder of `FB-305-NB2`/`FB-401-NB1`/`FB-401-NB2`): a
+     * (discharging the remainder of): a
      * `PhotoStorage` failure must surface its real, specific [ApplicationError] - not just the
      * conservative `RepositoryErrorCode.UNKNOWN` fallback [toItemDetailApplicationError] uses
      * for non-`PhotoStorage` failures - proving `performReplace`'s catch block actually unwraps
@@ -1521,7 +1646,7 @@ class ItemDetailViewModelTest {
         assertFalse(error.canRetry)
     }
 
-    // --- FB-404: initial-loading vs. not-found vs. fatal-session ---
+    // --- Initial-loading vs. not-found vs. fatal-session ---
 
     @Test
     fun initialStateIsLoadingBeforeInitCompletes() = runTest(dispatcher) {
@@ -1579,20 +1704,19 @@ class ItemDetailViewModelTest {
         assertNull(state.item)
     }
 
-    // --- FB-408: a terminal listener error during the initial load must never crash ---
+    // --- A terminal listener error during the initial load must never crash ---
 
     /**
-     * `FB-408` re-audit finding: unlike `DashboardViewModel`/`ListDetailViewModel`, this
+     * re-audit finding: unlike `DashboardViewModel`/`ListDetailViewModel`, this
      * ViewModel has no `combine(...).stateIn(...)` chain - its `init` block does a one-shot
      * `itemRepository.observeItem(listId, itemId).first()` instead. But the same root cause
-     * applies: before this task's fix, that `.first()` call had no `try`/`catch` around it, so
+     * applies: without a `try`/`catch` around that `.first()` call,
      * [FakeItemRepository.observeItem]'s `callbackFlow` closing with an exception (exactly
      * `AndroidFirebaseItemRepository`/`IosFirebaseItemRepository`'s real `close(exception)` on
      * a terminal Firestore listener error) would rethrow uncaught through `viewModelScope`'s
      * `Dispatchers.Main.immediate` and fail this coroutine test with that exact exception
-     * instead of ever reaching `uiState` - confirming the `FB-405` reviewer's flagged-but-
-     * unconfirmed concern was a real, present defect here too. With the fix, the same trigger
-     * now surfaces as a recoverable `isFatalSession` state and the `init` coroutine survives.
+     * instead of ever reaching `uiState`. With the guard, the same trigger
+     * surfaces as a recoverable `isFatalSession` state and the `init` coroutine survives.
      */
     @Test
     fun terminalListenerErrorDuringInitialLoadSurfacesFatalSessionInsteadOfCrashing() = runTest(dispatcher) {

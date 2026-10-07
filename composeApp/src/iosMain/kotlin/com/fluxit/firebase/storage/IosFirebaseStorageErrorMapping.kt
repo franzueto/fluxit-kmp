@@ -9,7 +9,7 @@ import platform.Foundation.NSError
 
 /**
  * `FIRStorageErrorDomain`, spelled out so no Firebase symbol is referenced from Kotlin (per
- * PLAN-008, this file cannot import `FirebaseStorage`) - same discipline as
+ * the Swift-only Firebase boundary on iOS, this file cannot import `FirebaseStorage`) - same discipline as
  * `com.fluxit.firebase.list.IosFirestoreErrorMapping.kt`'s `FIREBASE_FIRESTORE_ERROR_DOMAIN`.
  */
 internal const val FIREBASE_STORAGE_ERROR_DOMAIN: String = "FIRStorageErrorDomain"
@@ -19,7 +19,7 @@ internal const val FIREBASE_STORAGE_ERROR_DOMAIN: String = "FIRStorageErrorDomai
  * public `FIRStorageErrorCode` enum - a stable, documented SDK constant, written as a literal
  * for the same reason [FIREBASE_STORAGE_ERROR_DOMAIN] is a literal string (this file cannot
  * import `FirebaseStorage`). Mirrors Android's `StorageException.ERROR_OBJECT_NOT_FOUND`
- * (`AndroidPhotoStorage`, `FB-304`) - the two SDKs surface the same backend condition through
+ * (used by `AndroidPhotoStorage`) - the two SDKs surface the same backend condition through
  * different platform types.
  */
 internal const val STORAGE_ERROR_OBJECT_NOT_FOUND: Long = -13010L
@@ -27,7 +27,7 @@ internal const val STORAGE_ERROR_OBJECT_NOT_FOUND: Long = -13010L
 /**
  * `FIRStorageErrorCode.unauthorized`'s raw value (`-13021`) - the code a real owner-only
  * Storage Rules denial surfaces as, distinct from [STORAGE_ERROR_OBJECT_NOT_FOUND]. Used only
- * by [IosPhotoStorageIntegrationCheck]'s cross-user denial assertion, mirroring Android's
+ * by `IosPhotoStorageIntegrationCheck`'s (parity-only) cross-user denial assertion, mirroring Android's
  * `StorageException.ERROR_NOT_AUTHORIZED` assertion in
  * `PhotoStorageEmulatorIntegrationTest.assertDenied`. Production code
  * ([com.fluxit.data.IosPhotoStorage]) never branches on this value, only on
@@ -67,15 +67,15 @@ internal fun NSError.isStorageUnauthorized(): Boolean =
 /**
  * Thrown by [com.fluxit.data.IosPhotoStorage] instead of ever letting a raw Storage [NSError]
  * escape into `commonMain`-visible code - exact counterpart of
- * `com.fluxit.firebase.list.ListRepositoryException`, scoped to Storage.
+ * `com.fluxit.data.remote.RepositoryException`, scoped to Storage.
  *
- * `FB-401` discharges `FB-305-NB2`: [toApplicationError] below now gives this a neutral
- * `ApplicationError` mapping, the way `ListRepositoryException` already has one. `PhotoStorage`
+ * [toApplicationError] below gives this a neutral
+ * `ApplicationError` mapping, the way `RepositoryException` already has one. `PhotoStorage`
  * (the `commonMain` contract [com.fluxit.data.IosPhotoStorage] implements) still declares no
  * error taxonomy of its own beyond "missing returns null/no-ops, everything else propagates" -
  * this class is still thrown unchanged from every existing `IosPhotoStorage` call site (that
- * throw/catch behaviour is `FB-305`'s, proven and out of this task's scope to touch); this
- * mapping exists so a caller that *does* want the neutral form (`FB-403`) can get one without
+ * throw/catch behaviour is proven and deliberately left alone); this
+ * mapping exists so a caller that *does* want the neutral form can get one without
  * inventing a second taxonomy.
  */
 internal class PhotoStorageIosException(val error: NSError) : Exception(error.toString())
@@ -106,7 +106,7 @@ internal fun storageBackendErrorCode(code: Long): BackendErrorCode = when (code)
 }
 
 /**
- * Maps [this] to FB-201's neutral [ApplicationError]. An [NSError] outside
+ * Maps [this] to the neutral [ApplicationError]. An [NSError] outside
  * [FIREBASE_STORAGE_ERROR_DOMAIN] collapses to [RepositoryErrorCode.UNKNOWN], matching
  * `IosFirestoreErrorMapping.kt`'s identical fallback for a non-Firestore-domain error.
  */

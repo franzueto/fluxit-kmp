@@ -13,7 +13,7 @@ import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.RepositorySnapshot
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.IosAuthBridgeCurrentUidProvider
-import com.fluxit.firebase.list.toListRepositoryException
+import com.fluxit.firebase.list.toRepositoryException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.channels.awaitClose
@@ -23,13 +23,13 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.posix.time
 
 /**
- * iOS [ItemRepository] backed by the official Firebase Apple Firestore SDK (FB-205),
+ * iOS [ItemRepository] backed by the official Firebase Apple Firestore SDK,
  * against the same `users/{uid}/lists/{listId}/items/{itemId}` path
- * `AndroidFirebaseItemRepository` (FB-204) uses.
+ * `AndroidFirebaseItemRepository` uses.
  *
- * Ported from FB-204 onto the FB-203 `IosFirestoreListBridge`-style Kotlin-
- * protocol/Swift-implementation pattern, exactly as FB-203 ported FB-202. Reuse
- * decisions (module-scoped reuse from `com.fluxit.firebase.list`, the FB-203 sibling
+ * Built on the same `IosFirestoreListBridge`-style Kotlin-
+ * protocol/Swift-implementation pattern as the list repository. Reuse
+ * decisions (module-scoped reuse from `com.fluxit.firebase.list`, the sibling
  * package - none of this is re-derived here, mirroring `AndroidFirebaseItemRepository`'s
  * own KDoc structure):
  *
@@ -37,11 +37,11 @@ import platform.posix.time
  *   to do with lists vs. items, reused unmodified. Resolved fresh per call (never
  *   cached), same Phase 1 constraint [com.fluxit.firebase.list.IosFirebaseListRepository]
  *   documents.
- * - `IosFirestoreErrorMapping.kt`'s `toListRepositoryException()`/
- *   [com.fluxit.firebase.list.ListRepositoryException] reused unmodified rather than
- *   duplicated into an iOS `ItemRepositoryException`, for the identical reason FB-204
- *   gave on Android (`FB-204-NB3`, carried forward here rather than re-litigated).
- * - [IosFirestoreItemDocument] is FB-203's [com.fluxit.firebase.list.IosFirestoreListDocument]
+ * - `IosFirestoreErrorMapping.kt`'s `toRepositoryException()`/
+ *   [com.fluxit.data.remote.RepositoryException] reused unmodified rather than
+ * duplicated into an iOS `ItemRepositoryException`, for the identical reason 
+ *   gave on Android (carried forward here rather than re-litigated).
+ * - [IosFirestoreItemDocument] is the [com.fluxit.firebase.list.IosFirestoreListDocument]
  *   itself (see that typealias's KDoc) - not a duplicate wire-format type.
  *
  * What genuinely cannot be reused, because it is platform-mechanism-specific rather
@@ -49,7 +49,7 @@ import platform.posix.time
  * divergence explicitly): Android's counter-affecting mutations run their read-then-
  * decide body as ordinary Kotlin code inside `firestore.runTransaction { transaction ->
  * ... }`, because the Android Firestore SDK is directly reachable from `androidMain`
- * Kotlin. Per `PLAN-008`, no Firestore SDK type is reachable from `iosMain` at all, so
+ * Kotlin. Per the Swift-only Firebase boundary on iOS, no Firestore SDK type is reachable from `iosMain` at all, so
  * only Swift can open a transaction. [IosFirestoreItemBridge.mutateItemWithCounters]
  * bridges this by having Swift call back into a synchronous (never-suspending) Kotlin
  * `decide` lambda **from inside** its transaction's `updateBlock`, passing the
@@ -59,7 +59,7 @@ import platform.posix.time
  * of *opening a transaction and applying the outcome's writes* live in Swift. See
  * `FirebaseItemBridge.mutateItemWithCounters`'s KDoc for why this uses the plain
  * completion-handler `runTransaction(_:completion:)` overload, not `async throws`
- * (`FB-203`'s crash finding).
+ * (the crash finding).
  */
 class IosFirebaseItemRepository internal constructor(
     private val bridgeProvider: () -> IosFirestoreItemBridge,
@@ -80,7 +80,7 @@ class IosFirebaseItemRepository internal constructor(
      */
     constructor() : this(IosFirestoreItemBridgeRegistry::requireBridge, IosAuthBridgeCurrentUidProvider())
 
-    // --- listeners (FB-201 mapping/ordering, unmodified, mirrors the list repository) --
+    // --- listeners (mapping/ordering, unmodified, mirrors the list repository) --
 
     override fun observeItems(listId: String): Flow<List<FluxItem>> = callbackFlow {
         val uid = currentUid.currentUid()
@@ -95,13 +95,13 @@ class IosFirebaseItemRepository internal constructor(
                     .sortedWith(FirebaseDocumentMapper.itemOrdering)
                 trySend(items)
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
 
     /**
-     * `FB-407`: real `isFromCache`/`hasPendingWrites` from the Swift-side
+     * Real `isFromCache`/`hasPendingWrites` from the Swift-side
      * `includeMetadataChanges: true` listener behind
      * [IosFirestoreItemBridge.observeItemsSnapshot] - see
      * [com.fluxit.firebase.list.IosFirestoreListBridge.observeListSummariesSnapshot]'s
@@ -120,7 +120,7 @@ class IosFirebaseItemRepository internal constructor(
                     .sortedWith(FirebaseDocumentMapper.itemOrdering)
                 trySend(RepositorySnapshot(items, snapshot.isFromCache, snapshot.hasPendingWrites))
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
@@ -140,12 +140,12 @@ class IosFirebaseItemRepository internal constructor(
                     trySend(item)
                 }
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
 
-    // --- creation: full-initial-field-set write, DEC-003d-1 exemption -----------------
+    // --- creation: full-initial-field-set write, exempt from field-scoped patches since the document is new -----------------
 
     override suspend fun addItem(listId: String, title: String) {
         val uid = currentUid.currentUid()
@@ -163,7 +163,7 @@ class IosFirebaseItemRepository internal constructor(
         suspendCancellableCoroutine<Unit> { continuation ->
             bridgeProvider().addItem(uid, listId, initialFields) { _, error ->
                 if (error != null) {
-                    continuation.resumeWithException(error.toListRepositoryException())
+                    continuation.resumeWithException(error.toRepositoryException())
                 } else {
                     continuation.resume(Unit)
                 }
@@ -171,7 +171,7 @@ class IosFirebaseItemRepository internal constructor(
         }
     }
 
-    // --- field-scoped, no counters (DEC-003d) -----------------------------------------
+    // --- field-scoped, no counters -----------------------------------------
 
     override suspend fun updateItem(listId: String, itemId: String, title: String, description: String?) {
         applyPatch(
@@ -205,7 +205,7 @@ class IosFirebaseItemRepository internal constructor(
         suspendCancellableCoroutine<Unit> { continuation ->
             bridgeProvider().updateItemFields(uid, listId, itemId, patch.fields) { error ->
                 if (error != null) {
-                    continuation.resumeWithException(error.toListRepositoryException())
+                    continuation.resumeWithException(error.toRepositoryException())
                 } else {
                     continuation.resume(Unit)
                 }
@@ -216,7 +216,7 @@ class IosFirebaseItemRepository internal constructor(
     // --- counter-affecting mutations: transactional read-then-delta -------------------
     // See the class KDoc for why the read-then-decide policy below runs as a synchronous
     // Kotlin lambda invoked *from inside* Swift's transaction block, rather than as
-    // Kotlin code directly operating on a Transaction object (impossible per PLAN-008).
+    // Kotlin code directly operating on a Transaction object (impossible per the Swift-only Firebase boundary on iOS).
 
     /**
      * Idempotent: [decide] is handed the transaction's freshly-read field values every
@@ -303,7 +303,7 @@ class IosFirebaseItemRepository internal constructor(
         suspendCancellableCoroutine<Unit> { continuation ->
             bridgeProvider().mutateItemWithCounters(uid, listId, itemId, decide) { error ->
                 if (error != null) {
-                    continuation.resumeWithException(error.toListRepositoryException())
+                    continuation.resumeWithException(error.toRepositoryException())
                 } else {
                     continuation.resume(Unit)
                 }
@@ -339,7 +339,7 @@ class IosFirebaseItemRepository internal constructor(
             val chunkCount = suspendCancellableCoroutine<Int> { continuation ->
                 bridgeProvider().clearCompletedChunk(uid, listId, clearCompletedChunkSize, itemPatch) { count, error ->
                     if (error != null) {
-                        continuation.resumeWithException(error.toListRepositoryException())
+                        continuation.resumeWithException(error.toRepositoryException())
                     } else {
                         continuation.resume(count)
                     }
@@ -362,7 +362,7 @@ internal const val MAX_BATCH_WRITES = 500
 internal const val DEFAULT_CLEAR_COMPLETED_CHUNK_SIZE = 400
 
 /**
- * The pure invariant behind FB-205's `>500-item chunk strategy`, identical in shape and
+ * The pure invariant behind the `>500-item chunk strategy`, identical in shape and
  * value to Android's `AndroidFirebaseItemRepository`'s
  * `requireValidClearCompletedChunkSize` (a separate declaration - see [MAX_BATCH_WRITES]'s
  * KDoc for why this cannot literally be the same Kotlin declaration across platforms).
@@ -389,7 +389,7 @@ private fun Map<String, FirebaseValue>.boolOrFalse(field: String): Boolean =
  * Captured when a local snapshot is received; used only while a server timestamp is
  * pending. Same mechanism and precision rationale as
  * [com.fluxit.firebase.list.IosFirebaseListRepository]'s own `nowMillis()` (file-private
- * there, so redeclared here rather than widening its visibility for an FB-205 concern -
+ * there, so redeclared here rather than widening its visibility for an unrelated concern -
  * same call `AndroidFirebaseItemRepository` made for its local `awaitTaskResult()`).
  */
 private fun nowMillis(): Long = time(null) * 1000L

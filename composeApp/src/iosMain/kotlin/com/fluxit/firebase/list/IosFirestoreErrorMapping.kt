@@ -3,27 +3,20 @@ package com.fluxit.firebase.list
 import com.fluxit.data.remote.ApplicationError
 import com.fluxit.data.remote.BackendErrorCode
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.data.remote.toApplicationError
 import com.fluxit.data.remote.toRepositoryError
 import platform.Foundation.NSError
 
 /**
- * Thrown by [IosFirebaseListRepository] - from a `suspend` function or by closing a
- * `callbackFlow` - instead of ever letting a raw Firestore [NSError] escape into
- * `commonMain`-visible code. Callers only ever see FB-201's neutral [ApplicationError].
- * Exact counterpart of Android's `ListRepositoryException` in `FirestoreErrorMapping.kt`.
- */
-internal class ListRepositoryException(val error: ApplicationError) : Exception()
-
-/**
  * `FIRFirestoreErrorDomain`, spelled out so no Firebase symbol is referenced from
- * Kotlin (per PLAN-008, this file cannot import `FirebaseFirestore`).
+ * Kotlin (per the Swift-only Firebase boundary on iOS, this file cannot import `FirebaseFirestore`).
  */
 internal const val FIREBASE_FIRESTORE_ERROR_DOMAIN: String = "FIRFirestoreErrorDomain"
 
 /**
  * Maps a `FIRFirestoreErrorCode` raw value (an `NSError.code` under
- * [FIREBASE_FIRESTORE_ERROR_DOMAIN]) onto FB-201's neutral [BackendErrorCode].
+ * [FIREBASE_FIRESTORE_ERROR_DOMAIN]) onto the neutral [BackendErrorCode].
  *
  * These raw values are the same gRPC status codes the Android adapter's
  * `FirebaseFirestoreException.Code.toBackendErrorCode()` (`FirestoreErrorMapping.kt`)
@@ -47,7 +40,7 @@ internal fun firestoreBackendErrorCode(code: Long): BackendErrorCode = when (cod
 }
 
 /**
- * Maps [this] to FB-201's neutral [ApplicationError]. An [NSError] outside
+ * Maps [this] to the neutral [ApplicationError]. An [NSError] outside
  * [FIREBASE_FIRESTORE_ERROR_DOMAIN] (for example a transport-level `NSURLErrorDomain`
  * failure surfaced before Firestore's own gRPC layer ever answered) collapses to
  * [RepositoryErrorCode.UNKNOWN] - a safe, retryable-by-caller-policy default rather than
@@ -60,6 +53,6 @@ internal fun NSError.toApplicationError(): ApplicationError =
         RepositoryErrorCode.UNKNOWN.toApplicationError()
     }
 
-/** Converts any Firestore-originated [NSError] into a [ListRepositoryException]. */
-internal fun NSError.toListRepositoryException(): ListRepositoryException =
-    ListRepositoryException(toApplicationError())
+/** Converts any Firestore-originated [NSError] into a [RepositoryException]. */
+internal fun NSError.toRepositoryException(): RepositoryException =
+    RepositoryException(toApplicationError())

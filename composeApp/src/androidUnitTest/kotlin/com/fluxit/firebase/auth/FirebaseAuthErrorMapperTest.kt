@@ -10,7 +10,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
- * FB-102: the Firebase Auth error code/exception -> `AuthError` translation table.
+ * The Firebase Auth error code/exception -> `AuthError` translation table.
  *
  * Scope bound, deliberate: this JVM suite does not construct Firebase SDK exception
  * types. Their constructors call `android.text.TextUtils`, which throws under the

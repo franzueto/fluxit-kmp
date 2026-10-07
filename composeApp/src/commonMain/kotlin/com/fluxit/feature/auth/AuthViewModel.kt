@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** The three interactive flows DEC-001 allows: email + password only, no provider. */
+/** The three interactive flows: email + password only, no provider. */
 enum class AuthMode { SignIn, SignUp, Recover }
 
 /**
@@ -45,11 +45,11 @@ data class AuthUiState(
 }
 
 /**
- * Drives the signed-out authentication UI (FB-104): sign-up, sign-in and password
- * recovery, all email + password per DEC-001.
+ * Drives the signed-out authentication UI: sign-up, sign-in and password
+ * recovery, all email + password.
  *
  * Success is deliberately *not* reported through this state for sign-in/sign-up: the
- * session flow is the single source of truth (FB-101), so the gate reacts to
+ * session flow is the single source of truth, so the gate reacts to
  * `AuthSession.Authenticated` and this screen simply disappears. Only recovery, which
  * does not change the session, reports its own success.
  */

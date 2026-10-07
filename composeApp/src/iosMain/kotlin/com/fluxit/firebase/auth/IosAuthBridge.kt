@@ -10,7 +10,7 @@ import platform.Foundation.NSError
  * Kotlin side never has to hold the Firebase `AuthStateDidChangeListenerHandle` itself.
  * [IosAuthRepository] calls [remove] from `awaitClose`, which is what makes the
  * "cancelling the collector releases the underlying listener" clause of
- * `AuthRepository.session` real on iOS (FB-101-NB3).
+ * `AuthRepository.session` real on iOS.
  */
 interface IosAuthListenerHandle {
 
@@ -19,9 +19,9 @@ interface IosAuthListenerHandle {
 }
 
 /**
- * The Swift-implemented seam through which FB-103's iOS adapter reaches Firebase Auth.
+ * The Swift-implemented seam through which the iOS adapter reaches Firebase Auth.
  *
- * PLAN-008: the `FirebaseAuth` SPM target is not cinterop-reachable from `iosMain`, so
+ * The `FirebaseAuth` SPM target is not cinterop-reachable from `iosMain`, so
  * every Firebase-touching line lives in Swift (`iosApp/iosApp/FirebaseAuthBridge.swift`)
  * and is bridged back across the framework boundary through this protocol. Kotlin
  * declares the contract, Swift implements it, and the app registers the implementation
@@ -63,7 +63,7 @@ interface IosAuthBridge {
 
     /**
      * Signs out and clears Firebase Auth's own persisted credential for this app
-     * (DEC-003a, Auth's share of it). Firestore/Storage cache clearing is deliberately
+     * (Auth's share of it). Firestore/Storage cache clearing is deliberately
      * not done here - see [IosAuthRepository.signOut].
      */
     fun signOut(completion: (NSError?) -> Unit)
@@ -75,9 +75,9 @@ interface IosAuthBridge {
  * `FirebaseBootstrap.start()` registers the real bridge from
  * `AppDelegate.application(_:didFinishLaunchingWithOptions:)`, which runs strictly
  * before `ContentView` creates the Compose view controller that starts Koin
- * (`MainViewController.kt`). The Koin binding added by FB-103 is a `single`, so the
+ * (`MainViewController.kt`). The Koin binding added by is a `single`, so the
  * bridge is only looked up when something first injects `AuthRepository` - which is
- * later still (FB-104 adds the first consumer). FB-103 therefore does not need to move
+ * later still (adds the first consumer). therefore does not need to move
  * Koin's start point, and deliberately does not.
  */
 object IosAuthBridgeRegistry {

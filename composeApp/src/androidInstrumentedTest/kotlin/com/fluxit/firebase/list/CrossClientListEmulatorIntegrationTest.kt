@@ -43,18 +43,18 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * FB-206 Android cross-client checks for [AndroidFirebaseListRepository]: conflict
- * (field-level last-write-wins per `DEC-003d`), malformed-document (no `valueOf`
+ * Android cross-client checks for [AndroidFirebaseListRepository]: conflict
+ * (field-level last-write-wins per the field-level last-write-wins policy), malformed-document (no `valueOf`
  * crash), and reconnect/pending-write, against the same real Firestore emulator
- * [FirestoreListEmulatorIntegrationTest] (FB-202) exercises.
+ * [FirestoreListEmulatorIntegrationTest] exercises.
  *
  * "Cross-client" here means two genuinely independent Firebase SDK connections - two
  * separately named [FirebaseApp] instances, each with its own [FirebaseAuth]/
  * [FirebaseFirestore] (and therefore its own local cache and network on/off state) -
  * signed in as the **same** uid. This mirrors the app's actual multi-device model
- * (`DEC-003d`'s own rationale: "a single user editing their own lists across their own
+ * (the field-level last-write-wins policy is built for "a single user editing their own lists across their own
  * devices"), not a multi-user scenario (already covered by the cross-user-denial tests
- * in FB-202/FB-203/FB-204/FB-205).
+ * in the Rules suite).
  *
  * Prerequisites/run command: identical to `FirestoreListEmulatorIntegrationTest`'s KDoc.
  */
@@ -73,8 +73,8 @@ class CrossClientListEmulatorIntegrationTest {
     @Before
     fun connectTwoIndependentClientsAsTheSameUser(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val (builtAuthA, builtFirestoreA) = buildClientApp(context, "fb206-list-client-a")
-        val (builtAuthB, builtFirestoreB) = buildClientApp(context, "fb206-list-client-b")
+        val (builtAuthA, builtFirestoreA) = buildClientApp(context, "xclient-list-client-a")
+        val (builtAuthB, builtFirestoreB) = buildClientApp(context, "xclient-list-client-b")
         authA = builtAuthA
         authB = builtAuthB
         firestoreA = builtFirestoreA
@@ -98,10 +98,10 @@ class CrossClientListEmulatorIntegrationTest {
         scope.cancel()
     }
 
-    // --- conflict: DEC-003d field-level last-write-wins -------------------------------
+    // --- conflict: field-level last-write-wins -------------------------------
 
     /**
-     * `DEC-003d`'s headline promise: concurrent edits to *different* fields on the same
+     * the field-level last-write-wins policy headline promise: concurrent edits to *different* fields on the same
      * document merge automatically. `updateList` patches `name`/`icon`/`color` together
      * as one field-scoped call, and `softDeleteList` patches only `deletedAt` - these
      * two calls touch entirely disjoint field sets, so racing them proves the merge
@@ -129,7 +129,7 @@ class CrossClientListEmulatorIntegrationTest {
      * both calls so only `name` is a moving target). Issued in a controlled, causally
      * ordered sequence (B's call only starts after A's has committed) so the "later
      * writer wins" outcome is deterministic rather than a coin flip - and, per
-     * `DEC-003d`, silent: neither call may throw or surface a conflict error.
+     * the field-level last-write-wins policy, silent: neither call may throw or surface a conflict error.
      */
     @Test
     fun conflictSameFieldEditFromTwoClientsResolvesToTheLaterWriterSilently(): Unit = runBlocking {
@@ -142,7 +142,7 @@ class CrossClientListEmulatorIntegrationTest {
         assertEquals(
             "Client B's name",
             raw.getString("name"),
-            "the later writer must silently win a same-field collision, per DEC-003d",
+            "the later writer must silently win a same-field collision, per the field-level last-write-wins policy",
         )
     }
 
@@ -272,7 +272,7 @@ class CrossClientListEmulatorIntegrationTest {
                 FirebaseOptions.Builder()
                     // Throwaway values: both emulators accept any key/app id, and a
                     // `demo-` project id can never resolve to a real Firebase project.
-                    .setApiKey("fb206-instrumented-test-key")
+                    .setApiKey("xclient-instrumented-test-key")
                     .setApplicationId("1:0:android:$appName")
                     .setProjectId("demo-fluxit")
                     .build(),
@@ -297,7 +297,7 @@ class CrossClientListEmulatorIntegrationTest {
         return auth to firestore
     }
 
-    private fun uniqueEmail(): String = "fb206-list-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(): String = "xclient-list-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -306,7 +306,7 @@ class CrossClientListEmulatorIntegrationTest {
 
     private companion object {
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb206-emulator-only"
+        const val PASSWORD = "xclient-emulator-only"
         const val TIMEOUT_MS = 20_000L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"
 

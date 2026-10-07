@@ -2,9 +2,9 @@ import ComposeApp
 import FirebaseAuth
 import Foundation
 
-/// FB-103 Swift implementation of the Kotlin-declared `IosAuthBridge` protocol.
+/// Swift implementation of the Kotlin-declared `IosAuthBridge` protocol.
 ///
-/// PLAN-008: the `FirebaseAuth` SPM target is not cinterop-reachable from `iosMain`, so
+/// The `FirebaseAuth` SPM target is not cinterop-reachable from `iosMain`, so
 /// this file - not Kotlin - is where every Firebase Auth call on iOS lives. The Kotlin
 /// side (`IosAuthRepository`) owns the session state machine, the listener lifecycle and
 /// the error taxonomy; this file owns nothing but translation. Keeping it that thin is
@@ -70,8 +70,8 @@ final class FirebaseAuthBridge: NSObject, IosAuthBridge {
         }
     }
 
-    /// DEC-003a, Auth's share of it. Firestore/Storage cache clearing is deliberately
-    /// not done here; that ordering belongs to FB-105 and Phase 4.
+    /// Auth's share of the sign-out cache-clearing policy. Firestore/Storage cache clearing is deliberately
+    /// not done here; that ordering belongs to `SessionAuthRepository` and the platform session cleanup.
     func signOut(completion: @escaping ((any Error)?) -> Void) {
         do {
             try auth.signOut()
@@ -89,7 +89,7 @@ final class FirebaseAuthBridge: NSObject, IosAuthBridge {
 /// Releases one Firebase auth-state listener.
 ///
 /// This is what makes `AuthRepository.session`'s "cancelling the collector releases the
-/// underlying listener" clause real on iOS (FB-101-NB3): Kotlin's `awaitClose` calls
+/// underlying listener" clause real on iOS: Kotlin's `awaitClose` calls
 /// `remove()`. It is idempotent so a double cancellation cannot remove a *later*
 /// listener registered by a different collector.
 final class FirebaseAuthListenerHandle: NSObject, IosAuthListenerHandle {

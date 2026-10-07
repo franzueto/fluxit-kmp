@@ -12,7 +12,7 @@ import platform.Foundation.NSError
  * `ListenerRegistration` type itself. [IosFirebaseListRepository] calls [remove] from
  * `awaitClose`, which is what makes "cancelling the collector releases the underlying
  * listener" real on iOS, the same guarantee `AndroidFirebaseListRepository` gets from
- * `awaitClose { registration.remove() }` (FB-202).
+ * `awaitClose { registration.remove() }`.
  */
 interface IosFirestoreListenerHandle {
 
@@ -21,7 +21,7 @@ interface IosFirestoreListenerHandle {
 }
 
 /**
- * One raw Firestore list document, translated by the Swift side into FB-201's own
+ * One raw Firestore list document, translated by the Swift side into the own
  * neutral [FirebaseValue] wire format - no second value-encoding type is introduced on
  * either side of the boundary. `fields` mirrors exactly what
  * [com.fluxit.firebase.list.FirestoreValueCodec.decode] produces on Android from a raw
@@ -36,7 +36,7 @@ data class IosFirestoreListDocument(
 )
 
 /**
- * `FB-407`: the [observeListSummariesSnapshot] counterpart of [IosFirestoreListDocument]'s
+ * The [observeListSummariesSnapshot] counterpart of [IosFirestoreListDocument]'s
  * plain list - carries the real Firestore `SnapshotMetadata.isFromCache`/
  * `.hasPendingWrites` read from Swift, mapped into
  * [com.fluxit.domain.RepositorySnapshot] by [IosFirebaseListRepository]. A dedicated data
@@ -56,21 +56,21 @@ data class IosFirestoreListSnapshot(
 )
 
 /**
- * The Swift-implemented seam through which FB-203's iOS list adapter reaches Cloud
- * Firestore's `users/{uid}/lists/{listId}` collection (PLAN-008: the `FirebaseFirestore`
+ * The Swift-implemented seam through which the iOS list adapter reaches Cloud
+ * Firestore's `users/{uid}/lists/{listId}` collection (the Swift-only Firebase boundary on iOS: the `FirebaseFirestore`
  * SPM target is not cinterop-reachable from `iosMain`, exactly like `FirebaseAuth` was
- * for FB-103, so every Firestore-touching line lives in Swift -
+ * for, so every Firestore-touching line lives in Swift -
  * `iosApp/iosApp/FirebaseListBridge.swift` - and is bridged back across the framework
  * boundary through this protocol).
  *
- * **Field-mask/changed-keys surface (PLAN-008 / `DEC-003d`), designed here for FB-205 to
- * reuse unchanged:** [createList] and [updateListFields] both take a
- * `Map<String, FirebaseValue>` - the exact same shape as FB-201's `FieldPatch.fields` -
+ * **Field-mask/changed-keys surface, designed so the item bridge can
+ * reuse it unchanged:** [createList] and [updateListFields] both take a
+ * `Map<String, FirebaseValue>` - the exact same shape as the `FieldPatch.fields` -
  * so a field-scoped patch is expressible from Swift verbatim as a `updateData(_:)` call
  * (Firestore's own field-mask semantics: only the keys present in the map are touched),
  * and a brand-new document's full initial field set is expressible as a `setData(_:)`
  * call. No parallel mapping/value-encoding layer is introduced on either side of this
- * boundary - FB-201's [FirebaseValue] is the wire format for both reads and writes.
+ * boundary - the [FirebaseValue] is the wire format for both reads and writes.
  *
  * Every completion handler must be invoked exactly once, on any thread. `null` means
  * success, mirroring [com.fluxit.firebase.auth.IosAuthBridge]'s convention exactly.
@@ -83,7 +83,7 @@ interface IosFirestoreListBridge {
      * first emission for a collector that never observed before.
      *
      * Tombstone filtering and `(createdAt, documentId)` ordering are deliberately NOT
-     * done here - [IosFirebaseListRepository] delegates both entirely to FB-201's
+     * done here - [IosFirebaseListRepository] delegates both entirely to the
      * [com.fluxit.data.remote.FirebaseDocumentMapper], exactly as
      * `AndroidFirebaseListRepository` does. This keeps the Swift layer a thin, mostly
      * untestable-from-Gradle translation shim.
@@ -95,7 +95,7 @@ interface IosFirestoreListBridge {
     ): IosFirestoreListenerHandle
 
     /**
-     * `FB-407`: same query as [observeListSummaries], backing
+     * Same query as [observeListSummaries], backing
      * [IosFirebaseListRepository.observeListSummariesSnapshot] - a genuinely separate
      * listener registered by the Swift implementation with `includeMetadataChanges:
      * true`, not a shared one with [observeListSummaries]. The default
@@ -126,9 +126,9 @@ interface IosFirestoreListBridge {
      * Creates a brand-new list document with the caller-supplied auto-generated ID via
      * Firestore's whole-document `setData(_:)`.
      *
-     * `DEC-003d-1`: exempt from the field-scoped-patch-only rule because a fresh
+     * Exempt from the field-scoped-patch-only rule because a fresh
      * auto-ID document has no prior state and no possible concurrent writer - not the
-     * whole-document-replace-that-could-clobber-a-concurrent-edit hazard `DEC-003d`
+     * whole-document-replace-that-could-clobber-a-concurrent-edit hazard the field-level last-write-wins policy
      * targets. Creation only; every other mutation goes through [updateListFields].
      */
     fun createList(
@@ -139,7 +139,7 @@ interface IosFirestoreListBridge {
 
     /**
      * Applies a field-scoped patch to an existing list document via Firestore's
-     * `updateData(_:)` - never a whole-document `setData(_:)`. `DEC-003d`: only the
+     * `updateData(_:)` - never a whole-document `setData(_:)`. the field-level last-write-wins policy: only the
      * keys present in [fields] are touched, so a concurrent edit to a different field on
      * the same document merges automatically.
      */

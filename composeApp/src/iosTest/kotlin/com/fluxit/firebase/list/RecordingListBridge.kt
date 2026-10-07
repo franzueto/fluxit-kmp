@@ -2,6 +2,7 @@ package com.fluxit.firebase.list
 
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.data.remote.toApplicationError
 import platform.Foundation.NSError
 
@@ -16,8 +17,8 @@ internal fun firestoreError(code: Long, domain: String = FIREBASE_FIRESTORE_ERRO
  * The recording is the point: it is what makes "cancelling the collector releases the
  * underlying listener" an assertion instead of a promise, and what lets a test assert
  * that [createList] used a whole-document write while [updateListFields] only ever
- * carried the changed keys (`DEC-003d`/`DEC-003d-1`). This is the iOS counterpart of
- * FB-202's fakes and of `RecordingAuthBridge` (FB-103).
+ * carried the changed keys. This is the iOS counterpart of
+ * Fakes and of `RecordingAuthBridge`.
  */
 internal class RecordingListBridge : IosFirestoreListBridge {
 
@@ -28,7 +29,7 @@ internal class RecordingListBridge : IosFirestoreListBridge {
     private var summariesListener: ((List<IosFirestoreListDocument>) -> Unit)? = null
     private var summariesErrorListener: ((NSError) -> Unit)? = null
 
-    /** `FB-407`: same recording shape as [summariesListener], for [observeListSummariesSnapshot]. */
+    /** Same recording shape as [summariesListener], for [observeListSummariesSnapshot]. */
     var summariesSnapshotAddCount: Int = 0
         private set
     var summariesSnapshotRemoveCount: Int = 0
@@ -73,7 +74,7 @@ internal class RecordingListBridge : IosFirestoreListBridge {
         }
     }
 
-    /** `FB-407`: mirrors [observeListSummaries]'s recording shape for the new snapshot-aware method. */
+    /** Mirrors [observeListSummaries]'s recording shape for the new snapshot-aware method. */
     override fun observeListSummariesSnapshot(
         uid: String,
         onSnapshot: (IosFirestoreListSnapshot) -> Unit,
@@ -148,7 +149,7 @@ internal class RecordingListBridge : IosFirestoreListBridge {
         summariesErrorListener?.invoke(error)
     }
 
-    /** `FB-407`: simulates the SDK delivering a fresh, metadata-carrying snapshot to a live `observeListSummariesSnapshot` listener. */
+    /** Simulates the SDK delivering a fresh, metadata-carrying snapshot to a live `observeListSummariesSnapshot` listener. */
     fun emitSummariesSnapshot(documents: List<IosFirestoreListDocument>, isFromCache: Boolean = false, hasPendingWrites: Boolean = false) {
         summariesSnapshotListener?.invoke(IosFirestoreListSnapshot(documents, isFromCache, hasPendingWrites))
     }
@@ -173,7 +174,7 @@ internal class RecordingListBridge : IosFirestoreListBridge {
 
 /** [CurrentUidProvider] test double that never touches the real Auth bridge. */
 internal class FixedUidProvider(private val uid: String? = "uid-1") : CurrentUidProvider {
-    override fun currentUid(): String = uid ?: throw ListRepositoryException(
+    override fun currentUid(): String = uid ?: throw RepositoryException(
         RepositoryErrorCode.SESSION_REQUIRED.toApplicationError(),
     )
 }

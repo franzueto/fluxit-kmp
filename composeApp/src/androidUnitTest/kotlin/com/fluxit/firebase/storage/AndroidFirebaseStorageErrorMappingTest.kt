@@ -6,8 +6,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * `FB-401` mapping-table tests for the Storage side of the boundary, discharging
- * `FB-305-NB2` on Android - the counterpart of `FirestoreErrorMappingTest` and the iOS
+ * mapping-table tests for the Storage side of the boundary, discharging
+ * on Android - the counterpart of `FirestoreErrorMappingTest` and the iOS
  * `IosFirebaseStorageErrorMappingTest`.
  *
  * Scope bound, deliberate (same one `FirebaseAuthErrorMapperTest` documents): this JVM suite

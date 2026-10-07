@@ -14,7 +14,7 @@ import org.junit.runner.RunWith
 import org.koin.core.context.GlobalContext
 
 /**
- * FB-102 wiring check: the real application's Koin graph resolves [AuthRepository] to
+ * wiring check: the real application's Koin graph resolves [AuthRepository] to
  * the session lifecycle around the Android adapter.
  *
  * This runs inside `FluxItApplication`, i.e. against the Koin graph the shipped app

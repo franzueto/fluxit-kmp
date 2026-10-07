@@ -30,7 +30,7 @@ object IosSessionCleanupCheck {
         val cleanup = RetrySessionCleanup(graph.get())
         graph.loadModules(listOf(module {
             single<SessionCleanup> { cleanup }
-            single<PhotoStorage> { SessionPhotoStorage(IosPhotoStorage(photoIdFactory = { "fb709-upload" }), get()) }
+            single<PhotoStorage> { SessionPhotoStorage(IosPhotoStorage(photoIdFactory = { "sesscleanup-upload" }), get()) }
         }))
         val auth = graph.get<AuthRepository>()
         val probe = object : SessionCleanupProbe {

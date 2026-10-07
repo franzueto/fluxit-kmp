@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 /**
- * FB-302's pure contract tests: [newPhotoId] generation and [replacePhoto]'s documented
+ * Pure contract tests: [newPhotoId] generation and [replacePhoto]'s documented
  * failure/ordering semantics, exercised entirely against [FakePhotoStorage] - no platform
  * code, no Firebase SDK, matching the acceptance criterion ("contract tests and recorded
  * failure semantics") directly.
@@ -24,7 +24,7 @@ class PhotoIdGenerationTest {
     @Test
     fun neverContainsASlash() {
         repeat(200) {
-            assertTrue('/' !in newPhotoId(), "photoId must never contain '/' per PLAN-006")
+            assertTrue('/' !in newPhotoId(), "photoId must never contain '/' per the exact-depth photoRef shape")
         }
     }
 
@@ -42,7 +42,7 @@ class PhotoIdGenerationTest {
     @Test
     fun isUsableDirectlyAsThePhotoRefFinalSegment() {
         // Round-trips through the exact validating builder production code uses - proves
-        // newPhotoId()'s output is never rejected by PLAN-006's own enforcement.
+        // newPhotoId()'s output is never rejected by the exact-depth photoRef shape the Storage Rules enforce.
         val ref = FirebaseSchema.photoRef("uid-1", "item-1", newPhotoId())
         assertEquals("item-1", FirebaseSchema.itemIdFromPhotoRef(ref))
     }

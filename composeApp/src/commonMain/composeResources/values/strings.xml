@@ -80,7 +80,7 @@
     <string name="section_description">DESCRIPTION</string>
     <string name="item_photo_title">Item Photo</string>
     <string name="no_photo_yet">No photo yet</string>
-    <!-- FB-306: item-detail photo progress/retry/failure states. -->
+    <!-- Item-detail photo progress/retry/failure states. -->
     <string name="photo_replace_failed_message">We couldn\'t update this photo. Your previous photo is still here.</string>
     <string name="photo_remove_failed_message">We couldn\'t remove this photo. It\'s still saved.</string>
     <string name="action_dismiss">Dismiss</string>
@@ -140,7 +140,7 @@
     <string name="sample_item_headphones_for_sam">Headphones for Sam</string>
     <string name="sample_list_work_q4_goals">Work Q4 Goals</string>
 
-    <!-- FB-104: authentication UI and application root session gate. -->
+    <!-- Authentication UI and application root session gate. -->
     <string name="auth_sign_in_title">Welcome back</string>
     <string name="auth_sign_up_title">Create your account</string>
     <string name="auth_recover_title">Reset your password</string>

@@ -33,7 +33,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * FB-102 Android integration checks: the real Firebase Android Auth SDK, driven through
+ * Android integration checks: the real Firebase Android Auth SDK, driven through
  * [AndroidAuthRepository], against a real Firebase Auth emulator.
  *
  * Deliberately *not* against the live development project: every account this suite
@@ -50,7 +50,7 @@ import org.junit.runner.RunWith
  * 2. the Auth emulator running on the host, from the repository root:
  *    `firebase/node_modules/.bin/firebase emulators:start --only auth --project demo-fluxit`
  *    (ports come from `firebase.json`; the client side reads
- *    [FirebaseEmulatorConfig], the FB-006 single source of truth).
+ * [FirebaseEmulatorConfig], the single source of truth).
  *
  * Run with: `./gradlew :composeApp:connectedDebugAndroidTest`.
  */
@@ -71,8 +71,8 @@ class FirebaseAuthEmulatorIntegrationTest {
                 FirebaseOptions.Builder()
                     // Throwaway values: the Auth emulator accepts any key/app id, and a
                     // `demo-` project id can never resolve to a real Firebase project.
-                    .setApiKey("fb102-instrumented-test-key")
-                    .setApplicationId("1:0:android:fb102")
+                    .setApiKey("authemu-instrumented-test-key")
+                    .setApplicationId("1:0:android:authemu")
                     .setProjectId("demo-fluxit")
                     .build(),
                 APP_NAME,
@@ -229,7 +229,7 @@ class FirebaseAuthEmulatorIntegrationTest {
         assertEquals(uid, repository.awaitResolvedSession().uidOrNull)
     }
 
-    // --- FB-101-NB3 against the real SDK listener --------------------------------------
+    // --- against the real SDK listener --------------------------------------
 
     @Test
     fun cancellingTheCollectorReleasesTheRealSdkAuthStateListener(): Unit = runBlocking {
@@ -258,7 +258,7 @@ class FirebaseAuthEmulatorIntegrationTest {
     private suspend fun AndroidAuthRepository.awaitResolvedSession(): AuthSession =
         withTimeout(TIMEOUT_MS) { session.first { it != AuthSession.Unresolved } }
 
-    private fun uniqueEmail(): String = "fb102-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(): String = "authemu-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -266,9 +266,9 @@ class FirebaseAuthEmulatorIntegrationTest {
     }
 
     private companion object {
-        const val APP_NAME = "fb102-instrumented-test"
+        const val APP_NAME = "authemu-instrumented-test"
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb102-emulator-only"
+        const val PASSWORD = "authemu-emulator-only"
         const val TIMEOUT_MS = 20_000L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"
 

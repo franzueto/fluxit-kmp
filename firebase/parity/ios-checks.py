@@ -27,7 +27,7 @@ if not any('public const val ENABLED: Boolean = true' in path.read_text() for pa
     sys.exit('FAIL native-iOS-emulator: build-config-emulator-gate-disabled')
 app = Path(args.app)
 bundle = plistlib.loads((app / 'Info.plist').read_bytes())['CFBundleIdentifier']
-logs = Path(tempfile.mkdtemp(prefix='fluxit-fb701-ios-checks-'))
+logs = Path(tempfile.mkdtemp(prefix='fluxit-ios-checks-'))
 print('LOCAL diagnostic directory: ' + str(logs), flush=True)
 env = {**os.environ, 'SIMCTL_CHILD_NSUnbufferedIO': 'YES'}
 
@@ -36,13 +36,13 @@ def command(*values, check=True):
 
 try:
     command('install', args.device, str(app))
-    for argument, tag in [('-FluxItAuthSelfCheck', 'FB-103'),
-        ('-FluxItAuthRestorePrepare', 'FB-103'), ('-FluxItAuthRestoreVerify', 'FB-103'),
-        ('-FluxItFirestoreListSelfCheck', 'FB-203'), ('-FluxItFirestoreItemSelfCheck', 'FB-205'),
-        ('-FluxItCrossClientSelfCheck', 'FB-206'), ('-FluxItPhotoStorageSelfCheck', 'FB-305'),
-        ('-FluxItPhotoStorageInterruptedReplaceCheck', 'FB-307'),
-        ('-FluxItPhotoStorageCrossDevicePublish', 'FB-307'), ('-FluxItPhotoStorageCrossDeviceSubscribe', 'FB-307'),
-        ('-FluxItDashboardListenerCrashSelfCheck', 'FB-408')]:
+    for argument, tag in [('-FluxItAuthSelfCheck', 'AUTH'),
+        ('-FluxItAuthRestorePrepare', 'AUTH'), ('-FluxItAuthRestoreVerify', 'AUTH'),
+        ('-FluxItFirestoreListSelfCheck', 'FIRESTORELIST'), ('-FluxItFirestoreItemSelfCheck', 'FIRESTOREITEM'),
+        ('-FluxItCrossClientSelfCheck', 'CROSSCLIENT'), ('-FluxItPhotoStorageSelfCheck', 'PHOTOSTORAGE'),
+        ('-FluxItPhotoStorageInterruptedReplaceCheck', 'PHOTOSTORAGE'),
+        ('-FluxItPhotoStorageCrossDevicePublish', 'PHOTOSTORAGE'), ('-FluxItPhotoStorageCrossDeviceSubscribe', 'PHOTOSTORAGE'),
+        ('-FluxItDashboardListenerCrashSelfCheck', 'LISTENERCRASH')]:
         command('terminate', args.device, bundle, check=False)
         output = logs / (argument.lstrip('-') + '.log')
         with output.open('w') as stream:
@@ -55,7 +55,7 @@ try:
                     if tag + ' END' in text:
                         passes = len(re.findall(r'^PASS  ', text, re.MULTILINE))
                         failures = len(re.findall(r'^FAIL  ', text, re.MULTILINE))
-                        good = ('ALL CHECKS PASSED' in text or (tag == 'FB-408' and 'PASSED (loadState=FatalSession, no crash)' in text)) and 'CHECK(S) FAILED' not in text and 'THREW' not in text and failures == 0 and (passes > 0 or tag == 'FB-408')
+                        good = ('ALL CHECKS PASSED' in text or (tag == 'LISTENERCRASH' and 'PASSED (loadState=FatalSession, no crash)' in text)) and 'CHECK(S) FAILED' not in text and 'THREW' not in text and failures == 0 and (passes > 0 or tag == 'LISTENERCRASH')
                         print(('PASS' if good else 'FAIL') + f' native-iOS-emulator {argument.lstrip("-")} assertions={passes} failures={failures}', flush=True)
                         if not good:
                             sys.exit(1)

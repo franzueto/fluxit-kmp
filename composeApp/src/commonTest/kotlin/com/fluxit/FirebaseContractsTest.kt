@@ -12,6 +12,8 @@ import com.fluxit.data.remote.FirebaseDocumentMapper
 import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
+import com.fluxit.data.remote.toRepositoryApplicationError
 import com.fluxit.data.remote.applyFieldPatches
 import com.fluxit.data.remote.toRepositoryError
 import com.fluxit.data.remote.toApplicationError
@@ -21,6 +23,20 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 
 class FirebaseContractsTest {
+    @Test
+    fun repositoryExceptionCarriesItsMappedErrorAndOtherThrowablesAreUnknownAndRetryable() {
+        val denied = RepositoryException(RepositoryErrorCode.FORBIDDEN.toApplicationError())
+        assertEquals(RepositoryErrorCode.FORBIDDEN, denied.toRepositoryApplicationError().code)
+        assertEquals(false, denied.toRepositoryApplicationError().canRetry)
+
+        assertEquals(RepositoryErrorCode.OFFLINE, RepositoryException(RepositoryErrorCode.OFFLINE.toApplicationError()).toRepositoryApplicationError().code)
+        assertEquals(RepositoryErrorCode.TIMEOUT, RepositoryException(RepositoryErrorCode.TIMEOUT.toApplicationError()).toRepositoryApplicationError().code)
+
+        val unknown = IllegalStateException("boom").toRepositoryApplicationError()
+        assertEquals(RepositoryErrorCode.UNKNOWN, unknown.code)
+        assertEquals(true, unknown.canRetry)
+    }
+
     @Test
     fun malformedRequiredFieldReturnsTypedContractError() {
         val result = FirebaseDocumentMapper.item(
@@ -136,7 +152,7 @@ class FirebaseContractsTest {
         assertEquals("users/u/items/i/p", FirebaseSchema.photoRef("u", "i", "p"))
     }
 
-    // FB-302: PLAN-006 makes the photoRef shape load-bearing (deployed Storage Rules match
+    // The photoRef shape is load-bearing (deployed Storage Rules match
     // this exact depth, no recursive wildcard) - these tests prove FirebaseSchema.photoRef
     // enforces it rather than merely documenting it.
 
@@ -169,8 +185,8 @@ class FirebaseContractsTest {
 
     @Test
     fun itemIdFromPhotoRefKeysOnItemIdOnlyPerPlan007() {
-        // PLAN-007: no listId segment exists anywhere in a photoRef, so the future orphan
-        // sweep (FB-502/FB-503) can only recover the itemId - never a listId - from the ref.
+        // No listId segment exists anywhere in a photoRef, so the future orphan
+        // sweep can only recover the itemId - never a listId - from the ref.
         val ref = FirebaseSchema.photoRef("uid-1", "item-42", "photo-1")
         assertEquals("item-42", FirebaseSchema.itemIdFromPhotoRef(ref))
     }
@@ -200,7 +216,7 @@ class FirebaseContractsTest {
         assertEquals(true, RepositoryErrorCode.SESSION_REQUIRED.toApplicationError().requiresFreshSession)
     }
 
-    // --- FB-401: serialization/document-shape failures map onto the same neutral taxonomy ---
+    // --- Serialization/document-shape failures map onto the same neutral taxonomy ---
 
     @Test
     fun everyContractErrorCodeMapsToInvalidDataWithoutThrowing() {

@@ -11,7 +11,7 @@ import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.FirebaseAuthCurrentUidProvider
-import com.fluxit.firebase.list.ListRepositoryException
+import com.fluxit.data.remote.RepositoryException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -39,9 +39,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * `FB-304` Android integration checks: the real Firebase Android Storage SDK, driven through
+ * Android integration checks: the real Firebase Android Storage SDK, driven through
  * [AndroidPhotoStorage], against a real Storage emulator (loading the same `storage.rules`
- * deployed to the development project - `FB-005`/`MAN-002`) - proving the ledger's acceptance
+ * deployed to the development project -) - proving the ledger's acceptance
  * criterion, "Android integration/manual checks pass under Storage Rules".
  *
  * Deliberately *not* against the live development project: every object this suite writes
@@ -51,7 +51,7 @@ import org.junit.runner.RunWith
  *
  * Two genuinely *different* signed-up users (client A, client B - distinct emails, distinct
  * uids), not two connections as the same user the way `CrossClientItemEmulatorIntegrationTest`
- * uses "cross-client" - this suite needs the FB-008-shaped cross-*user* denial check the task
+ * uses "cross-client" - this suite needs the -shaped cross-*user* denial check the task
  * brief calls for, not multi-device same-user behavior (already covered elsewhere).
  *
  * [ownerCanUploadRealDecodedAndResizedBytesThenLoadThenDeleteThem] deliberately runs
@@ -59,7 +59,7 @@ import org.junit.runner.RunWith
  * real `android.graphics.BitmapFactory`-backed [readImageDimensions]/[resizeImage] actuals in
  * `ImageTransform.android.kt`) against a source image large enough to force the resize branch.
  * This project has no Robolectric, so `testDebugUnitTest` cannot exercise those actuals
- * (`FB-303-NB1`); an `androidInstrumentedTest` runs on a real Android runtime where
+ * on the JVM; an `androidInstrumentedTest` runs on a real Android runtime where
  * `BitmapFactory` genuinely works, so this is the first test anywhere in the suite that
  * exercises them for real, end to end, through a real upload/download round trip.
  *
@@ -69,18 +69,18 @@ import org.junit.runner.RunWith
  * 2. the Auth and Storage emulators running on the host, from the repository root:
  *    `firebase/node_modules/.bin/firebase emulators:start --only auth,storage --project demo-fluxit`
  *    (ports come from `firebase.json`; the client side reads [FirebaseEmulatorConfig], the
- *    FB-006 single source of truth), loading this repository's real `storage.rules`.
+ * single source of truth), loading this repository's real `storage.rules`.
  *
  * Run with: `./gradlew :composeApp:connectedDebugAndroidTest`, or non-interactively via
  * `firebase/node_modules/.bin/firebase --project demo-fluxit emulators:exec --only auth,storage
  * "./gradlew :composeApp:connectedDebugAndroidTest"` from the repository root.
  *
- * `FB-306` added [uploadPhotoWhileSignedOutThrowsAndCreatesNoObject], discharging
- * `FB-302-NB1` (no test anywhere exercised `uploadPhoto` while signed out).
+ * added [uploadPhotoWhileSignedOutThrowsAndCreatesNoObject], discharging
+ * (no test anywhere exercised `uploadPhoto` while signed out).
  *
- * `FB-403` wired `AndroidPhotoStorage`'s already-tested `StorageException.toApplicationError()`
- * mapping (`FB-401`) into every real call site, so a genuine (non-missing-object) Storage
- * failure now surfaces as [PhotoStorageException] carrying FB-401's neutral `ApplicationError`,
+ * wired `AndroidPhotoStorage`'s already-tested `StorageException.toApplicationError`
+ * mapping into every real call site, so a genuine (non-missing-object) Storage
+ * failure now surfaces as [PhotoStorageException] carrying the neutral `ApplicationError`,
  * never the raw `StorageException` instance. [crossUserReadOfTheFirstUsersObjectIsDeniedNotFalselyReportedAsMissing]
  * below is updated accordingly - it exercises the failure through [AndroidPhotoStorage] itself,
  * so it is the one assertion in this file this change touches.
@@ -103,8 +103,8 @@ class PhotoStorageEmulatorIntegrationTest {
     @Before
     fun connectTwoIndependentClientsAsTwoDifferentUsers(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val (builtAuthA, builtStorageA) = buildClientApp(context, "fb304-photo-client-a")
-        val (builtAuthB, builtStorageB) = buildClientApp(context, "fb304-photo-client-b")
+        val (builtAuthA, builtStorageA) = buildClientApp(context, "photoemu-photo-client-a")
+        val (builtAuthB, builtStorageB) = buildClientApp(context, "photoemu-photo-client-b")
         authA = builtAuthA
         authB = builtAuthB
         storageA = builtStorageA
@@ -145,7 +145,7 @@ class PhotoStorageEmulatorIntegrationTest {
         assertNull(clientA.loadPhoto(photoRef), "the object must be gone immediately after delete")
     }
 
-    /** `FB-303-NB1`: see this file's class KDoc for why this test exists. */
+    /** See this file's class KDoc for why this test exists. */
     @Test
     fun ownerCanUploadRealDecodedAndResizedBytesThenLoadThenDeleteThem(): Unit = runBlocking {
         val itemId = UUID.randomUUID().toString()
@@ -157,7 +157,7 @@ class PhotoStorageEmulatorIntegrationTest {
         )
 
         // Real defaults: the real BitmapFactory-backed readImageDimensions/resizeImage
-        // actuals, not fakes - this is what makes this test discharge FB-303-NB1.
+        // actuals, not fakes - this is what makes this test discharge.
         val prepared = preparePhotoForUpload(source)
         assertTrue(prepared.size <= PhotoPolicy.MAX_UPLOAD_BYTES, "prepared bytes must respect the upload ceiling")
         val preparedDimensions = requireNotNull(readImageDimensions(prepared)) { "resized output must itself decode" }
@@ -201,7 +201,7 @@ class PhotoStorageEmulatorIntegrationTest {
         val itemId = UUID.randomUUID().toString()
         val ownerRef = clientA.uploadPhoto(itemId, samplePngBytes())
 
-        // FB-403: AndroidPhotoStorage now wraps the real StorageException denial in the neutral
+        // AndroidPhotoStorage now wraps the real StorageException denial in the neutral
         // PhotoStorageException/ApplicationError before it ever reaches this caller - see this
         // file's class KDoc. FORBIDDEN (not NOT_FOUND/UNKNOWN) is exactly the mapping proving a
         // real Rules denial was correctly distinguished from "object absent".
@@ -239,12 +239,12 @@ class PhotoStorageEmulatorIntegrationTest {
         assertIs<PhotoContent.Bytes>(clientA.loadPhoto(ownerRef))
     }
 
-    // --- FB-306 (discharging FB-302-NB1): signed-out uploadPhoto must fail safely -------
+    // --- signed-out uploadPhoto must fail safely -------
 
     /**
-     * `FB-302-NB1`: no test exercised `uploadPhoto` while signed out - `FakePhotoStorage`
+     * No test exercised `uploadPhoto` while signed out - `FakePhotoStorage`
      * (the `commonTest` double) never throws for this case, so the authenticated-uid
-     * requirement [AndroidPhotoStorage.uploadPhoto] added (`FB-302`, via [CurrentUidProvider])
+     * requirement [AndroidPhotoStorage.uploadPhoto] added (via [CurrentUidProvider])
      * was unverified by any test. Uses the real production [FirebaseAuthCurrentUidProvider]
      * (not the fixed-uid `CurrentUidProvider { uidA }` the rest of this suite uses) wired to
      * the real, now-signed-out `authA`, so this proves the real production wiring - not just
@@ -260,7 +260,7 @@ class PhotoStorageEmulatorIntegrationTest {
         val signedOutClient = AndroidPhotoStorage(storageA, FirebaseAuthCurrentUidProvider(authA))
         val itemId = UUID.randomUUID().toString()
 
-        val failure = assertFailsWith<ListRepositoryException>(
+        val failure = assertFailsWith<RepositoryException>(
             "uploadPhoto must fail fast, before ever reaching Storage, when nobody is signed in",
         ) {
             signedOutClient.uploadPhoto(itemId, samplePngBytes())
@@ -273,6 +273,30 @@ class PhotoStorageEmulatorIntegrationTest {
         authA.signInWithEmailAndPassword(emailA, PASSWORD).awaitResult()
         val neverUploadedRef = FirebaseSchema.photoRef(uidA, itemId, newPhotoId())
         assertNull(clientA.loadPhoto(neverUploadedRef), "a signed-out uploadPhoto call must never create an object")
+    }
+
+    // --- direct callers get PhotoRejected for invalid bytes ----------------------------
+
+    /**
+     * [PhotoStorage.uploadPhoto] validates its bytes before touching Storage and documents
+     * [PhotoRejected] as the result for a direct caller passing invalid ones. Nothing may be
+     * created for the rejected call.
+     */
+    @Test
+    fun uploadPhotoWithInvalidBytesThrowsPhotoRejectedAndCreatesNoObject(): Unit = runBlocking {
+        val itemId = UUID.randomUUID().toString()
+        val fixedPhotoId = newPhotoId()
+        val client = AndroidPhotoStorage(storageA, CurrentUidProvider { uidA }, photoIdFactory = { fixedPhotoId })
+
+        assertFailsWith<PhotoRejected.Corrupt> { client.uploadPhoto(itemId, byteArrayOf(1, 2, 3)) }
+        assertFailsWith<PhotoRejected.UnsupportedType> {
+            client.uploadPhoto(itemId, "GIF89a".encodeToByteArray() + ByteArray(16))
+        }
+
+        assertNull(
+            clientA.loadPhoto(FirebaseSchema.photoRef(uidA, itemId, fixedPhotoId)),
+            "a rejected upload must never create an object",
+        )
     }
 
     // --- helpers ------------------------------------------------------------------------
@@ -299,7 +323,7 @@ class PhotoStorageEmulatorIntegrationTest {
                 FirebaseOptions.Builder()
                     // Throwaway values: both emulators accept any key/app id, and a
                     // `demo-` project id can never resolve to a real Firebase project.
-                    .setApiKey("fb304-instrumented-test-key")
+                    .setApiKey("photoemu-instrumented-test-key")
                     .setApplicationId("1:0:android:$appName")
                     .setProjectId("demo-fluxit")
                     .setStorageBucket("demo-fluxit.appspot.com")
@@ -321,7 +345,7 @@ class PhotoStorageEmulatorIntegrationTest {
         return auth to storage
     }
 
-    private fun uniqueEmail(suffix: String): String = "fb304-photo-$suffix-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(suffix: String): String = "photoemu-photo-$suffix-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -360,7 +384,7 @@ class PhotoStorageEmulatorIntegrationTest {
 
     private companion object {
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb304-emulator-only"
+        const val PASSWORD = "photoemu-emulator-only"
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"
 
         /** `useEmulator` may only be called once per SDK instance; apps are reused by name across test methods. */
@@ -370,7 +394,7 @@ class PhotoStorageEmulatorIntegrationTest {
 
 /**
  * Local `Task.await()`, mirroring the identically shaped private helper in
- * `AndroidFirebaseItemRepository.kt`/the FB-206 emulator suites (this module has no
+ * `AndroidFirebaseItemRepository.kt`/the emulator suites (this module has no
  * `kotlinx-coroutines-play-services` dependency).
  */
 private suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine { continuation ->

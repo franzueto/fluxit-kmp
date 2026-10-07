@@ -8,7 +8,7 @@ import kotlinx.coroutines.withTimeout
 /** Firebase real-adapter contract regression. Checkpoints validate observable
  * order/content/counts without relying on IDs or timestamps. No SDK types cross this seam. */
 object RepositoryRegressionScenario {
-    // Fixed observable contract previously compared against Room in FB-701/FB-702.
+    // Fixed observable contract previously compared against Room in.
     // Keep the expected values independent of the current Firebase implementation.
     private val expectedTrace = listOf(
         "empty:Parity:CART:PRIMARY_BLUE:0:0:",

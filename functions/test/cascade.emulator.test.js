@@ -10,7 +10,7 @@ function emulator() {
   assert.ok(process.env.FIRESTORE_EMULATOR_HOST);
   assert.ok(process.env.FIREBASE_STORAGE_EMULATOR_HOST);
   const app = initializeApp({ projectId: 'demo-fluxit', storageBucket: 'demo-fluxit.appspot.com' },
-    `fb503-${Math.random().toString(36).slice(2)}`);
+    `cascade-${Math.random().toString(36).slice(2)}`);
   return { app, db: getFirestore(app), bucket: getStorage(app).bucket() };
 }
 
@@ -58,7 +58,7 @@ async function removeFixture(db, listRef, bucket, photoRefs = []) {
 
 test('620-item list cascade crosses batch limit after durable parent claim', async () => {
   const { app, db, bucket } = emulator();
-  const uid = `fb503-large-${process.pid}`;
+  const uid = `cascade-large-${process.pid}`;
   const listRef = db.doc(`users/${uid}/lists/list`);
   const cutoffMillis = Date.now() + 5_000;
   let photos = [];
@@ -85,7 +85,7 @@ test('620-item list cascade crosses batch limit after durable parent claim', asy
 
 test('Storage failure after partial photo progress keeps discoverable job for retry', async () => {
   const { app, db, bucket } = emulator();
-  const uid = `fb503-retry-${process.pid}`;
+  const uid = `cascade-retry-${process.pid}`;
   const listRef = db.doc(`users/${uid}/lists/list`);
   const cutoffMillis = Date.now() + 5_000;
   let photos = [];
@@ -122,7 +122,7 @@ test('Storage failure after partial photo progress keeps discoverable job for re
 
 test('interrupted page cascade resumes from the claimed job with no parent', async () => {
   const { app, db, bucket } = emulator();
-  const uid = `fb503-page-retry-${process.pid}`;
+  const uid = `cascade-page-retry-${process.pid}`;
   const listRef = db.doc(`users/${uid}/lists/list`);
   const cutoffMillis = Date.now() - RETENTION_MS;
   try {
@@ -157,7 +157,7 @@ test('interrupted page cascade resumes from the claimed job with no parent', asy
 
 test('restore before claim preserves every child; restore after claim cannot succeed across pages', async () => {
   const { app, db, bucket } = emulator();
-  const uid = `fb503-restore-${process.pid}`;
+  const uid = `cascade-restore-${process.pid}`;
   const listRef = db.doc(`users/${uid}/lists/list`);
   const cutoffMillis = Date.now() - RETENTION_MS;
   try {
@@ -193,7 +193,7 @@ test('restore before claim preserves every child; restore after claim cannot suc
 
 test('restore after candidate scan but before claim transaction preserves all children', async () => {
   const { app, db, bucket } = emulator();
-  const uid = `fb503-claim-${process.pid}`;
+  const uid = `cascade-claim-${process.pid}`;
   const listRef = db.doc(`users/${uid}/lists/list`);
   const cutoffMillis = Date.now() - RETENTION_MS;
   try {
@@ -222,7 +222,7 @@ test('restore after candidate scan but before claim transaction preserves all ch
 
 test('restore attempted during photo journal cannot resurrect list or retain a missing photo', async () => {
   const { app, db, bucket } = emulator();
-  const uid = `fb503-photo-race-${process.pid}`;
+  const uid = `cascade-photo-race-${process.pid}`;
   const listRef = db.doc(`users/${uid}/lists/list`);
   const cutoffMillis = Date.now() + 5_000;
   let photos = [];

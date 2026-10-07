@@ -8,7 +8,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 /**
- * `FB-303`: exercises the real Skia-backed [readImageDimensions]/[resizeImage] actuals - not
+ * Exercises the real Skia-backed [readImageDimensions]/[resizeImage] actuals - not
  * just the pure decision logic covered by `PhotoPolicyTest` in `commonTest`, which injects
  * fakes for these exact functions. Kotlin/Native test binaries link real Skia (the same library
  * `ImageDecoder.ios.kt` already depends on for rendering), so this is a genuine end-to-end

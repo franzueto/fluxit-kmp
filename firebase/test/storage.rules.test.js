@@ -1,4 +1,4 @@
-// FB-602 Cloud Storage Rules matrix: owner-only, exact paths, image MIME/size,
+// Cloud Storage Rules matrix: owner-only, exact paths, image MIME/size,
 // create-only uploads, and owner deletion (including legacy objects).
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';

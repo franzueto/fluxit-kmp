@@ -3,20 +3,13 @@ package com.fluxit.firebase.list
 import com.fluxit.data.remote.ApplicationError
 import com.fluxit.data.remote.BackendErrorCode
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.data.remote.toApplicationError
 import com.fluxit.data.remote.toRepositoryError
 import com.google.firebase.firestore.FirebaseFirestoreException
 
 /**
- * Thrown by [AndroidFirebaseListRepository] - from a `suspend` function or by closing a
- * `callbackFlow` - instead of ever letting a [FirebaseFirestoreException] or any other
- * Firebase SDK exception type escape into `commonMain`-visible code. Callers only ever
- * see FB-201's neutral [ApplicationError].
- */
-internal class ListRepositoryException(val error: ApplicationError) : Exception()
-
-/**
- * Maps a [FirebaseFirestoreException.Code] onto FB-201's neutral [BackendErrorCode].
+ * Maps a [FirebaseFirestoreException.Code] onto the neutral [BackendErrorCode].
  *
  * Every gRPC-style status the Firestore SDK can report is covered explicitly except the
  * ones with no meaningful neutral equivalent (`OK`, `CANCELLED`, `ABORTED`,
@@ -39,8 +32,8 @@ internal fun FirebaseFirestoreException.Code.toBackendErrorCode(): BackendErrorC
 internal fun FirebaseFirestoreException.toApplicationError(): ApplicationError =
     code.toBackendErrorCode().toRepositoryError().toApplicationError()
 
-/** Converts any failure from a Firestore SDK call into a [ListRepositoryException]. */
-internal fun Throwable.toListRepositoryException(): ListRepositoryException = when (this) {
-    is FirebaseFirestoreException -> ListRepositoryException(toApplicationError())
-    else -> ListRepositoryException(RepositoryErrorCode.UNKNOWN.toApplicationError())
+/** Converts any failure from a Firestore SDK call into a [RepositoryException]. */
+internal fun Throwable.toRepositoryException(): RepositoryException = when (this) {
+    is FirebaseFirestoreException -> RepositoryException(toApplicationError())
+    else -> RepositoryException(RepositoryErrorCode.UNKNOWN.toApplicationError())
 }

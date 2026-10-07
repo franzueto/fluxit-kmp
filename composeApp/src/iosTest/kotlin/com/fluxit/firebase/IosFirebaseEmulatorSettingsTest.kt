@@ -5,9 +5,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * FB-203 discharges `FB-007-NB1`: no automated test previously covered
- * [IosFirebaseEmulatorSettings], the Swift-facing emulator-config seam FB-007 added.
- * The one real risk the FB-007/FB-202 reviewers identified was this seam silently
+ * Covers [IosFirebaseEmulatorSettings], the Swift-facing emulator-config seam.
+ * The one real risk is this seam silently
  * reapplying Android's `10.0.2.2` host-translation rule on iOS, or otherwise drifting
  * from the generated [FirebaseEmulatorConfig] single source of truth. This test asserts
  * every field is passed through **verbatim** - not just present, but value-for-value

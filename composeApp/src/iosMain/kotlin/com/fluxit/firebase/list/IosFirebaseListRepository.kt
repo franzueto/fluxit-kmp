@@ -9,6 +9,7 @@ import com.fluxit.data.remote.FirebaseDocumentMapper
 import com.fluxit.data.remote.FirebaseSchema
 import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.data.remote.toApplicationError
 import com.fluxit.domain.FluxList
 import com.fluxit.domain.FluxListSummary
@@ -25,27 +26,27 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.posix.time
 
 /**
- * iOS [ListRepository] backed by the official Firebase Apple Firestore SDK (FB-203),
+ * iOS [ListRepository] backed by the official Firebase Apple Firestore SDK,
  * against the same `users/{uid}/lists/{listId}` path `AndroidFirebaseListRepository`
- * (FB-202) uses.
+ * uses.
  *
  * Deliberately the same shape as `AndroidFirebaseListRepository` so the two platforms
- * cannot drift, but not the same mechanism: per PLAN-008 the Firestore SDK itself is
+ * cannot drift, but not the same mechanism: Firebase code on iOS lives in Swift, so the Firestore SDK itself is
  * untouchable from Kotlin here, so every Firebase call goes through the
  * Swift-implemented [IosFirestoreListBridge] (`iosApp/iosApp/FirebaseListBridge.swift`).
  *
- * Design notes, each one a deliberate mirror of FB-202's:
+ * Design notes, each one a deliberate mirror of the Android adapter:
  *
  * - No Firebase SDK type appears in [ListRepository]'s signatures; the SDK is reached
  *   only from Swift. Nothing in this file is imported from `commonMain`/`commonTest`.
  * - [currentUid] is resolved inside each `callbackFlow` producer block and at the start
  *   of each `suspend` function body - never in a constructor or a `val` initializer -
- *   for the same Phase 1 reason `AndroidFirebaseListRepository` documents.
+ *   for the same reason `AndroidFirebaseListRepository` documents (the session can change).
  * - Every listener is registered by the bridge and removed from `awaitClose`, so
  *   cancelling a collector genuinely releases the underlying Firestore listener
- *   (mirrors [com.fluxit.firebase.auth.IosAuthRepository]'s `session` flow and FB-202's
+ * (mirrors [com.fluxit.firebase.auth.IosAuthRepository]'s `session` flow and the
  *   `callbackFlow`/`awaitClose { registration.remove() }` shape).
- * - Ordering and tombstone filtering are entirely FB-201's: every
+ * - Ordering and tombstone filtering are entirely the mapper's job: every
  *   [IosFirestoreListDocument] is turned into a [FirebaseDocumentDto] and passed through
  *   [FirebaseDocumentMapper.list] (which drops tombstoned/malformed documents), and the
  *   survivors are sorted with [FirebaseDocumentMapper.listOrdering]. Exactly like
@@ -53,10 +54,10 @@ import platform.posix.time
  *   pending-`serverTimestamp()` sort-instability reason.
  * - Every mutation is a field-scoped [FieldPatch] applied through
  *   [IosFirestoreListBridge.updateListFields] (Firestore's `updateData(_:)`, which only
- *   ever touches the keys present in the map) - never `setData(_:)` - per `DEC-003d`.
- *   The one exception is [createList]: per `DEC-003d-1`, a brand-new document has no
+ *   ever touches the keys present in the map) - never `setData(_:)` - per the field-level last-write-wins policy.
+ *   The one exception is [createList]: a brand-new document has no
  *   existing state to conflict with, so writing its full initial field set with
- *   `setData(_:)` does not contradict `DEC-003d`.
+ *   `setData(_:)` does not contradict the field-level last-write-wins policy.
  */
 class IosFirebaseListRepository internal constructor(
     private val bridgeProvider: () -> IosFirestoreListBridge,
@@ -84,13 +85,13 @@ class IosFirebaseListRepository internal constructor(
                     .sortedWith(FirebaseDocumentMapper.listOrdering)
                 trySend(summaries)
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
 
     /**
-     * `FB-407`: real `isFromCache`/`hasPendingWrites` from the Swift-side
+     * Real `isFromCache`/`hasPendingWrites` from the Swift-side
      * `includeMetadataChanges: true` listener behind
      * [IosFirestoreListBridge.observeListSummariesSnapshot] - see that method's KDoc for
      * why this is a separate registration from [observeListSummaries].
@@ -107,7 +108,7 @@ class IosFirebaseListRepository internal constructor(
                     .sortedWith(FirebaseDocumentMapper.listOrdering)
                 trySend(RepositorySnapshot(summaries, snapshot.isFromCache, snapshot.hasPendingWrites))
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
@@ -126,7 +127,7 @@ class IosFirebaseListRepository internal constructor(
                     trySend(list)
                 }
             },
-            onError = { error -> close(error.toListRepositoryException()) },
+            onError = { error -> close(error.toRepositoryException()) },
         )
         awaitClose { handle.remove() }
     }
@@ -147,10 +148,10 @@ class IosFirebaseListRepository internal constructor(
         return suspendCancellableCoroutine { continuation ->
             bridgeProvider().createList(uid, initialFields) { id, error ->
                 when {
-                    error != null -> continuation.resumeWithException(error.toListRepositoryException())
+                    error != null -> continuation.resumeWithException(error.toRepositoryException())
                     id != null -> continuation.resume(id)
                     else -> continuation.resumeWithException(
-                        ListRepositoryException(RepositoryErrorCode.UNKNOWN.toApplicationError()),
+                        RepositoryException(RepositoryErrorCode.UNKNOWN.toApplicationError()),
                     )
                 }
             }
@@ -171,7 +172,7 @@ class IosFirebaseListRepository internal constructor(
         )
     }
 
-    /** DEC-003d field-scoped tombstone patch: touches only `deletedAt`. */
+    /** Field-scoped tombstone patch: touches only `deletedAt`. */
     override suspend fun softDeleteList(listId: String) {
         applyPatch(
             listId,
@@ -179,14 +180,14 @@ class IosFirebaseListRepository internal constructor(
         )
     }
 
-    /** DEC-003d field-scoped patch clearing only `deletedAt`. */
+    /** Field-scoped patch clearing only `deletedAt`. */
     override suspend fun restoreList(listId: String) {
         applyPatch(listId, FieldPatch(mapOf(FirebaseSchema.Fields.DELETED_AT to FirebaseValue.Null)))
     }
 
     /**
      * Deliberately a no-op, for exactly the reason `AndroidFirebaseListRepository`
-     * documents: `DEC-003c` places tombstone purge in Phase 5's scheduled server-side
+     * documents: tombstone purge belongs to the scheduled server-side
      * cleanup job, not client-owned code. Kept only so this repository satisfies
      * [ListRepository]'s existing shape without changing it.
      */
@@ -197,7 +198,7 @@ class IosFirebaseListRepository internal constructor(
         suspendCancellableCoroutine<Unit> { continuation ->
             bridgeProvider().updateListFields(uid, listId, patch.fields) { error ->
                 if (error != null) {
-                    continuation.resumeWithException(error.toListRepositoryException())
+                    continuation.resumeWithException(error.toRepositoryException())
                 } else {
                     continuation.resume(Unit)
                 }

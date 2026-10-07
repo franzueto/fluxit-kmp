@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
 /**
- * FB-205 iOS counterpart of Android's `AndroidFirebaseItemRepositoryChunkSizeTest` -
+ * iOS counterpart of Android's `AndroidFirebaseItemRepositoryChunkSizeTest` -
  * identical test matrix, against [requireValidClearCompletedChunkSize] (this module's own
  * declaration; see [MAX_BATCH_WRITES]'s KDoc for why `androidMain`/`iosMain` each declare
  * this invariant separately rather than sharing one Kotlin declaration).

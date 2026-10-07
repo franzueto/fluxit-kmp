@@ -6,7 +6,7 @@ import java.io.ByteArrayOutputStream
 import kotlin.math.roundToInt
 
 /**
- * `FB-303` real decode/resize actuals, backing [preparePhotoForUpload]'s default parameters on
+ * real decode/resize actuals, backing [preparePhotoForUpload]'s default parameters on
  * Android. Uses only `android.graphics` (already a platform dependency) - no new third-party
  * dependency. Not exercised by `testDebugUnitTest` directly (no Robolectric in this project;
  * `android.graphics.BitmapFactory` is stubbed to throw under plain JVM unit tests), so

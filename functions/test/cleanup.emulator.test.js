@@ -8,12 +8,12 @@ const { runCleanup, deleteExpiredItem, RETENTION_MS } = require('../cleanup');
 test('real Firestore/Storage emulators: exact boundary, restore, and repeat run', async () => {
   assert.ok(process.env.FIRESTORE_EMULATOR_HOST);
   assert.ok(process.env.FIREBASE_STORAGE_EMULATOR_HOST);
-  const app = initializeApp({ projectId: 'demo-fluxit', storageBucket: 'demo-fluxit.appspot.com' }, 'fb502-test');
+  const app = initializeApp({ projectId: 'demo-fluxit', storageBucket: 'demo-fluxit.appspot.com' }, 'itemcleanup-test');
   const db = getFirestore(app);
   const bucket = getStorage(app).bucket();
   const nowMillis = Date.now();
   const cutoff = nowMillis - RETENTION_MS;
-  const uid = `fb502-${process.pid}`;
+  const uid = `itemcleanup-${process.pid}`;
   const listRef = db.doc(`users/${uid}/lists/list`);
   const items = listRef.collection('items');
   const old = items.doc('old');
@@ -67,10 +67,10 @@ test('real Firestore/Storage emulators: exact boundary, restore, and repeat run'
 test('real Storage emulator: old orphan is deleted and active item photo is retained', async () => {
   assert.ok(process.env.FIRESTORE_EMULATOR_HOST);
   assert.ok(process.env.FIREBASE_STORAGE_EMULATOR_HOST);
-  const app = initializeApp({ projectId: 'demo-fluxit', storageBucket: 'demo-fluxit.appspot.com' }, 'fb502-photo-test');
+  const app = initializeApp({ projectId: 'demo-fluxit', storageBucket: 'demo-fluxit.appspot.com' }, 'itemcleanup-photo-test');
   const db = getFirestore(app);
   const bucket = getStorage(app).bucket();
-  const uid = `fb502-photo-${process.pid}`;
+  const uid = `itemcleanup-photo-${process.pid}`;
   const item = db.doc(`users/${uid}/lists/list/items/item`);
   const referenced = `users/${uid}/items/item/photo`;
   const orphan = `users/${uid}/items/orphan/photo`;

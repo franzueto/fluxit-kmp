@@ -5,7 +5,7 @@ import com.fluxit.data.remote.FirebaseValue
 import com.fluxit.data.remote.RepositoryErrorCode
 import com.fluxit.firebase.list.CurrentUidProvider
 import com.fluxit.firebase.list.FixedUidProvider
-import com.fluxit.firebase.list.ListRepositoryException
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.firebase.list.firestoreError
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,15 +25,15 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 
 /**
- * FB-205 unit tests for the iOS item adapter's own logic: the `callbackFlow` listener
- * lifecycle over the Swift bridge, delegation of ordering/tombstone-filtering to FB-201's
+ * unit tests for the iOS item adapter's own logic: the `callbackFlow` listener
+ * lifecycle over the Swift bridge, delegation of ordering/tombstone-filtering to the
  * `FirebaseDocumentMapper`, the field-scoped-patch-vs-whole-document-set shape required
- * by `DEC-003d`/`DEC-003d-1`, and - the FB-205-specific core - the counter-affecting
+ * by the field-level last-write-wins policy (with its new-document exemption), and - the core - the counter-affecting
  * mutations' read-then-decide policy expressed as [ItemCounterOutcome] values, verified
  * against [RecordingItemBridge]'s injectable "current field state" without a real
  * Firestore transaction anywhere in the loop.
  *
- * Deliberately the same test matrix as FB-204's `AndroidFirebaseItemRepository` coverage
+ * Deliberately the same test matrix as the `AndroidFirebaseItemRepository` coverage
  * where a Gradle/Kotlin-Native-runnable equivalent exists, so a behavioural divergence
  * between the two platforms shows up as a failing test here. What this file does NOT
  * prove: that the real Firebase Apple SDK actually opens transactions/reports snapshots
@@ -188,11 +188,11 @@ class IosFirebaseItemRepositoryTest {
         bridge.emitItemsError(firestoreError(7L)) // permissionDenied
         job.join()
 
-        val failure = assertIs<ListRepositoryException>(caught)
+        val failure = assertIs<RepositoryException>(caught)
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
     }
 
-    // --- FB-201 delegation: tombstone filtering + ordering ---------------------------------
+    // --- delegation: tombstone filtering + ordering ---------------------------------
 
     @Test
     fun tombstonedItemsAreFilteredAndSurvivorsAreOrderedByCreatedAtThenId() = runTest {
@@ -215,7 +215,7 @@ class IosFirebaseItemRepositoryTest {
         job.cancelAndJoin()
     }
 
-    // --- FB-407: observeItemsSnapshot - real isFromCache/hasPendingWrites --------------
+    // --- ObserveItemsSnapshot - real isFromCache/hasPendingWrites --------------
     //
     // Same rationale as IosFirebaseListRepositoryTest's parallel block: proves
     // IosFirebaseItemRepository.observeItemsSnapshot correctly maps whatever
@@ -279,11 +279,11 @@ class IosFirebaseItemRepositoryTest {
         bridge.emitItemsSnapshotError(firestoreError(7L)) // permissionDenied
         job.join()
 
-        val failure = assertIs<ListRepositoryException>(caught)
+        val failure = assertIs<RepositoryException>(caught)
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
     }
 
-    // --- addItem: DEC-003d-1 whole-document write on a brand-new document -----------------
+    // --- addItem: whole-document write on a brand-new document (exempt from field patches) -----------------
 
     @Test
     fun addItemWritesTheFullInitialFieldSet() = runTest {
@@ -308,7 +308,7 @@ class IosFirebaseItemRepositoryTest {
                 FirebaseSchema.Fields.SCHEMA_VERSION,
             ),
             call.fields.keys,
-            "addItem must write the full initial field set (DEC-003d-1), not a partial patch",
+            "addItem must write the full initial field set, not a partial patch",
         )
         assertEquals(FirebaseValue.Text("Milk"), call.fields[FirebaseSchema.Fields.TITLE])
         assertEquals(FirebaseValue.Bool(false), call.fields[FirebaseSchema.Fields.IS_COMPLETED])
@@ -321,13 +321,13 @@ class IosFirebaseItemRepositoryTest {
         bridge.addFailure = firestoreError(16L) // unauthenticated
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.addItem("list-1", "Milk")
         }
         assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)
     }
 
-    // --- updateItem/setPhotoRef: DEC-003d field-scoped patches only, no counters ----------
+    // --- updateItem/setPhotoRef: field-scoped patches only, no counters ----------
 
     @Test
     fun updateItemSendsOnlyTheChangedFieldsNeverCounters() = runTest {
@@ -343,7 +343,7 @@ class IosFirebaseItemRepositoryTest {
         assertEquals(
             setOf(FirebaseSchema.Fields.TITLE, FirebaseSchema.Fields.DESCRIPTION, FirebaseSchema.Fields.UPDATED_AT),
             call.fields.keys,
-            "updateItem must be a field-scoped patch (DEC-003d) - it must never carry totalItems/completedItems",
+            "updateItem must be a field-scoped patch - it must never carry totalItems/completedItems",
         )
     }
 
@@ -369,7 +369,7 @@ class IosFirebaseItemRepositoryTest {
         bridge.updateFailure = firestoreError(7L) // permissionDenied
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.updateItem("list-1", "item-1", "x", null)
         }
         assertEquals(RepositoryErrorCode.FORBIDDEN, failure.error.code)
@@ -536,7 +536,7 @@ class IosFirebaseItemRepositoryTest {
         bridge.counterMutationFailure = firestoreError(14L) // unavailable
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.setCompleted("list-1", "item-1", true)
         }
         assertEquals(RepositoryErrorCode.OFFLINE, failure.error.code)
@@ -575,7 +575,7 @@ class IosFirebaseItemRepositoryTest {
         bridge.clearChunkFailure = firestoreError(8L) // resourceExhausted
         val repository = repositoryFor(bridge)
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.clearCompleted("list-1")
         }
         assertEquals(RepositoryErrorCode.QUOTA, failure.error.code)
@@ -588,7 +588,7 @@ class IosFirebaseItemRepositoryTest {
         val bridge = RecordingItemBridge()
         val repository = repositoryFor(bridge, FixedUidProvider(uid = null))
 
-        val failure = assertFailsWith<ListRepositoryException> {
+        val failure = assertFailsWith<RepositoryException> {
             repository.addItem("list-1", "Milk")
         }
         assertEquals(RepositoryErrorCode.SESSION_REQUIRED, failure.error.code)

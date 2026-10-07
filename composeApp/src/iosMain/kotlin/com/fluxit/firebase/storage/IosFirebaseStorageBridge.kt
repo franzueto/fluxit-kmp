@@ -4,13 +4,13 @@ import platform.Foundation.NSData
 import platform.Foundation.NSError
 
 /**
- * The Swift-implemented seam through which `FB-305`'s iOS [com.fluxit.data.IosPhotoStorage]
- * reaches Cloud Storage (PLAN-008: the `FirebaseStorage` SPM target is not cinterop-reachable
+ * The Swift-implemented seam through which the iOS [com.fluxit.data.IosPhotoStorage]
+ * reaches Cloud Storage (the Swift-only Firebase boundary on iOS: the `FirebaseStorage` SPM target is not cinterop-reachable
  * from `iosMain` - `FirebaseBootstrap.swift`'s own KDoc already states this - so every
  * Firebase Storage call lives in Swift, `iosApp/iosApp/FirebaseStorageBridge.swift`, exactly
- * mirroring how [com.fluxit.firebase.auth.IosAuthBridge] (FB-103),
- * [com.fluxit.firebase.list.IosFirestoreListBridge] (FB-203), and
- * [com.fluxit.firebase.item.IosFirestoreItemBridge] (FB-205) each own their own SDK surface).
+ * mirroring how [com.fluxit.firebase.auth.IosAuthBridge],
+ * [com.fluxit.firebase.list.IosFirestoreListBridge], and
+ * [com.fluxit.firebase.item.IosFirestoreItemBridge] each own their own SDK surface).
  *
  * Every call is addressed by the exact `photoRef` string
  * [com.fluxit.data.remote.FirebaseSchema.photoRef] already produces - this bridge never
@@ -20,7 +20,7 @@ import platform.Foundation.NSError
  * Payloads cross as [NSData], not a Kotlin `ByteArray`: `NSData` is a Foundation type,
  * directly cinterop-reachable from `iosMain` on both sides of this boundary (unlike
  * `FirebaseStorage`'s own types), and `PhotoBridges.ios.kt` already builds/consumes one from
- * a `ByteArray` (the interim `FB-302` stub's `NSData.dataWithBytes`/`NSData.toByteArray()`
+ * a `ByteArray` (the interim stub's `NSData.dataWithBytes`/`NSData.toByteArray`
  * pair, reused unmodified here rather than inventing a second Kotlin-Swift byte-crossing
  * convention).
  *
@@ -39,7 +39,7 @@ interface IosFirebaseStorageBridge {
     /**
      * Downloads the full contents of the object at [photoRef], capped at [maxSize] bytes -
      * the Storage SDK requires an explicit ceiling to avoid an unbounded in-memory download,
-     * same [com.fluxit.data.AndroidPhotoStorage] (`FB-304`) precedent this mirrors. On
+     * same [com.fluxit.data.AndroidPhotoStorage] precedent this mirrors. On
      * success, `data` is non-null and `error` is null; on failure (including the object not
      * existing, or an owner-only Rules denial), `data` is null and `error` is non-null.
      */

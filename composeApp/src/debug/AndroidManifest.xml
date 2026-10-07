@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  FB-102: debug-only overlay that permits cleartext traffic to the Firebase emulator
+  Debug-only overlay that permits cleartext traffic to the Firebase emulator
   loopback addresses (see res/xml/network_security_config.xml). Release builds do not
   merge this file.
 -->

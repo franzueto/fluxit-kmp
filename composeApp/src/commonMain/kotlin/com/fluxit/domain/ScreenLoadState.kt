@@ -1,12 +1,12 @@
 package com.fluxit.domain
 
 /**
- * `FB-404`: the loading/loaded/fatal-session state machine shared by every screen ViewModel
+ * The loading/loaded/fatal-session state machine shared by every screen ViewModel
  * that renders data from a [ListRepository]/[ItemRepository] observation -
  * [com.fluxit.feature.dashboard.DashboardViewModel]'s list-of-lists and
  * [com.fluxit.feature.listdetail.ListDetailViewModel]'s list-of-items.
  *
- * **`FB-404` disclosed judgment call - three sealed cases, not five:** the plan/ledger note
+ * ** disclosed judgment call - three sealed cases, not five:** the plan/ledger note
  * for this task sketches five distinctions ("never loaded yet," "loaded and genuinely
  * empty," "loaded from cache," "has pending writes," "fatally invalid session"). [Loading]
  * and [FatalSession] are genuinely either/or presentation modes with no payload. The
@@ -22,17 +22,17 @@ package com.fluxit.domain
  * fourth sealed case.
  *
  * `FatalSession` deliberately reuses [com.fluxit.domain.auth.AuthSession]/
- * [com.fluxit.domain.auth.AuthError] (`FB-101`/`FB-105`) rather than inventing a parallel
+ * [com.fluxit.domain.auth.AuthError] rather than inventing a parallel
  * session-validity signal: a consuming ViewModel combines its repository observation with
  * [com.fluxit.domain.auth.AuthRepository.session] and reports [FatalSession] whenever that
  * session is not [com.fluxit.domain.auth.AuthSession.Authenticated]. In practice
- * `SessionGate` (`FB-104`/`FB-105`) already tears this screen's whole composition down as
+ * `SessionGate` already tears this screen's whole composition down as
  * soon as the session leaves `Authenticated`, so this case is short-lived, defense-in-depth
  * rendering - it exists so a `combine`d `uiState` never briefly keeps showing stale list/item
  * data during that teardown window, not because the gate itself is expected to fail to
  * react.
  *
- * **`FB-408` widened trigger, disclosed judgment call:** every ViewModel-side consumer
+ * ** widened trigger, disclosed judgment call:** every ViewModel-side consumer
  * ([com.fluxit.feature.dashboard.DashboardViewModel], [com.fluxit.feature.listdetail.ListDetailViewModel],
  * [com.fluxit.feature.itemdetail.ItemDetailViewModel]) now also reports [FatalSession] when its
  * repository observation itself terminates with an error (a `callbackFlow` closed via

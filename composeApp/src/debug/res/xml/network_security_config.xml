@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  FB-102, debug builds only.
+  Debug builds only.
 
   The Firebase emulator suite speaks plain HTTP, and Android blocks cleartext by
   default, so a debug build that talks to the emulator fails with

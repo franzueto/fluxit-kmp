@@ -15,10 +15,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSError
 
 /**
- * iOS [AuthRepository] backed by the official Firebase Apple Auth SDK (FB-103).
+ * iOS [AuthRepository] backed by the official Firebase Apple Auth SDK.
  *
- * Deliberately the same shape as `AndroidAuthRepository` (FB-102) so the two platforms
- * cannot drift, but not the same mechanism: per PLAN-008 the SDK itself is untouchable
+ * Deliberately the same shape as `AndroidAuthRepository` so the two platforms
+ * cannot drift, but not the same mechanism: per the Swift-only Firebase boundary on iOS the SDK itself is untouchable
  * from Kotlin here, so every Firebase call goes through the Swift-implemented
  * [IosAuthBridge].
  *
@@ -26,11 +26,11 @@ import platform.Foundation.NSError
  *
  * - No Firebase type appears in any signature. The SDK is reached only through
  *   [IosAuthBridge]; failures arrive as a Foundation [NSError], are translated by
- *   [mapAuthFailure] and logged platform-side first (FB-101-NB2), so no SDK code,
+ *   [mapAuthFailure] and logged platform-side first, so no SDK code,
  *   message or object ever crosses into `commonMain`.
  * - [session] is a `callbackFlow` whose `awaitClose` removes the Firebase auth-state
  *   listener through the bridge, so cancelling a collector genuinely releases the
- *   listener (FB-101-NB3).
+ *   listener.
  * - The published state lives in [state] rather than in the flow, so an operation
  *   performed while nobody is collecting still leaves the repository in the right
  *   state, and so [restoreSession] can publish [AuthSession.ResolutionFailed] - a state
@@ -84,8 +84,8 @@ class IosAuthRepository internal constructor(
      * publishes [AuthSession.ResolutionFailed] and leaves the persisted credential
      * alone, so calling this again later is a meaningful retry.
      *
-     * Like FB-102, this deliberately does not sign out on a hard failure - see
-     * FB-102-NB2, whose recovery-affordance consequence is owned by FB-104 and applies
+     * Like the Android adapter, this deliberately does not sign out on a hard failure: the
+     * session gate offers an explicit sign-out-and-retry instead, and that applies
      * identically here.
      */
     override suspend fun restoreSession() {

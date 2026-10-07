@@ -36,10 +36,10 @@ object FirebaseSchema {
         "users/$uid/lists/$listId/items/$itemId"
 
     /**
-     * PLAN-005 chose this shape (deliberately no `listId` segment); PLAN-006 makes it
-     * load-bearing: the deployed Storage Rules match this exact depth with no recursive
+     * The path shape is deliberate (no `listId` segment) and load-bearing:
+     * the deployed Storage Rules match this exact depth with no recursive
      * wildcard, so every segment - especially `photoId` - must never contain `/`, or it
-     * would silently address a different object depth instead of being rejected. `FB-302`'s
+     * would silently address a different object depth instead of being rejected.
      * `com.fluxit.data.PhotoStorage` is the sole intended caller; its `photoId` values come
      * from `com.fluxit.data.newPhotoId`.
      *
@@ -49,15 +49,15 @@ object FirebaseSchema {
         require(uid.isNotBlank() && '/' !in uid) { "uid must be a single non-empty path segment" }
         require(itemId.isNotBlank() && '/' !in itemId) { "itemId must be a single non-empty path segment" }
         require(photoId.isNotBlank() && '/' !in photoId) {
-            "photoId must be a single non-empty path segment - the deployed Storage Rules deny a '/' here (PLAN-006)"
+            "photoId must be a single non-empty path segment - the deployed Storage Rules deny a '/' here"
         }
         return "users/$uid/items/$itemId/$photoId"
     }
 
     /**
-     * Parses a `photoRef` back to the `itemId` that owns it. PLAN-007: Storage photo paths
+     * Parses a `photoRef` back to the `itemId` that owns it. Storage photo paths
      * carry no `listId` segment, so `itemId` is the only key the future orphan-reconciliation
-     * sweep (`FB-502`/`FB-503`) can use. Returns `null` for anything that does not match
+     * sweep can use. Returns `null` for anything that does not match
      * [photoRef]'s exact five-segment shape (`users/{uid}/items/{itemId}/{photoId}`), rather
      * than guessing at a malformed or foreign value.
      */
@@ -219,7 +219,7 @@ class FieldPatch(fields: Map<String, FirebaseValue>) {
     }
 }
 
-/** Models DEC-003d: later writes win only for keys they actually contain. */
+/** Models the field-level last-write-wins policy: later writes win only for keys they actually contain. */
 fun applyFieldPatches(
     original: Map<String, FirebaseValue>,
     patchesInCommitOrder: Iterable<FieldPatch>,
@@ -242,6 +242,23 @@ data class ApplicationError(
     val requiresFreshSession: Boolean = false,
 )
 
+/**
+ * Thrown by the list and item repository adapters (from a `suspend` function or by closing a
+ * `callbackFlow`) instead of letting a platform SDK exception escape. Lives in `commonMain`
+ * so shared callers can read the mapped [error]; [com.fluxit.data.PhotoStorageException] is
+ * the equivalent for photo storage.
+ */
+class RepositoryException(val error: ApplicationError) : Exception()
+
+/**
+ * The [ApplicationError] a repository failure carries: the mapped error of a
+ * [RepositoryException], or [RepositoryErrorCode.UNKNOWN] (retryable) for any other throwable.
+ */
+fun Throwable.toRepositoryApplicationError(): ApplicationError = when (this) {
+    is RepositoryException -> error
+    else -> RepositoryErrorCode.UNKNOWN.toApplicationError()
+}
+
 fun RepositoryErrorCode.toApplicationError(): ApplicationError = when (this) {
     RepositoryErrorCode.SESSION_REQUIRED -> ApplicationError(this, canRetry = false, requiresFreshSession = true)
     RepositoryErrorCode.OFFLINE, RepositoryErrorCode.TIMEOUT, RepositoryErrorCode.UNKNOWN ->
@@ -263,7 +280,7 @@ fun BackendErrorCode.toRepositoryError(): RepositoryErrorCode = when (this) {
 }
 
 /**
- * `FB-401`: maps a [ContractErrorCode] - a Firestore *document-shape* parsing failure
+ * Maps a [ContractErrorCode] - a Firestore *document-shape* parsing failure
  * ([FirebaseDocumentMapper]'s "serialization" category, distinct from a [BackendErrorCode]
  * SDK/transport failure) - onto the same neutral [RepositoryErrorCode] taxonomy backend
  * errors already funnel through. All four variants collapse to
@@ -277,5 +294,5 @@ fun BackendErrorCode.toRepositoryError(): RepositoryErrorCode = when (this) {
  */
 fun ContractErrorCode.toRepositoryError(): RepositoryErrorCode = RepositoryErrorCode.INVALID_DATA
 
-/** Maps a [ContractError] (the payload of [ContractResult.Malformed]) to FB-201's neutral [ApplicationError]. */
+/** Maps a [ContractError] (the payload of [ContractResult.Malformed]) to the neutral [ApplicationError]. */
 fun ContractError.toApplicationError(): ApplicationError = code.toRepositoryError().toApplicationError()

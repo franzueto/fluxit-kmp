@@ -14,9 +14,9 @@ import org.koin.dsl.module
 
 /**
  * Platform module providing PhotoPicker, PhotoStorage, AuthRepository, and
- * (FB-207) the `ListRepository`/`ItemRepository` bindings.
+ * the `ListRepository`/`ItemRepository` bindings.
  *
- * FB-702: each actual platform module binds Firebase unconditionally. UID paths and
+ * Each actual platform module binds Firebase unconditionally. UID paths and
  * listeners are resolved only by authenticated operations.
  */
 expect fun platformModule(): Module
@@ -24,20 +24,20 @@ expect fun platformModule(): Module
 val appModule = module {
     single { DebugSeeder(get(), get()) }
 
-    // FB-104: the first consumers of AuthRepository, which each `platformModule()`
-    // binds (AndroidAuthRepository since FB-102, IosAuthRepository since FB-103). They
+    // The consumers of AuthRepository, which each `platformModule()`
+    // binds (AndroidAuthRepository, IosAuthRepository). They
     // live in the shared module because the gate and the auth UI are common code; only
     // the adapter behind the interface is platform-specific.
     viewModel { SessionGateViewModel(get()) }
     viewModel { AuthViewModel(get()) }
 
-    // FB-105: owns the ViewModelStore of the active session scope, so signing out (or
+    // Owns the ViewModelStore of the active session scope, so signing out (or
     // switching user) destroys every user-scoped ViewModel behind it. Resolved by the
     // gate from the ROOT ViewModelStoreOwner, never from the scope it manages.
     viewModel { SessionScopedViewModelStores() }
 
-    // FB-404: DashboardViewModel/ListDetailViewModel/ItemDetailViewModel now each additionally
-    // take AuthRepository, to derive their new fatal-session state from FB-101/FB-105's
+    // DashboardViewModel/ListDetailViewModel/ItemDetailViewModel now each additionally
+    // take AuthRepository, to derive their new fatal-session state from the
     // existing session machinery (never a parallel signal) - see each ViewModel's constructor
     // KDoc.
     viewModel { DashboardViewModel(get(), get(), get()) }

@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.fluxit.config.FirebaseEmulatorConfig
 import com.fluxit.data.remote.RepositoryErrorCode
+import com.fluxit.data.remote.RepositoryException
 import com.fluxit.domain.FluxListSummary
 import com.fluxit.domain.ListColor
 import com.fluxit.domain.ListIcon
@@ -40,7 +41,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * FB-202 Android integration checks: the real Firebase Android Firestore SDK, driven
+ * Android integration checks: the real Firebase Android Firestore SDK, driven
  * through [AndroidFirebaseListRepository], against a real Firestore emulator - the
  * first time the Firestore emulator has been exercised by either platform in this
  * migration.
@@ -85,8 +86,8 @@ class FirestoreListEmulatorIntegrationTest {
                 FirebaseOptions.Builder()
                     // Throwaway values: both emulators accept any key/app id, and a
                     // `demo-` project id can never resolve to a real Firebase project.
-                    .setApiKey("fb202-instrumented-test-key")
-                    .setApplicationId("1:0:android:fb202")
+                    .setApiKey("listemu-instrumented-test-key")
+                    .setApplicationId("1:0:android:listemu")
                     .setProjectId("demo-fluxit")
                     .build(),
                 APP_NAME,
@@ -175,13 +176,13 @@ class FirestoreListEmulatorIntegrationTest {
         assertNull(afterDelete)
     }
 
-    // --- field-scoped mutation (DEC-003d) --------------------------------------------
+    // --- field-scoped mutation --------------------------------------------
 
     @Test
     fun updateListPatchesOnlyItsOwnFieldsAndNeverTouchesCounters(): Unit = runBlocking {
         val id = repository.createList("Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
         // Simulate a concurrent counter update this repository never issues itself
-        // (that mutation belongs to FB-204/item operations) landing between create and
+        // (that mutation belongs to /item operations) landing between create and
         // this update - a whole-document set() would silently wipe it back out.
         listDoc(id).update(mapOf("totalItems" to 5L, "completedItems" to 2L)).awaitResult()
 
@@ -225,11 +226,11 @@ class FirestoreListEmulatorIntegrationTest {
         }
 
         assertTrue(failure.isFailure)
-        val exception = assertIs<ListRepositoryException>(failure.exceptionOrNull())
+        val exception = assertIs<RepositoryException>(failure.exceptionOrNull())
         assertEquals(RepositoryErrorCode.FORBIDDEN, exception.error.code)
     }
 
-    // --- FB-202's own listener-cancellation obligation -------------------------------
+    // --- the own listener-cancellation obligation -------------------------------
 
     @Test
     fun cancellingTheCollectorReleasesTheRealFirestoreListener(): Unit = runBlocking {
@@ -257,7 +258,7 @@ class FirestoreListEmulatorIntegrationTest {
 
     private fun listDoc(id: String) = firestore.collection("users").document(uid).collection("lists").document(id)
 
-    private fun uniqueEmail(): String = "fb202-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(): String = "listemu-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -265,9 +266,9 @@ class FirestoreListEmulatorIntegrationTest {
     }
 
     private companion object {
-        const val APP_NAME = "fb202-instrumented-test"
+        const val APP_NAME = "listemu-instrumented-test"
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb202-emulator-only"
+        const val PASSWORD = "listemu-emulator-only"
         const val TIMEOUT_MS = 20_000L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"
 

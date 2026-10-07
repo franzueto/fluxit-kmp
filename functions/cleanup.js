@@ -1,7 +1,7 @@
 const { Timestamp } = require('firebase-admin/firestore');
 const { purgeExpiredLists } = require('./cascade');
 
-// DEC-003b / DEC-003e-2: a single 30-day horizon for tombstones and uploads.
+// A single 30-day horizon for tombstone retention and the orphan-photo grace period.
 const RETENTION_DAYS = 30;
 const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const PAGE_SIZE = 100;

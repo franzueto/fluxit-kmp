@@ -55,10 +55,10 @@ class AndroidPhotoPicker : PhotoPicker {
 }
 
 /**
- * Real Cloud Storage-backed [PhotoStorage] (`FB-304`). Every object is addressed by the exact `photoRef` string
+ * Real Cloud Storage-backed [PhotoStorage]. Every object is addressed by the exact `photoRef` string
  * [FirebaseSchema.photoRef] already produces (`users/{uid}/items/{itemId}/{photoId}`) -
  * this class never constructs or parses that shape itself, matching the contract's
- * documented boundary. The deployed owner-only `storage.rules` (`FB-005`) gate every
+ * documented boundary. The deployed owner-only `storage.rules` gate every
  * call below; this class does not, and must not, work around them.
  *
  * Uid resolution reuses [CurrentUidProvider]/[FirebaseAuthCurrentUidProvider] exactly as
@@ -74,14 +74,13 @@ class AndroidPhotoPicker : PhotoPicker {
  * [StorageException.ERROR_OBJECT_NOT_FOUND] as the documented "missing object" case
  * ([PhotoStorage.loadPhoto] returns `null`; [PhotoStorage.deletePhoto] is a silent
  * no-op) rather than letting it escape as a thrown exception - any other
- * [StorageException] (e.g. a genuine permission denial) still propagates, but (`FB-403`)
+ * [StorageException] (e.g. a genuine permission denial) still propagates, but
  * wrapped in [PhotoStorageException] via the already-tested
  * `com.fluxit.firebase.storage.StorageException.toApplicationError()` mapping
- * (`FB-401`), rather than as a raw `StorageException` instance - discharging the remainder of
- * `FB-305-NB2`/`FB-401-NB1`/`FB-401-NB2`. [uploadPhoto] deliberately swallows nothing: a failed
+ * rather than as a raw `StorageException` instance. [uploadPhoto] deliberately swallows nothing: a failed
  * upload must propagate so `replacePhoto`'s safe-replace ordering (`PhotoBridges.kt`, unmodified
  * by this task) leaves the old photo untouched, per its documented failure semantics.
- * FB-602 supplies MIME metadata from the validated byte signature because the generated
+ * supplies MIME metadata from the validated byte signature because the generated
  * photo ID has no file extension for the Storage SDK to infer a type from.
  */
 class AndroidPhotoStorage(
@@ -135,7 +134,7 @@ class AndroidPhotoStorage(
          * Defensive ceiling passed to `getBytes`, which requires an explicit max size to
          * avoid an unbounded in-memory download. Reuses [PhotoPolicy.MAX_UPLOAD_BYTES]
          * (5 MB) rather than inventing a second, independent size constant: every object
-         * this class itself ever writes is already at or under that ceiling (`FB-303`
+         * this class itself ever writes is already at or under that ceiling (
          * enforces it before [uploadPhoto] is ever called), so it is also a correct upper
          * bound for anything this class should ever need to download back.
          */

@@ -7,7 +7,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 
 /**
- * The only place in `androidMain` that translates between FB-201's Firebase-neutral
+ * The only place in `androidMain` that translates between the Firebase-neutral
  * [FirebaseValue] contract and the plain Kotlin representation the Android Firestore
  * SDK reads and writes (`DocumentSnapshot.getData()` and `DocumentReference.set`/
  * `update`).
@@ -29,24 +29,24 @@ internal object FirestoreValueCodec {
         is FirebaseValue.Timestamp -> value.epochMillis.toFirestoreTimestamp()
         FirebaseValue.PendingServerTimestamp -> FieldValue.serverTimestamp()
         // An explicit Kotlin `null` field value (present, not deleted) - distinct from
-        // FieldValue.delete(), which this repository never uses: DEC-003d's field-scoped
+        // FieldValue.delete(), which this repository never uses: field-scoped
         // patches only ever set or clear a value, never remove a schema field entirely.
         FirebaseValue.Null -> null
     }
 
     /**
-     * Decodes a raw Firestore document map into FB-201's [FirebaseDocumentDto].
+     * Decodes a raw Firestore document map into the [FirebaseDocumentDto].
      *
      * A field entirely absent from [data] is left out of the resulting map, matching
      * [FirebaseDocumentDto]'s "missing" branch (`fields[field] == null`). A field
      * present with an explicit null value becomes [FirebaseValue.Null] instead, so the
-     * two are never conflated - this is exactly the distinction FB-201's
+     * two are never conflated - this is exactly the distinction the
      * `requireActiveAndCurrentSchema`/`required*` helpers rely on.
      *
      * A field whose SDK value type this repository does not itself write (anything
      * other than String/Boolean/Long/Int/Double/[Timestamp]/null - for example a
      * GeoPoint or nested Map some other client wrote) is dropped as if missing rather
-     * than guessed at. FB-201's mapper then reports `MISSING_FIELD`, which is a safe,
+     * than guessed at. Mapper then reports `MISSING_FIELD`, which is a safe,
      * always-defined outcome for a shape this repository never produces itself.
      */
     fun decode(id: String, data: Map<String, Any?>?, clientFallbackMillis: Long): FirebaseDocumentDto {

@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import platform.Foundation.NSError
 
 /**
- * FB-203 mapping table tests for the Firestore side of the boundary - the iOS
+ * mapping table tests for the Firestore side of the boundary - the iOS
  * counterpart of Android's `FirestoreErrorMappingTest`.
  *
  * These raw `FIRFirestoreErrorCode` values are gRPC status codes, the same ones
@@ -49,8 +49,8 @@ class IosFirestoreErrorMappingTest {
     }
 
     @Test
-    fun aFirestoreDomainErrorBecomesAListRepositoryExceptionCarryingTheMappedApplicationError() {
-        val mapped = firestoreError(7L).toListRepositoryException() // permissionDenied
+    fun aFirestoreDomainErrorBecomesARepositoryExceptionCarryingTheMappedApplicationError() {
+        val mapped = firestoreError(7L).toRepositoryException() // permissionDenied
 
         assertEquals(RepositoryErrorCode.FORBIDDEN, mapped.error.code)
     }
@@ -59,7 +59,7 @@ class IosFirestoreErrorMappingTest {
     fun anErrorOutsideTheFirestoreDomainMapsToUnknownRatherThanLeaking() {
         val transportError = NSError.errorWithDomain(domain = "NSURLErrorDomain", code = -1009L, userInfo = null)
 
-        val mapped = transportError.toListRepositoryException()
+        val mapped = transportError.toRepositoryException()
 
         assertEquals(RepositoryErrorCode.UNKNOWN, mapped.error.code)
     }

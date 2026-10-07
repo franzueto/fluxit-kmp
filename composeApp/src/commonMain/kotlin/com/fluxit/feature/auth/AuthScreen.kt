@@ -46,7 +46,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * The signed-out authentication screen (FB-104): sign-in, sign-up and password recovery.
+ * The signed-out authentication screen: sign-in, sign-up and password recovery.
  *
  * Composed only from [SessionGate] when the session has resolved to
  * [SessionGateState.SignedOut]. It never reads a uid and never starts user-scoped work.
@@ -74,7 +74,7 @@ fun AuthScreen(
  * Stateless rendering of [AuthUiState].
  *
  * Deliberately state-free so it can be driven from a test or a future preview without
- * any fake repository. This is the FB-101-NB1 resolution chosen for FB-104: rather than
+ * any fake repository. This is the resolution chosen for Rather than
  * adding a preview-only `AuthRepository` fake to `commonMain` (or restructuring source
  * sets so `commonMain` can see `commonTest`'s `FakeAuthRepository`), the UI takes plain
  * data plus callbacks, so nothing in `commonMain` needs a fake at all.
@@ -342,7 +342,7 @@ private fun AuthTextField(
 }
 
 /**
- * DEC-006's fallback notice: the initial session restoration exceeded
+ * The restoration-timeout fallback notice: the initial session restoration exceeded
  * [SessionGateViewModel.InitialRestorationTimeout] and the gate resolved to signed-out.
  *
  * Deliberately not an error: nothing has failed as far as the user is concerned, they

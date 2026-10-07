@@ -22,12 +22,12 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 
 /**
- * FB-103 unit tests for the iOS adapter's own logic: the session state machine, the
+ * unit tests for the iOS adapter's own logic: the session state machine, the
  * `callbackFlow` listener lifecycle over the Swift bridge, and error mapping. The Swift
  * bridge (and therefore the Firebase Apple SDK behind it) is replaced by
  * [RecordingAuthBridge]; the adapter code under test is the production code.
  *
- * Deliberately the same test matrix as FB-102's `AndroidAuthRepositoryTest`, so a
+ * Deliberately the same test matrix as the `AndroidAuthRepositoryTest`, so a
  * behavioural divergence between the two platforms shows up as a failing test rather
  * than as a difference nobody looks for.
  *
@@ -51,7 +51,7 @@ class IosAuthRepositoryTest {
         repository.session.toList(into)
     }
 
-    // --- FB-101-NB3: listener lifecycle ---------------------------------------------
+    // --- Listener lifecycle ---------------------------------------------
 
     @Test
     fun collectingTheSessionRegistersExactlyOneAuthStateListener() = runTest {
@@ -322,7 +322,7 @@ class IosAuthRepositoryTest {
         job.cancelAndJoin()
     }
 
-    // --- FB-101-NB2: diagnostics before collapsing into Unknown -----------------------
+    // --- Diagnostics before collapsing into Unknown -----------------------
 
     @Test
     fun anUnmappedSdkFailureIsLoggedBeforeItBecomesUnknown() = runTest {

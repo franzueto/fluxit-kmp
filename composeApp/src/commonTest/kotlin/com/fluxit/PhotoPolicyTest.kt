@@ -26,7 +26,7 @@ private fun fakeJpegOfSize(size: Int): ByteArray =
     JPEG_MAGIC + ByteArray(size - JPEG_MAGIC.size)
 
 /**
- * `FB-303`: pure unit tests for the image validation/resize-decision policy in `PhotoPolicy.kt`
+ * Pure unit tests for the image validation/resize-decision policy in `PhotoPolicy.kt`
  * and `ImageTransform.kt`'s expect declarations, exercised entirely with fake/in-memory byte
  * arrays and injected fake decode/resize lambdas - no platform code, no real image decoding.
  * Matches the ledger's required acceptance evidence directly: boundary, unsupported-type, and

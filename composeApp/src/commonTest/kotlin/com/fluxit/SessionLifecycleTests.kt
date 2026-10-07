@@ -44,12 +44,12 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * FB-105 lifecycle coverage: listener disposal, user-scoped state teardown, user A -> B
- * isolation, and DEC-006's bounded initial restoration.
+ * Session lifecycle coverage: listener disposal, user-scoped state teardown, user A -> B
+ * isolation, and the 10-second bound on initial restoration.
  *
  * ## What this file proves, and what it does not
  *
- * FB-101-NB3 is the standing warning these tests are written against: asserting "the
+ * is the standing warning these tests are written against: asserting "the
  * listener was released" against [FakeAuthRepository] proves nothing, because its
  * `session` is a plain `MutableStateFlow` that is always live regardless of collectors.
  * So the disposal assertions here use [ListenerInstrumentedAuthRepository], whose flow
@@ -128,7 +128,7 @@ class SessionScopedViewModelStoresTest {
     }
 
     /**
-     * The teardown that actually matters for FB-105: a user-scoped ViewModel's
+     * The teardown that actually matters for A user-scoped ViewModel's
      * `viewModelScope` is cancelled, so the data listener it was running is released.
      * [DashboardViewModel][com.fluxit.feature.dashboard.DashboardViewModel] holds exactly
      * this shape - a repository flow collected in `viewModelScope`.
@@ -174,7 +174,7 @@ class SessionScopedViewModelStoresTest {
         )[ProbeViewModel::class]
 }
 
-/** FB-105: the gate's hold on the repository's auth-state listener. */
+/** The gate's hold on the repository's auth-state listener. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionListenerDisposalTest {
 
@@ -187,7 +187,7 @@ class SessionListenerDisposalTest {
     fun tearDown() = Dispatchers.resetMain()
 
     /**
-     * The disposal proof FB-101-NB3 says [FakeAuthRepository] cannot give. Clearing the
+     * The disposal proof says [FakeAuthRepository] cannot give. Clearing the
      * store that owns the gate cancels its `viewModelScope`, which ends the collection,
      * which is what runs `awaitClose { registration.remove() }` in both real adapters.
      */
@@ -234,7 +234,7 @@ class SessionListenerDisposalTest {
     }
 }
 
-/** FB-105's headline criterion: no A-derived state is visible to B. */
+/** Headline criterion: no A-derived state is visible to B. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserIsolationTest {
 
@@ -339,7 +339,7 @@ class UserIsolationTest {
         )[ProbeViewModel::class]
 }
 
-/** DEC-006: the initial restoration is bounded, and its fallback is signed-out. */
+/** The initial restoration is bounded, and its fallback is signed-out. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionRestorationTimeoutTest {
 
@@ -357,7 +357,7 @@ class SessionRestorationTimeoutTest {
     }
 
     /**
-     * The FB-104-NB2 scenario. Everything here runs on virtual time: the suite never
+     * The scenario. Everything here runs on virtual time: the suite never
      * actually waits ten seconds.
      */
     @Test
@@ -386,7 +386,7 @@ class SessionRestorationTimeoutTest {
         )
         assertTrue(
             observed.none { it is SessionGateState.ResolutionFailed },
-            "DEC-006 fallback is signed-out, not an error screen, saw $observed",
+            "the 10-second restoration timeout fallback is signed-out, not an error screen, saw $observed",
         )
     }
 
@@ -413,7 +413,7 @@ class SessionRestorationTimeoutTest {
         )
     }
 
-    /** The retry affordance DEC-006 requires actually re-runs restoration. */
+    /** The retry affordance offered after the restoration timeout actually re-runs restoration. */
     @Test
     fun retryingAfterATimeoutReopensTheGateAndCanSucceed() = runTest(dispatcher) {
         val repository = HangingRestoreAuthRepository(
@@ -441,7 +441,7 @@ class SessionRestorationTimeoutTest {
     }
 
     /**
-     * FB-104-NB1-adjacent: a restoration that returns without ever publishing an outcome
+     * A restoration that returns without ever publishing an outcome
      * used to leave the gate reporting whatever stale value it happened to hold. It now
      * waits for a resolved value, under the same budget.
      */
@@ -519,7 +519,7 @@ private class InstrumentedFlow {
 }
 
 /**
- * The repository FB-101-NB3 asks for: one that can actually observe listener lifetime.
+ * The repository asks for: one that can actually observe listener lifetime.
  *
  * `session` mirrors both real adapters' shape - a listener registered when collection
  * starts and released when it ends - so `activeListeners` means the same thing here as
@@ -565,7 +565,7 @@ private class ListenerInstrumentedAuthRepository(
 }
 
 /**
- * `restoreSession()` that never returns until released - the FB-104-NB2 hang, made
+ * `restoreSession` that never returns until released - the hang, made
  * deterministic. [cachedSession] is published first when set, reproducing an SDK listener
  * that reports a locally cached credential the server has not validated.
  */
@@ -604,7 +604,7 @@ private class HangingRestoreAuthRepository(
 
 /**
  * `restoreSession()` returns promptly but publishes nothing at all - the "returned
- * without an observable outcome" case that FB-101's `Unit` return type permits.
+ * without an observable outcome" case that the `Unit` return type permits.
  */
 private class SilentRestoreAuthRepository : AuthRepository {
 

@@ -32,7 +32,7 @@ class SessionCleanupInstrumentedTest {
         val cleanup = RetrySessionCleanup(graph.get())
         graph.loadModules(listOf(module {
             single<SessionCleanup> { cleanup }
-            single<PhotoStorage> { SessionPhotoStorage(AndroidPhotoStorage(photoIdFactory = { "fb709-upload" }), get()) }
+            single<PhotoStorage> { SessionPhotoStorage(AndroidPhotoStorage(photoIdFactory = { "sesscleanup-upload" }), get()) }
         }))
         val auth = graph.get<AuthRepository>()
         val probe = object : SessionCleanupProbe {
@@ -54,16 +54,16 @@ class SessionCleanupInstrumentedTest {
                 val context = InstrumentationRegistry.getInstrumentation().targetContext
                 val main = FirebaseApp.getInstance()
                 val options = FirebaseOptions.Builder(main.options).build()
-                val secondary = FirebaseApp.getApps(context).firstOrNull { it.name == "fb709-storage-cancel" }
-                    ?: FirebaseApp.initializeApp(context, options, "fb709-storage-cancel")
+                val secondary = FirebaseApp.getApps(context).firstOrNull { it.name == "sesscleanup-storage-cancel" }
+                    ?: FirebaseApp.initializeApp(context, options, "sesscleanup-storage-cancel")
                 val storage = FirebaseStorage.getInstance(secondary)
                 storage.maxUploadRetryTimeMillis = 40_000
                 storage.maxDownloadRetryTimeMillis = 40_000
                 storage.useEmulator("10.0.2.2", 9198) // Deliberately absent loopback endpoint: no object can be written.
-                val upload = storage.reference.child("users/$uid/items/fb709-item/cancelled-upload").putBytes(parityPhotoBytes)
+                val upload = storage.reference.child("users/$uid/items/sesscleanup-item/cancelled-upload").putBytes(parityPhotoBytes)
                 check(!upload.isComplete && storage.reference.activeUploadTasks.contains(upload))
                 com.fluxit.firebase.session.AndroidStorageSessionTasks.track(upload)
-                val download = storage.reference.child("users/$uid/items/fb709-item/cancelled-upload").getStream { _, stream -> stream.use { it.read() } }
+                val download = storage.reference.child("users/$uid/items/sesscleanup-item/cancelled-upload").getStream { _, stream -> stream.use { it.read() } }
                 com.fluxit.firebase.session.AndroidStorageSessionTasks.track(download)
                 withTimeout(2_000) { while (!download.isInProgress) delay(10) }
                 check(storage.reference.activeDownloadTasks.isEmpty()) { "SDK root list omits stream downloads" }
@@ -89,7 +89,7 @@ class SessionCleanupInstrumentedTest {
             }
         }
         InstrumentationRegistry.getInstrumentation().sendStatus(0, android.os.Bundle().apply {
-            putString("stream", "\nFB-709 Android $result\n")
+            putString("stream", "\nSessionCleanup Android $result\n")
         })
     }
 }
