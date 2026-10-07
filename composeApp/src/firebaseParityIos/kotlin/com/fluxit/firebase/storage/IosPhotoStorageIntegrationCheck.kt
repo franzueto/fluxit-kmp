@@ -776,7 +776,7 @@ object IosPhotoStorageIntegrationCheck {
             } else {
                 "$label: $failures CHECK(S) FAILED"
             }
-            return (listOf(header) + lines + listOf("${label.substringBefore(' ')} END")).joinToString("\n")
+            return (listOf(header) + lines + listOf("PHOTOSTORAGE END")).joinToString("\n")
         }
     }
 }
