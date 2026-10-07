@@ -7,7 +7,7 @@ import org.jetbrains.skia.Surface
 import kotlin.math.roundToInt
 
 /**
- * `FB-303` real decode/resize actuals, backing [preparePhotoForUpload]'s default parameters on
+ * real decode/resize actuals, backing [preparePhotoForUpload]'s default parameters on
  * iOS. Uses only `org.jetbrains.skia` (Skiko) - the same Skia bindings `ImageDecoder.ios.kt`
  * already depends on for rendering - so no new third-party dependency is introduced. Unlike the
  * Android actual, Kotlin/Native test binaries link real Skia, so these are exercised for real

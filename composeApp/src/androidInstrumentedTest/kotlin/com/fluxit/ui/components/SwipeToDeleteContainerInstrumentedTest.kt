@@ -40,7 +40,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * FB-710 regression coverage for [SwipeToDeleteContainer].
+ * regression coverage for [SwipeToDeleteContainer].
  *
  * The screens delete through a swipe, the data layer removes the row, and Undo re-adds the SAME
  * stable id (LazyColumn key). The re-added row must render normally and be swipeable again;

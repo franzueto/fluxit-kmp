@@ -15,16 +15,16 @@ import kotlinx.coroutines.launch
 import platform.Foundation.NSUUID
 
 /**
- * FB-203 emulator-backed integration check for the iOS list adapter, in the style
- * FB-103's `IosAuthIntegrationCheck` established: no Xcode test target exists in this
+ * emulator-backed integration check for the iOS list adapter, in the style
+ * the `IosAuthIntegrationCheck` established: no Xcode test target exists in this
  * repository, so this lives in the app binary and is exercised by a real simulator run
  * launched with a specific argument, guarded twice (emulator-only build config, plus the
  * launch argument itself) so it can never touch the live development project.
  *
  * What this proves that `IosFirebaseListRepositoryTest` (a fake-bridge unit test) cannot:
  * that the real Swift `FirebaseListBridge` correctly talks to a real Firebase Firestore
- * SDK instance end to end, and - the FB-202 parity requirement this task calls out
- * explicitly - that the real, tracked `firestore.rules` genuinely denies one user's uid
+ * SDK instance end to end, and - the parity requirement -
+ * that the real, tracked `firestore.rules` genuinely denies one user's uid
  * path to a different authenticated user against a live emulator.
  *
  * This check earned its keep during development, not just after the fact: running it for
@@ -40,7 +40,7 @@ import platform.Foundation.NSUUID
  */
 object IosFirestoreListIntegrationCheck {
 
-    private const val PASSWORD = "fb203-emulator-only"
+    private const val PASSWORD = "ioslist-emulator-only"
     private const val SETTLE_MS = 400L
     private const val AWAIT_TIMEOUT_MS = 8_000L
     private const val POLL_INTERVAL_MS = 100L
@@ -54,7 +54,7 @@ object IosFirestoreListIntegrationCheck {
      * often the *locally cached, not-yet-server-acknowledged* write, whose pending
      * `serverTimestamp()` fields decode as [com.fluxit.data.remote.FirebaseValue.Null]
      * (a genuinely absent-server-value state Firestore itself reports, not a decoding
-     * bug), which FB-201's `FirebaseDocumentMapper` correctly treats as malformed and
+     * bug), which the `FirebaseDocumentMapper` correctly treats as malformed and
      * drops until the *next* snapshot arrives with the server-resolved timestamp. Mirrors
      * Android's `FirestoreListEmulatorIntegrationTest`'s `flow.first { predicate }`
      * idiom, which absorbs the same eventual-consistency window.
@@ -82,8 +82,8 @@ object IosFirestoreListIntegrationCheck {
     suspend fun run(): String = try {
         runChecked()
     } catch (throwable: Throwable) {
-        "FB-203 iOS Firestore list integration check: THREW ${throwable::class.simpleName}: " +
-            "${throwable.message}\nFB-203 END"
+        "iOS Firestore list integration check: THREW ${throwable::class.simpleName}: " +
+            "${throwable.message}\nFIRESTORELIST END"
     }
 
     private suspend fun runChecked(): String {
@@ -106,8 +106,8 @@ object IosFirestoreListIntegrationCheck {
         val auth = IosAuthRepository()
         val repository = IosFirebaseListRepository()
         val suffix = NSUUID().UUIDString().lowercase()
-        val emailA = "fb203-a-$suffix@example.com"
-        val emailB = "fb203-b-$suffix@example.com"
+        val emailA = "ioslist-a-$suffix@example.com"
+        val emailB = "ioslist-b-$suffix@example.com"
 
         coroutineScope {
             // --- sign in as user A, exercise the full list lifecycle ------------------
@@ -126,9 +126,9 @@ object IosFirestoreListIntegrationCheck {
             delay(SETTLE_MS)
             report.check("initial summaries observed (possibly empty)", summaries.isNotEmpty(), "emissions=${summaries.size}")
 
-            val listId = repository.createList("FB-203 Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            val listId = repository.createList("Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
             val created = awaitCondition {
-                summaries.lastOrNull()?.any { it.list.id == listId && it.list.name == "FB-203 Groceries" } == true
+                summaries.lastOrNull()?.any { it.list.id == listId && it.list.name == "Groceries" } == true
             }
             report.check(
                 "created list appears in observeListSummaries",
@@ -136,9 +136,9 @@ object IosFirestoreListIntegrationCheck {
                 "last=${summaries.lastOrNull()?.map { it.list.id to it.list.name }}",
             )
 
-            repository.updateList(listId, "FB-203 Renamed", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            repository.updateList(listId, "Renamed", ListIcon.CART, ListColor.PRIMARY_BLUE)
             val renamed = awaitCondition {
-                summaries.lastOrNull()?.any { it.list.id == listId && it.list.name == "FB-203 Renamed" } == true
+                summaries.lastOrNull()?.any { it.list.id == listId && it.list.name == "Renamed" } == true
             }
             report.check(
                 "updateList's rename is visible",
@@ -180,7 +180,7 @@ object IosFirestoreListIntegrationCheck {
                 onError = { },
             )
             delay(SETTLE_MS)
-            repository.createList("FB-203 Second", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            repository.createList("Second", ListIcon.CART, ListColor.PRIMARY_BLUE)
             delay(SETTLE_MS)
             val whileLive = rawSnapshots.size
             report.check(
@@ -189,7 +189,7 @@ object IosFirestoreListIntegrationCheck {
                 "snapshot callbacks while live=$whileLive",
             )
             rawHandle.remove()
-            repository.createList("FB-203 Third", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            repository.createList("Third", ListIcon.CART, ListColor.PRIMARY_BLUE)
             delay(SETTLE_MS * 2)
             report.check(
                 "a removed bridge listener receives nothing further",
@@ -200,7 +200,7 @@ object IosFirestoreListIntegrationCheck {
             summariesJob.cancel()
             delay(SETTLE_MS)
             val afterCancellation = summaries.size
-            repository.createList("FB-203 Fourth", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            repository.createList("Fourth", ListIcon.CART, ListColor.PRIMARY_BLUE)
             delay(SETTLE_MS * 2)
             report.check(
                 "cancelling the repository collector releases the Firestore listener",
@@ -208,20 +208,20 @@ object IosFirestoreListIntegrationCheck {
                 "emissions before=$afterCancellation after=${summaries.size}",
             )
 
-            // --- FB-407: observeListSummariesSnapshot - real isFromCache/hasPendingWrites --
+            // --- ObserveListSummariesSnapshot - real isFromCache/hasPendingWrites --
             //
             // What this proves that IosFirebaseListRepositoryTest (a fake-bridge unit test)
             // cannot: that the real Swift FirebaseListBridge.observeListSummariesSnapshot
             // genuinely registers an `includeMetadataChanges: true` listener against a live
             // Firestore SDK instance, and that its `snapshot.metadata.isFromCache`/
             // `.hasPendingWrites` cross the Kotlin/Swift boundary into RepositorySnapshot
-            // correctly - the same production gap DEC-007/FB-407 exists to close, proven
+            // correctly - the same production gap exists to close, proven
             // here on iOS the way FirestoreListSnapshotEmulatorIntegrationTest proves it on
             // Android.
             //
             // Disclosed scope boundary (judgment call, not an oversight): unlike the Android
             // instrumented test, this does NOT force offline via a network toggle. Per
-            // PLAN-008 and the precedent already accepted for FB-206 (no network-toggle
+            // the iOS rule that Firebase code lives in Swift and the precedent already accepted (no network-toggle
             // surface was added to the iOS bridge protocols, since that would be a
             // production capability addition purely for test purposes), no
             // `disableNetwork`/`enableNetwork`-equivalent bridge method exists or is added
@@ -247,7 +247,7 @@ object IosFirestoreListIntegrationCheck {
             )
 
             val pendingWriteCreateJob = launch {
-                repository.createList("FB-407 Snapshot Metadata", ListIcon.CART, ListColor.PRIMARY_BLUE)
+                repository.createList("Snapshot Metadata", ListIcon.CART, ListColor.PRIMARY_BLUE)
             }
             val pendingWriteObserved = awaitCondition { snapshotEmissions.any { it.hasPendingWrites } }
             report.check(
@@ -350,11 +350,11 @@ object IosFirestoreListIntegrationCheck {
 
         fun render(): String {
             val header = if (failures == 0) {
-                "FB-203 iOS Firestore list integration check: ALL CHECKS PASSED"
+                "iOS Firestore list integration check: ALL CHECKS PASSED"
             } else {
-                "FB-203 iOS Firestore list integration check: $failures CHECK(S) FAILED"
+                "iOS Firestore list integration check: $failures CHECK(S) FAILED"
             }
-            return (listOf(header) + lines + listOf("FB-203 END")).joinToString("\n")
+            return (listOf(header) + lines + listOf("FIRESTORELIST END")).joinToString("\n")
         }
     }
 }

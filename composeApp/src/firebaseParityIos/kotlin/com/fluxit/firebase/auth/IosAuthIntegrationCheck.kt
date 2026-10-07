@@ -13,10 +13,10 @@ import kotlinx.coroutines.launch
 import platform.Foundation.NSUUID
 
 /**
- * FB-103 emulator-backed integration check for the iOS Auth adapter.
+ * emulator-backed integration check for the iOS Auth adapter.
  *
  * Why this exists in the app binary rather than as an XCTest target: this repository has
- * no Xcode test target at all, and FB-008's iOS leg already set the precedent of
+ * no Xcode test target at all, and the iOS leg already set the precedent of
  * evidencing the iOS side by console capture from a real simulator run. Adding and
  * maintaining an XCTest target (plus its own Firebase SPM linkage and signing
  * configuration) for a single suite was judged disproportionate; if the reviewer
@@ -34,7 +34,7 @@ import platform.Foundation.NSUUID
  * Every account it creates is a throwaway with a random UUID local part, in the local
  * emulator, and is signed out at the end.
  */
-// FB-702: this fixture is compiled only with fluxit.parity.enabled=true.
+// This fixture is compiled only with fluxit.parity.enabled=true.
 object IosAuthIntegrationCheck {
 
     private const val PASSWORD = "sw0rdfish!42"
@@ -65,7 +65,7 @@ object IosAuthIntegrationCheck {
             return report.render()
         }
         val repository = IosAuthRepository()
-        val email = "fb103-restore@example.com"
+        val email = "iosauth-restore@example.com"
 
         coroutineScope {
             val emissions = mutableListOf<AuthSession>()
@@ -110,7 +110,7 @@ object IosAuthIntegrationCheck {
     }
 
     /**
-     * Runs every flow FB-103 is accepted on and returns a plain-text report.
+     * Runs every flow is accepted on and returns a plain-text report.
      *
      * Exported to Swift as a completion-handler function; the caller just prints it.
      */
@@ -135,14 +135,14 @@ object IosAuthIntegrationCheck {
             return report.render()
         }
         report.pass("bridge registration", "Swift bridge present")
-        // FB-701: a previously interrupted self-check may have persisted its synthetic
+        // A previously interrupted self-check may have persisted its synthetic
         // credential. Establish the empty-credential fixture before constructing the
         // adapter whose initial Unresolved/restoration behavior is asserted below.
         report.expectSuccess("discard prior emulator fixture credential", IosAuthRepository().signOut())
 
         val repository = IosAuthRepository()
-        val email = "fb103-${NSUUID().UUIDString().lowercase()}@example.com"
-        val unknownEmail = "fb103-absent-${NSUUID().UUIDString().lowercase()}@example.com"
+        val email = "iosauth-${NSUUID().UUIDString().lowercase()}@example.com"
+        val unknownEmail = "iosauth-absent-${NSUUID().UUIDString().lowercase()}@example.com"
 
         coroutineScope {
             val emissions = mutableListOf<AuthSession>()
@@ -219,7 +219,7 @@ object IosAuthIntegrationCheck {
             report.expectError(
                 "signUp with a weak password",
                 AuthError.WeakPassword,
-                repository.signUp("fb103-weak-${NSUUID().UUIDString().lowercase()}@example.com", WEAK_PASSWORD),
+                repository.signUp("iosauth-weak-${NSUUID().UUIDString().lowercase()}@example.com", WEAK_PASSWORD),
             )
             report.expectError(
                 "signIn with a wrong password",
@@ -242,7 +242,7 @@ object IosAuthIntegrationCheck {
                 "session=${emissions.last()}",
             )
 
-            // --- FB-101-NB3 against the real SDK listener -----------------------------
+            // --- against the real SDK listener -----------------------------
             // Two separate proofs, because they fail for different reasons.
             //
             // (1) Directly against the bridge: register a raw listener, confirm a *real*
@@ -345,11 +345,11 @@ object IosAuthIntegrationCheck {
         fun render(): String {
             val failed = failures
             val header = if (failed == 0) {
-                "FB-103 iOS Auth integration check: ALL CHECKS PASSED"
+                "iOS Auth integration check: ALL CHECKS PASSED"
             } else {
-                "FB-103 iOS Auth integration check: $failed CHECK(S) FAILED"
+                "iOS Auth integration check: $failed CHECK(S) FAILED"
             }
-            return (listOf(header) + lines + listOf("FB-103 END")).joinToString("\n")
+            return (listOf(header) + lines + listOf("AUTH END")).joinToString("\n")
         }
     }
 }

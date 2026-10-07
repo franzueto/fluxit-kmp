@@ -7,8 +7,8 @@ and iOS simulator. Shared UI uses system-adaptive light and dark themes.
 The ordinary app binds to Firebase Authentication, Cloud Firestore and Cloud
 Storage through the official Android and Apple SDKs. Room and its bundled SQLite
 dependencies have been removed; Firebase's own persistence and system libraries
-remain. This is a development/source cutover, not a production release. Current
-migration gates and evidence live in [the canonical status](FIREBASE_MIGRATION_STATUS.md).
+remain. This is a development setup, not a production release. How and why the app
+moved to Firebase is summarized in [the migration summary](docs/firebase-migration/SUMMARY.md).
 
 ## Fresh developer setup
 
@@ -19,7 +19,7 @@ migration gates and evidence live in [the canonical status](FIREBASE_MIGRATION_S
    Apple Silicon simulator (`iosSimulatorArm64`). Open `iosApp/iosApp.xcodeproj`;
    the project resolves its pinned Firebase Apple SDK through Swift Package
    Manager on first build. CocoaPods is not required. The supported iOS target is
-   the simulator; physical-device signing/testing is permanently waived by DEC-004.
+   the simulator; physical-device signing/testing is out of scope.
 3. Obtain access to the approved **development** Firebase project. In Firebase
    Console → Project settings → General → Your apps, download configs for these
    exact registered apps into the paths below. If the apps do not exist, the
@@ -36,14 +36,14 @@ migration gates and evidence live in [the canonical status](FIREBASE_MIGRATION_S
    the plist in Copy Bundle Resources. A fresh clone cannot complete those build
    steps until its configs are present. These mobile configs contain project/app
    identifiers, not Admin credentials, but this repository intentionally ignores
-   them in every environment (DEC-002b). Never commit or paste them. See official
+   them in every environment. Never commit or paste them. See official
    [Android setup](https://firebase.google.com/docs/android/setup),
    [Apple setup](https://firebase.google.com/docs/ios/setup) and
    [Console app settings](https://support.google.com/firebase/answer/7000104?hl=en).
 4. For cloud use, the project owner enables Authentication → Sign-in method →
    **Email/Password**, provisions Firestore and Storage, and deploys the reviewed
    owner-only Rules/indexes and scheduled cleanup backend. Use the approved
-   development environment recorded in the tracker; a new project requires that
+   development environment; a new project requires that
    setup before cloud CRUD works. Do not choose permissive test-mode Rules.
    Email-link, anonymous and federated sign-in are not app login flows. See
    [provider setup](https://firebase.google.com/docs/auth/android/password-auth)
@@ -58,9 +58,10 @@ git check-ignore composeApp/google-services.json iosApp/GoogleService-Info.plist
 The committed `.firebaserc` points only to `demo-fluxit`, an emulator placeholder.
 **Every Console-affecting CLI command must pass `--project <id>` explicitly**;
 never rely on that default for deployment or cloud administration. Development
-and production config/deployment are separate concerns. DEC-012 explicitly limits
-closure to development and waives production provisioning (MAN-005). Exact aggregate
-integrity (FB-601-NB1) must be resolved before any later production scope. See [deployment targeting](firebase/README.md#cloud-targeting-and-operations).
+and production config/deployment are separate concerns. Only a development
+environment exists; production provisioning was deliberately left out. Exact aggregate
+counter integrity (see [known limits](docs/firebase-migration/SUMMARY.md#known-limits))
+must be resolved before any production scope. See [deployment targeting](firebase/README.md#cloud-targeting-and-operations).
 
 ## Build and run
 
@@ -131,8 +132,8 @@ retry before another sign-in. Offline persistence remains enabled for normal use
 
 This is logical SDK deletion, not secure disk overwriting or a forensic erasure
 guarantee. It does not delete server documents or already-uploaded photos; orphan
-photos retain the approved backend grace period. See [FB-709 verification](firebase/FB-709-RESULTS.md)
-and [the current tracker](FIREBASE_MIGRATION_STATUS.md).
+photos retain the backend grace period. See the
+[migration summary](docs/firebase-migration/SUMMARY.md) for the policy.
 
 ## Deletes, operations and privacy
 
@@ -142,7 +143,7 @@ clients do not purge expired tombstones on dashboard load. The backend's daily
 with resumable private jobs, and removes orphan photos only after their upload
 age reaches 30 days and no owning active or tombstoned item references them.
 Eligibility is not a guarantee of deletion at exactly 30 days; failed invocations
-or younger photo journals require a later run. See [cleanup details](firebase/README.md#scheduled-cleanup-target-fb-501fb-503).
+or younger photo journals require a later run. See [cleanup details](firebase/README.md#scheduled-cleanup-target).
 
 User data lives in authenticated `users/{uid}` paths. Photos use Storage references,
 not public download URLs. The app adds no Analytics or Crashlytics integration.
@@ -150,7 +151,7 @@ Keep email addresses, document contents, raw logs, reset links, tokens, password
 service-account keys and fixture manifests out of Git and shared reports. Cloud
 deployment logs should use sanitized error categories and cleanup counts. Before
 production, resolve budget alerts, backup/export policy and the outstanding exact
-aggregate counter architecture decision (FB-601-NB1); current Rules bound counter
+aggregate counter architecture decision; current Rules bound counter
 types/ranges/direction but do not prove exact totals for a malicious owner.
 
 ## Clean-cut reinstall
@@ -178,7 +179,8 @@ are not evidence that a literal reinstall/manual picker gesture was tested.
 These are shared/platform unit tests, not live Firebase integration checks.
 [Firebase verification tiers](firebase/README.md#verification-tiers) cover Rules,
 backend, Android instrumentation and opt-in iOS runners, including prerequisites
-and evidence limits. Final migration verification is owned by FB-706.
+and evidence limits. Pull requests to `main` run the Android unit tests, the Rules tests
+and the Cloud Functions tests in `.github/workflows/ci.yml`.
 
 - `commonMain`: backend-neutral models/contracts, mapping/validation, auth gate,
   ViewModels, Navigation 3 and Compose UI; no Firebase SDK types.
@@ -193,4 +195,4 @@ and evidence limits. Final migration verification is owned by FB-706.
 
 Stack: Compose Multiplatform Material 3, MVVM/StateFlow, Koin, Navigation 3,
 kotlinx-datetime, Kotlin UUID, Firebase Auth/Firestore/Storage. Camera capture,
-reminders/notifications, calendar/starred tabs and CI/Fastlane are outside this scope.
+reminders/notifications, calendar/starred tabs and Fastlane are outside this scope.

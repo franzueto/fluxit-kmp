@@ -10,7 +10,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * FB-202 tests for the Firestore SDK error mapping.
+ * tests for the Firestore SDK error mapping.
  *
  * Instrumented rather than a JVM unit test: [FirebaseFirestoreException.Code]'s static
  * initializer touches `android.util.SparseArray`
@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
  *
  * Guards two things: every [FirebaseFirestoreException.Code] the SDK can report
  * resolves to *some* neutral [BackendErrorCode] (never crashes on an unmapped case),
- * and the codes this repository documents behaviour for map exactly where FB-201's
+ * and the codes this repository documents behaviour for map exactly where the
  * naming implies they should.
  */
 @RunWith(AndroidJUnit4::class)

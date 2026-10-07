@@ -43,18 +43,18 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * `FB-408` live, real-emulator reproduction of `FB-405`'s headline finding (a terminal Firestore
+ * live, real-emulator reproduction of the headline finding (a terminal Firestore
  * listener error - `PERMISSION_DENIED` - crashing the app process because
  * [DashboardViewModel.listLoadState]'s `combine(...)` had no `.catch`) and this task's fix.
  *
  * This is the same crash mechanism [DashboardViewModelEmulatorIntegrationTest]'s KDoc already
- * documents as live-reproduced during `FB-405`'s development ("an earlier version of this test
+ * documents as live-reproduced during the development ("an earlier version of this test
  * ... crashed the real instrumented-test app process ... real TestRunner/logcat evidence:
  * `Process: com.fluxit ... FATAL EXCEPTION ... RepositoryException ...
  * Dispatchers.Main.immediate`") - that file deliberately does not keep a crashing test in its own
  * suite (a crash there would poison every other instrumented test's run). This file exists
  * specifically to reproduce that same crash live, on demand, against the real Auth+Firestore
- * emulator pair, for `FB-408`'s pre-fix/post-fix acceptance evidence - it must only ever be run
+ * emulator pair, for the pre-fix/post-fix acceptance evidence - it must only ever be run
  * on its own (`--tests` filtered to this class), never as part of the full
  * `connectedDebugAndroidTest` suite, for exactly that reason when exercising the pre-fix path.
  *
@@ -63,14 +63,14 @@ import org.junit.runner.RunWith
  * the one actually signed in. Under this repo's owner-only Firestore Rules
  * (`request.auth.uid == uid`), `observeListSummariesSnapshot()`'s `addSnapshotListener` then
  * receives a genuine `PERMISSION_DENIED` from the real Firestore emulator and calls
- * `close(error.toRepositoryException())` - exactly `FB-405`'s headline finding's trigger,
+ * `close(error.toRepositoryException)` - exactly the headline finding's trigger,
  * live.
  *
- * **Pre-fix / post-fix usage (see the `FB-408` developer report for the exact commands run):**
- * run [crossUidObservationEitherCrashesOrSurfacesFatalSession] once against the pre-`FB-408`
+ * **Pre-fix / post-fix usage:**
+ * run [crossUidObservationEitherCrashesOrSurfacesFatalSession] once against the pre-fix
  * `DashboardViewModel.kt` (no `.catch`) with logcat capturing, which is expected to fail this
  * test process with an uncaught `RepositoryException`/`FATAL EXCEPTION`; then run it again
- * against the post-`FB-408` `DashboardViewModel.kt` (with `.catch`), which is expected to pass,
+ * against the post-fix `DashboardViewModel.kt` (with `.catch`), which is expected to pass,
  * with [DashboardUiState.loadState] observed as [ScreenLoadState.FatalSession].
  */
 @RunWith(AndroidJUnit4::class)
@@ -89,8 +89,8 @@ class DashboardViewModelListenerCrashInstrumentedTest {
             ?: FirebaseApp.initializeApp(
                 context,
                 FirebaseOptions.Builder()
-                    .setApiKey("fb408-instrumented-test-key")
-                    .setApplicationId("1:0:android:fb408")
+                    .setApiKey("listenercrash-instrumented-test-key")
+                    .setApplicationId("1:0:android:listenercrash")
                     .setProjectId("demo-fluxit")
                     .build(),
                 APP_NAME,
@@ -130,7 +130,7 @@ class DashboardViewModelListenerCrashInstrumentedTest {
         override suspend fun signOut(): AuthResult = AuthResult.Success
     }
 
-    /** `FB-408` acceptance evidence - see this class's KDoc for the pre-fix/post-fix run
+    /** acceptance evidence - see this class's KDoc for the pre-fix/post-fix run
      * instructions. Named to describe the *post-fix* expectation (the state this test asserts),
      * since a test cannot assert its own pre-fix crash - the crash itself, and the logcat
      * `FATAL EXCEPTION` it produces, is the pre-fix evidence, captured out-of-band. */
@@ -176,7 +176,7 @@ class DashboardViewModelListenerCrashInstrumentedTest {
         return vm.uiState.value
     }
 
-    private fun uniqueEmail(): String = "fb408-dashboard-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(): String = "listenercrash-dashboard-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -184,9 +184,9 @@ class DashboardViewModelListenerCrashInstrumentedTest {
     }
 
     private companion object {
-        const val APP_NAME = "fb408-dashboard-instrumented-test"
+        const val APP_NAME = "listenercrash-dashboard-instrumented-test"
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb408-emulator-only"
+        const val PASSWORD = "listenercrash-emulator-only"
         const val TIMEOUT_MS = 20_000L
         const val POLL_INTERVAL_MS = 100L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"

@@ -13,7 +13,7 @@ import { securitySuite } from './suite.js';
 const require = createRequire(resolve(root, 'functions/package.json'));
 const { initializeApp: initializeAdmin, deleteApp: deleteAdmin } = require('firebase-admin/app');
 const { getAuth: adminAuth } = require('firebase-admin/auth');
-const manifestPath = resolve(root, 'firebase.fb604-run.json'); // covered by firebase.*.json ignore
+const manifestPath = resolve(root, 'firebase.secsuite-run.json'); // covered by firebase.*.json ignore
 const args = process.argv.slice(2);
 let phase = 'configuration';
 let passed = 0;
@@ -32,7 +32,7 @@ function validateManifest(value) {
   if (value.version !== 1 || !/^[a-f0-9-]{36}$/.test(value.runId) || value.environment !== (emulator ? 'emulator' : 'development') ||
     value.projectId !== config.projectId || value.storageBucket !== config.storageBucket || value.users.length !== 2) throw new Error('INVALID_MANIFEST');
   for (const [i, user] of value.users.entries()) {
-    if (user.uid !== `fb604-${value.runId}-${i}` || user.email !== `fb604-${value.runId}-${i}@example.com`) throw new Error('INVALID_MANIFEST_OWNER');
+    if (user.uid !== `secsuite-${value.runId}-${i}` || user.email !== `secsuite-${value.runId}-${i}@example.com`) throw new Error('INVALID_MANIFEST_OWNER');
   }
   for (const photo of value.photos) {
     if (!value.users.some((u) => u.uid === photo.uid) || !photo.path.startsWith(`users/${photo.uid}/`) ||
@@ -40,7 +40,7 @@ function validateManifest(value) {
   }
 }
 async function client(name, user, password) {
-  const app = initializeApp(config, `fb604-${name}-${randomUUID()}`);
+  const app = initializeApp(config, `secsuite-${name}-${randomUUID()}`);
   const auth = getAuth(app), db = getFirestore(app), storage = getStorage(app);
   clients.push({ app, auth, db, storage });
   if (emulator) {
@@ -106,7 +106,7 @@ try {
   if (process.versions.node.split('.')[0] !== '22') throw new Error('NODE22_REQUIRED');
   if (emulator) {
     if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST || !process.env.FIREBASE_STORAGE_EMULATOR_HOST) throw new Error('EMULATORS_REQUIRED');
-    config = { projectId: 'demo-fluxit', storageBucket: 'demo-fluxit.appspot.com', apiKey: 'fb604-emulator-only' };
+    config = { projectId: 'demo-fluxit', storageBucket: 'demo-fluxit.appspot.com', apiKey: 'secsuite-emulator-only' };
     token = 'owner';
   } else {
     if (!args.includes('--development') || (!recovery && !args.includes('--execute'))) throw new Error('EXPLICIT_DEVELOPMENT_EXECUTION_REQUIRED');
@@ -116,7 +116,7 @@ try {
     phase = 'read-only admin permissions';
     token = await preflight(config);
   }
-  adminApp = initializeAdmin({ projectId: config.projectId, credential: { getAccessToken: async () => ({ access_token: token, expires_in: 3600 }) } }, `fb604-admin-${randomUUID()}`);
+  adminApp = initializeAdmin({ projectId: config.projectId, credential: { getAccessToken: async () => ({ access_token: token, expires_in: 3600 }) } }, `secsuite-admin-${randomUUID()}`);
   setLogLevel('silent');
   if (recovery) {
     phase = 'recovery cleanup';
@@ -125,8 +125,8 @@ try {
     if (existsSync(manifestPath)) throw new Error('EXISTING_MANIFEST_RUN_CLEANUP_FIRST');
     const runId = randomUUID();
     manifest = { version: 1, runId, environment: emulator ? 'emulator' : 'development', projectId: config.projectId,
-      storageBucket: config.storageBucket, users: [0, 1].map((i) => ({ uid: `fb604-${runId}-${i}`,
-        email: `fb604-${runId}-${i}@example.com` })), photos: [] };
+      storageBucket: config.storageBucket, users: [0, 1].map((i) => ({ uid: `secsuite-${runId}-${i}`,
+        email: `secsuite-${runId}-${i}@example.com` })), photos: [] };
     // Ensure identities do not exist before recording any intent. Never reclaim an existing UID.
     for (const user of manifest.users) if (await ownedAccount(user)) throw new Error('SYNTHETIC_UID_COLLISION');
     save(); cleanupArmed = true;

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Self-contained Firebase emulator + Security Rules tests for FluxIt (FB-005). Not wired into the Gradle/KMP build.",
+  "description": "Self-contained Firebase emulator + Security Rules tests for FluxIt. Not wired into the Gradle/KMP build.",
   "scripts": {
     "emulators": "firebase --config ../firebase.json --project demo-fluxit emulators:start --only auth,firestore,storage",
     "check": "node --test test/config.test.js",

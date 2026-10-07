@@ -257,7 +257,7 @@ fun ItemDetailScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                // FB-306: loading/progress state, shown for both a replace (isPickingPhoto)
+                // Loading/progress state, shown for both a replace (isPickingPhoto)
                 // and a remove (isRemovingPhoto) - overlaid on top of whatever preview (old
                 // photo, if any) is currently showing, so the old photo stays visible while
                 // its replacement/removal is in flight rather than flashing to a blank state.
@@ -356,7 +356,7 @@ fun ItemDetailScreen(
 }
 
 /**
- * `FB-306`: shown in place of the "Remove photo" affordance whenever
+ * Shown in place of the "Remove photo" affordance whenever
  * [ItemDetailUiState.photoOperationFailed] is non-null - a failed replace or remove, with a
  * message scoped to which operation failed (see [PhotoOperationKind]) and Retry/Dismiss
  * actions wired to [ItemDetailViewModel.retryPhotoOperation]/

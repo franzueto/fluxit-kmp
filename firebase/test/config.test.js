@@ -1,4 +1,4 @@
-// FB-603: emulator success cannot prove index coverage. Check the deployment
+// Emulator success cannot prove index coverage. Check the deployment
 // contract separately, including the Phase 5 collection-group overrides.
 import test from 'node:test';
 import assert from 'node:assert/strict';

@@ -24,7 +24,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** FB-710 shared-container regression on the Apple target (Compose runs the same commonMain code). */
+/** shared-container regression on the Apple target (Compose runs the same commonMain code). */
 @OptIn(ExperimentalTestApi::class)
 class SwipeToDeleteContainerIosTest {
     @Test

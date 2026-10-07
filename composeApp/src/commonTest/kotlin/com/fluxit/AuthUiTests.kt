@@ -35,7 +35,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * FB-104 unit coverage for the root session gate.
+ * unit coverage for the root session gate.
  *
  * The acceptance criterion ("no user-scoped listener starts before session resolution")
  * is ultimately structural - `AppNavHost` is composed only from the gate's `Ready`
@@ -43,7 +43,7 @@ import kotlinx.coroutines.test.setMain
  * pin down is the part that *can* be machine-checked: that the gate never reports
  * `allowsUserScopedWork` before resolution, never collapses `Unresolved` into
  * `SignedOut`, and offers a recovery path that actually works for the failure mode
- * FB-102-NB2 describes.
+ * describes.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionGateViewModelTest {
@@ -146,7 +146,7 @@ class SessionGateViewModelTest {
     }
 
     /**
-     * The FB-102-NB2 case, and the reason the failure screen has two buttons.
+     * The case, and the reason the failure screen has two buttons.
      *
      * [StuckSessionAuthRepository] reproduces what both real adapters do: a revoked
      * credential fails resolution, and `restoreSession()` does **not** sign out, so the
@@ -183,7 +183,7 @@ class SessionGateViewModelTest {
     }
 
     /**
-     * FB-104-B1 regression test. Fails against the pre-fix gate.
+     * regression test. Fails against the pre-fix gate.
      *
      * [OptimisticRestoreAuthRepository] reproduces what both real adapters do on a cold
      * start with a persisted credential: collecting `session` registers an SDK auth-state
@@ -455,7 +455,7 @@ class AuthViewModelTest {
 }
 
 /**
- * A test double that reproduces the FB-102-NB2 failure mode faithfully.
+ * A test double that reproduces the failure mode faithfully.
  *
  * Deliberately separate from [FakeAuthRepository], which consumes its injected failure
  * after one call and therefore cannot express "resolution keeps failing until the
@@ -495,7 +495,7 @@ private class StuckSessionAuthRepository : AuthRepository {
 }
 
 /**
- * Reproduces the FB-104-B1 cold-start race between the SDK auth-state listener and
+ * Reproduces the cold-start race between the SDK auth-state listener and
  * server-side session validation.
  *
  * Collecting [session] immediately reports a locally cached credential, exactly as both

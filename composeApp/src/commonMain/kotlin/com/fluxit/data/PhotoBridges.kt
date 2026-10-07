@@ -16,22 +16,22 @@ sealed interface PhotoContent {
 
 /**
  * Firebase-neutral contract for the durable, remote-object-backed photo store behind an
- * item's `photoRef` (`com.fluxit.data.remote.FirebaseSchema.photoRef`, PLAN-005/PLAN-006/
- * PLAN-007). No Firebase SDK type may appear here or anywhere else in `commonMain`; platform
+ * item's `photoRef` (`com.fluxit.data.remote.FirebaseSchema.photoRef`, an exact-depth path with
+ * no `listId` segment). No Firebase SDK type may appear here or anywhere else in `commonMain`; platform
  * adapters (`AndroidPhotoStorage`/`IosPhotoStorage`) are the only place allowed to depend on
  * a concrete backing store. Both adapters upload/download/delete through Firebase Cloud
  * Storage. Image validation/resize/compression runs before upload via [preparePhotoForUpload].
  *
- * ### `photoRef` shape (PLAN-006)
+ * ### `photoRef` shape
  * [uploadPhoto] returns a `photoRef` built by `FirebaseSchema.photoRef`: exactly
  * `users/{uid}/items/{itemId}/{photoId}` - three fixed segments, no recursive wildcard, and
  * `photoId` never contains `/` (see [newPhotoId]). [loadPhoto]/[deletePhoto] take that exact
  * string back unmodified; neither of them constructs or parses it.
  *
- * ### Orphan-reconciliation contract (PLAN-007; backend sweep in `FB-502`/`FB-503`)
+ * ### Orphan-reconciliation contract (the backend sweep)
  * Storage photo paths carry no `listId`, so the backend sweep can only key eligibility on
  * `itemId` (`FirebaseSchema.itemIdFromPhotoRef`). This interface must never do anything that
- * would make that keying, or `DEC-003e`/`DEC-003e-2`'s 30-day-grace-period /
+ * would make that keying, or the sweep's 30-day grace period and
  * tombstone-still-referenced rule, impossible later:
  *  - [uploadPhoto] must never encode a `listId` anywhere in the returned ref.
  *  - Nothing in this interface deletes an object except an explicit [deletePhoto] call - in
@@ -54,7 +54,7 @@ sealed interface PhotoContent {
  *    new was ever created, so nothing is orphaned.
  *  - **Document-write failure (step 2):** the item still references the old, still-loadable
  *    photo. The newly uploaded object is real but unreferenced - not a bug, exactly the kind
- *    of object `DEC-003e`'s grace-period sweep exists to reclaim later.
+ *    of object the orphan-photo sweep grace-period sweep exists to reclaim later.
  *  - **Delete failure (step 3):** the item already, correctly, references the new photo. The
  *    old object is merely leaked (again, sweep-reclaimable) - never treated as a reason to
  *    fail the whole replace, since the state that matters (what the item points at) is
@@ -70,7 +70,7 @@ interface PhotoStorage {
      * object, including a previous photo for the same item - so the safe-replace ordering
      * documented above is achievable by construction, not by caller discipline alone.
      *
-     * `FB-403`: any storage failure - other than [loadPhoto]/[deletePhoto]'s documented "missing
+     * Any storage failure - other than [loadPhoto]/[deletePhoto]'s documented "missing
      * object" no-throw case - is surfaced as [PhotoStorageException], never a raw
      * platform/Firebase SDK exception instance. See [PhotoStorageException]'s own KDoc.
      *
@@ -85,7 +85,7 @@ interface PhotoStorage {
 
     /**
      * Resolves [photoRef] to renderable [PhotoContent], or `null` if it does not exist or is
-     * not accessible. Any other failure is surfaced as [PhotoStorageException] (`FB-403`).
+     * not accessible. Any other failure is surfaced as [PhotoStorageException].
      */
     suspend fun loadPhoto(photoRef: String): PhotoContent?
 
@@ -93,16 +93,16 @@ interface PhotoStorage {
      * Deletes the object at [photoRef]. MUST be idempotent: deleting an already-missing
      * object is not an error, since a retried/duplicate delete call (e.g. from a client that
      * failed to observe an earlier call's success) is expected, not exceptional. Any other
-     * failure is surfaced as [PhotoStorageException] (`FB-403`).
+     * failure is surfaced as [PhotoStorageException].
      */
     suspend fun deletePhoto(photoRef: String)
 }
 
 /**
- * `FB-403`: thrown by both platforms' [PhotoStorage] adapters (`AndroidPhotoStorage`,
+ * Thrown by both platforms' [PhotoStorage] adapters (`AndroidPhotoStorage`,
  * `IosPhotoStorage`) instead of ever letting a raw platform/Firebase SDK exception instance
- * cross into `commonMain`-visible code - discharges the remainder of `FB-305-NB2` and closes
- * `FB-401-NB1`/`FB-401-NB2`. `FB-401` already gave both platforms' Storage SDK exception types
+ * cross into `commonMain`-visible code - discharges the remainder of and closes
+ *. already gave both platforms' Storage SDK exception types
  * a neutral `.toApplicationError()` mapping (`AndroidFirebaseStorageErrorMapping.kt`,
  * `IosFirebaseStorageErrorMapping.kt`) but left it unused at any real call site; this type is
  * what each adapter now wraps that mapped [ApplicationError] in before throwing, so a
@@ -129,7 +129,7 @@ class PhotoStorageException(val error: ApplicationError) : Exception()
  *  - **A random v4 UUID** costs one extra object per replace - already implied by the
  *    ordering above regardless of id strategy - but has a collision probability low enough
  *    to ignore in practice, is guaranteed never to contain `/` by construction (satisfies
- *    PLAN-006 without needing to escape/validate arbitrary input), and needs no coordination
+ *    the exact-depth photoRef shape without needing to escape/validate arbitrary input), and needs no coordination
  *    or shared counter state across devices.
  */
 fun newPhotoId(): String = newId()

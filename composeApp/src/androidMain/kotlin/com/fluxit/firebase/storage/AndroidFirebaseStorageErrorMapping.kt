@@ -8,12 +8,12 @@ import com.fluxit.data.remote.toRepositoryError
 import com.google.firebase.storage.StorageException
 
 /**
- * `FB-401` discharges `FB-305-NB2` on Android: gives `com.google.firebase.storage.StorageException`
- * (the type `com.fluxit.data.AndroidPhotoStorage` already lets propagate unchanged - `FB-304`,
+ * discharges on Android: gives `com.google.firebase.storage.StorageException`
+ * (the type `com.fluxit.data.AndroidPhotoStorage` already lets propagate unchanged -,
  * proven and out of this task's scope to touch) a neutral `ApplicationError` mapping, the exact
  * counterpart of iOS's `PhotoStorageIosException.toApplicationError()`
  * (`IosFirebaseStorageErrorMapping.kt`). `AndroidPhotoStorage` itself is not changed by this
- * file - a caller that *does* want the neutral form (`FB-403`) can get one from here without
+ * file - a caller that *does* want the neutral form can get one from here without
  * inventing a second taxonomy.
  *
  * Maps a Firebase Storage SDK error code ([StorageException.getErrorCode]) onto the same
@@ -44,6 +44,6 @@ internal fun Int.toStorageBackendErrorCode(): BackendErrorCode = when (this) {
     else -> BackendErrorCode.UNKNOWN
 }
 
-/** Maps [this] to FB-201's neutral [ApplicationError]. */
+/** Maps [this] to the neutral [ApplicationError]. */
 internal fun StorageException.toApplicationError(): ApplicationError =
     errorCode.toStorageBackendErrorCode().toRepositoryError().toApplicationError()

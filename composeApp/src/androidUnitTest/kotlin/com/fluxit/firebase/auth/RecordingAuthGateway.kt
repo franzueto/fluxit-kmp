@@ -6,7 +6,7 @@ import com.fluxit.domain.auth.AuthUser
 /**
  * Double for [FirebaseAuthGateway] that records listener registration/removal.
  *
- * The recording is the point: it is what makes FB-101-NB3 ("cancelling the collector
+ * The recording is the point: it is what makes ("cancelling the collector
  * releases the underlying listener") an assertion instead of a promise. A
  * `MutableStateFlow`-backed fake such as the one in `commonTest` cannot express it,
  * because it has no listener to release.

@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 
 /**
- * Which session the currently composed UI belongs to (FB-105).
+ * Which session the currently composed UI belongs to.
  *
  * There are exactly two: the signed-out shell, and one specific signed-in user. They are
  * modelled as distinct values rather than as "uid or null" so that "user A" and "user B"
@@ -32,11 +32,11 @@ fun SessionGateState.sessionScope(): SessionScope = when (this) {
 
 /**
  * Owns the [ViewModelStore] for the active [SessionScope], and destroys the previous
- * one the moment the scope changes (FB-105).
+ * one the moment the scope changes.
  *
  * ## Why this exists: `key(uid)` alone does not do it
  *
- * FB-104 wrapped the navigation subtree in `key(state.user.uid)`, on the assumption that
+ * wrapped the navigation subtree in `key(state.user.uid)`, on the assumption that
  * a change of user would tear down that subtree's `ViewModelStore` along with its
  * composition. Reading the actual Navigation3 sources (`ViewModelStoreNavEntryDecorator`
  * and `DecoratedNavEntries`, both `1.1.1`/`2.10.0`) shows it does not:

@@ -14,12 +14,12 @@ import kotlinx.coroutines.flow.Flow
  * - Interactive operations report failures through [AuthResult] and do not move the
  *   session into [AuthSession.ResolutionFailed]; a wrong password leaves the user
  *   signed out, it does not break session resolution.
- * - Only email + password is modelled (DEC-001). There is no provider argument and no
+ * - Only email + password is modelled. There is no provider argument and no
  *   account linking, but nothing here forecloses adding a provider later: that would be
  *   an additive change to this interface.
  * - Every operation is a `suspend` function over immutable, platform-neutral values, so
  *   an implementation may complete it from another runtime (for example an iOS `actual`
- *   that delegates to Swift and resumes on a completion handler, per PLAN-008).
+ *   that delegates to Swift and resumes on a completion handler, because Firebase code on iOS lives in Swift).
  */
 interface AuthRepository {
 
@@ -47,7 +47,7 @@ interface AuthRepository {
     suspend fun signIn(email: String, password: String): AuthResult
 
     /**
-     * Triggers the provider's password-recovery email (DEC-001: built-in password
+     * Triggers the provider's password-recovery email (the provider's built-in password
      * reset). Does not change the session.
      */
     suspend fun sendPasswordResetEmail(email: String): AuthResult
@@ -57,7 +57,7 @@ interface AuthRepository {
      *
      * This is a suspending operation because implementations are additionally
      * responsible for tearing down user-scoped state and clearing the backend's local
-     * persistent cache (DEC-003a); callers must not assume it is instantaneous, and
+     * persistent cache; callers must not assume it is instantaneous, and
      * must not assume any cached user data survives it.
      */
     suspend fun signOut(): AuthResult

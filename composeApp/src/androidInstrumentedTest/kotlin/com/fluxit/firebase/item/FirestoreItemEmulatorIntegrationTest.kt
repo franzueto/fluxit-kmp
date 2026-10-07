@@ -43,9 +43,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * FB-204 Android integration checks: the real Firebase Android Firestore SDK, driven
+ * Android integration checks: the real Firebase Android Firestore SDK, driven
  * through [AndroidFirebaseItemRepository], against a real Firestore emulator - the same
- * emulator [com.fluxit.firebase.list.FirestoreListEmulatorIntegrationTest] (FB-202)
+ * emulator [com.fluxit.firebase.list.FirestoreListEmulatorIntegrationTest]
  * exercises, reused rather than re-provisioned.
  *
  * Every document this suite writes lives only in the emulator's in-memory store.
@@ -53,9 +53,9 @@ import org.junit.runner.RunWith
  *
  * A list document is bootstrapped directly (not through
  * [com.fluxit.firebase.list.AndroidFirebaseListRepository]) so this file stays a
- * self-contained FB-204 artifact rather than depending on FB-202's class for setup;
+ * self-contained artifact rather than depending on the class for setup;
  * the fields written are exactly what [AndroidFirebaseItemRepository]'s counter
- * transactions read/write (`totalItems`/`completedItems`), proven correct by FB-202's
+ * transactions read/write (`totalItems`/`completedItems`), proven correct by the
  * own suite already.
  *
  * Prerequisites: same Auth+Firestore emulators as
@@ -81,8 +81,8 @@ class FirestoreItemEmulatorIntegrationTest {
                 FirebaseOptions.Builder()
                     // Throwaway values: both emulators accept any key/app id, and a
                     // `demo-` project id can never resolve to a real Firebase project.
-                    .setApiKey("fb204-instrumented-test-key")
-                    .setApplicationId("1:0:android:fb204")
+                    .setApiKey("itememu-instrumented-test-key")
+                    .setApplicationId("1:0:android:itememu")
                     .setProjectId("demo-fluxit")
                     .build(),
                 APP_NAME,
@@ -179,7 +179,7 @@ class FirestoreItemEmulatorIntegrationTest {
         assertNull(afterDelete)
     }
 
-    // --- field-scoped mutation (DEC-003d), no counter involvement ---------------------
+    // --- field-scoped mutation, no counter involvement ---------------------
 
     @Test
     fun updateItemPatchesOnlyItsOwnFieldsAndNeverTouchesCounters(): Unit = runBlocking {
@@ -504,7 +504,7 @@ class FirestoreItemEmulatorIntegrationTest {
      * Bootstraps a bare list document with the exact fields
      * [AndroidFirebaseItemRepository]'s counter transactions read/write. Deliberately not
      * routed through [com.fluxit.firebase.list.AndroidFirebaseListRepository] so this
-     * file has no FB-202 dependency; that repository's own creation correctness is
+     * file has no dependency; that repository's own creation correctness is
      * already proven by its own suite.
      */
     private suspend fun bootstrapList(): String {
@@ -525,7 +525,7 @@ class FirestoreItemEmulatorIntegrationTest {
         return id
     }
 
-    private fun uniqueEmail(): String = "fb204-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(): String = "itememu-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -533,9 +533,9 @@ class FirestoreItemEmulatorIntegrationTest {
     }
 
     private companion object {
-        const val APP_NAME = "fb204-instrumented-test"
+        const val APP_NAME = "itememu-instrumented-test"
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb204-emulator-only"
+        const val PASSWORD = "itememu-emulator-only"
         const val TIMEOUT_MS = 30_000L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"
 

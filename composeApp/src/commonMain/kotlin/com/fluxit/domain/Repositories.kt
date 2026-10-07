@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * `FB-404`: freshness metadata accompanying a repository observation.
+ * Freshness metadata accompanying a repository observation.
  *
  * Carries Firestore's real cache/pending-write signal - `DocumentSnapshot.metadata` on
  * Android (`isFromCache`, `hasPendingWrites()`), `FIRDocumentSnapshot.metadata` on iOS
@@ -15,26 +15,22 @@ import kotlinx.coroutines.flow.map
  * the network listener has attached). [hasPendingWrites] is true when [value] reflects at
  * least one local write this client made that the server has not yet acknowledged.
  *
- * **`FB-404` disclosed judgment call - the repository-contract widening itself:** this is
- * the first change to [ListRepository]/[ItemRepository]'s shape since `FB-204`/`FB-205`
- * landed the Firestore adapters. Rather than changing [ListRepository.observeListSummaries]/
+ * **Why the contract is widened rather than changed:** rather than changing
+ * [ListRepository.observeListSummaries]/
  * [ItemRepository.observeItems]'s existing return type (which would force every
  * implementer - both Firestore adapters on both
- * platforms, and every test double - to change in lockstep), this task adds *parallel*
+ * platforms, and every test double - to change in lockstep), the repositories add *parallel*
  * `*Snapshot()` methods that return this type, each with a default body (see
  * [ListRepository.observeListSummariesSnapshot]/[ItemRepository.observeItemsSnapshot]) that
  * reports every emission as fresh (`isFromCache = false`, `hasPendingWrites = false`) by
  * re-wrapping the existing plain [Flow]. That default is what keeps every existing
  * implementer compiling unchanged.
  *
- * **`FB-404` disclosed judgment call - how far the real signal is wired:** this task
- * delivers the neutral contract, [com.fluxit.feature.dashboard.DashboardViewModel]'s and
- * [com.fluxit.feature.listdetail.ListDetailViewModel]'s consumption of it, and full
- * fake-repository-driven test coverage of every resulting UI state (the task's stated
- * acceptance criterion). It deliberately does **not** wire the real Android/iOS Firestore
- * adapters to report the real SDK signal in this pass - see `FB-407` below for that.
+ * [com.fluxit.feature.dashboard.DashboardViewModel] and
+ * [com.fluxit.feature.listdetail.ListDetailViewModel] consume this type, and fake-repository
+ * tests cover every resulting UI state.
  *
- * **`FB-407` update:** all four real adapters now override the `*Snapshot()` methods
+ * **Real adapters:** all four real adapters override the `*Snapshot` methods
  * with the genuine SDK signal instead of inheriting this default - `AndroidFirebaseListRepository`/
  * `AndroidFirebaseItemRepository` via a second `MetadataChanges.INCLUDE`-registered
  * listener reading `QuerySnapshot.metadata`, and `IosFirebaseListRepository`/
@@ -57,7 +53,7 @@ interface ListRepository {
     fun observeListSummaries(): Flow<List<FluxListSummary>>
 
     /**
-     * `FB-404`: same stream as [observeListSummaries], additionally carrying
+     * Same stream as [observeListSummaries], additionally carrying
      * [RepositorySnapshot] metadata - see that type's KDoc for why this is a parallel method
      * rather than a changed [observeListSummaries] signature, and for exactly how much of the
      * real Firestore signal is wired up by this task.
@@ -76,7 +72,7 @@ interface ListRepository {
 interface ItemRepository {
     fun observeItems(listId: String): Flow<List<FluxItem>>
 
-    /** `FB-404`: see [ListRepository.observeListSummariesSnapshot]'s KDoc - identical shape,
+    /** See [ListRepository.observeListSummariesSnapshot]'s KDoc - identical shape,
      * identical disclosed judgment call, scoped to items instead of lists. */
     fun observeItemsSnapshot(listId: String): Flow<RepositorySnapshot<List<FluxItem>>> =
         observeItems(listId).map { RepositorySnapshot(it, isFromCache = false, hasPendingWrites = false) }

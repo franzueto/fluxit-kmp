@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import platform.Foundation.NSError
 
 /**
- * FB-203 mapping table tests for the Firestore side of the boundary - the iOS
+ * mapping table tests for the Firestore side of the boundary - the iOS
  * counterpart of Android's `FirestoreErrorMappingTest`.
  *
  * These raw `FIRFirestoreErrorCode` values are gRPC status codes, the same ones

@@ -107,16 +107,16 @@ class IosPhotoPicker : PhotoPicker {
 }
 
 /**
- * Real Cloud Storage-backed [PhotoStorage] (`FB-305`). Every object is addressed by the exact `photoRef` string
+ * Real Cloud Storage-backed [PhotoStorage]. Every object is addressed by the exact `photoRef` string
  * [FirebaseSchema.photoRef] already produces (`users/{uid}/items/{itemId}/{photoId}`) -
  * this class never constructs or parses that shape itself, matching the contract's
- * documented boundary. The deployed owner-only `storage.rules` (`FB-005`) gate every call
+ * documented boundary. The deployed owner-only `storage.rules` gate every call
  * below; this class does not, and must not, work around them.
  *
  * Uid resolution reuses [CurrentUidProvider]/[IosAuthBridgeCurrentUidProvider] exactly as
  * `IosFirebaseItemRepository` does for Firestore paths - resolved fresh per call, never
  * cached, same Phase 1 constraint. The Firebase call itself never reaches this file: per
- * PLAN-008 the `FirebaseStorage` SPM target is not cinterop-reachable from `iosMain` (see
+ * the iOS rule that Firebase code lives in Swift, the `FirebaseStorage` SPM target is not cinterop-reachable from `iosMain` (see
  * `FirebaseBootstrap.swift`'s KDoc), so every actual SDK call lives in
  * `iosApp/iosApp/FirebaseStorageBridge.swift` behind [IosFirebaseStorageBridge] - mirroring
  * exactly how `IosFirebaseItemRepository`/`IosFirebaseListRepository`/`IosAuthRepository`
@@ -131,15 +131,15 @@ class IosPhotoPicker : PhotoPicker {
  * ([com.fluxit.firebase.storage.isStorageObjectNotFound]) as the documented "missing
  * object" case ([PhotoStorage.loadPhoto] returns `null`; [PhotoStorage.deletePhoto] is a
  * silent no-op) rather than letting it escape as a thrown exception - any other failure
- * (e.g. a genuine Rules denial) still propagates, but (`FB-403`) as [PhotoStorageException]
+ * (e.g. a genuine Rules denial) still propagates, but as [PhotoStorageException]
  * (via the already-tested
  * `com.fluxit.firebase.storage.PhotoStorageIosException.toApplicationError()` mapping,
- * `FB-401`), never the raw [com.fluxit.firebase.storage.PhotoStorageIosException]/[NSError]
- * instance - discharging the remainder of `FB-305-NB2`/`FB-401-NB1`/`FB-401-NB2`. [uploadPhoto]
+ * ), never the raw [com.fluxit.firebase.storage.PhotoStorageIosException]/[NSError]
+ * instance. [uploadPhoto]
  * deliberately swallows nothing: a failed upload must propagate so `replacePhoto`'s safe-replace
- * ordering (`PhotoBridges.kt`, unmodified by this task) leaves the old photo untouched, per its
+ * ordering (`PhotoBridges.kt`) leaves the old photo untouched, per its
  * documented failure semantics - mirrors `AndroidPhotoStorage.uploadPhoto` exactly.
- * FB-602 sends MIME metadata derived from the validated bytes through the Swift bridge;
+ * sends MIME metadata derived from the validated bytes through the Swift bridge;
  * generated photo IDs have no extension from which the Storage SDK can infer a type.
  */
 class IosPhotoStorage(
@@ -220,7 +220,7 @@ class IosPhotoStorage(
 }
 
 /**
- * Builds an [NSData] view over [this] array's bytes, the same conversion the `FB-302` local-
+ * Builds an [NSData] view over [this] array's bytes, the same conversion the local-
  * file stub used to persist bytes to disk - reused unmodified as the wire type
  * [IosFirebaseStorageBridge.uploadData] crosses to Swift. `internal` (not `private`) so
  * `IosPhotoStorageIntegrationCheck` (parity-only) can reuse it for its raw,

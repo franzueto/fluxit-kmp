@@ -10,23 +10,23 @@ Firestore, Storage, reviewed Rules/indexes and scheduled cleanup must be configu
 by the project owner for cloud use. Mobile config downloads are not Admin keys;
 repository policy still prohibits committing them.
 
-The source cutover uses development configuration (DEC-011). DEC-012 explicitly
-limits closure to development and waives production provisioning (MAN-005). Exact
-aggregate integrity (FB-601-NB1) and production readiness remain prerequisites if
-production scope is reopened. iOS is simulator-only under the permanent DEC-004 waiver.
-[Canonical migration status](../FIREBASE_MIGRATION_STATUS.md) owns gates and evidence.
+The app is wired to development configuration only; production provisioning was
+deliberately left out. Exact aggregate counter integrity and production readiness
+remain prerequisites if production scope is ever opened (see the
+[migration summary](../docs/firebase-migration/SUMMARY.md#known-limits)). iOS is
+simulator-only.
 
 ## Files
 
 | Path | Purpose |
 |---|---|
 | `../firebase.json` | CLI + emulator configuration (pinned ports) |
-| `../firestore.indexes.json` | FB-603 query index contract; Phase 5 group indexes retained |
-| `../firestore.rules` | FB-601 owner-only Firestore schema, tombstone, and counter checks |
+| `../firestore.indexes.json` | Query index contract, including the cleanup collection-group indexes |
+| `../firestore.rules` | Owner-only Firestore schema, tombstone, and counter checks |
 | `../storage.rules` | Baseline authenticated owner-only Storage Rules |
 | `../.firebaserc` | Project aliases — **placeholder only**, see below |
 | `test/` | Rules, client query, and config/index contract tests |
-| `../functions/` | FB-501 scheduled cleanup target and local invocation harness |
+| `../functions/` | Scheduled cleanup target and local invocation harness |
 
 ## Pinned emulator ports
 
@@ -44,7 +44,7 @@ The Firestore emulator also opens a UI websocket on 9150 (assigned by the
 emulator, not configurable in `firebase.json`). Ports are pinned here so the
 Rules tests have a stable target.
 
-### Client-side endpoints are overridable, not hard-coded (FB-006)
+### Client-side endpoints are overridable, not hard-coded
 
 `8080` is a collision-prone default (Tomcat, Spring Boot, many local dev
 servers). The Android and iOS clients therefore do **not** hard-code it. They
@@ -71,13 +71,13 @@ environment variable, or on the command line:
 
 `test/helpers.js` reads ports from `../firebase.json`. `npm run check` verifies
 that the Auth, Firestore, and Storage defaults in `../gradle.properties` still
-match that CLI configuration (FB-006-NB2). If a default moves, update both files.
+match that CLI configuration. If a default moves, update both files.
 On a stock Android emulator, `127.0.0.1`/`localhost` is translated to `10.0.2.2`.
 The debug cleartext allowlist only covers `10.0.2.2`, `127.0.0.1` and `localhost`;
 changing the host to a LAN IP alone does not grant cleartext access to that IP.
 Prefer the supported local AVD route for these checks.
 
-### iOS reads the same endpoints, with no host translation (FB-007)
+### iOS reads the same endpoints, with no host translation
 
 `composeApp/src/iosMain/kotlin/com/fluxit/firebase/IosFirebaseEmulatorSettings.kt`
 re-exposes the same generated `FirebaseEmulatorConfig` constants to Swift through
@@ -89,9 +89,9 @@ Unlike Android, the host is used **verbatim**. The Android emulator is a separat
 virtual machine and needs the `10.0.2.2` loopback alias; the iOS simulator shares
 the host's network stack, so `127.0.0.1` already means the machine running the
 emulator suite. This project verifies iOS on the simulator; physical-device networking and signing
-are outside the permanent DEC-004 scope.
+are out of scope.
 
-## Firebase Apple SDK integration (FB-007)
+## Firebase Apple SDK integration
 
 **Integration method: Swift Package Manager, declared in the Xcode project.**
 
@@ -113,7 +113,7 @@ consumed directly through that mechanism. See [Kotlin interop documentation](htt
 That is not a proof that all possible CocoaPods wiring is impossible: mixed-language
 pods can expose public Objective-C headers/shims, including some Auth symbols. The
 spike did not mechanically establish the completeness of every hypothetical pod
-surface (FB-007-NB2). SPM is the integration actually built and verified; switching
+surface. SPM is the integration actually built and verified; switching
 would add toolchain and build integration work without a demonstrated benefit.
 The existing Xcode project/package lockfile resolves the three required products.
 
@@ -141,7 +141,7 @@ are registered by `FirebaseBootstrap.start()` before Compose/Koin starts.
 - **`GoogleService-Info.plist` must be in Copy Bundle Resources.** It is referenced
   from the project as `iosApp/GoogleService-Info.plist` and is a member of the
   `Resources` build phase. The **path reference** is tracked in `project.pbxproj`;
-  the **file itself stays gitignored** per `DEC-002b`, so nothing secret is
+  the **file itself stays gitignored**, so nothing secret is
   committed under this repository policy. Consequence: a fresh clone without the plist fails the build at the
   copy step. Fetch it from the Firebase Console before building iOS.
 - **`FirebaseApp.configure()` runs in `AppDelegate.application(_:didFinishLaunching...)`**
@@ -239,14 +239,14 @@ The Android emulator speaks HTTP. The debug manifest and
 loopback names listed above. **Keep the overlay in `src/debug/`, not
 `src/androidDebug/`**: that is the directory merged by this KMP/AGP application.
 Release builds omit it and retain the platform's cleartext restriction. Do not
-weaken release networking or Rules to make an emulator test pass (FB-102-NB3).
+weaken release networking or Rules to make an emulator test pass.
 
 If 8080 is occupied, change the CLI Firestore port in a gitignored sibling config
 (e.g. `firebase.local.json`) and pass `--config firebase.local.json`; also build
 both clients with `fluxit.firebase.emulator.firestore.port=<matching-port>`.
 Ad hoc default changes must keep `firebase.json`, `gradle.properties` and test helper
-expectations aligned. The Python native runners below require the exact default
-loopback ports and reject alternative routing; use defaults for those runners.
+expectations aligned. The Python native runner below requires the exact default
+loopback ports and rejects alternative routing; use defaults for that runner.
 
 ## Verification tiers
 
@@ -259,17 +259,16 @@ loopback ports and reject alternative routing; use defaults for those runners.
 | Backend integration | `cd functions`, `npm run test:emulator` | Starts **functions,pubsub,firestore,storage**, project `demo-fluxit`; synthetic scheduled invocation |
 | Android native | Commands below | Manually started mobile emulators and connected AVD; formal instrumentation/JUnit |
 | iOS native | Commands below | Built/installed opt-in simulator app; console report parser, not XCTest |
-| Cross-platform regression/photo/package | [FB-704 procedure](FB-704-PROCEDURE.md) | Native actual-DI, 16 checkpoints/platform, realtime/photo/offline runners; historical exact paths/UDIDs must be adapted |
-| Development cloud security | [FB-604 security procedure](FB-604-SECURITY.md) | Explicit development execution, reviewed assets/IAM, local login and exact fixture cleanup; JS client tier |
+| Development cloud security | `firebase/security/run.js` | Explicit development execution, reviewed assets/IAM, local login and exact fixture cleanup; JS client tier |
 
-These commands do not constitute new execution evidence. FB-706 owns the final
-matrix after FB-709 privacy cleanup passes independent review.
+Pull requests to `main` run the unit, Rules and Cloud Functions tiers in CI; the
+emulator-backed native tiers are run by hand.
 No real radio gesture, literal reinstall, manual picker gesture, production smoke,
 aged-cloud-photo deletion or physical iOS testing is inferred from scripted checks.
 
 ### Android instrumented checks
 
-The Auth suite is **not self-provisioning** (FB-102-NB3). Start its Auth emulator
+The Auth suite is **not self-provisioning**. Start its Auth emulator
 manually in terminal A from the repository root:
 
 ```sh
@@ -304,18 +303,16 @@ mobile-config and secondary demo namespaces described above.
 
 ### iOS native self-checks and provenance
 
-There is no XCTest target. The original FB-103 Auth integration/restoration proof
-was developer console output; its reviewer corroborated logs and fixtures without
-independently rerunning those emulator-enabled launches (FB-103-NB2). That history
-is not reviewer-reproduced evidence. Auth scaffolding later moved to opt-in Kotlin
-source sets/Swift hooks in FB-702; ordinary binaries exclude it.
+There is no XCTest target. The Auth, Firestore, Storage and listener-crash checks
+live in opt-in Kotlin source sets (`composeApp/src/firebaseParityIos`) and Swift hooks
+(`#if FLUXIT_PARITY`); ordinary binaries exclude them.
 
 The current Python runner `parity/ios-checks.py` installs the app, terminates/relaunches
 between checks, captures PTY stdout, enforces a 120-second report timeout, rejects
 failure/throw/missing-report conditions and returns nonzero on failure. It also runs
 Auth's separate-process prepare/verify restoration pair. This is a machine-enforced
-wrapper around timing-sensitive native console checks, **not XCTest/JUnit parity**
-(FB-103-NB3). Gradle `iosSimulatorArm64Test` alone does not exercise the Swift bridge
+wrapper around timing-sensitive native console checks, **not XCTest/JUnit parity**.
+Gradle `iosSimulatorArm64Test` alone does not exercise the Swift bridge
 against Firebase.
 
 Use the manually started mobile-config **auth,firestore,storage** suite, default
@@ -340,21 +337,18 @@ env FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
   --device "$FLUXIT_SIMULATOR_UDID"
 ```
 
-The Auth Kotlin source inclusion requires `fluxit.parity.enabled=true`, its Swift
-hook requires `FLUXIT_PARITY`, and runtime requires explicit launch arguments plus
+The parity Kotlin source inclusion requires `fluxit.parity.enabled=true`, its Swift
+hooks require `FLUXIT_PARITY`, and runtime requires explicit launch arguments plus
 the emulator build gate. The runner supplies the arguments. It reports checks but
 does not prove whole-namespace teardown; stop the task-owned suite to discard
-unexported fixtures. For exact scoped photo teardown and a fresh default installation,
-follow FB-704's procedure, using fresh local state/log paths and current simulator IDs.
-Never run its task-specific cleanup on arbitrary existing emulator data. Its trusted
-owner/path state file belongs only locally; preserve it on failure for bounded recovery.
+unexported fixtures.
 
 After any native run, stop only your emulator process, rebuild without emulator or
 parity flags, and reinstall ordinary APKs/simulator apps. Reports record source
 revision, date, platform, command/exit/assertions, teardown status and unrun tiers;
 raw logs can contain fixture identities and must not be committed.
 
-## Query and index inventory (FB-603)
+## Query and index inventory
 
 This inventory comes from `AndroidFirebaseListRepository.kt`,
 `AndroidFirebaseItemRepository.kt`, their `iosMain` counterparts,
@@ -400,29 +394,29 @@ Passing local queries is **not proof of deployed index readiness**. The
 [Firestore emulator does not track compound indexes](https://firebase.google.com/docs/emulator-suite/connect_firestore#indexes)
 and accepts valid queries even when production would require a missing index.
 The contract checks and documented query analysis provide local evidence only;
-FB-608 recorded user-attested reviewed development index readiness, and FB-604
-recorded allowed-owner development queries. Those historical checks do not establish
+index readiness in the development project was confirmed by its owner, and
+allowed-owner development queries were exercised. Those historical checks do not establish
 readiness in a newly created project or a later deployment. Re-audit this inventory and
 the contract whenever a server filter or ordering changes.
 
-## Scheduled cleanup target (FB-501–FB-503)
+## Scheduled cleanup target
 
 `../functions/index.js` exports `cleanupExpiredData`, a second-generation Cloud
 Functions scheduled target for 03:00 UTC daily. The target is pinned to one
-instance with one concurrent invocation and a 540-second timeout. `FB-502`
-adds item tombstone and orphan-photo cleanup in `../functions/cleanup.js`.
-The two passes share one 30-day retention constant (`DEC-003b` and
-`DEC-003e-2`). Eligible item documents are deleted only after a transactional
+instance with one concurrent invocation and a 540-second timeout. Item tombstone
+and orphan-photo cleanup live in `../functions/cleanup.js`.
+The two passes share one 30-day retention constant (tombstone retention and the
+orphan-photo grace period). Eligible item documents are deleted only after a transactional
 re-read of `deletedAt`, so a restore before the transaction wins. Photos are
 reclaimed only after their creation age reaches 30 days and a fresh Firestore
 query finds no owning item document referencing the exact `photoRef`, including
 soft-deleted items. Deletion has a Storage generation precondition, so a newer
 upload at the same path is preserved. Only the exact
 `users/{uid}/items/{itemId}/{photoId}` path is in scope; Storage has no list ID
-segment (`PLAN-006`/`PLAN-007`). A failed pass aborts the invocation and can be
+segment. A failed pass aborts the invocation and can be
 retried; repeated runs skip already-deleted resources.
 
-`FB-503` adds expired-list cascade in `../functions/cascade.js`. The schedule
+Expired-list cascade lives in `../functions/cascade.js`. The schedule
 runs it before standalone item cleanup, so a list's item `photoRef`s are not
 lost. A claim transaction re-reads the list tombstone, creates a durable
 `users/{uid}/listCleanupJobs/{listId}` job, and deletes the parent list in one
@@ -441,8 +435,7 @@ and create a child together, and re-creation of a claimed list ID. Backend
 Admin SDK writes bypass these Rules. Deploy the tightened Firestore Rules and
 the indexes **before** deploying or enabling the scheduled cleanup function;
 otherwise an old client write could create an untracked orphan after a job
-finishes. The reviewed development deployment procedure records this order; preserve it for
-any future authorized deployment.
+finishes. Preserve this order for any authorized deployment.
 
 After the claim, each transaction deletes at most 100 item documents and
 writes a private `listCleanupJobs/{listId}/photos/{itemId}` record for each
@@ -452,9 +445,9 @@ fresh-reference checks, and is deleted with a generation precondition. A photo
 younger than 30 days keeps its journal and job for a later run. The job is
 removed only when both item documents and photo journals are empty. Every run
 first discovers and resumes existing jobs, including those whose parent is
-already absent. No Storage prefix based on `listId` is used. Development deployment/evidence is
-recorded in FB-507/FB-504; the mobile tombstone purge path was removed in FB-504.
-Clients no longer hard-delete expired tombstones on dashboard load.
+already absent. No Storage prefix based on `listId` is used. The mobile tombstone
+purge path was removed, so clients no longer hard-delete expired tombstones on
+dashboard load.
 
 The cleanup uses collection-group queries on job `claimedAt`, list/item
 `deletedAt`, and item `photoRef`. `../firestore.indexes.json` declares the
@@ -491,35 +484,34 @@ These tests do not exercise live development deployment.
 ## Cloud targeting and operations
 
 `default` remains `demo-fluxit`, a Firebase-reserved emulator-only project ID.
-Per `DEC-002d`, obtain the real development project ID from the gitignored
+Obtain the real development project ID from the gitignored
 `google-services.json` and pass it explicitly through `--project "$FLUXIT_PROJECT_ID"`
 for every Console-affecting command. Keep that value out of tracked files and
-never use the default for deployment. See [FB-507 deployment procedure](FB-507-DEPLOYMENT.md).
+never use the default for deployment.
 
 Set `FLUXIT_PROJECT_ID` locally using the JSON-reading command above; do not commit
 it or change `.firebaserc` to a real project. Cloud project reads, deploys, exports,
 and administration require explicit targeting even when a CLI alias is available.
-There is no production deployment authorized by these setup instructions. Use the
-reviewed development [FB-608 Rules/index deployment](FB-608-DEPLOYMENT.md) and
-FB-507 backend procedure only in their approved environment/scope; both include
-explicit project flags. Do not run `firebase init` to overwrite repository Rules.
+There is no production deployment authorized by these setup instructions. Deploy
+the reviewed Rules/indexes first and the backend function second, only to the
+approved development project, always with an explicit `--project` flag. Do not run
+`firebase init` to overwrite repository Rules.
 See [CLI project targeting](https://firebase.google.com/docs/cli#project_aliases).
 
 Operations must monitor function errors/retries, cleanup counts, Rules denials,
 index readiness and Firestore/Storage usage. Scheduled cleanup is in `us-central1`
 and needs deployed group indexes plus Cloud Scheduler/billing setup. Source/unit
-checks are not proof of a live schedule. The current live development evidence is
-bounded: [FB-504 probe](FB-504-LIVE-PROBE.md) demonstrated Firestore cleanup, with
-no aged-photo cloud deletion claimed; [FB-604 results](FB-604-RESULTS.md) documented
-client security/query tests. Production requires a separate readiness/architecture
-choice, budget alerts and backup/export approval if its scope is reopened; DEC-012
-waives MAN-005 for the current development-only closure.
+checks are not proof of a live schedule. The live development evidence is
+bounded: Firestore cleanup was demonstrated, with no aged-photo cloud deletion
+claimed, and client security/query tests were run against the development project.
+Production requires a separate readiness/architecture choice, budget alerts and
+backup/export approval if its scope is reopened.
 
 Keep Admin SDK credentials out of mobile builds. Prefer existing approved local
 login/IAM workflows over downloading service-account keys. Raw CLI/native logs,
 reset links, fixture identities and manifests remain local; report sanitized status,
 error codes and counts. Firestore/Storage Rules enforce server ownership, not local
-cache erasure. FB-709 now sequences session job/listener teardown, Storage transfer
+cache erasure. Sign-out cleanup sequences session job/listener teardown, Storage transfer
 cancellation, Firestore termination and `clearPersistence()`, client recreation with
 preserved settings, and Auth credential removal. Ordinary repository singletons
 resolve fresh clients after cleanup. First sign-in refetches from the network;
@@ -548,9 +540,7 @@ not delete uploaded cloud objects on sign-out. OS-managed data and secure overwr
 remain outside this logical cleanup guarantee. See official
 [Android cache API](https://firebase.google.com/docs/reference/android/com/google/firebase/firestore/FirebaseFirestore#clearPersistence())
 and [Apple cache API](https://firebase.google.com/docs/reference/swift/firebasefirestore/api/reference/Classes/Firestore),
-[FB-709 results](FB-709-RESULTS.md) and [account behavior](../README.md#accounts-offline-use-and-photos).
-
-
+and [account behavior](../README.md#accounts-offline-use-and-photos).
 
 ## Rules scope
 
@@ -571,9 +561,9 @@ objects cannot be overwritten. Android and iOS upload adapters derive MIME
 metadata from the already-supported image byte signatures; extensionless
 photo IDs otherwise upload as `application/octet-stream`. Storage Rules can
 validate declared MIME metadata and size, but cannot decode the image bytes;
-the client photo preparation policy performs that check. Reviewed development deployment is recorded in FB-608/MAN-007. These source Rules
+the client photo preparation policy performs that check. These source Rules
 are not evidence that a different/new project has been deployed or is production-ready.
 
-The deployed-development client security runner, bounded fixture recovery, native
-iOS emulator runner and evidence bounds are documented in
-[FB-604 security verification](FB-604-SECURITY.md).
+The deployed-development client security runner lives in `security/` (`run.js` and
+`suite.js`); it only runs against an explicitly named development project and cleans
+up its fixtures. Run it only with approved local credentials, and keep its logs local.

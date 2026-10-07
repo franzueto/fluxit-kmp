@@ -15,14 +15,14 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * Returned by [FirebaseAuthGateway.addAuthStateListener] so the caller never has to
  * hold on to the SDK listener object itself. [AndroidAuthRepository] calls [remove]
  * from `awaitClose`, which is what makes the "cancelling the collector releases the
- * underlying listener" clause of `AuthRepository.session` real (FB-101-NB3).
+ * underlying listener" clause of `AuthRepository.session` real.
  */
 internal fun interface AuthStateRegistration {
     fun remove()
 }
 
 /**
- * The only seam through which FB-102's adapter touches the Firebase Auth SDK.
+ * The only seam through which the adapter touches the Firebase Auth SDK.
  *
  * It exists so [AndroidAuthRepository]'s own logic - the session state machine, the
  * `callbackFlow` listener lifecycle, and the error mapping - is exercisable by JVM unit
@@ -53,7 +53,7 @@ internal interface FirebaseAuthGateway {
 
     /**
      * Signs out and clears Firebase Auth's own persisted credential for this app
-     * (DEC-003a, Auth's share of it). Firestore/Storage cache clearing is deliberately
+     * (Auth's share of it). Firestore/Storage cache clearing is deliberately
      * not done here - see [AndroidAuthRepository.signOut].
      */
     fun signOut()

@@ -10,7 +10,7 @@ import java.io.IOException
 /**
  * Platform-side diagnostics sink for Firebase Auth failures.
  *
- * FB-101-NB2: `AuthError.Unknown` deliberately carries no payload, so the original SDK
+ * `AuthError.Unknown` deliberately carries no payload, so the original SDK
  * error code/exception is invisible from `commonMain`. It must therefore be logged
  * *here*, before the failure is collapsed into the shared taxonomy, or the detail is
  * lost with no way to recover it.

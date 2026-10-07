@@ -25,7 +25,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 
 /**
- * FB-102 unit tests for the Android adapter's own logic: the session state machine, the
+ * unit tests for the Android adapter's own logic: the session state machine, the
  * `callbackFlow` listener lifecycle, and error mapping. The Firebase SDK is replaced by
  * [RecordingAuthGateway]; the adapter code under test is the production code.
  *
@@ -43,7 +43,7 @@ class AndroidAuthRepositoryTest {
         repository.session.toList(into)
     }
 
-    // --- FB-101-NB3: listener lifecycle -------------------------------------------
+    // --- Listener lifecycle -------------------------------------------
 
     @Test
     fun collectingTheSessionRegistersExactlyOneAuthStateListener() = runTest {
@@ -293,7 +293,7 @@ class AndroidAuthRepositoryTest {
         job.cancelAndJoin()
     }
 
-    // --- FB-101-NB2: diagnostics before collapsing into Unknown --------------------------
+    // --- Diagnostics before collapsing into Unknown --------------------------
 
     @Test
     fun anUnmappedSdkFailureIsLoggedBeforeItBecomesUnknown() = runTest {

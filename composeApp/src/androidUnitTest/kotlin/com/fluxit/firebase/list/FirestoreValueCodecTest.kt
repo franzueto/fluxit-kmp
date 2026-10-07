@@ -11,7 +11,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * FB-202 unit tests for [FirestoreValueCodec]: pure translation between FB-201's
+ * unit tests for [FirestoreValueCodec]: pure translation between the
  * neutral [FirebaseValue] contract and the plain Kotlin shapes the Firestore SDK
  * reads/writes. No [com.google.firebase.firestore.FirebaseFirestore] instance is
  * touched, so these run as plain JVM unit tests.

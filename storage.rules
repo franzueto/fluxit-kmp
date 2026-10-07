@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// FB-602: deny by default. Photos use exactly users/{uid}/items/{itemId}/{photoId}.
+// Deny by default. Photos use exactly users/{uid}/items/{itemId}/{photoId}.
 // The mobile clients create a new photoId for every upload; existing objects
 // cannot be overwritten, while owners may still delete old/legacy objects.
 service firebase.storage {

@@ -9,7 +9,7 @@ import com.fluxit.data.remote.toRepositoryError
 import com.google.firebase.firestore.FirebaseFirestoreException
 
 /**
- * Maps a [FirebaseFirestoreException.Code] onto FB-201's neutral [BackendErrorCode].
+ * Maps a [FirebaseFirestoreException.Code] onto the neutral [BackendErrorCode].
  *
  * Every gRPC-style status the Firestore SDK can report is covered explicitly except the
  * ones with no meaningful neutral equivalent (`OK`, `CANCELLED`, `ABORTED`,

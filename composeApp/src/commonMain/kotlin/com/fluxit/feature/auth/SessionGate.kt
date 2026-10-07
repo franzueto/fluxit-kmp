@@ -38,9 +38,9 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * The application root session gate (FB-104).
+ * The application root session gate.
  *
- * This is the structural guarantee behind the FB-104 acceptance criterion: [AppNavHost]
+ * This is the structural guarantee behind the acceptance criterion: [AppNavHost]
  * - and therefore every screen, ViewModel and repository listener the app owns - is
  * composed **only** in the [SessionGateState.Ready] branch. While the gate is
  * [SessionGateState.Resolving] nothing user-scoped is instantiated, because the composable
@@ -49,14 +49,14 @@ import org.koin.compose.viewmodel.koinViewModel
  * treated as "signed out".
  *
  * The strength of that guarantee depends entirely on when [SessionGateViewModel] is willing
- * to report [SessionGateState.Ready]. Per FB-104-B1 it does so only once the initial
+ * to report [SessionGateState.Ready]. Per it does so only once the initial
  * `restoreSession()` has returned, never on the strength of a cached credential that the
  * server has not yet validated - see that class's KDoc. Without that sequencing this
  * branch would briefly compose [AppNavHost] for a session that turns out to be invalid.
  *
- * ## How A -> B isolation is actually enforced (FB-105)
+ * ## How A -> B isolation is actually enforced
  *
- * FB-104 wrapped [AppNavHost] in `key(state.user.uid)` and expected that to tear down the
+ * wrapped [AppNavHost] in `key(state.user.uid)` and expected that to tear down the
  * subtree's `ViewModelStore` along with its composition. It does not: Navigation3 keeps
  * its per-entry stores in the *enclosing* `ViewModelStoreOwner` (the Activity, or the
  * root view controller on iOS) and clears them only when an entry leaves the back stack -
@@ -146,7 +146,7 @@ private fun SessionResolvingScreen() {
  * Shown when session resolution itself failed.
  *
  * Two actions, deliberately: a plain retry for a transient failure, and an explicit
- * "sign out and retry". The second is required, not cosmetic - per FB-102-NB2 and its
+ * "sign out and retry". The second is required, not cosmetic - per and its
  * iOS mirror, neither adapter signs out on a hard resolution failure, so a revoked or
  * expired credential would otherwise trap the user in this state forever, with a retry
  * button that can never succeed.

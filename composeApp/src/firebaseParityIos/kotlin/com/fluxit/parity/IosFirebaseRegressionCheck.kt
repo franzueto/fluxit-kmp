@@ -69,10 +69,10 @@ object IosFirebaseRegressionCheck {
                     }
                 } }
             }
-            "FB-703 iOS offline PASS cached-read pending-list-item edit-tombstone-undo reconnect-server-ack"
+            "Regression iOS offline PASS cached-read pending-list-item edit-tombstone-undo reconnect-server-ack"
         } catch (error: Throwable) {
             reconnect()
-            "FB-703 iOS offline FAILED stage=$stage ${error::class.simpleName}"
+            "Regression iOS offline FAILED stage=$stage ${error::class.simpleName}"
         }
     }
 
@@ -91,7 +91,7 @@ object IosFirebaseRegressionCheck {
         try {
             val trace = RepositoryRegressionScenario.run(lists, items) { "users/$uid/items/$it/parity.jpg" }
             check(trace.size == 16)
-            println("FB-703 iOS Firebase regression PASS checkpoints=${trace.size} real-app-DI=Firebase")
+            println("Regression iOS Firebase regression PASS checkpoints=${trace.size} real-app-DI=Firebase")
             coroutineScope {
                 val shared = lists.createList("$marker-ready", ListIcon.CART, ListColor.PRIMARY_BLUE)
                 val seen = MutableStateFlow<FluxList?>(null)
@@ -112,13 +112,13 @@ object IosFirebaseRegressionCheck {
                     photos.deletePhoto(androidPhoto)
                     check(photos.loadPhoto(androidPhoto) == null)
                     withTimeout(60_000) { items.observeItem(shared, item.id).first { it?.photoRef == null } }
-                    println("FB-703 iOS cross-platform-photo PASS bytes=equal replacements=1 deleted=1")
-                    println("FB-703 iOS realtime PASS Android-list-edit Android-item-create counters=1/1")
+                    println("Regression iOS cross-platform-photo PASS bytes=equal replacements=1 deleted=1")
+                    println("Regression iOS realtime PASS Android-list-edit Android-item-create counters=1/1")
                 } finally { listener.cancelAndJoin() }
             }
-            "FB-703 iOS ALL CHECKS PASSED\nFB-703 END"
+            "Regression iOS ALL CHECKS PASSED\nREGRESSION END"
         } finally {
             auth.signOut()
         }
-    } catch (error: Throwable) { "FB-703 iOS FAILED ${error::class.simpleName}\nFB-703 END" }
+    } catch (error: Throwable) { "Regression iOS FAILED ${error::class.simpleName}\nREGRESSION END" }
 }

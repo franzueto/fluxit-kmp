@@ -18,8 +18,8 @@ import kotlinx.coroutines.launch
 import platform.Foundation.NSUUID
 
 /**
- * FB-205 emulator-backed integration check for the iOS item adapter, in the exact style
- * FB-203's `IosFirestoreListIntegrationCheck` established (itself following FB-103's
+ * emulator-backed integration check for the iOS item adapter, in the exact style
+ * the `IosFirestoreListIntegrationCheck` established (itself following the
  * `IosAuthIntegrationCheck`): no Xcode test target exists in this repository, so this
  * lives in the app binary and is exercised by a real simulator run launched with a
  * specific argument, double-gated (emulator-only build config, plus the launch argument
@@ -33,18 +33,18 @@ import platform.Foundation.NSUUID
  * `firestore.rules` denies one user's uid path to a different authenticated user.
  *
  * A list document is bootstrapped through the already-proven [IosFirebaseListRepository]
- * (FB-203) rather than through raw Firestore calls, since no Firestore SDK type is
- * reachable from this file at all (`PLAN-008`) - unlike Android's
+ * rather than through raw Firestore calls, since no Firestore SDK type is
+ * reachable from this file at all - unlike Android's
  * `FirestoreItemEmulatorIntegrationTest`, which could open a raw `DocumentReference`
  * directly because the Android SDK is reachable from `androidMain` Kotlin. This is a
  * deliberate, narrow divergence from the Android evidence shape, not an oversight: it
  * means this check's counter-correctness assertions transitively also depend on
- * `IosFirebaseListRepository.createList` being correct, which FB-203's own suite already
+ * `IosFirebaseListRepository.createList` being correct, which the own suite already
  * established.
  */
 object IosFirestoreItemIntegrationCheck {
 
-    private const val PASSWORD = "fb205-emulator-only"
+    private const val PASSWORD = "iositem-emulator-only"
     private const val SETTLE_MS = 400L
     private const val AWAIT_TIMEOUT_MS = 8_000L
     private const val POLL_INTERVAL_MS = 100L
@@ -69,8 +69,8 @@ object IosFirestoreItemIntegrationCheck {
     suspend fun run(): String = try {
         runChecked()
     } catch (throwable: Throwable) {
-        "FB-205 iOS Firestore item integration check: THREW ${throwable::class.simpleName}: " +
-            "${throwable.message}\nFB-205 END"
+        "iOS Firestore item integration check: THREW ${throwable::class.simpleName}: " +
+            "${throwable.message}\nFIRESTOREITEM END"
     }
 
     private suspend fun runChecked(): String {
@@ -95,8 +95,8 @@ object IosFirestoreItemIntegrationCheck {
         val lists = IosFirebaseListRepository()
         val items = IosFirebaseItemRepository()
         val suffix = NSUUID().UUIDString().lowercase()
-        val emailA = "fb205-a-$suffix@example.com"
-        val emailB = "fb205-b-$suffix@example.com"
+        val emailA = "iositem-a-$suffix@example.com"
+        val emailB = "iositem-b-$suffix@example.com"
 
         coroutineScope {
             // --- sign in as user A, bootstrap a list, exercise the full item lifecycle -
@@ -107,7 +107,7 @@ object IosFirestoreItemIntegrationCheck {
                 report.fail("preconditions", "userA has no uid after signUp")
                 return@coroutineScope
             }
-            val listId = lists.createList("FB-205 Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            val listId = lists.createList("Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
             delay(SETTLE_MS)
 
             val observed = mutableListOf<List<FluxItem>>()
@@ -235,7 +235,7 @@ object IosFirestoreItemIntegrationCheck {
                 "emissions before=$afterCancellation after=${observed.size}",
             )
 
-            // --- FB-407: observeItemsSnapshot - real isFromCache/hasPendingWrites -------
+            // --- ObserveItemsSnapshot - real isFromCache/hasPendingWrites -------
             // Same rationale and same disclosed no-network-toggle scope boundary as
             // `IosFirestoreListIntegrationCheck`'s identically-named section - see that
             // file's KDoc comment for the full explanation, identical here for items.
@@ -255,7 +255,7 @@ object IosFirestoreItemIntegrationCheck {
                 "settledBeforeWrite=$itemSettledBeforeWrite",
             )
 
-            val pendingItemWriteJob = launch { items.addItem(listId, "FB-407 Snapshot Metadata Item") }
+            val pendingItemWriteJob = launch { items.addItem(listId, "Snapshot Metadata Item") }
             val pendingItemWriteObserved = awaitCondition { itemSnapshotEmissions.any { it.hasPendingWrites } }
             report.check(
                 "a local item write is observed with hasPendingWrites=true before the server acknowledges it",
@@ -371,11 +371,11 @@ object IosFirestoreItemIntegrationCheck {
 
         fun render(): String {
             val header = if (failures == 0) {
-                "FB-205 iOS Firestore item integration check: ALL CHECKS PASSED"
+                "iOS Firestore item integration check: ALL CHECKS PASSED"
             } else {
-                "FB-205 iOS Firestore item integration check: $failures CHECK(S) FAILED"
+                "iOS Firestore item integration check: $failures CHECK(S) FAILED"
             }
-            return (listOf(header) + lines + listOf("FB-205 END")).joinToString("\n")
+            return (listOf(header) + lines + listOf("FIRESTOREITEM END")).joinToString("\n")
         }
     }
 }

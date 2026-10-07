@@ -47,7 +47,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * `FB-405` Android instrumented/emulator-backed evidence for the manual offline/denied-write
+ * Android instrumented/emulator-backed evidence for the manual offline/denied-write
  * matrix, at the [DashboardViewModel]/[ScreenLoadState] layer rather than the raw repository
  * layer [com.fluxit.firebase.list.FirestoreListSnapshotEmulatorIntegrationTest] and
  * [com.fluxit.firebase.list.FirestoreListEmulatorIntegrationTest] already prove.
@@ -55,15 +55,15 @@ import org.junit.runner.RunWith
  * What those two existing suites cannot show: that a *ViewModel* constructed with the real
  * [AndroidFirebaseListRepository] - i.e. the exact composition production Koin wiring uses once
  * `fluxit.firebase.repositories.enabled=true` - actually surfaces `hasPendingWrites`/
- * `isFromCache` through [DashboardUiState.loadState] (`FB-405` leg 1: airplane mode/offline
+ * `isFromCache` through [DashboardUiState.loadState] (leg 1: airplane mode/offline
  * mutation) and how a genuine cross-user `PERMISSION_DENIED` currently surfaces through
- * [DashboardUiState.operationError] (`FB-405` leg 3: denied write).
+ * [DashboardUiState.operationError] (leg 3: denied write).
  *
- * This class deliberately does **not** modify [DashboardViewModel] itself (`FB-404`/`FB-407`
+ * This class deliberately does **not** modify [DashboardViewModel] itself (
  * are both already `DONE`) - it only observes and evidences the existing, unmodified behavior
  * against a real Auth+Firestore emulator pair, exactly as
  * [com.fluxit.firebase.list.FirestoreListSnapshotEmulatorIntegrationTest]'s KDoc frames its own
- * `disableNetwork`/`enableNetwork` use as `DEC-004`'s accepted "cut host networking"
+ * `disableNetwork`/`enableNetwork` use as the accepted "cut host networking"
  * approximation of airplane mode.
  *
  * Every [DashboardViewModel] built here is disposed through a real [ViewModelStore.clear] in a
@@ -77,7 +77,7 @@ import org.junit.runner.RunWith
  * auth token, drew a genuine `PERMISSION_DENIED` on a listener [DashboardViewModel] never guards
  * with a `.catch`, and crashed the whole instrumented-test app process. See
  * [crossUserDeleteIsDeniedAndDashboardReportsItAsForbiddenNotRetryable]'s KDoc for
- * why that underlying crash mechanism is real and reported to the `FB-405` matrix, but is not
+ * why that underlying crash mechanism is real and reported to the matrix, but is not
  * itself fixed or kept as a permanently-crashing test here.
  */
 @RunWith(AndroidJUnit4::class)
@@ -98,8 +98,8 @@ class DashboardViewModelEmulatorIntegrationTest {
             ?: FirebaseApp.initializeApp(
                 context,
                 FirebaseOptions.Builder()
-                    .setApiKey("fb405-instrumented-test-key")
-                    .setApplicationId("1:0:android:fb405")
+                    .setApiKey("dashvm-instrumented-test-key")
+                    .setApplicationId("1:0:android:dashvm")
                     .setProjectId("demo-fluxit")
                     .build(),
                 APP_NAME,
@@ -133,7 +133,7 @@ class DashboardViewModelEmulatorIntegrationTest {
 
     /** A trivially-authenticated [AuthRepository]: fixed to [AuthSession.Authenticated] for
      * [uid] for this test's lifetime - [DashboardViewModel]'s [ScreenLoadState.FatalSession]
-     * branch is `FB-404`'s own scope, not this task's. */
+     * branch is covered by its own test, not this one. */
     private fun fixedAuthRepository(fixedUid: String) = object : AuthRepository {
         override val session = MutableStateFlow<AuthSession>(
             AuthSession.Authenticated(AuthUser(fixedUid, email = null)),
@@ -146,7 +146,7 @@ class DashboardViewModelEmulatorIntegrationTest {
     }
 
     /**
-     * `FB-405` leg 1 (airplane mode/offline mutation), at the ViewModel layer. Mirrors
+     * leg 1 (airplane mode/offline mutation), at the ViewModel layer. Mirrors
      * [com.fluxit.firebase.list.FirestoreListSnapshotEmulatorIntegrationTest]'s
      * `disableNetwork`/`enableNetwork` shape, but asserts on [DashboardUiState.loadState]
      * rather than the raw [com.fluxit.domain.RepositorySnapshot].
@@ -167,7 +167,7 @@ class DashboardViewModelEmulatorIntegrationTest {
             // until the server acknowledges it - so this is launched with `async` and
             // deliberately not awaited before `enableNetwork()` below.
             val createDeferred = async(Dispatchers.IO) {
-                repository.createList("FB-405 Offline List", ListIcon.CART, ListColor.PRIMARY_BLUE)
+                repository.createList("Offline List", ListIcon.CART, ListColor.PRIMARY_BLUE)
             }
 
             val pending = withTimeout(TIMEOUT_MS) {
@@ -196,7 +196,7 @@ class DashboardViewModelEmulatorIntegrationTest {
     }
 
     /**
-     * `FB-405` leg 3 (denied write), at the ViewModel layer: a real `PERMISSION_DENIED` write
+     * leg 3 (denied write), at the ViewModel layer: a real `PERMISSION_DENIED` write
      * reaches [DashboardUiState] as [RepositoryErrorCode.FORBIDDEN] with `canRetry = false`
      * (PM-01; it was previously collapsed to a retryable `UNKNOWN`).
      *
@@ -210,16 +210,16 @@ class DashboardViewModelEmulatorIntegrationTest {
      * `observeListSummariesSnapshot()` itself received the exact same `PERMISSION_DENIED` and
      * called `close(error.toRepositoryException())` (`AndroidFirebaseListRepository.kt`).
      * That closes the `callbackFlow` with an exception `DashboardViewModel`'s
-     * `listLoadState`/`uiState` `combine` chain never catches (`FB-404` added no `.catch` to
+     * `listLoadState`/`uiState` `combine` chain never catches (added no `.catch` to
      * it), which propagates uncaught through `viewModelScope` (`Dispatchers.Main.immediate`)
      * and **crashed the real instrumented-test app process** - reproduced live, real
      * `TestRunner`/logcat evidence: `Process: com.fluxit ... FATAL EXCEPTION ...
      * com.fluxit.data.remote.RepositoryException ... Suppressed:
      * ...StandaloneCoroutine{Cancelling}@...,Dispatchers.Main.immediate]`. That is a real,
      * independently significant finding reported alongside this task's matrix (see the
-     * `FB-405` ledger evidence), but it is **not reproducible as a passing/failing JUnit
+     * ledger evidence), but it is **not reproducible as a passing/failing JUnit
      * assertion** (the process that would report the result is what dies), it is not this
-     * task's job to fix (`FB-404`'s state machine is explicitly out of `FB-405`'s scope), and
+     * task's job to fix (the state machine is explicitly out of the scope), and
      * a deliberately-crashing test cannot stay in this suite without poisoning every other
      * instrumented test's run. [ObserveOwnUidButWriteAsAnotherUidListRepository] therefore keeps
      * `observeListSummariesSnapshot()` on the legitimate, own-uid [repository] (so the screen's
@@ -242,7 +242,7 @@ class DashboardViewModelEmulatorIntegrationTest {
             val collector = scope.launch { vm.uiState.collect {} }
             withTimeout(TIMEOUT_MS) { awaitState(vm) { it.loadState is ScreenLoadState.Loaded } }
 
-            vm.deleteList("fb405-nonexistent-list-id")
+            vm.deleteList("dashvm-nonexistent-list-id")
 
             val failed = withTimeout(TIMEOUT_MS) { awaitState(vm) { it.operationError != null } }
             val operationError = requireNotNull(failed.operationError)
@@ -267,7 +267,7 @@ class DashboardViewModelEmulatorIntegrationTest {
         return vm.uiState.value
     }
 
-    private fun uniqueEmail(): String = "fb405-dashboard-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(): String = "dashvm-dashboard-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -275,9 +275,9 @@ class DashboardViewModelEmulatorIntegrationTest {
     }
 
     private companion object {
-        const val APP_NAME = "fb405-dashboard-instrumented-test"
+        const val APP_NAME = "dashvm-dashboard-instrumented-test"
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb405-emulator-only"
+        const val PASSWORD = "dashvm-emulator-only"
         const val TIMEOUT_MS = 20_000L
         const val POLL_INTERVAL_MS = 100L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"

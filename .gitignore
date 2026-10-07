@@ -9,7 +9,7 @@ local.properties
 iosApp/iosApp.xcodeproj/xcuserdata/
 iosApp/iosApp.xcodeproj/project.xcworkspace/xcuserdata/
 
-# Firebase mobile client config (DEC-002b: gitignored in ALL environments).
+# Firebase mobile client config (gitignored in ALL environments).
 # Obtain these from the Firebase Console; never commit them.
 google-services.json
 GoogleService-Info.plist
@@ -25,7 +25,7 @@ functions/node_modules/
 firebase-debug.log*
 firestore-debug.log*
 
-# Local-only sibling emulator configs (e.g. FB-202's port-conflict workaround
+# Local-only sibling emulator configs (e.g. a port-conflict workaround
 # for running a second `firebase emulators:start` process alongside another).
 # Never a deliverable; must never be committed.
 firebase.*.json

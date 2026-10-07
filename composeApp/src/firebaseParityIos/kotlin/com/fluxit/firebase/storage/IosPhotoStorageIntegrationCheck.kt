@@ -30,58 +30,57 @@ import kotlinx.coroutines.withTimeoutOrNull
 import platform.Foundation.NSUUID
 
 /**
- * `FB-305` emulator-backed integration check for the iOS Storage adapter, in the exact
- * style FB-206's `IosFirestoreCrossClientIntegrationCheck` (itself following FB-103/FB-203/
- * FB-205) established: no Xcode test target exists in this repository, so this lives in the
+ * emulator-backed integration check for the iOS Storage adapter, in the exact
+ * style the `IosFirestoreCrossClientIntegrationCheck` established: no Xcode test target exists in this repository, so this lives in the
  * app binary and is exercised by a real simulator run launched with a specific argument,
  * double-gated (emulator-only build config, plus the launch argument itself) so it can
  * never touch the live development project.
  *
  * What this proves that a fake-bridge unit test cannot: that the real Swift
  * `FirebaseStorageBridge` correctly talks to a real Firebase Storage SDK instance end to
- * end, against the real, deployed, owner-only `storage.rules` (`FB-005`) loaded by the
+ * end, against the real, deployed, owner-only `storage.rules` loaded by the
  * Storage emulator - the ledger's acceptance criterion, "iOS integration/manual checks pass
- * under Storage Rules" - mirroring `FB-304`'s Android `PhotoStorageEmulatorIntegrationTest`
- * shape and `FB-008`'s live cross-user Storage denial precedent.
+ * under Storage Rules" - mirroring the Android `PhotoStorageEmulatorIntegrationTest`
+ * shape and the live cross-user Storage denial precedent.
  *
  * **"Cross-user" on iOS, and its one honest, disclosed divergence from Android's shape:**
  * Android's `PhotoStorageEmulatorIntegrationTest` opens two independently named secondary
  * `FirebaseApp`/`FirebaseAuth`/`FirebaseStorage` instances, so client A and client B are
- * genuinely simultaneous, distinct SDK connections. Per PLAN-008/FB-206's already-documented
- * iOS constraint, this app registers exactly one Swift `FirebaseStorageBridge`/
+ * genuinely simultaneous, distinct SDK connections. Because Firebase code on iOS lives in Swift
+ * (an already-documented iOS constraint), this app registers exactly one Swift `FirebaseStorageBridge`/
  * `FirebaseAuthBridge` implementation against the single default `FirebaseApp`, and neither
  * bridge protocol exposes a way to open a second named app instance. This check therefore
  * signs client A out and client B in **serially** on that one shared connection (real
  * distinct uids, real distinct ID tokens, real Rules evaluation - not a simulation), which
  * is sufficient to prove a genuine cross-user Rules denial (Storage Rules evaluate the
  * request's current auth token, not connection identity), but not simultaneous multi-device
- * access - the same class of narrow, disclosed gap FB-206 already accepted for the
+ * access - the same class of narrow, disclosed gap already accepted for the
  * equivalent Firestore check. Adding a network-toggle-equivalent multi-app bridge is a
- * production bridge-protocol change, out of this task's scope.
+ * production bridge-protocol change, out of scope.
  *
- * `FB-306` (discharging `FB-305-NB1`) added the final section below: [replacePhoto] driven
+ * The final section below drives [replacePhoto]
  * against a real [IosFirebaseItemRepository] (Firestore) *and* this file's real
  * [IosPhotoStorage] (Storage) together, proving the documented safe-replace ordering commits
  * correctly end to end on real infrastructure, not just against `PhotoReplaceContractTest`'s
  * `commonTest` fake. Genuine mid-operation failure injection against a *real* Firestore/
  * Storage backend is not available here - `IosFirestoreItemBridge`/[IosPhotoStorage] expose
- * no network-toggle surface (`FB-206-NB1`'s already-accepted, still-open constraint; adding
+ * no network-toggle surface (the already-accepted, still-open constraint; adding
  * one is a production bridge-protocol change, out of scope) - so this section proves the
  * happy path genuinely commits through both real backends together; the failure/preservation
  * semantics themselves are already exhaustively proven by `PhotoReplaceContractTest` and, at
- * the UI layer, `ItemDetailViewModelTest` (`FB-306`).
+ * the UI layer, `ItemDetailViewModelTest`.
  *
- * `FB-307` added three more entry points below, gated by their own separate launch
+ * Three more entry points below are gated by their own separate launch
  * arguments in `FirebaseBootstrap.swift` (not folded into [run], so each can be driven
  * independently from `xcrun simctl`):
  *  - [runInterruptedReplaceCheck]: a single-process check proving old-photo preservation,
  *    orphan detection, and retry recovery for an interrupted/failed `replacePhoto()`, the
- *    same failure-injection shape `PhotoStorageEmulatorIntegrationTest`'s Android FB-307
+ * same failure-injection shape `PhotoStorageEmulatorIntegrationTest`'s Android 
  *    sibling test uses.
  *  - [runCrossDevicePublish] / [runCrossDeviceSubscribe]: a **two-process** pair sharing
  *    one fixed account/list/item identity, coordinated only through the real Auth/
  *    Firestore/Storage emulator backends (this app registers exactly one Swift bridge
- *    instance per process - PLAN-008/FB-206's already-documented constraint - so genuine
+ * instance per process - an iOS constraint, since Firebase code lives in Swift - so genuine
  *    simultaneous cross-device evidence on iOS requires two separate simulator
  *    *processes*, not two in-process connections the way the Android suite achieves it).
  *    Run publish then subscribe on two independently booted simulators for cross-device
@@ -91,17 +90,17 @@ import platform.Foundation.NSUUID
  */
 object IosPhotoStorageIntegrationCheck {
 
-    private const val PASSWORD = "fb305-emulator-only"
+    private const val PASSWORD = "iosphoto-emulator-only"
     private const val SETTLE_MS = 400L
 
-    // --- FB-307 cross-device/reinstall publish-subscribe pair: fixed shared identity ---
-    private const val CROSS_DEVICE_EMAIL = "fb307-crossdevice@example.com"
-    private const val CROSS_DEVICE_LIST_NAME = "FB-307 cross-device check"
-    private const val CROSS_DEVICE_ITEM_TITLE = "FB-307 cross-device photo"
+    // --- cross-device/reinstall publish-subscribe pair: fixed shared identity ---
+    private const val CROSS_DEVICE_EMAIL = "iosphoto-crossdevice@example.com"
+    private const val CROSS_DEVICE_LIST_NAME = "cross-device check"
+    private const val CROSS_DEVICE_ITEM_TITLE = "cross-device photo"
     private const val SUBSCRIBE_TIMEOUT_MS = 20_000L
 
     // A minimal, valid, hand-verifiable 1x1 transparent PNG - the same fixture
-    // `ImageTransformIosTest` (FB-303, iosTest source set) uses, duplicated here rather
+    // `ImageTransformIosTest` (iosTest source set) uses, duplicated here rather
     // than shared because this file lives in iosMain (shipped in the app binary) and
     // cannot depend on iosTest code.
     @OptIn(ExperimentalEncodingApi::class)
@@ -117,12 +116,12 @@ object IosPhotoStorageIntegrationCheck {
     suspend fun run(): String = try {
         runChecked()
     } catch (throwable: Throwable) {
-        "FB-305 iOS Storage integration check: THREW ${throwable::class.simpleName}: " +
-            "${throwable.message}\nFB-305 END"
+        "iOS Storage integration check: THREW ${throwable::class.simpleName}: " +
+            "${throwable.message}\nPHOTOSTORAGE END"
     }
 
     /**
-     * `FB-307` property 3/4: single-process check proving old-photo preservation, orphan
+     * property 3/4: single-process check proving old-photo preservation, orphan
      * detection, and retry recovery for an interrupted/failed `replacePhoto()`. See this
      * object's class KDoc for how it complements [runCrossDevicePublish]/
      * [runCrossDeviceSubscribe].
@@ -130,12 +129,12 @@ object IosPhotoStorageIntegrationCheck {
     suspend fun runInterruptedReplaceCheck(): String = try {
         runInterruptedReplaceChecked()
     } catch (throwable: Throwable) {
-        "FB-307 iOS Storage interrupted-replace check: THREW ${throwable::class.simpleName}: " +
-            "${throwable.diagnosticDetail()}\nFB-307 END"
+        "iOS Storage interrupted-replace check: THREW ${throwable::class.simpleName}: " +
+            "${throwable.diagnosticDetail()}\nPHOTOSTORAGE END"
     }
 
     /**
-     * `FB-307` property 2 (and, combined with a literal `xcrun simctl uninstall`+`install`
+     * property 2 (and, combined with a literal `xcrun simctl uninstall`+`install`
      * between the two runs, property 1): the publish half of a two-process pair. Uploads a
      * photo under a **fixed** shared account/list/item identity and leaves everything
      * signed in and undeleted so a later [runCrossDeviceSubscribe] run - on this same
@@ -147,11 +146,11 @@ object IosPhotoStorageIntegrationCheck {
     suspend fun runCrossDevicePublish(): String = try {
         runCrossDevicePublishChecked()
     } catch (throwable: Throwable) {
-        "FB-307 iOS Storage cross-device PUBLISH: THREW ${throwable::class.simpleName}: " +
-            "${throwable.diagnosticDetail()}\nFB-307 END"
+        "iOS Storage cross-device PUBLISH: THREW ${throwable::class.simpleName}: " +
+            "${throwable.diagnosticDetail()}\nPHOTOSTORAGE END"
     }
 
-    /** `FB-307` property 2/1: the subscribe half of [runCrossDevicePublish]'s pair. Signs
+    /** property 2/1: the subscribe half of [runCrossDevicePublish]'s pair. Signs
      * in as the same fixed account and proves the photo `runCrossDevicePublish` uploaded
      * is visible and loadable, discovered entirely through Firestore/Storage - never any
      * state shared in-process with the publish run, which by construction cannot be the
@@ -159,12 +158,12 @@ object IosPhotoStorageIntegrationCheck {
     suspend fun runCrossDeviceSubscribe(): String = try {
         runCrossDeviceSubscribeChecked()
     } catch (throwable: Throwable) {
-        "FB-307 iOS Storage cross-device SUBSCRIBE: THREW ${throwable::class.simpleName}: " +
-            "${throwable.diagnosticDetail()}\nFB-307 END"
+        "iOS Storage cross-device SUBSCRIBE: THREW ${throwable::class.simpleName}: " +
+            "${throwable.diagnosticDetail()}\nPHOTOSTORAGE END"
     }
 
     private suspend fun runInterruptedReplaceChecked(): String {
-        val report = Report(label = "FB-307 iOS Storage interrupted-replace check")
+        val report = Report(label = "iOS Storage interrupted-replace check")
         if (!IosFirebaseEmulatorSettings.enabled) {
             report.fail("preconditions", "emulator mode is disabled; refusing to run against a live project")
             return report.render()
@@ -174,11 +173,11 @@ object IosPhotoStorageIntegrationCheck {
         val lists = IosFirebaseListRepository()
         val items = IosFirebaseItemRepository()
         val suffix = NSUUID().UUIDString().lowercase()
-        val email = "fb307-interrupted-$suffix@example.com"
+        val email = "iosphoto-interrupted-$suffix@example.com"
 
         report.expectSuccess("sign up a fresh account for this check", auth.signUp(email, PASSWORD))
         delay(SETTLE_MS)
-        val listId = lists.createList("FB-307 interrupted replace check", ListIcon.CART, ListColor.PRIMARY_BLUE)
+        val listId = lists.createList("interrupted replace check", ListIcon.CART, ListColor.PRIMARY_BLUE)
         delay(SETTLE_MS)
         items.addItem(listId, "Interrupted replace item")
         delay(SETTLE_MS)
@@ -210,7 +209,7 @@ object IosPhotoStorageIntegrationCheck {
         val interruptingUpdateRef: suspend (String) -> Unit = { ref ->
             if (failNextPersist) {
                 failNextPersist = false
-                throw IllegalStateException("FB-307 simulated interruption: killed after Storage upload, before Firestore persist")
+                throw IllegalStateException("simulated interruption: killed after Storage upload, before Firestore persist")
             }
             items.setPhotoRef(listId, itemId, ref)
         }
@@ -250,7 +249,7 @@ object IosPhotoStorageIntegrationCheck {
             )
         }
 
-        // --- property 3 (continued): retry (FB-306's retryPhotoOperation, reproduced ----
+        // --- property 3 (continued): retry (the retryPhotoOperation, reproduced ----
         // exactly - one more replacePhoto() call with the same cached bytes) recovers ----
         val p3 = replacePhoto(
             storage = storage,
@@ -300,7 +299,7 @@ object IosPhotoStorageIntegrationCheck {
     }
 
     private suspend fun runCrossDevicePublishChecked(): String {
-        val report = Report(label = "FB-307 iOS Storage cross-device PUBLISH")
+        val report = Report(label = "iOS Storage cross-device PUBLISH")
         if (!IosFirebaseEmulatorSettings.enabled) {
             report.fail("preconditions", "emulator mode is disabled; refusing to run against a live project")
             return report.render()
@@ -346,7 +345,7 @@ object IosPhotoStorageIntegrationCheck {
         // the staleness question entirely; any duplicate/stale items left by an earlier
         // run's incomplete attempt are swept up below so `runCrossDeviceSubscribe`'s
         // exact-title match stays unambiguous.
-        // FB-701: UUID order does not identify the new item. Capture server-confirmed
+        // UUID order does not identify the new item. Capture server-confirmed
         // preexisting IDs, then select only this write's newly observed document.
         val priorItemIds = items.observeItemsSnapshot(listId).first {
             !it.isFromCache && !it.hasPendingWrites
@@ -417,7 +416,7 @@ object IosPhotoStorageIntegrationCheck {
     }
 
     private suspend fun runCrossDeviceSubscribeChecked(): String {
-        val report = Report(label = "FB-307 iOS Storage cross-device SUBSCRIBE")
+        val report = Report(label = "iOS Storage cross-device SUBSCRIBE")
         if (!IosFirebaseEmulatorSettings.enabled) {
             report.fail("preconditions", "emulator mode is disabled; refusing to run against a live project")
             return report.render()
@@ -497,8 +496,8 @@ object IosPhotoStorageIntegrationCheck {
         // (sign-out/sign-in), not simultaneous, on iOS.
         val storage = IosPhotoStorage()
         val suffix = NSUUID().UUIDString().lowercase()
-        val emailA = "fb305-a-$suffix@example.com"
-        val emailB = "fb305-b-$suffix@example.com"
+        val emailA = "iosphoto-a-$suffix@example.com"
+        val emailB = "iosphoto-b-$suffix@example.com"
         val itemId = NSUUID().UUIDString().lowercase()
 
         report.expectSuccess("client A sign-up", auth.signUp(emailA, PASSWORD))
@@ -605,11 +604,11 @@ object IosPhotoStorageIntegrationCheck {
         )
         storage.deletePhoto(ownerRef)
 
-        // --- FB-306/FB-305-NB1: replacePhoto()'s full ordering against real Firestore + ----
+        // --- ReplacePhoto's full ordering against real Firestore + ----
         // --- real Storage together, still signed in as client A from the reload above -----
         val lists = IosFirebaseListRepository()
         val items = IosFirebaseItemRepository()
-        val combinedListId = lists.createList("FB-306 combined replace check", ListIcon.CART, ListColor.PRIMARY_BLUE)
+        val combinedListId = lists.createList("combined replace check", ListIcon.CART, ListColor.PRIMARY_BLUE)
         delay(SETTLE_MS)
         items.addItem(combinedListId, "Combined replace check")
         delay(SETTLE_MS)
@@ -701,9 +700,9 @@ object IosPhotoStorageIntegrationCheck {
      * A real denial: explicitly not "object not found" - which would let "absent" masquerade
      * as "denied" and pass this assertion for the wrong reason.
      *
-     * `FB-403`: [readDenial] above goes through [IosPhotoStorage.loadPhoto], which now wraps a
-     * genuine Storage denial in [PhotoStorageException] carrying FB-401's neutral
-     * `ApplicationError` (discharging `FB-401-NB1`/`FB-401-NB2`) rather than the raw
+     * [readDenial] above goes through [IosPhotoStorage.loadPhoto], which wraps a
+     * genuine Storage denial in [PhotoStorageException] carrying the neutral
+     * `ApplicationError` rather than the raw
      * [PhotoStorageIosException]/[NSError] - checked here via
      * [RepositoryErrorCode.FORBIDDEN]. [writeDenial]/[deleteDenial] deliberately bypass
      * [IosPhotoStorage] via [uploadDataRaw]/[deleteObjectRaw] (mirroring Android's
@@ -716,7 +715,7 @@ object IosPhotoStorageIntegrationCheck {
         else -> false
     }
 
-    /** `FB-307` diagnostic-only helper: [RepositoryException]/[PhotoStorageException]
+    /** diagnostic-only helper: [RepositoryException]/[PhotoStorageException]
      * never carry a [Throwable.message] (they wrap a neutral
      * [com.fluxit.data.remote.ApplicationError] in their own `error` field instead), so the
      * bare `THREW ...: null` a plain `.message` read produces on these three new entry points'
@@ -727,7 +726,7 @@ object IosPhotoStorageIntegrationCheck {
         else -> "$message"
     }
 
-    /** `FB-307`: records the most recent `photoRef` [PhotoStorage.uploadPhoto] minted, so
+    /** Records the most recent `photoRef` [PhotoStorage.uploadPhoto] minted, so
      * [runInterruptedReplaceChecked] can find/verify an orphan object left behind by an
      * interrupted [replacePhoto] call whose `updateRef` step threw before returning that
      * ref to the caller - the iOS analogue of the Android suite's `RecordingPhotoStorage`. */
@@ -746,11 +745,11 @@ object IosPhotoStorageIntegrationCheck {
         override suspend fun deletePhoto(photoRef: String) = delegate.deletePhoto(photoRef)
     }
 
-    /** `FB-307`: [label] defaults to the original `FB-305` text so [run]'s already-verified
-     * output is unchanged byte-for-byte; the three new `FB-307` entry points pass their own
+    /** [label] defaults to the original text so [run]'s already-verified
+     * output is unchanged byte-for-byte; the three new entry points pass their own
      * distinct label so their console output is identifiable instead of misleadingly
-     * reusing the `FB-305` header. */
-    private class Report(private val label: String = "FB-305 iOS Storage integration check") {
+     * reusing the header. */
+    private class Report(private val label: String = "iOS Storage integration check") {
         private val lines = mutableListOf<String>()
         private var failures = 0
 

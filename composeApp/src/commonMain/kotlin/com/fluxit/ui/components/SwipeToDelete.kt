@@ -32,7 +32,7 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Swipe-to-delete wrapper (end-to-start only).
  *
- * FB-710: the swipe state is intentionally `remember`ed, NOT `rememberSaveable` (which is what
+ * The swipe state is intentionally `remember`ed, NOT `rememberSaveable` (which is what
  * `rememberSwipeToDismissBoxState` uses). A deleted row settles at `EndToStart`; inside a keyed
  * `LazyColumn` a saveable state would be restored for the same key when Undo re-adds the row,
  * leaving it dismissed (stuck error-colored row, or an `AnchoredDraggableState` "offset was read

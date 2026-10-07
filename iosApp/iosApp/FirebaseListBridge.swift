@@ -2,16 +2,16 @@ import ComposeApp
 import FirebaseFirestore
 import Foundation
 
-/// FB-203 Swift implementation of the Kotlin-declared `IosFirestoreListBridge` protocol.
+/// Swift implementation of the Kotlin-declared `IosFirestoreListBridge` protocol.
 ///
-/// PLAN-008: the `FirebaseFirestore` SPM target is not cinterop-reachable from
+/// The `FirebaseFirestore` SPM target is not cinterop-reachable from
 /// `iosMain`, so this file - not Kotlin - is where every Firebase Firestore call for the
 /// `users/{uid}/lists` collection lives, exactly mirroring how `FirebaseAuthBridge.swift`
-/// (FB-103) owns every Firebase Auth call. The Kotlin side (`IosFirebaseListRepository`)
-/// owns tombstone filtering, ordering (both delegated to FB-201's
+/// owns every Firebase Auth call. The Kotlin side (`IosFirebaseListRepository`)
+/// owns tombstone filtering, ordering (both delegated to the
 /// `FirebaseDocumentMapper`), the field-scoped-patch-vs-whole-document-set policy
-/// (`DEC-003d`/`DEC-003d-1`), and error mapping; this file owns nothing but translation
-/// between Firestore's own types and FB-201's neutral `FirebaseValue` wire format.
+/// and error mapping; this file owns nothing but translation
+/// between Firestore's own types and the neutral `FirebaseValue` wire format.
 ///
 /// Deliberately as thin as `FirebaseAuthBridge.swift`: this is the part that cannot be
 /// unit-tested from Gradle, so there should be as little logic in it as possible.
@@ -52,7 +52,7 @@ final class FirebaseListBridge: NSObject, IosFirestoreListBridge {
         return FirestoreListenerHandle(registration: registration)
     }
 
-    /// `FB-407`: genuinely separate listener registration from `observeListSummaries`,
+    /// Genuinely separate listener registration from `observeListSummaries`,
     /// with `includeMetadataChanges: true` so a metadata-only transition (a locally
     /// cached write finally getting server-acknowledged, with no field change) re-fires
     /// this listener - the default `includeMetadataChanges: false` `observeListSummaries`
@@ -101,7 +101,7 @@ final class FirebaseListBridge: NSObject, IosFirestoreListBridge {
         return FirestoreListenerHandle(registration: registration)
     }
 
-    /// `DEC-003d-1`: whole-document `setData(_:)` on a brand-new auto-ID document only.
+    /// Whole-document `setData(_:)` on a brand-new auto-ID document only.
     ///
     /// Deliberately a plain completion-handler implementation, not `async throws`: an
     /// earlier version of this method used `async throws` (which also satisfies this
@@ -130,7 +130,7 @@ final class FirebaseListBridge: NSObject, IosFirestoreListBridge {
         }
     }
 
-    /// `DEC-003d`: field-scoped `updateData(_:)` - never `setData(_:)`. Firestore's own
+    /// Field-scoped `updateData(_:)` - never `setData(_:)`. Firestore's own
     /// field-mask semantics mean only the keys present in `fields` are ever touched. Same
     /// plain-completion-handler shape as [createList], for the same runtime-safety reason.
     func updateListFields(
@@ -144,7 +144,7 @@ final class FirebaseListBridge: NSObject, IosFirestoreListBridge {
         }
     }
 
-    // MARK: - FB-201 FirebaseValue <-> Firestore's own value types
+    // MARK: - FirebaseValue <-> Firestore's own value types
 
     private static func encode(_ fields: [String: FirebaseValue]) -> [String: Any] {
         fields.mapValues(encode)
@@ -167,14 +167,14 @@ final class FirebaseListBridge: NSObject, IosFirestoreListBridge {
         default:
             // Unreachable: FirebaseValue is a Kotlin sealed interface, so every case is
             // covered above. Falling back to NSNull rather than crashing if a future
-            // FB-201 case is ever added and this file forgotten.
+            // case is ever added and this file forgotten.
             return NSNull()
         }
     }
 
     private static func toDocument(_ snapshot: DocumentSnapshot) -> IosFirestoreListDocument {
         var fields: [String: FirebaseValue] = [:]
-        // FB-701: local server-timestamp estimates keep offline creations visible;
+        // Local server-timestamp estimates keep offline creations visible;
         // explicit stored nulls remain null and are rejected by required-field mapping.
         for (key, raw) in snapshot.data(with: .estimate) ?? [:] {
             if let decoded = decode(raw) {
@@ -186,15 +186,15 @@ final class FirebaseListBridge: NSObject, IosFirestoreListBridge {
 
     /// A field whose SDK value type this bridge does not itself write (for example a
     /// `GeoPoint` some other client wrote) is dropped as if missing, matching Android's
-    /// `FirestoreValueCodec.decodeValue`: FB-201's mapper then reports `MISSING_FIELD`,
+    /// `FirestoreValueCodec.decodeValue`: Mapper then reports `MISSING_FIELD`,
     /// a safe, always-defined outcome for a shape this repository never produces itself.
     ///
-    /// FB-203 empirical finding, reproduced against the real Firestore emulator: a plain
+    /// empirical finding, reproduced against the real Firestore emulator: a plain
     /// `case let value as Bool` / `case let value as Int64` switch is NOT safe here.
     /// `Bool` bridges from *any* `NSNumber` whose value is 0 or 1, so an integer field
     /// like `schemaVersion` (1) or `totalItems`/`completedItems` (0 on a fresh list) was
     /// silently mis-decoded as `FirebaseValueBool` instead of `FirebaseValueNumber` -
-    /// which FB-201's `FirebaseDocumentMapper` then correctly rejected as malformed
+    /// which the `FirebaseDocumentMapper` then correctly rejected as malformed
     /// (`WRONG_TYPE`), causing every freshly created list to be dropped from
     /// `observeListSummaries` forever, not just transiently. `CFGetTypeID` distinguishes
     /// a genuine `CFBoolean`-backed `NSNumber` from a numeric one precisely, which a
@@ -219,7 +219,7 @@ final class FirebaseListBridge: NSObject, IosFirestoreListBridge {
 }
 
 /// Releases one Firestore snapshot listener. Idempotent, exactly like
-/// `FirebaseAuthListenerHandle` (FB-103): a double `remove()` must not remove a *later*
+/// `FirebaseAuthListenerHandle`: a double `remove()` must not remove a *later*
 /// listener registered by a different collector.
 final class FirestoreListenerHandle: NSObject, IosFirestoreListenerHandle {
 

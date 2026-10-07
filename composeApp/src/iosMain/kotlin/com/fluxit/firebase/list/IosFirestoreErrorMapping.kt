@@ -10,13 +10,13 @@ import platform.Foundation.NSError
 
 /**
  * `FIRFirestoreErrorDomain`, spelled out so no Firebase symbol is referenced from
- * Kotlin (per PLAN-008, this file cannot import `FirebaseFirestore`).
+ * Kotlin (per the Swift-only Firebase boundary on iOS, this file cannot import `FirebaseFirestore`).
  */
 internal const val FIREBASE_FIRESTORE_ERROR_DOMAIN: String = "FIRFirestoreErrorDomain"
 
 /**
  * Maps a `FIRFirestoreErrorCode` raw value (an `NSError.code` under
- * [FIREBASE_FIRESTORE_ERROR_DOMAIN]) onto FB-201's neutral [BackendErrorCode].
+ * [FIREBASE_FIRESTORE_ERROR_DOMAIN]) onto the neutral [BackendErrorCode].
  *
  * These raw values are the same gRPC status codes the Android adapter's
  * `FirebaseFirestoreException.Code.toBackendErrorCode()` (`FirestoreErrorMapping.kt`)
@@ -40,7 +40,7 @@ internal fun firestoreBackendErrorCode(code: Long): BackendErrorCode = when (cod
 }
 
 /**
- * Maps [this] to FB-201's neutral [ApplicationError]. An [NSError] outside
+ * Maps [this] to the neutral [ApplicationError]. An [NSError] outside
  * [FIREBASE_FIRESTORE_ERROR_DOMAIN] (for example a transport-level `NSURLErrorDomain`
  * failure surfaced before Firestore's own gRPC layer ever answered) collapses to
  * [RepositoryErrorCode.UNKNOWN] - a safe, retryable-by-caller-policy default rather than

@@ -15,7 +15,7 @@ import com.google.firebase.auth.FirebaseAuth
  * issued) after a sign-out throws immediately instead of silently reusing a stale uid.
  *
  * Public (not `internal`): [AndroidFirebaseListRepository]'s constructor is public, so
- * this parameter type must be too - future Koin wiring (`FB-207`) and tests both
+ * this parameter type must be too - future Koin wiring and tests both
  * construct the repository from outside this package.
  */
 fun interface CurrentUidProvider {

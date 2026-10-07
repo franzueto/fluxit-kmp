@@ -20,11 +20,11 @@ import kotlinx.coroutines.flow.first
 import platform.Foundation.NSUUID
 
 /**
- * FB-206 emulator-backed cross-client checks for the iOS Firestore adapters: counter
- * consistency, conflict (field-level LWW per `DEC-003d`), malformed-document (no
+ * emulator-backed cross-client checks for the iOS Firestore adapters: counter
+ * consistency, conflict (field-level LWW per the field-level last-write-wins policy), malformed-document (no
  * `valueOf` crash), and reconnect, against the same real Firestore emulator
- * `IosFirestoreListIntegrationCheck` (FB-203) and `IosFirestoreItemIntegrationCheck`
- * (FB-205) exercise. Same no-Xcode-test-target rationale as those two: this lives in the
+ * `IosFirestoreListIntegrationCheck` and `IosFirestoreItemIntegrationCheck`
+ * exercise. Same no-Xcode-test-target rationale as those two: this lives in the
  * app binary, double-gated (emulator-only build config plus a dedicated launch
  * argument), exercised by a real simulator run.
  *
@@ -51,7 +51,7 @@ import platform.Foundation.NSUUID
  */
 object IosFirestoreCrossClientIntegrationCheck {
 
-    private const val PASSWORD = "fb206-emulator-only"
+    private const val PASSWORD = "iosxclient-emulator-only"
     private const val SETTLE_MS = 400L
     private const val AWAIT_TIMEOUT_MS = 8_000L
     private const val POLL_INTERVAL_MS = 100L
@@ -75,8 +75,8 @@ object IosFirestoreCrossClientIntegrationCheck {
     suspend fun run(): String = try {
         runChecked()
     } catch (throwable: Throwable) {
-        "FB-206 iOS cross-client integration check: THREW ${throwable::class.simpleName}: " +
-            "${throwable.message}\nFB-206 END"
+        "iOS cross-client integration check: THREW ${throwable::class.simpleName}: " +
+            "${throwable.message}\nCROSSCLIENT END"
     }
 
     private suspend fun runChecked(): String {
@@ -103,7 +103,7 @@ object IosFirestoreCrossClientIntegrationCheck {
         val clientAItems = IosFirebaseItemRepository()
         val clientBItems = IosFirebaseItemRepository()
         val suffix = NSUUID().UUIDString().lowercase()
-        val email = "fb206-$suffix@example.com"
+        val email = "iosxclient-$suffix@example.com"
 
         coroutineScope {
             report.expectSuccess("signUp", auth.signUp(email, PASSWORD))
@@ -113,7 +113,7 @@ object IosFirestoreCrossClientIntegrationCheck {
                 report.fail("preconditions", "signed-up user has no uid")
                 return@coroutineScope
             }
-            val listId = clientAList.createList("FB-206 Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            val listId = clientAList.createList("Groceries", ListIcon.CART, ListColor.PRIMARY_BLUE)
             delay(SETTLE_MS)
 
             // --- cross-client counter consistency -----------------------------------
@@ -154,7 +154,7 @@ object IosFirestoreCrossClientIntegrationCheck {
                 "totalItems=$totalAfterBothAdd",
             )
 
-            // --- conflict: DEC-003d field-level LWW ---------------------------------
+            // --- conflict: the field-level last-write-wins policy field-level LWW ---------------------------------
             coroutineScope {
                 launch { clientAItems.updateItem(listId, itemId, "Whole Milk", "2%") }
                 launch { clientBItems.setPhotoRef(listId, itemId, "users/$uid/items/$itemId/photo-1") }
@@ -175,8 +175,8 @@ object IosFirestoreCrossClientIntegrationCheck {
                 "title=${afterLww?.title}",
             )
 
-            // FB-701: related counter mutations share the same bounded contention seam.
-            val raceList = clientAList.createList("FB-701 counter race", ListIcon.CART, ListColor.PRIMARY_BLUE)
+            // Related counter mutations share the same bounded contention seam.
+            val raceList = clientAList.createList("counter race", ListIcon.CART, ListColor.PRIMARY_BLUE)
             clientAItems.addItem(raceList, "race item")
             val raceItem = requireNotNull(withTimeoutObserveFirst(clientAItems, raceList) { it.singleOrNull() }?.id)
             coroutineScope {
@@ -290,9 +290,9 @@ object IosFirestoreCrossClientIntegrationCheck {
 
             report.skip(
                 "pendingWrite: offline-queued write invisible to another client until reconnect",
-                "iOS has one shared FirebaseApp/Firestore connection (PLAN-008) and neither " +
+                "iOS has one shared FirebaseApp/Firestore connection and neither " +
                     "IosFirestoreListBridge nor IosFirestoreItemBridge exposes a network on/off " +
-                    "toggle; adding one is a production bridge-protocol change out of FB-206's " +
+                    "toggle; adding one is a production bridge-protocol change out of the " +
                     "scope (Android's CrossClientItemEmulatorIntegrationTest/" +
                     "CrossClientListEmulatorIntegrationTest cover this category with two " +
                     "independently named FirebaseApp instances instead). Flagged for the " +
@@ -391,11 +391,11 @@ object IosFirestoreCrossClientIntegrationCheck {
 
         fun render(): String {
             val header = if (failures == 0) {
-                "FB-206 iOS cross-client integration check: ALL CHECKS PASSED"
+                "iOS cross-client integration check: ALL CHECKS PASSED"
             } else {
-                "FB-206 iOS cross-client integration check: $failures CHECK(S) FAILED"
+                "iOS cross-client integration check: $failures CHECK(S) FAILED"
             }
-            return (listOf(header) + lines + listOf("FB-206 END")).joinToString("\n")
+            return (listOf(header) + lines + listOf("CROSSCLIENT END")).joinToString("\n")
         }
     }
 }

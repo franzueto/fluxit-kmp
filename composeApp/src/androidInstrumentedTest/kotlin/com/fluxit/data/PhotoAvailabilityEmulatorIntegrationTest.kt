@@ -33,12 +33,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * `FB-307` Android integration checks for the Phase 3 exit criterion: "photos remain
+ * Android integration checks for the Phase 3 exit criterion: "photos remain
  * available after reinstall/sign-in on both Android and iOS, and failed replacements do
  * not orphan the item or destroy the previous photo."
  *
  * Same real Auth+Firestore+Storage emulator pattern `PhotoStorageEmulatorIntegrationTest`
- * (`FB-304`/`FB-306`) and `CrossClientItemEmulatorIntegrationTest` (`FB-206`) already
+ * and `CrossClientItemEmulatorIntegrationTest` already
  * establish - genuinely independent, separately-named [FirebaseApp] instances, never a
  * mock/fake, against the real deployed `storage.rules`/`firestore.rules` loaded by the
  * emulators.
@@ -50,9 +50,7 @@ import org.junit.runner.RunWith
  * own isolated on-disk local-persistence directory (Firestore's offline document cache,
  * Auth's token store) - so an "after" client sharing an app name with nothing that came
  * before it has exactly as little warm local state as a freshly reinstalled app has, and
- * arguably less than a same-app-name sign-out/sign-in cycle would (see the disclosed
- * finding in this suite's KDoc below about `DEC-003a`'s Firestore/Storage cache-clearing
- * gap). This is at least as strong a proof of "did not depend on local cache/DB
+ * arguably less than a same-app-name sign-out/sign-in cycle would. This is at least as strong a proof of "did not depend on local cache/DB
  * surviving" as a literal reinstall would give for this specific property.
  *
  * ### Cross-device (property 2)
@@ -70,31 +68,16 @@ import org.junit.runner.RunWith
  * `photoRef` to Firestore) fails - by injecting a single throw into the `updateRef` lambda
  * `replacePhoto` is given, at the exact point between those two steps. This is one of the
  * task brief's explicitly sanctioned interruption methods ("force-kill during the
- * upload-then-persist-then-delete sequence from FB-302's `replacePhoto()`"), and is
+ * upload-then-persist-then-delete sequence from the `replacePhoto`"), and is
  * deterministic/reproducible where a literal process kill timed against a live network
- * call would not be. `retryPhotoOperation()` (`FB-306`, `ItemDetailViewModel.kt`) recovers
+ * call would not be. `retryPhotoOperation()` (`ItemDetailViewModel.kt`) recovers
  * from exactly this failure by calling `performReplace` again with the same cached raw
  * bytes - i.e. one more `replacePhoto()` call with the same `itemId`/`oldPhotoRef`/bytes -
  * so the second `replacePhoto()` call below is code-identical to what the real retry UI
  * does, not a re-derived approximation of it.
  *
- * **Genuine finding, disclosed rather than silently fixed (out of this task's scope,
- * flagged for the orchestrator):** `AndroidAuthRepository.signOut()`'s KDoc documents that
- * `DEC-003a`'s Firestore/Storage local-persistence-clearing was deferred to "whichever
- * phase first puts a live listener or cached document on the device" (Phase 2 for
- * Firestore, Phase 3 for Storage). Neither Phase 2 (`FB-201`-`FB-208`, all `DONE`) nor
- * Phase 3 (`FB-301`-`FB-306`, all `DONE` as of this task) actually implemented it - a
- * repo-wide grep for `clearPersistence`/`terminate()` outside that one KDoc comment (and
- * its iOS mirror in `IosAuthRepository.kt`) finds nothing. Firestore's on-device offline
- * cache is therefore never cleared on sign-out on either platform today. This does not
- * invalidate this suite's reinstall evidence (which deliberately does not rely on a
- * same-app-name sign-out/sign-in cycle, precisely because of this gap), and it is not a
- * security/isolation defect (documents are already uid-scoped by path, so a second user's
- * queries never resolve into a leftover cache entry for a different uid's path) - but it
- * does mean a plain sign-out-then-sign-in-as-the-same-user cycle on one install is *not*,
- * by itself, proof of no-local-cache-dependency on this codebase today, contrary to
- * `DEC-003a`'s stated intent ("the first load after a sign-in refetches from the
- * network"). Recommended as a new non-blocking follow-up, not fixed here.
+ * Clearing the Firestore/Storage local caches on sign-out is not exercised here; the
+ * session-cleanup scenarios cover it.
  */
 @RunWith(AndroidJUnit4::class)
 class PhotoAvailabilityEmulatorIntegrationTest {
@@ -104,7 +87,7 @@ class PhotoAvailabilityEmulatorIntegrationTest {
     @Test
     fun photoRemainsAvailableAfterASimulatedReinstallViaABrandNewClientWithNoSharedLocalState(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val (authBefore, firestoreBefore, storageBefore) = buildClientApp(context, "fb307-reinstall-before")
+        val (authBefore, firestoreBefore, storageBefore) = buildClientApp(context, "photoavail-reinstall-before")
         val email = uniqueEmail("reinstall")
 
         authBefore.createUserWithEmailAndPassword(email, PASSWORD).awaitResult()
@@ -128,7 +111,7 @@ class PhotoAvailabilityEmulatorIntegrationTest {
         // "After reinstall": a brand-new secondary FirebaseApp name this test process has
         // never used before - zero shared Kotlin/JVM state and (per the class KDoc) its
         // own never-before-touched on-disk local persistence directory.
-        val (authAfter, firestoreAfter, storageAfter) = buildClientApp(context, "fb307-reinstall-after")
+        val (authAfter, firestoreAfter, storageAfter) = buildClientApp(context, "photoavail-reinstall-after")
         authAfter.signInWithEmailAndPassword(email, PASSWORD).awaitResult()
         check(authAfter.currentUser?.uid == uid) { "reinstalled client resolved a different uid" }
         val itemRepoAfter = AndroidFirebaseItemRepository(firestoreAfter, CurrentUidProvider { uid })
@@ -154,8 +137,8 @@ class PhotoAvailabilityEmulatorIntegrationTest {
     @Test
     fun photoUploadedFromOneClientIsVisibleFromAnIndependentSecondClientSignedInAsTheSameUser(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val (authA, firestoreA, storageA) = buildClientApp(context, "fb307-crossdevice-a")
-        val (authB, firestoreB, storageB) = buildClientApp(context, "fb307-crossdevice-b")
+        val (authA, firestoreA, storageA) = buildClientApp(context, "photoavail-crossdevice-a")
+        val (authB, firestoreB, storageB) = buildClientApp(context, "photoavail-crossdevice-b")
         val email = uniqueEmail("crossdevice")
 
         authA.createUserWithEmailAndPassword(email, PASSWORD).awaitResult()
@@ -199,7 +182,7 @@ class PhotoAvailabilityEmulatorIntegrationTest {
     @Test
     fun interruptedReplacePreservesTheOldPhotoAndRetryRecoversCleanlyLeavingOnlyASweepReclaimableOrphan(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val (auth, firestore, storage) = buildClientApp(context, "fb307-interrupted-replace")
+        val (auth, firestore, storage) = buildClientApp(context, "photoavail-interrupted-replace")
         val email = uniqueEmail("interrupted")
 
         auth.createUserWithEmailAndPassword(email, PASSWORD).awaitResult()
@@ -232,7 +215,7 @@ class PhotoAvailabilityEmulatorIntegrationTest {
         val interruptingUpdateRef: suspend (String) -> Unit = { ref ->
             if (failNextPersist) {
                 failNextPersist = false
-                throw IllegalStateException("FB-307 simulated interruption: killed after Storage upload, before Firestore persist")
+                throw IllegalStateException("simulated interruption: killed after Storage upload, before Firestore persist")
             }
             itemRepo.setPhotoRef(listId, itemId, ref)
         }
@@ -252,10 +235,10 @@ class PhotoAvailabilityEmulatorIntegrationTest {
         // --- silent leak and not a dangling reference the UI would surface --------------
         val orphanLoaded = assertIs<PhotoContent.Bytes>(recordingStorage.loadPhoto(orphanRef))
         assertContentEquals(newBytes, orphanLoaded.bytes, "the orphaned object itself must be intact, real Storage content")
-        // Not referenced by the item, so never rendered - matches DEC-003e's documented
+        // Not referenced by the item, so never rendered - matches the orphan-photo sweep's documented
         // "leaked but sweep-reclaimable" contract, not a UI-visible duplicate/stale photo.
 
-        // --- property 3 (continued): FB-306's retryPhotoOperation() recovers cleanly ----
+        // --- property 3 (continued): RetryPhotoOperation recovers cleanly ----
         // retryPhotoOperation() re-runs performReplace(pendingReplaceBytes), i.e. one more
         // replacePhoto() call with the same itemId/oldPhotoRef/bytes - reproduced exactly.
         val p3 = replacePhoto(
@@ -268,7 +251,7 @@ class PhotoAvailabilityEmulatorIntegrationTest {
         assertNotEquals(
             orphanRef,
             p3,
-            "retry mints a brand-new object rather than resuming/reusing the earlier orphan - FB-306's documented retry semantics",
+            "retry mints a brand-new object rather than resuming/reusing the earlier orphan - the documented retry semantics",
         )
         val afterRetry = withTimeout(TIMEOUT_MS) { itemRepo.observeItem(listId, itemId).first { it?.photoRef == p3 } }
         assertEquals(p3, afterRetry?.photoRef)
@@ -293,7 +276,7 @@ class PhotoAvailabilityEmulatorIntegrationTest {
                 FirebaseOptions.Builder()
                     // Throwaway values: both emulators accept any key/app id, and a
                     // `demo-` project id can never resolve to a real Firebase project.
-                    .setApiKey("fb307-instrumented-test-key")
+                    .setApiKey("photoavail-instrumented-test-key")
                     .setApplicationId("1:0:android:$appName")
                     .setProjectId("demo-fluxit")
                     .setStorageBucket("demo-fluxit.appspot.com")
@@ -327,7 +310,7 @@ class PhotoAvailabilityEmulatorIntegrationTest {
         val id = UUID.randomUUID().toString()
         firestore.collection("users").document(uid).collection("lists").document(id).set(
             mapOf(
-                "name" to "FB-307 check list",
+                "name" to "check list",
                 "icon" to "CART",
                 "color" to "PRIMARY_BLUE",
                 "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
@@ -341,7 +324,7 @@ class PhotoAvailabilityEmulatorIntegrationTest {
         return id
     }
 
-    private fun uniqueEmail(suffix: String): String = "fb307-photo-$suffix-${UUID.randomUUID()}@example.test"
+    private fun uniqueEmail(suffix: String): String = "photoavail-photo-$suffix-${UUID.randomUUID()}@example.test"
 
     private fun emulatorHost(): String = when (FirebaseEmulatorConfig.HOST) {
         "127.0.0.1", "localhost" -> ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS
@@ -360,7 +343,7 @@ class PhotoAvailabilityEmulatorIntegrationTest {
 
     private companion object {
         /** Throwaway passphrase for emulator-only accounts; not a credential. */
-        const val PASSWORD = "fb307-emulator-only"
+        const val PASSWORD = "photoavail-emulator-only"
         const val TIMEOUT_MS = 30_000L
         const val ANDROID_EMULATOR_HOST_LOOPBACK_ALIAS = "10.0.2.2"
 

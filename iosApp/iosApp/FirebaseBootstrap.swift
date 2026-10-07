@@ -5,7 +5,7 @@ import FirebaseFirestore
 import FirebaseStorage
 import UIKit
 
-/// FB-007 initialization seam for the official Firebase Apple SDK.
+/// initialization seam for the official Firebase Apple SDK.
 ///
 /// This is deliberately the only place in the iOS app that touches Firebase SDK
 /// types during Phase 0. It mirrors `AndroidFirebaseInitializer` in `androidMain`:
@@ -20,17 +20,17 @@ import UIKit
 /// `:composeApp:generateFirebaseEmulatorConfig`, surfaced to Swift through
 /// `IosFirebaseEmulatorSettings` in `iosMain`.
 ///
-/// `FB-103` added the second responsibility below: registering the Swift
+/// added the second responsibility below: registering the Swift
 /// implementation of the Kotlin `IosAuthBridge` protocol, which is how the
-/// Firebase-neutral `AuthRepository` reaches Auth on iOS (PLAN-008). `FB-203` does the
-/// same for `ListRepository`/Firestore lists, `FB-205` for `ItemRepository`/Firestore
-/// items, and `FB-305` for `PhotoStorage`/Storage photos.
+/// Firebase-neutral `AuthRepository` reaches Auth on iOS. does the
+/// same for `ListRepository`/Firestore lists, for `ItemRepository`/Firestore
+/// items, and for `PhotoStorage`/Storage photos.
 enum FirebaseBootstrap {
 
     private static var initialized = false
 
     /// Initializes the default `FirebaseApp` from the bundled
-    /// `GoogleService-Info.plist` (gitignored, per `DEC-002b`).
+    /// `GoogleService-Info.plist` (gitignored, per the gitignored-config policy).
     ///
     /// Must run before anything else touches the Firebase SDK, because
     /// `useEmulator` may only be called before a service instance is used.
@@ -55,26 +55,26 @@ enum FirebaseBootstrap {
             connectToEmulators()
         }
 
-        // FB-103: hand the Swift Auth implementation to the Kotlin framework. This runs
+        // Hand the Swift Auth implementation to the Kotlin framework. This runs
         // inside `didFinishLaunchingWithOptions`, strictly before `ContentView` creates
         // the Compose view controller that starts Koin, so the `single<AuthRepository>`
         // binding in `platformModule()` can never be resolved before the bridge exists.
         IosAuthBridgeRegistry.shared.register(bridge: FirebaseAuthBridge())
 
-        // FB-203: same hand-off, for the Firestore list bridge.
+        // Same hand-off, for the Firestore list bridge.
         IosFirestoreListBridgeRegistry.shared.register(bridge: FirebaseListBridge())
 
-        // FB-205: same hand-off, for the Firestore item bridge.
+        // Same hand-off, for the Firestore item bridge.
         IosFirestoreItemBridgeRegistry.shared.register(bridge: FirebaseItemBridge())
 
-        // FB-305: same hand-off, for the Storage photo bridge.
+        // Same hand-off, for the Storage photo bridge.
         let storageBridge = FirebaseStorageBridge()
         IosFirebaseStorageBridgeRegistry.shared.register(bridge: storageBridge)
         IosSessionCleanupBridgeRegistry.shared.register(bridge: FirebaseSessionCleanupBridge(storageBridge: storageBridge))
     }
 
     #if FLUXIT_PARITY
-    // FB-703: opt-in build symbol + emulator-only Kotlin gate + explicit launch argument.
+    // Opt-in build symbol + emulator-only Kotlin gate + explicit launch argument.
     static func runFirebaseRegressionIfRequested() {
         let arguments = ProcessInfo.processInfo.arguments
         guard arguments.contains("-FluxItFirebaseRegressionSelfCheck"), IosFirebaseEmulatorSettings.shared.enabled else { return }
@@ -83,7 +83,7 @@ enum FirebaseBootstrap {
             return arguments[index + 1]
         }
         guard let email = value("-parityEmail"), let password = value("-parityPassword"),
-              let marker = value("-parityMarker") else { print("FB-703 iOS FAILED missing-arguments\nFB-703 END"); return }
+              let marker = value("-parityMarker") else { print("Regression iOS FAILED missing-arguments\nREGRESSION END"); return }
         Task {
             do {
                 let offline = try await IosFirebaseRegressionCheck.shared.runOffline(email: email, password: password, marker: marker, disconnect: { completion in
@@ -92,18 +92,18 @@ enum FirebaseBootstrap {
                     Task { try await Firestore.firestore().enableNetwork() }
                 })
                 print(offline)
-                guard offline.contains("offline PASS") else { print("FB-703 iOS FAILED\nFB-703 END"); return }
+                guard offline.contains("offline PASS") else { print("Regression iOS FAILED\nREGRESSION END"); return }
                 print(try await IosFirebaseRegressionCheck.shared.run(email: email, password: password, marker: marker))
             } catch {
                 try? await Firestore.firestore().enableNetwork()
-                print("FB-703 iOS FAILED\nFB-703 END")
+                print("Regression iOS FAILED\nREGRESSION END")
             }
         }
     }
     #endif
 
     #if FLUXIT_PARITY
-    /// FB-103 evidence hook: runs the emulator-backed Auth integration check and prints
+    /// evidence hook: runs the emulator-backed Auth integration check and prints
     /// its report, then leaves the app running normally.
     ///
     /// FLUXIT_PARITY compiles this hook only with the opt-in Kotlin fixture. Runtime
@@ -130,8 +130,8 @@ enum FirebaseBootstrap {
                 }
                 print(report)
             } catch {
-                print("FB-103 iOS Auth integration check: THREW \(error)")
-                print("FB-103 END")
+                print("iOS Auth integration check: THREW \(error)")
+                print("AUTH END")
             }
         }
     }
@@ -139,7 +139,7 @@ enum FirebaseBootstrap {
     #endif
 
     #if FLUXIT_PARITY
-    /// FB-203 evidence hook: same shape as [runAuthSelfCheckIfRequested], for the
+    /// evidence hook: same shape as [runAuthSelfCheckIfRequested], for the
     /// Firestore list adapter. Guarded the same way: `-FluxItFirestoreListSelfCheck` on
     /// the launch arguments, plus the Kotlin check's own emulator-enabled refusal.
     static func runFirestoreListSelfCheckIfRequested() {
@@ -150,13 +150,13 @@ enum FirebaseBootstrap {
                 let report = try await IosFirestoreListIntegrationCheck.shared.run()
                 print(report)
             } catch {
-                print("FB-203 iOS Firestore list integration check: THREW \(error)")
-                print("FB-203 END")
+                print("iOS Firestore list integration check: THREW \(error)")
+                print("FIRESTORELIST END")
             }
         }
     }
 
-    /// FB-205 evidence hook: same shape as [runFirestoreListSelfCheckIfRequested], for
+    /// evidence hook: same shape as [runFirestoreListSelfCheckIfRequested], for
     /// the Firestore item adapter. Guarded the same way: `-FluxItFirestoreItemSelfCheck`
     /// on the launch arguments, plus the Kotlin check's own emulator-enabled refusal.
     static func runFirestoreItemSelfCheckIfRequested() {
@@ -167,13 +167,13 @@ enum FirebaseBootstrap {
                 let report = try await IosFirestoreItemIntegrationCheck.shared.run()
                 print(report)
             } catch {
-                print("FB-205 iOS Firestore item integration check: THREW \(error)")
-                print("FB-205 END")
+                print("iOS Firestore item integration check: THREW \(error)")
+                print("FIRESTOREITEM END")
             }
         }
     }
 
-    /// FB-206 evidence hook: same shape as [runFirestoreItemSelfCheckIfRequested], for
+    /// evidence hook: same shape as [runFirestoreItemSelfCheckIfRequested], for
     /// the cross-client counter-consistency/conflict/malformed-document/reconnect
     /// checks. Guarded the same way: `-FluxItCrossClientSelfCheck` on the launch
     /// arguments, plus the Kotlin check's own emulator-enabled refusal.
@@ -185,13 +185,13 @@ enum FirebaseBootstrap {
                 let report = try await IosFirestoreCrossClientIntegrationCheck.shared.run()
                 print(report)
             } catch {
-                print("FB-206 iOS cross-client integration check: THREW \(error)")
-                print("FB-206 END")
+                print("iOS cross-client integration check: THREW \(error)")
+                print("CROSSCLIENT END")
             }
         }
     }
 
-    /// FB-305 evidence hook: same shape as [runFirestoreItemSelfCheckIfRequested], for the
+    /// evidence hook: same shape as [runFirestoreItemSelfCheckIfRequested], for the
     /// Storage photo adapter. Guarded the same way: `-FluxItPhotoStorageSelfCheck` on the
     /// launch arguments, plus the Kotlin check's own emulator-enabled refusal.
     static func runPhotoStorageSelfCheckIfRequested() {
@@ -202,13 +202,13 @@ enum FirebaseBootstrap {
                 let report = try await IosPhotoStorageIntegrationCheck.shared.run()
                 print(report)
             } catch {
-                print("FB-305 iOS Storage integration check: THREW \(error)")
-                print("FB-305 END")
+                print("iOS Storage integration check: THREW \(error)")
+                print("PHOTOSTORAGE END")
             }
         }
     }
 
-    /// `FB-307` evidence hook: interrupted-replace/orphan-detection/retry-recovery check.
+    /// evidence hook: interrupted-replace/orphan-detection/retry-recovery check.
     /// Guarded the same way: `-FluxItPhotoStorageInterruptedReplaceCheck` on the launch
     /// arguments, plus the Kotlin check's own emulator-enabled refusal.
     static func runPhotoStorageInterruptedReplaceCheckIfRequested() {
@@ -219,13 +219,13 @@ enum FirebaseBootstrap {
                 let report = try await IosPhotoStorageIntegrationCheck.shared.runInterruptedReplaceCheck()
                 print(report)
             } catch {
-                print("FB-307 iOS Storage interrupted-replace check: THREW \(error)")
-                print("FB-307 END")
+                print("iOS Storage interrupted-replace check: THREW \(error)")
+                print("PHOTOSTORAGE END")
             }
         }
     }
 
-    /// `FB-307` evidence hook: the publish half of the cross-device/reinstall check pair.
+    /// evidence hook: the publish half of the cross-device/reinstall check pair.
     /// Guarded by `-FluxItPhotoStorageCrossDevicePublish` on the launch arguments, plus
     /// the Kotlin check's own emulator-enabled refusal. See
     /// `IosPhotoStorageIntegrationCheck`'s class KDoc for how to combine this with
@@ -239,13 +239,13 @@ enum FirebaseBootstrap {
                 let report = try await IosPhotoStorageIntegrationCheck.shared.runCrossDevicePublish()
                 print(report)
             } catch {
-                print("FB-307 iOS Storage cross-device publish check: THREW \(error)")
-                print("FB-307 END")
+                print("iOS Storage cross-device publish check: THREW \(error)")
+                print("PHOTOSTORAGE END")
             }
         }
     }
 
-    /// `FB-307` evidence hook: the subscribe half of the cross-device/reinstall check
+    /// evidence hook: the subscribe half of the cross-device/reinstall check
     /// pair. Guarded by `-FluxItPhotoStorageCrossDeviceSubscribe` on the launch
     /// arguments, plus the Kotlin check's own emulator-enabled refusal.
     static func runPhotoStorageCrossDeviceSubscribeIfRequested() {
@@ -256,13 +256,13 @@ enum FirebaseBootstrap {
                 let report = try await IosPhotoStorageIntegrationCheck.shared.runCrossDeviceSubscribe()
                 print(report)
             } catch {
-                print("FB-307 iOS Storage cross-device subscribe check: THREW \(error)")
-                print("FB-307 END")
+                print("iOS Storage cross-device subscribe check: THREW \(error)")
+                print("PHOTOSTORAGE END")
             }
         }
     }
 
-    /// `FB-408` evidence hook: live pre-fix/post-fix reproduction of `FB-405`'s headline
+    /// evidence hook: live pre-fix/post-fix reproduction of the headline
     /// finding (a terminal Firestore listener error crashing the app process). Guarded the
     /// same way: `-FluxItDashboardListenerCrashSelfCheck` on the launch arguments, plus the
     /// Kotlin check's own emulator-enabled refusal. See
@@ -277,8 +277,8 @@ enum FirebaseBootstrap {
                 let report = try await IosDashboardListenerCrashSelfCheck.shared.run()
                 print(report)
             } catch {
-                print("FB-408 iOS listener-crash self-check: THREW \(error)")
-                print("FB-408 END")
+                print("iOS listener-crash self-check: THREW \(error)")
+                print("LISTENERCRASH END")
             }
         }
     }
@@ -292,10 +292,10 @@ enum FirebaseBootstrap {
 
         Auth.auth().useEmulator(withHost: host, port: Int(settings.authPort))
 
-        // FB-203: `useEmulator(withHost:port:)` alone was empirically found NOT to
+        // `useEmulator(withHost:port:)` alone was empirically found NOT to
         // disable TLS reliably for this SDK version's gRPC transport when first
-        // genuinely exercised (Firestore emulator work was unexercised on iOS through
-        // FB-007/FB-008/FB-202) - the client kept attempting a TLS handshake against the
+        // genuinely exercised (Firestore emulator work was unexercised on iOS until then)
+        // - the client kept attempting a TLS handshake against the
         // plaintext local emulator (`SSL_ERROR_SSL ... WRONG_VERSION_NUMBER`, confirmed
         // against a real emulator that answers plain HTTP on the same port). Setting
         // `isSSLEnabled = false` explicitly on the `FirestoreSettings` - the older,
@@ -433,9 +433,9 @@ extension FirebaseBootstrap {
             do {
                 let report = try await IosSessionCleanupCheck.shared.run(phase: value("-phase"), emailA: value("-emailA"), emailB: value("-emailB"),
                     password: value("-password"), uidA: value("-uidA"), uidB: value("-uidB"), bridge: FirebaseSessionCleanupProbe())
-                print("FB-709 Apple \(report)")
-                print("FB-709 END")
-            } catch { print("FB-709 Apple FAILED \(error)\nFB-709 END") }
+                print("SessionCleanup Apple \(report)")
+                print("SESSIONCLEANUP END")
+            } catch { print("SessionCleanup Apple FAILED \(error)\nSESSIONCLEANUP END") }
         }
         return true
     }
@@ -467,7 +467,7 @@ final class FirebaseSessionCleanupProbe: NSObject, IosSessionCleanupProbe {
     func verifyStorageCancellation(uid: String, completion: @escaping (KotlinBoolean) -> Void) {
         Task { @MainActor in
             do {
-                let name = "fb709-storage-cancel"
+                let name = "sesscleanup-storage-cancel"
                 if FirebaseApp.app(name: name) == nil { FirebaseApp.configure(name: name, options: FirebaseApp.app()!.options) }
                 let secondary = FirebaseApp.app(name: name)!
                 let storage = Storage.storage(app: secondary)
@@ -475,14 +475,14 @@ final class FirebaseSessionCleanupProbe: NSObject, IosSessionCleanupProbe {
                 let bridge = FirebaseStorageBridge(storageProvider: { storage })
                 let pending = Task { @MainActor in
                     try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-                        bridge.uploadData(photoRef: "users/\(uid)/items/fb709-item/cancelled-upload", data: Data([0xff, 0xd8, 0xff]), mimeType: "image/jpeg") {
+                        bridge.uploadData(photoRef: "users/\(uid)/items/sesscleanup-item/cancelled-upload", data: Data([0xff, 0xd8, 0xff]), mimeType: "image/jpeg") {
                             if let error = $0 { c.resume(throwing: error) } else { c.resume() }
                         }
                     }
                 }
                 let pendingDownload = Task { @MainActor in
                     try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-                        bridge.downloadData(photoRef: "users/\(uid)/items/fb709-item/cancelled-upload", maxSize: 5_242_880) { _, error in
+                        bridge.downloadData(photoRef: "users/\(uid)/items/sesscleanup-item/cancelled-upload", maxSize: 5_242_880) { _, error in
                             if let error = error { c.resume(throwing: error) } else { c.resume() }
                         }
                     }
@@ -492,17 +492,17 @@ final class FirebaseSessionCleanupProbe: NSObject, IosSessionCleanupProbe {
                 try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
                     cleaner.clear { if let error = $0 { c.resume(throwing: error) } else { c.resume() } }
                 }
-                do { try await pending.value; throw NSError(domain: "FB709", code: 1) }
+                do { try await pending.value; throw NSError(domain: "SessionCleanup", code: 1) }
                 catch {
                     guard (error as NSError).code == StorageErrorCode.cancelled.rawValue else { throw error }
                 }
-                do { try await pendingDownload.value; throw NSError(domain: "FB709", code: 2) }
+                do { try await pendingDownload.value; throw NSError(domain: "SessionCleanup", code: 2) }
                 catch {
                     guard (error as NSError).code == StorageErrorCode.cancelled.rawValue else { throw error }
                 }
                 secondary.delete { _ in }
                 completion(KotlinBoolean(value: true))
-            } catch { print("FB-709 Storage FAILED \(error)"); completion(KotlinBoolean(value: false)) }
+            } catch { print("SessionCleanup Storage FAILED \(error)"); completion(KotlinBoolean(value: false)) }
         }
     }
 }

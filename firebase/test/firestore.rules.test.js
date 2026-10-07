@@ -1,4 +1,4 @@
-// FB-005 baseline Firestore Rules tests: owner-allowed, cross-user denied,
+// baseline Firestore Rules tests: owner-allowed, cross-user denied,
 // unauthenticated denied, and unmatched paths denied (deny-by-default).
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -143,7 +143,7 @@ test('owner cannot batch-delete a list and create an orphan item', async () => {
   assert.equal((await assertSucceeds(getDoc(list))).exists(), true);
 });
 
-// --- FB-601: schema, immutable ownership, and counter bounds -------------
+// --- Schema, immutable ownership, and counter bounds -------------
 
 test('owner can create a complete list, tombstone it, and restore it', async () => {
   const list = doc(alice, `users/${ALICE}/lists/lifecycle`);

@@ -1,4 +1,4 @@
-// FB-603: backend group query results/cursors, including equal values across
+// Backend group query results/cursors, including equal values across
 // users and pages. The emulator does not enforce compound indexes; the separate
 // firebase/test/config.test.js checks the checked-in index contract.
 const { test } = require('node:test');
@@ -11,7 +11,7 @@ const { PAGE_SIZE } = require('../cascade');
 async function fixture(name, body) {
   // Never fall through to real Admin SDK credentials/endpoints.
   assert.ok(process.env.FIRESTORE_EMULATOR_HOST);
-  const app = initializeApp({ projectId: 'demo-fluxit' }, `fb603-${name}`);
+  const app = initializeApp({ projectId: 'demo-fluxit' }, `indexes-${name}`);
   const db = getFirestore(app);
   const documents = [];
   try {
@@ -47,7 +47,7 @@ for (const group of ['lists', 'items']) {
   test(`${group} deletedAt range/order query traverses tied cutoff timestamps across owners`, async () => {
     await fixture(group, async (db, add, commit) => {
       const expected = [];
-      const root = `users/fb603-${group}-${process.pid}`;
+      const root = `users/indexes-${group}-${process.pid}`;
       const path = (i) => {
         const user = `${root}-${i % 2}`;
         const id = String(i).padStart(3, '0');
@@ -75,10 +75,10 @@ test('claimedAt job discovery traverses multiple pages and excludes unindexed mi
   await fixture('jobs', async (db, add, commit) => {
     const expected = [];
     for (let i = 0; i < 102; i++) {
-      expected.push(add(`users/fb603-jobs-${process.pid}-${i % 2}/listCleanupJobs/job-${String(i).padStart(3, '0')}`,
+      expected.push(add(`users/indexes-jobs-${process.pid}-${i % 2}/listCleanupJobs/job-${String(i).padStart(3, '0')}`,
         { claimedAt: Timestamp.fromMillis(1_000) }).path);
     }
-    add(`users/fb603-jobs-${process.pid}/listCleanupJobs/missing`, { listId: 'synthetic' });
+    add(`users/indexes-jobs-${process.pid}/listCleanupJobs/missing`, { listId: 'synthetic' });
     await commit();
     const result = await pages(db.collectionGroup('listCleanupJobs').orderBy('claimedAt').limit(PAGE_SIZE));
     assert.deepEqual(result.map((page) => page.length), [100, 2]);
@@ -88,10 +88,10 @@ test('claimedAt job discovery traverses multiple pages and excludes unindexed mi
 
 test('photoRef equality query finds an owning tombstoned reference after a full foreign page', async () => {
   await fixture('photo', async (db, add, commit) => {
-    const owner = `zz-fb603-owner-${process.pid}`;
+    const owner = `zz-indexes-owner-${process.pid}`;
     const photoRef = `users/${owner}/items/target/photo`;
     for (let i = 0; i < 101; i++) {
-      add(`users/aa-fb603-foreign-${process.pid}/lists/list-${String(i).padStart(3, '0')}/items/target`, { photoRef });
+      add(`users/aa-indexes-foreign-${process.pid}/lists/list-${String(i).padStart(3, '0')}/items/target`, { photoRef });
     }
     const owningItem = add(`users/${owner}/lists/list/items/target`,
       { photoRef, deletedAt: Timestamp.fromMillis(1_000) });

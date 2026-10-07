@@ -28,9 +28,9 @@ data class CreateListUiState(
     /** Set after save: created list id (create mode) or "" (edit mode saved). */
     val savedListId: String? = null,
     /**
-     * `FB-402`: non-null when the most recent [CreateListViewModel.save] attempt failed and has
+     * Non-null when the most recent [CreateListViewModel.save] attempt failed and has
      * not since been retried successfully or dismissed via [CreateListViewModel.dismissError].
-     * FB-401's neutral, Firebase-free [ApplicationError] - never a raw SDK exception.
+     * Neutral, Firebase-free [ApplicationError] - never a raw SDK exception.
      */
     val error: ApplicationError? = null,
 ) {
@@ -76,7 +76,7 @@ class CreateListViewModel(
     }
 
     /**
-     * `FB-402`: creates or updates the list. A second call while the first is still in flight (a
+     * Creates or updates the list. A second call while the first is still in flight (a
      * double-tap, or a retry racing a fresh tap) is a no-op - [CreateListUiState.isSaving] is set
      * synchronously, before the coroutine is even launched, so the guard below always sees the
      * first call's flag, exactly like `ItemDetailViewModel.pickPhoto`'s pre-existing
@@ -112,7 +112,7 @@ class CreateListViewModel(
     }
 
     /**
-     * `FB-402`: re-attempts [save] with the current (possibly since-edited) field values - a
+     * Re-attempts [save] with the current (possibly since-edited) field values - a
      * no-op if nothing failed or a save is already in flight, exactly like [save] itself.
      */
     fun retrySave() = save()

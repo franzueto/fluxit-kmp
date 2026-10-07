@@ -16,8 +16,8 @@ import com.fluxit.firebase.auth.IosAuthBridgeRegistry
  * made after a sign-out.
  *
  * Different mechanism, though: there is no Firebase Auth SDK type reachable from
- * `iosMain` (PLAN-008), so this reads the uid through the already-registered
- * [IosAuthBridge] - the same Swift-backed seam FB-103's [com.fluxit.firebase.auth.IosAuthRepository]
+ * `iosMain`, so this reads the uid through the already-registered
+ * [IosAuthBridge] - the same Swift-backed seam the [com.fluxit.firebase.auth.IosAuthRepository]
  * uses - rather than a Firestore-specific mechanism. `currentUser()` is documented not to
  * hit the network, matching Android's local-only `FirebaseAuth.getInstance().currentUser`
  * check.

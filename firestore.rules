@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// FB-601: owner-only, deny-by-default schema. Admin cleanup bypasses Rules;
+// Owner-only, deny-by-default schema. Admin cleanup bypasses Rules;
 // its private listCleanupJobs/photo-journal paths have no client match.
 service cloud.firestore {
   match /databases/{database}/documents {

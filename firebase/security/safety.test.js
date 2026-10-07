@@ -13,10 +13,10 @@ for (const [name, args, code, extra] of [
 ]) {
   test(name, () => {
     const env = { ...process.env }; emulatorKeys.forEach((key) => delete env[key]); Object.assign(env, extra);
-    assert.equal(existsSync(resolve(root, 'firebase.fb604-run.json')), false, 'Finish outstanding fixtures before safety tests');
+    assert.equal(existsSync(resolve(root, 'firebase.secsuite-run.json')), false, 'Finish outstanding fixtures before safety tests');
     const result = spawnSync(process.execPath, [resolve(root, 'firebase/security/run.js'), ...args], { env, encoding: 'utf8', timeout: 10000 });
     assert.equal(result.status, 1); assert.match(result.stdout, new RegExp(code));
-    assert.equal(existsSync(resolve(root, 'firebase.fb604-run.json')), false);
+    assert.equal(existsSync(resolve(root, 'firebase.secsuite-run.json')), false);
     assert.equal(result.stderr, '');
   });
 }

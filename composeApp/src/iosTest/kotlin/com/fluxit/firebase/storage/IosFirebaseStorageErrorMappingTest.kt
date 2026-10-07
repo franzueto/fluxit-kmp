@@ -6,8 +6,8 @@ import kotlin.test.assertEquals
 import platform.Foundation.NSError
 
 /**
- * `FB-401` mapping-table tests for the Storage side of the boundary, discharging
- * `FB-305-NB2` - the iOS counterpart of Android's `AndroidFirebaseStorageErrorMappingTest`,
+ * mapping-table tests for the Storage side of the boundary, discharging
+ * the iOS counterpart of Android's `AndroidFirebaseStorageErrorMappingTest`,
  * mirroring `IosFirestoreErrorMappingTest`'s style for the Firestore side.
  *
  * Honest bound: this asserts the *mapping*, not that the Apple Storage SDK actually emits

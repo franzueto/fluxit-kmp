@@ -13,7 +13,7 @@ enum class ImageType(val mimeType: String) {
 }
 
 /**
- * `FB-303` size/type/resize policy constants. Concrete values, and the reasoning behind them,
+ * size/type/resize policy constants. Concrete values, and the reasoning behind them,
  * documented here for reviewer visibility (flagged as judgment calls, not values dictated by
  * the plan text itself):
  *
@@ -55,7 +55,7 @@ object PhotoPolicy {
 
 /**
  * Rejection reasons [validatePhotoSource]/[preparePhotoForUpload] can raise, typed and minimal
- * so later UI error-state work (`FB-306`/Phase 4) can pattern-match on *why* a photo was
+ * so UI error-state code can pattern-match on *why* a photo was
  * rejected without parsing message strings. Never a Firebase exception type - this layer runs
  * entirely before any `PhotoStorage`/Storage call (see `PhotoBridges.kt`).
  */
@@ -162,7 +162,7 @@ fun validatePhotoSource(bytes: ByteArray): ImageType {
  * `PhotoStorage.uploadPhoto`. This is the one function a caller (`ItemDetailViewModel.pickPhoto`)
  * runs on freshly picked bytes *before* calling `uploadPhoto`/`replacePhoto` - it never touches
  * `PhotoStorage` or Firestore itself, so it composes ahead of, and is fully independent of,
- * `FB-302`'s safe-replace ordering (see `PhotoBridges.kt`).
+ * Safe-replace ordering (see `PhotoBridges.kt`).
  *
  * Decision logic (pure, lives entirely in this function): validate the source via
  * [validatePhotoSource], read its pixel dimensions via [readDimensions], and resize via

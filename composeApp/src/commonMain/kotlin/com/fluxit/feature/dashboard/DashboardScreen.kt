@@ -73,7 +73,7 @@ const val DEBUG_SEED_ENABLED = true
 fun DashboardScreen(
     onOpenList: (String) -> Unit,
     onCreateList: () -> Unit,
-    // FB-104: supplied by the session gate. This screen never resolves an
+    // Supplied by the session gate. This screen never resolves an
     // AuthRepository itself; it only renders the already-resolved identity and
     // forwards the sign-out intent back up to the gate.
     accountEmail: String? = null,

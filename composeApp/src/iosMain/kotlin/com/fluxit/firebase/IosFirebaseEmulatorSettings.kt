@@ -3,7 +3,7 @@ package com.fluxit.firebase
 import com.fluxit.config.FirebaseEmulatorConfig
 
 /**
- * FB-007 Swift-facing seam for the generated [FirebaseEmulatorConfig] constants.
+ * Swift-facing seam for the generated [FirebaseEmulatorConfig] constants.
  *
  * The Firebase Apple SDK is integrated on the Xcode side (Swift Package Manager)
  * rather than through Kotlin/Native cinterop, because `FirebaseStorage` and most of

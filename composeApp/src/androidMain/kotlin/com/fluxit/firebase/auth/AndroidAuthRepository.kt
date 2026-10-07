@@ -13,16 +13,16 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 /**
- * Android [AuthRepository] backed by the official Firebase Android Auth SDK (FB-102).
+ * Android [AuthRepository] backed by the official Firebase Android Auth SDK.
  *
  * Design notes:
  *
  * - No Firebase type appears in any signature here. The SDK is reached only through
  *   [FirebaseAuthGateway]; failures are translated by [mapAuthFailure] and logged
- *   platform-side first (FB-101-NB2), so no SDK code, message or exception ever
+ *   platform-side first, so no SDK code, message or exception ever
  *   crosses into `commonMain`.
  * - [session] is a `callbackFlow` whose `awaitClose` removes the SDK auth-state
- *   listener, so cancelling a collector genuinely releases the listener (FB-101-NB3).
+ *   listener, so cancelling a collector genuinely releases the listener.
  * - The published state lives in [state] rather than in the flow, so an operation
  *   performed while nobody is collecting still leaves the repository in the right
  *   state, and so [restoreSession] can publish [AuthSession.ResolutionFailed] - a

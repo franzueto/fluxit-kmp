@@ -36,7 +36,7 @@ class FirebaseRegressionInstrumentedTest {
         try {
             val trace = RepositoryRegressionScenario.run(lists, items) { "users/$uid/items/$it/parity.jpg" }
             assertEquals(16, trace.size)
-            println("FB-703 Android Firebase regression PASS checkpoints=${trace.size}")
+            println("Regression Android Firebase regression PASS checkpoints=${trace.size}")
             // Register before Apple's update and keep this same collector alive through it.
             val shared = withTimeout(90_000) { lists.observeListSummaries().first { r -> r.any { it.list.name == "$marker-ready" } } }
                 .first { it.list.name == "$marker-ready" }.list.id
@@ -62,8 +62,8 @@ class FirebaseRegressionInstrumentedTest {
                 photos.deletePhoto(applePhoto)
                 assertNull(photos.loadPhoto(applePhoto))
                 items.setPhotoRef(shared, item.id, null)
-                println("FB-703 Android cross-platform-photo PASS bytes=equal replacements=1 deleted=1")
-                println("FB-703 Android realtime PASS Apple-list-edit Apple-item-completion counters=1/1")
+                println("Regression Android cross-platform-photo PASS bytes=equal replacements=1 deleted=1")
+                println("Regression Android realtime PASS Apple-list-edit Apple-item-completion counters=1/1")
             } finally { listener.cancelAndJoin() }
         } finally { auth.signOut() }
     }

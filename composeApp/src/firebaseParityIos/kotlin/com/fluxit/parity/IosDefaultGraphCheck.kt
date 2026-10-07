@@ -29,6 +29,6 @@ object IosDefaultGraphCheck {
         check(!graph.instanceRegistry.instances.values.single {
             it.beanDefinition.primaryType == AuthRepository::class
         }.isCreated(null))
-        return "FB-703 iOS default-graph PASS Firebase-list-item emulator=false Room-definition=absent auth-initialized=false"
+        return "Regression iOS default-graph PASS Firebase-list-item emulator=false Room-definition=absent auth-initialized=false"
     }
 }
