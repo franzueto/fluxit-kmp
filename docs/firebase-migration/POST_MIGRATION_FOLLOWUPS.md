@@ -22,7 +22,7 @@ when you start or finish an item, and add a line to its *Log*.
 | [PM-05](#pm-05--test-coverage-gaps) | Low | Test coverage gaps | DONE | FB-007-NB1, FB-304-NB2, FB-105-NB2 |
 | [PM-06](#pm-06--session-restore-outcome-contract) | Low | Session-restore outcome contract | WONTFIX | FB-104-NB1 |
 | [PM-07](#pm-07--continuous-integration-optional) | Optional | Continuous integration | DONE | FB-206-NB2 |
-| [PM-08](#pm-08--remove-migration-tracking-references-from-code-and-docs) | Last | Remove migration-tracking references from code and docs | TODO (after PM-01…PM-07) | — |
+| [PM-08](#pm-08--remove-migration-tracking-references-from-code-and-docs) | Last | Remove migration-tracking references from code and docs | IN_PROGRESS | — |
 
 Suggested order: PM-01 → PM-02 → PM-03, then the low-priority items as time allows.
 PM-08 goes last, once everything above is `DONE` or `WONTFIX`.
@@ -207,7 +207,7 @@ the emulator-only demo project, or encrypted secrets). Never commit real config 
 
 ## PM-08 — Remove migration-tracking references from code and docs
 
-**Priority:** Last · **Status:** TODO · **Depends on:** PM-01…PM-07 `DONE` or `WONTFIX`
+**Priority:** Last · **Status:** IN_PROGRESS · **Depends on:** PM-01…PM-07 `DONE` or `WONTFIX`
 
 Once the follow-ups are finished, the migration bookkeeping is no longer needed in the
 codebase.
@@ -229,9 +229,10 @@ codebase.
 - [ ] `git grep -E '(FB|PLAN|DEC|MAN)-[0-9]{3}'` and `git grep -iE 'fb-?[0-9]{3}'` return nothing outside the kept archive/summary (if any).
 - [ ] Hash-pinned evidence scripts are removed or archived.
 - [ ] All builds and test suites pass on Android and iOS.
-- [ ] `README.md` and `firebase/README.md` read as normal project documentation.
+- [x] `README.md` and `firebase/README.md` read as normal project documentation.
 
 **Log:**
+- 2026-10-07: Tagged `firebase-migration-record` (local) at `c447af2`, wrote `docs/firebase-migration/SUMMARY.md`, and removed the IDs from code, config and both READMEs (`git grep` for both patterns is clean outside the files still to be deleted). Report sentinels changed from `FB-103 END` style to labels such as `AUTH END`, with `firebase/parity/ios-checks.py` and the Swift hooks changed together; lowercase fixture prefixes and handcrafted pbxproj object IDs were renamed. Verified: Android Debug/Release unit tests, iOS simulator tests, ordinary and parity Xcode builds. Remaining: delete the migration documents, the hash-pinned evidence (`firebase/{cutover,final-verification,photo-removal,room-removal,session-cleanup}`, `firebase/parity/{evidence.json,native.py,report.py}`, `firebase/security/native-ios.py`), `docs/firebase-migration/agent-config/` and this page. Pending the user running or allowing `git rm`. The security tests in `firebase/security/safety.test.js` need Node 22 and fail the same way on the tagged commit under Node 24.
 
 ---
 
