@@ -3,6 +3,8 @@ package com.fluxit.di
 import com.fluxit.config.AppFeatures
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
+import com.fluxit.data.WebPhotoPicker
+import com.fluxit.data.WebPhotoStorage
 import com.fluxit.domain.ItemRepository
 import com.fluxit.domain.ListRepository
 import com.fluxit.domain.auth.AuthRepository
@@ -10,6 +12,7 @@ import com.fluxit.domain.session.SessionAuthRepository
 import com.fluxit.domain.session.SessionCleanup
 import com.fluxit.domain.session.SessionItemRepository
 import com.fluxit.domain.session.SessionListRepository
+import com.fluxit.domain.session.SessionPhotoStorage
 import com.fluxit.domain.session.SessionWork
 import com.fluxit.firebase.auth.WebAuthRepository
 import com.fluxit.firebase.item.WebFirebaseItemRepository
@@ -19,8 +22,8 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 /**
- * Web bindings: Firebase Auth and Firestore from Phases 2–3; photos arrive in Phase 4
- * (docs/web-app/PROGRESS.md). Firebase starts on first use, not here.
+ * Web bindings: Firebase Auth, Firestore and Storage (docs/web-app/PROGRESS.md, Phases 2–4).
+ * Firebase starts on first use, not here.
  */
 actual fun platformModule(): Module = module {
     single { AppFeatures.Web }
@@ -36,7 +39,7 @@ actual fun platformModule(): Module = module {
     single<ListRepository> { SessionListRepository(WebFirebaseListRepository(), get()) }
     single<ItemRepository> { SessionItemRepository(WebFirebaseItemRepository(), get()) }
 
-    // Phase 3 placeholders until the Storage bridge lands in Phase 4.
-    single<PhotoPicker> { PendingWebPhotoPicker() }
-    single<PhotoStorage> { PendingWebPhotoStorage() }
+    single<PhotoPicker> { WebPhotoPicker() }
+    // Cloud Storage-backed and session-gated, like iOS; see WebPhotoStorage's KDoc.
+    single<PhotoStorage> { SessionPhotoStorage(WebPhotoStorage(), get()) }
 }

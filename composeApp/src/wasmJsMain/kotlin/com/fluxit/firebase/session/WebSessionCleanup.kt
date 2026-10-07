@@ -14,10 +14,11 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * Android's SharedPreferences and iOS's UserDefaults), so a credential change interrupted
  * by closing the tab is cleaned up on the next load. It holds no identity or data.
  *
- * [clear] asks the bridge to terminate the Firestore instance, dropping its in-memory
- * cache, listeners and queued writes; the next use creates a fresh one. Firestore on web
- * keeps no disk cache (decision D4), so there is nothing else to wipe. A failed
- * termination is retried by the next [clear]. Phase 4 adds Storage task cancellation.
+ * [clear] asks the bridge to cancel running Storage uploads and downloads (as iOS and
+ * Android do), then terminate the Firestore instance, dropping its in-memory cache,
+ * listeners and queued writes; the next use creates a fresh one. Firestore on web keeps no
+ * disk cache (decision D4), so there is nothing else to wipe. A failed termination is
+ * retried by the next [clear].
  */
 internal class WebSessionCleanup(
     private val markerStore: MarkerStore = LocalStorageMarkerStore,

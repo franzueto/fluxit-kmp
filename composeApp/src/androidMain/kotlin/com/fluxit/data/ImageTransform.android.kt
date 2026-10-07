@@ -12,7 +12,7 @@ import kotlin.math.roundToInt
  * `android.graphics.BitmapFactory` is stubbed to throw under plain JVM unit tests), so
  * correctness here relies on [readImageDimensions]/[resizeImage] being compiled and on the
  * pure decision logic in `PhotoPolicy.kt` being exhaustively tested against fakes instead -
- * see `PhotoPolicyTest` and the iOS real-decode smoke test (`ImageTransformIosTest`) for the
+ * see `PhotoPolicyTest` and the iOS real-decode smoke test (`ImageTransformSkikoTest`) for the
  * platform-actual coverage this pass could add safely.
  */
 

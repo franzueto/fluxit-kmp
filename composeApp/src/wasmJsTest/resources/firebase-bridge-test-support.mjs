@@ -1,8 +1,15 @@
-// Test-only helpers for WebFirestoreCodecTest: builds real Firestore values in JS, runs
-// them through the production bridge's conversions and describes the result as JSON.
+// Test-only helpers for WebFirestoreCodecTest (builds real Firestore values in JS, runs them
+// through the production bridge's conversions and describes the result as JSON) and
+// WebStorageSessionTasksTest.
 
 import { Timestamp, increment, serverTimestamp } from "firebase/firestore";
-import { firestoreDataToWire, wireToFirestoreData } from "./firebase-bridge.mjs";
+import {
+    cancelStorageTasks,
+    clearSessionData,
+    firestoreDataToWire,
+    storageTask,
+    wireToFirestoreData,
+} from "./firebase-bridge.mjs";
 
 /** Wire entries → Firestore data, described per key. */
 export function describeFirestoreData(wire) {
@@ -31,4 +38,46 @@ export function sampleSnapshotWire() {
         nested: { a: 1 },
         tags: ["x"],
     });
+}
+
+// --- Storage session tasks (WebStorageSessionTasksTest) -----------------------------------
+
+/**
+ * Fake Storage operations through the bridge's session-task tracking: a cancellable upload,
+ * a download the SDK cannot cancel, one already finished and one whose start throws. Cleanup
+ * runs through `cancelStorageTasks()` or, with `viaClearSessionData`, the production
+ * `clearSessionData()` (no Firestore instance exists in the test bundle). Reports what each
+ * caller saw, in order, plus the cleanup result.
+ */
+export function describeStorageCancellation(viaClearSessionData, done) {
+    const seen = [];
+    const report = (name) => (value, error) => seen.push(`${name}:${error?.code ?? value}`);
+
+    storageTask(() => { throw { code: "storage/invalid-argument", message: "" }; }, report("throws"), null);
+
+    let rejectUpload;
+    let uploadCancelled = 0;
+    storageTask(() => ({
+        promise: new Promise((_, reject) => { rejectUpload = reject; }),
+        cancel: () => { uploadCancelled++; rejectUpload({ code: "storage/canceled", message: "" }); },
+    }), report("upload"), null);
+
+    let resolveDownload;
+    storageTask(() => ({ promise: new Promise((resolve) => { resolveDownload = resolve; }), cancel: null }),
+        report("download"), null);
+
+    storageTask(() => ({ promise: Promise.resolve("ok"), cancel: () => seen.push("finished-task-cancelled") }),
+        report("finished"), null);
+
+    const cleanup = viaClearSessionData
+        ? () => new Promise((resolve) => clearSessionData((error) => { seen.push(`cleanup:${error?.code ?? "ok"}`); resolve(); }))
+        : () => cancelStorageTasks().then(() => { seen.push("cleanup:ok"); });
+
+    Promise.resolve()
+        .then(cleanup)
+        .then(() => {
+            resolveDownload("late"); // dropped: the caller already heard storage/canceled
+            return cancelStorageTasks(); // nothing is left to cancel
+        })
+        .then(() => setTimeout(() => done(JSON.stringify({ seen, uploadCancelled })), 0));
 }

@@ -6,7 +6,7 @@ the next phase.
 
 - **Branch:** `web/wasm-app`
 - **Started:** 2026-10-07
-- **Current phase:** Phase 4 — Photos on web (next; not started)
+- **Current phase:** Phase 5 — Mobile web polish (next; not started)
 
 ## Goal
 
@@ -45,8 +45,8 @@ composeApp/src/
     resources/    index.html, styles, JS bridge module over the Firebase JS SDK
 ```
 
-Image decode/resize on web uses Skia (Skiko) — same code as `iosMain`; Phase 4 moves it
-into a `skikoMain` source set shared by iOS and web.
+Image decode/resize on web uses Skia (Skiko) — the same code as iOS, in a `skikoMain` source
+set shared by iOS and web (Phase 4).
 
 Web Firebase config (apiKey, projectId, …) comes from a gitignored local file, like the
 mobile configs.
@@ -133,17 +133,25 @@ Verification (2026-10-07): wasm tests 320/320 (was 253), Android unit tests 265/
 
 Known gaps: until Phase 4, removing a photo or hard-deleting an item that has a photo (e.g. one added on Android) from web clears `photoRef`/deletes the item but cannot delete the Storage object (the placeholder fails and the screen ignores that failure), leaving an orphaned photo; avoid those two actions on web against the dev project until Phase 4. `clearSessionData()`'s terminate-and-retry path is covered only by the manual sign-out → sign-in run, not by an automated test. The first Undo attempt in testing came after the snackbar's short timeout (behaviour shared with mobile, not a web bug). The raw `firebase-bridge.mjs` in the distribution now also ships the Firestore code (still unused there; exclude in Phase 6).
 
-### Phase 4 — Photos on web · ⬜
+### Phase 4 — Photos on web · ✅
 
-- [ ] `skikoMain` source set shared by iOS and web for image decode/resize (remove Phase 0 stubs)
-- [ ] `WebPhotoPicker` via `<input type="file" accept="image/*">`
-- [ ] `WebPhotoStorage` (upload/download/delete via JS bridge) wrapped in `SessionPhotoStorage`
-- [ ] Attach, replace, remove, display photos; iPhone HEIC behaviour verified
-- [ ] iOS tests (`ImageTransformIosTest`, `ImageDecoderIosTest`) still pass
+- [x] `skikoMain` source set shared by iOS and web for image decode/resize (Phase 0 stubs removed): a `skiko` group (iOS + wasmJs) added to the default hierarchy template in `composeApp/build.gradle.kts`; `ImageTransform.ios.kt`/`ImageDecoder.ios.kt` moved unchanged to `skikoMain` as `*.skiko.kt`, and their tests to `skikoTest` as `ImageTransformSkikoTest`/`ImageDecoderSkikoTest`, so the same real-Skia tests now run on iOS and in headless Chrome
+- [x] `WebPhotoPicker` via a temporary, hidden `<input type="file" accept="image/*">` attached to the page while open; `change` → bytes, `cancel` → `null` (no change, no error). Reads at most `MAX_SOURCE_BYTES + 1` bytes, so an oversized file is still rejected as `TooLarge` without loading all of it. Type checks stay with the shared magic-byte sniffing
+- [x] `WebPhotoStorage` (ported from `IosPhotoStorage`: same ref building, validation-before-upload, MIME from sniffed bytes, missing-object = `null`/no-op, everything else → `PhotoStorageException`) over `WebFirebaseStorageBridge` (`JsWebFirebaseStorageBridge` in production) + `WebFirebaseStorageErrorMapping` (same table as iOS/Android on the JS `storage/...` codes); wrapped in `SessionPhotoStorage`. Storage part of `firebase-bridge.mjs`: resumable upload with content type, `getBytes` with the Android/iOS "fail when larger than the limit" behaviour (the JS SDK would silently truncate), delete, Storage emulator wiring. Bytes cross Kotlin ⇄ JS through Wasm linear memory in one copy (`WebBytes.kt`)
+- [x] Sign-out cleanup cancels Storage work (Phase 2 carry-over): `clearSessionData()` first cancels running uploads and waits for them, and answers running downloads (which the JS SDK cannot cancel) with `storage/canceled`, dropping their late result; then terminates Firestore as before. Deletes are not tracked, as on iOS
+- [x] Attach, replace, remove, display photos against the Auth + Firestore + Storage emulators (2026-10-07, see Verification); this closes the Phase 3 orphaned-photo gap (remove and hard-delete now delete the Storage object)
+- [ ] Real-iPhone check in Safari against the dev project (owner action): tapping Update opens the photo chooser; dismissing it re-enables the button (the `cancel` event); a HEIC library photo and a camera shot both upload (Safari hands over JPEG) and show
+- [x] iOS tests (now `ImageTransformSkikoTest`, `ImageDecoderSkikoTest` in `skikoTest`) still pass: `iosSimulatorArm64Test` 334/334, same count as before the move
+- [x] Tests: `WebPhotoStorageTest` (iOS validation cases + addressing, MIME, missing object, error wrapping), `WebFirebaseStorageErrorMappingTest` (iOS table ported), `WebStorageSessionTasksTest` (bridge task cancellation with fake operations, directly and through `clearSessionData()`), `WebBytesTest` (round trips incl. every byte value and 5 MB), `WebPlatformModuleTest` (picker + session-wrapped storage), plus the shared Skia tests on web
+- Removed: the Phase 3 `PendingWebPhotoPicker`/`PendingWebPhotoStorage` placeholders
+
+Verification (2026-10-07): wasm tests 351/351 (was 320), Android unit tests 265/265, `assembleDebug`, Android instrumented-test compile, iOS `iosSimulatorArm64Test` 334/334, `compileSkikoMainKotlinMetadata`, production bundle 14.6 MB raw / **4.91 MB gzip -9** (4.93 MB at the default gzip level; about the same as Phase 3), no emulator host or port in the production JS or wasm. Auth + Firestore + Storage emulators (web config's project ID, repo rules) with a dev bundle at 375×812; the native file dialog cannot be automated, so a debug-only page hook fed real files into the production `change`/`cancel` path. After each step the Storage objects and item documents were read back from the emulator REST APIs: cancel → no change, no error, input removed; desktop HEIC, GIF and a 27 MB file → rejected locally (failure banner, nothing uploaded); 4032×3024 JPEG → resized to 2048×1536, uploaded as `image/jpeg` (332 KB), `photoRef` set; replace with a 640×480 PNG → uploaded unchanged as `image/png`, ref updated, old object deleted; reload → photo downloaded and shown; sign out → sign in → photo loads on the fresh session; remove photo → ref cleared, object deleted; hard-delete an item with a photo → document and object gone. All Storage traffic went to the local emulator. Secret scan of changed/new files against the local web config: 0 hits.
+
+Known gaps: the picker's native path (chooser opening from a Compose tap, the `cancel` event on a real dismiss) was not exercised in automation, which fed files through a hook; if a browser never fires `cancel`, the photo button stays busy until the user leaves the screen (covered by the owner's iPhone check). The upload-cancellation-on-sign-out path is covered by the fake-operation bridge test, not by a live sign-out during an upload. Wasm memory never shrinks, so after a large pick the page keeps roughly that much memory (up to 25 MB); the largest tested byte round trip is 5 MB. A downloaded photo's request still completes in the background after cleanup (result dropped). Desktop HEIC files (from Finder/Files, not the iPhone photo library) are rejected as unrecognized, same policy as mobile. Two shared issues found while testing, both pre-existing and outside this phase: `strings.xml` has two strings escaped as `\'`, which Compose resources render with a visible backslash on every platform (separate fix suggested); in-app back buttons in `AppNavHost.kt` pop without a root guard, so rapid taps during a screen transition can empty the back stack and crash (`NavDisplay backstack cannot be empty`) — Phase 5 owns back-stack handling. Not checked: web ⇄ Android photo cross-client (needs an emulator-flag Android build on the owner's AVD; owner approval was per-run in Phase 3).
 
 ### Phase 5 — Mobile web polish · ⬜
 
-- [ ] Browser back button pops the Navigation 3 back stack
+- [ ] Browser back button pops the Navigation 3 back stack; in-app back never pops the last entry (found in Phase 4: rapid back taps can empty the stack)
 - [ ] Viewport, safe areas, on-screen keyboard behaviour; swipe-to-delete on touch
 - [ ] Loading splash while Wasm downloads; unsupported-browser message
 - [ ] Web app manifest + icons (add to home screen)
@@ -175,6 +183,8 @@ Known gaps: until Phase 4, removing a photo or hard-deleting an item that has a 
 | 2026-10-07 | 2 | Owner verified sign-in, reload, password reset and sign-out against the dev project. |
 | 2026-10-07 | 3 | Firestore bridge + codec; list/item repositories ported from iOS and session-wrapped; Firestore terminate on sign-out; all flows and web⇄Android cross-client verified against emulators. |
 | 2026-10-07 | 3 | Review PASS WITH NOTES; cleanup edge case, Timestamp comparison and a KDoc fixed; photo-orphan caveat recorded. |
+| 2026-10-07 | 4 | `skikoMain`/`skikoTest` shared by iOS and web; `WebPhotoPicker`, `WebPhotoStorage` (iOS port) + Storage bridge, session-wrapped; Storage task cancellation on sign-out; attach/replace/remove/display verified against emulators. iPhone HEIC check left to the owner. |
+| 2026-10-07 | 4 | Review PASS WITH NOTES; cleanup-snapshot comment, size wording and known gaps updated; owner iPhone check widened to cover the native chooser and cancel. |
 
 ## Review log
 
@@ -185,6 +195,7 @@ Known gaps: until Phase 4, removing a photo or hard-deleting an item that has a 
 | 2026-10-07 | 1 | PASS WITH NOTES | Re-review: leak fixed; wasm 222, Android 265 re-run; iOS 334 and `npm run check` 4/4 from review 1 (sources unchanged since). Note: `DebugSeeder` single still declared in `appModule` but never resolved on web — acceptable. Browser check and file-based generator checks accepted as implementer claims. |
 | 2026-10-07 | 2 | PASS WITH NOTES | Re-ran wasm 253, production bundle (no emulator host in JS or wasm), Android 265 + `assembleDebug`, iOS main+test compile; secret scan of tracked/untracked files against the local web config: 0 hits; yarn.lock only adds the `firebase@12.19.0` tree. Fixed: mapper KDoc overstated iOS parity (phone-auth `sessionExpired` has no web code; `auth/invalid-login-credentials` is legacy); production webpack now refuses the emulator flag; blocked-`localStorage` fail-closed noted under Risks. Carried to Phase 3: `clearSessionData` must terminate-and-recreate Firestore (D4) and real repos must be wrapped in `SessionListRepository`/`SessionItemRepository`; consider a `demo-*` project ID for web emulator runs. Phase 6: exclude raw `firebase-bridge.mjs` from Hosting. Emulator browser check accepted as implementer claim; dev-project check is an owner action. |
 | 2026-10-07 | 3 | PASS WITH NOTES | Re-ran wasm 320 (`--rerun`), production bundle (4.90 MB gzip; no emulator host in JS or wasm; test-support module not shipped), Android 265 + `assembleDebug`, iOS main+test compile; secret scan of tracked/untracked/staged files: 0 hits; only wasmJs + tracker changed. Repositories diff against iOS only in KDoc, visibility, production constructor and clock; JS bridge matches the Swift bridges (batch increment, transaction + retry rule, clear-completed query/batch, decoding, path validation). Fixed: `clearSessionData` retry now also terminates an instance created after a failed attempt; retry check compares `deletedAt` with `Timestamp.isEqual` like Swift; KDoc test pointer. Recorded: photo orphaning on web until Phase 4; no automated test for terminate/retry; `demo-*` project ID for emulator runs (Risks). Emulator and cross-client checks accepted as implementer claims. |
+| 2026-10-07 | 4 | PASS WITH NOTES | Re-ran wasm 351 (`--rerun-tasks`), Android 265 + `assembleDebug` + instrumented-test compile, iOS compile + `compileSkikoMainKotlinMetadata`, `iosSimulatorArm64Test` 334 (Skiko tests ran on iOS), production bundle (no emulator host/port in JS or wasm; test support not shipped); secret scan of 28 changed/new files: 0 hits; no rules changes; no JS interop in `commonMain`/`skikoMain`. `WebPhotoStorage` matches `IosPhotoStorage` line for line; error table matches iOS/Android; `storageTask` exactly-once and cleanup ordering confirmed; `maxSize + 1` checked against the vendored SDK's truncation; `WebBytes` reads the memory buffer after allocation and copies out with `slice()`. Notes: picker native path untested in automation (added to the owner's iPhone check); `cancelStorageTasks` snapshot relies on `SessionWork` closing first (comment added); Wasm memory high-water mark after large picks (Known gaps); gzip size wording; test-only exports and raw `.mjs` in dist (Phase 6). Emulator checks accepted as implementer claims. |
 
 ## Run the web build
 
@@ -195,12 +206,12 @@ python3 -m http.server 8090 --directory composeApp/build/dist/wasmJs/productionE
 ./gradlew :composeApp:wasmJsBrowserTest             # shared tests in headless Chrome
 ```
 
-Against the local Auth emulator (from Phase 2): start it under the web config's project ID,
+Against the local emulators (Auth from Phase 2, Firestore from Phase 3, Storage from Phase 4): start them under the web config's project ID,
 then build with the emulator flag and serve the development distribution on `localhost`:
 
 ```sh
 FLUXIT_PROJECT_ID=$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync("composeApp/firebase-web-config.json")).projectId)')
-firebase/node_modules/.bin/firebase --config firebase.json --project "$FLUXIT_PROJECT_ID" emulators:start --only auth
+firebase/node_modules/.bin/firebase --config firebase.json --project "$FLUXIT_PROJECT_ID" emulators:start --only auth,firestore,storage
 ./gradlew :composeApp:wasmJsBrowserDevelopmentExecutableDistribution -Pfluxit.firebase.emulator.enabled=true
 python3 -m http.server 8091 --bind 127.0.0.1 --directory composeApp/build/dist/wasmJs/developmentExecutable
 ```

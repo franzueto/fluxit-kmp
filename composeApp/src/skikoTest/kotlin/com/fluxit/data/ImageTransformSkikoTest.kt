@@ -10,14 +10,14 @@ import kotlin.test.assertNull
 /**
  * Exercises the real Skia-backed [readImageDimensions]/[resizeImage] actuals - not
  * just the pure decision logic covered by `PhotoPolicyTest` in `commonTest`, which injects
- * fakes for these exact functions. Kotlin/Native test binaries link real Skia (the same library
- * `ImageDecoder.ios.kt` already depends on for rendering), so this is a genuine end-to-end
+ * fakes for these exact functions. The iOS and web test binaries link real Skia (the same library
+ * `ImageDecoder.skiko.kt` already depends on for rendering), so this is a genuine end-to-end
  * decode/resize, unlike Android's `testDebugUnitTest` (no Robolectric in this project;
  * `android.graphics.BitmapFactory` is stubbed to throw under plain JVM unit tests - see the
  * KDoc on `ImageTransform.android.kt`).
  */
 @OptIn(ExperimentalEncodingApi::class)
-class ImageTransformIosTest {
+class ImageTransformSkikoTest {
 
     // A minimal, valid, hand-verifiable 1x1 transparent PNG.
     private val onePixelPng = Base64.decode(

@@ -7,7 +7,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 /** Real Skia byte decoding used by ItemDetailScreen after a Firebase download. */
-class ImageDecoderIosTest {
+class ImageDecoderSkikoTest {
     @Test fun rendersDownloadedPngBytes() {
         val png = Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
         val image = assertNotNull(decodeImageBytes(png))

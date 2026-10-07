@@ -208,6 +208,18 @@ kotlin {
         binaries.executable()
     }
 
+    // skikoMain/skikoTest: code shared by the targets that render through Skia (iOS and web),
+    // such as image decode/resize.
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    applyDefaultHierarchyTemplate {
+        common {
+            group("skiko") {
+                group("ios")
+                withWasmJs()
+            }
+        }
+    }
+
     sourceSets {
         commonMain {
             kotlin.srcDir(generateFirebaseEmulatorConfig)

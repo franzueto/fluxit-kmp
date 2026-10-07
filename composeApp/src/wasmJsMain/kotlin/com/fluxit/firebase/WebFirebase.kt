@@ -30,6 +30,7 @@ internal object WebFirebase {
             emulatorHost = if (FirebaseEmulatorConfig.ENABLED) FirebaseEmulatorConfig.HOST else null,
             authPort = FirebaseEmulatorConfig.AUTH_PORT,
             firestorePort = FirebaseEmulatorConfig.FIRESTORE_PORT,
+            storagePort = FirebaseEmulatorConfig.STORAGE_PORT,
         )
         started = true
     }

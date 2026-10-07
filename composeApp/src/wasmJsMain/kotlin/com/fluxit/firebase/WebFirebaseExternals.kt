@@ -2,6 +2,9 @@
 
 package com.fluxit.firebase
 
+import org.khronos.webgl.ArrayBuffer
+import org.khronos.webgl.Uint8Array
+
 /**
  * Kotlin view of `wasmJsMain/resources/firebase-bridge.mjs`, the only code that touches
  * the Firebase JS SDK. Internal to `wasmJsMain`; adapters reach it through Kotlin
@@ -29,6 +32,7 @@ internal external fun initializeFirebase(
     emulatorHost: String?,
     authPort: Int,
     firestorePort: Int,
+    storagePort: Int,
 )
 
 internal external fun authCurrentUser(): JsAuthUser?
@@ -110,3 +114,9 @@ internal external fun fsClearCompletedChunk(
     patchWire: JsArray<JsWireField>,
     done: (Int, JsBridgeError?) -> Unit,
 )
+
+internal external fun storageUpload(photoRef: String, bytes: Uint8Array, mimeType: String, done: (JsBridgeError?) -> Unit)
+
+internal external fun storageDownload(photoRef: String, maxSize: Double, done: (ArrayBuffer?, JsBridgeError?) -> Unit)
+
+internal external fun storageDelete(photoRef: String, done: (JsBridgeError?) -> Unit)

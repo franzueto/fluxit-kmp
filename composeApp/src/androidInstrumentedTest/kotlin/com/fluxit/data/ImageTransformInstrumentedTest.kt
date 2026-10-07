@@ -17,7 +17,7 @@ import org.junit.runner.RunWith
  * Boundary-value tests for the `BitmapFactory`-backed actuals in `ImageTransform.android.kt`
  * and for [preparePhotoForUpload] running on them. `testDebugUnitTest` cannot cover these
  * (no Robolectric; `BitmapFactory` is stubbed there), so this runs on a real Android runtime.
- * iOS has the equivalent real-decode coverage in `ImageTransformIosTest`.
+ * iOS has the equivalent real-decode coverage in `ImageTransformSkikoTest`.
  *
  * Needs no emulator suite: nothing here touches Firebase.
  */

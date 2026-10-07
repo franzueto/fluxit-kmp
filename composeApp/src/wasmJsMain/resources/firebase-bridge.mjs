@@ -10,6 +10,9 @@
 // null | text | bool | number | timestamp (number = epoch millis) and, for writes only,
 // serverTimestamp | increment. The Kotlin side is WebFirestoreCodec.kt.
 //
+// Storage objects are addressed by the Kotlin-built photoRef verbatim; bytes cross as
+// Uint8Array (upload) and ArrayBuffer (download).
+//
 // Copied next to the compiled Kotlin by the resources sync, so webpack bundles it together
 // with the `firebase` npm dependency declared in composeApp/build.gradle.kts.
 
@@ -47,6 +50,14 @@ import {
     where,
     writeBatch,
 } from "firebase/firestore";
+import {
+    connectStorageEmulator,
+    deleteObject,
+    getBytes,
+    getStorage,
+    ref,
+    uploadBytesResumable,
+} from "firebase/storage";
 
 let app = null;
 let auth = null;
@@ -54,14 +65,14 @@ let emulator = null;
 
 /** Idempotent. `emulatorHost` is null unless the build enables the local emulators. */
 export function initializeFirebase(apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId,
-                                   emulatorHost, authPort, firestorePort) {
+                                   emulatorHost, authPort, firestorePort, storagePort) {
     if (auth !== null) return;
     app = initializeApp({ apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId });
     // Persisted credential (IndexedDB, localStorage fallback) is what restores the session on
     // reload. No popup/redirect resolver: email + password only, and a smaller bundle.
     auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
     if (emulatorHost !== null) {
-        emulator = { host: emulatorHost, firestorePort };
+        emulator = { host: emulatorHost, firestorePort, storagePort };
         connectAuthEmulator(auth, `http://${emulatorHost}:${authPort}`, { disableWarnings: true });
     }
 }
@@ -359,15 +370,100 @@ export function fsClearCompletedChunk(uid, listId, chunkSize, patchWire, done) {
     }, done, 0);
 }
 
+// --- Storage -----------------------------------------------------------------------------
+
+let storageService = null;
+const storageTasks = new Set();
+
+function storage() {
+    if (app === null) throw new Error("initializeFirebase() has not run");
+    if (storageService === null) {
+        storageService = getStorage(app);
+        if (emulator !== null) connectStorageEmulator(storageService, emulator.host, emulator.storagePort);
+    }
+    return storageService;
+}
+
+function canceledError() {
+    return { code: "storage/canceled", message: "Storage task cancelled by session cleanup" };
+}
+
 /**
- * Local data cleanup between sessions (SessionCleanup.clear on web): terminate the
- * in-memory Firestore instance (dropping its cache, listeners and queued writes) so the
- * next use creates a fresh one. A failed termination keeps the stopped instance for a
- * retry. Phase 4 adds Storage task cancellation.
+ * Runs a Storage operation as a session task that cancelStorageTasks() can stop, like the
+ * iOS bridge's tracked tasks. `start()` returns { promise, cancel }; `cancel` is null when the
+ * SDK cannot cancel the request (downloads), in which case the caller is answered with
+ * storage/canceled at once and the late result is dropped. Settles `done` exactly once.
+ * Exported for the bridge tests.
+ */
+export function storageTask(start, done, fallback) {
+    let settled = false;
+    let markFinished;
+    const task = { cancel: null, finished: new Promise((resolve) => { markFinished = resolve; }) };
+    const settle = (value, error) => {
+        if (settled) return;
+        settled = true;
+        storageTasks.delete(task);
+        markFinished();
+        done(value, error);
+    };
+    storageTasks.add(task);
+    let operation;
+    try { operation = start(); } catch (error) { settle(fallback, toError(error)); return; }
+    task.cancel = operation.cancel ?? (() => settle(fallback, canceledError()));
+    operation.promise.then((value) => settle(value, null), (error) => settle(fallback, toError(error)));
+}
+
+/**
+ * Cancels every running upload/download and waits until each has reported back. Exported for
+ * the bridge tests. A snapshot is enough (unlike the Swift bridge's `cancelling` flag): the
+ * shared SessionAuthRepository closes SessionWork before cleanup, so no new task can start.
+ */
+export function cancelStorageTasks() {
+    const outgoing = [...storageTasks];
+    for (const task of outgoing) task.cancel?.();
+    return Promise.all(outgoing.map((task) => task.finished));
+}
+
+/** New object at `photoRef` with `mimeType` as its content type. */
+export function storageUpload(photoRef, bytes, mimeType, done) {
+    storageTask(() => {
+        const upload = uploadBytesResumable(ref(storage(), photoRef), bytes, { contentType: mimeType });
+        return { promise: upload.then(() => undefined), cancel: () => { upload.cancel(); } };
+    }, (_, error) => done(error), null);
+}
+
+/**
+ * The object's bytes, at most `maxSize`. The JS SDK silently truncates at its limit, so one
+ * extra byte is requested and a larger object fails with storage/download-size-exceeded,
+ * like the Android and iOS SDKs.
+ */
+export function storageDownload(photoRef, maxSize, done) {
+    storageTask(() => ({
+        promise: getBytes(ref(storage(), photoRef), maxSize + 1).then((buffer) => {
+            if (buffer.byteLength > maxSize) {
+                throw { code: "storage/download-size-exceeded", message: "Object is larger than the download limit" };
+            }
+            return buffer;
+        }),
+        cancel: null,
+    }), done, null);
+}
+
+/** Deletes the object at `photoRef`. Not a session task, as on iOS. */
+export function storageDelete(photoRef, done) {
+    settle(() => deleteObject(ref(storage(), photoRef)), (_, error) => done(error), null);
+}
+
+/**
+ * Local data cleanup between sessions (SessionCleanup.clear on web): cancel running Storage
+ * uploads and downloads, then terminate the in-memory Firestore instance (dropping its cache,
+ * listeners and queued writes) so the next use creates a fresh one. A failed termination
+ * keeps the stopped instance for a retry. Storage keeps no local data.
  */
 export function clearSessionData(done) {
     if (cleanup === null) {
         cleanup = (async () => {
+            await cancelStorageTasks();
             // Includes an instance created after an earlier failed attempt.
             if (db !== null) {
                 stopped.push(db);
