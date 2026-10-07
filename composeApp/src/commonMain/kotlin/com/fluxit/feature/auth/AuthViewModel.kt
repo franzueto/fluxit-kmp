@@ -2,6 +2,7 @@ package com.fluxit.feature.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fluxit.config.AppFeatures
 import com.fluxit.domain.auth.AuthError
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.domain.auth.AuthResult
@@ -30,6 +31,8 @@ data class AuthUiState(
     val formError: AuthFormError? = null,
     val authError: AuthError? = null,
     val recoveryEmailSentTo: String? = null,
+    /** False on web: the create-account link is hidden and [AuthMode.SignUp] is refused. */
+    val canSignUp: Boolean = true,
 ) {
     /** Recovery needs no password; the other two modes do. */
     val requiresPassword: Boolean get() = mode != AuthMode.Recover
@@ -55,9 +58,10 @@ data class AuthUiState(
  */
 class AuthViewModel(
     private val authRepository: AuthRepository,
+    features: AppFeatures = AppFeatures.Mobile,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AuthUiState())
+    private val _uiState = MutableStateFlow(AuthUiState(canSignUp = features.allowSignUp))
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     fun onEmailChange(value: String) = clearFeedback { it.copy(email = value) }
@@ -69,6 +73,7 @@ class AuthViewModel(
     /** Switches flow, dropping any stale error/success feedback and secret material. */
     fun onModeChange(mode: AuthMode) {
         if (_uiState.value.isSubmitting) return
+        if (mode == AuthMode.SignUp && !_uiState.value.canSignUp) return
         _uiState.value = _uiState.value.copy(
             mode = mode,
             password = "",
@@ -84,6 +89,7 @@ class AuthViewModel(
     fun submit() {
         val state = _uiState.value
         if (state.isSubmitting) return
+        if (state.mode == AuthMode.SignUp && !state.canSignUp) return
         validate(state)?.let { problem ->
             _uiState.value = state.copy(formError = problem, authError = null, recoveryEmailSentTo = null)
             return

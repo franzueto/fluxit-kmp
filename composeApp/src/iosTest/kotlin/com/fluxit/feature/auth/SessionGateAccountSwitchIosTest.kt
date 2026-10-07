@@ -11,6 +11,7 @@ import com.fluxit.FakeItemRepository
 import com.fluxit.FakeListRepository
 import com.fluxit.FakePhotoPicker
 import com.fluxit.FakePhotoStorage
+import com.fluxit.config.AppFeatures
 import com.fluxit.data.DebugSeeder
 import com.fluxit.data.PhotoPicker
 import com.fluxit.data.PhotoStorage
@@ -77,6 +78,7 @@ class SessionGateAccountSwitchIosTest {
         val lists = RecordingListRepository(FakeListRepository())
         var dashboardsConstructed = 0
         val testModule = module {
+            single { AppFeatures.Mobile }
             single<AuthRepository> { auth }
             // Resolved once per DashboardViewModel construction, so it counts instances.
             factory<ListRepository> { dashboardsConstructed++; lists }

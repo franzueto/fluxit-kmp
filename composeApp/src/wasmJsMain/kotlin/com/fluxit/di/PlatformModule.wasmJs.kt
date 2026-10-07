@@ -1,5 +1,6 @@
 package com.fluxit.di
 
+import com.fluxit.config.AppFeatures
 import com.fluxit.domain.auth.AuthRepository
 import com.fluxit.domain.auth.AuthResult
 import com.fluxit.domain.auth.AuthError
@@ -15,6 +16,7 @@ import org.koin.dsl.module
  * list, item and photo bindings in Phases 3–4 (docs/web-app/PROGRESS.md).
  */
 actual fun platformModule(): Module = module {
+    single { AppFeatures.Web }
     single<AuthRepository> { SpikeAuthRepository() }
 }
 

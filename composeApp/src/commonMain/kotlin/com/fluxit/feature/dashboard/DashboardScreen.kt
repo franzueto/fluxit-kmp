@@ -67,8 +67,6 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
-const val DEBUG_SEED_ENABLED = true
-
 @Composable
 fun DashboardScreen(
     onOpenList: (String) -> Unit,
@@ -196,7 +194,7 @@ fun DashboardScreen(
                     )
                 }
                 Spacer(Modifier.weight(1f))
-                if (DEBUG_SEED_ENABLED) {
+                if (viewModel.canSeedSampleData) {
                     IconButton(onClick = viewModel::seedSampleData, enabled = !state.isSeeding) {
                         Icon(
                             Icons.Outlined.DataArray,

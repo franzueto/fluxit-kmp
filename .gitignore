@@ -13,6 +13,7 @@ iosApp/iosApp.xcodeproj/project.xcworkspace/xcuserdata/
 # Obtain these from the Firebase Console; never commit them.
 google-services.json
 GoogleService-Info.plist
+firebase-web-config.json
 
 # Firebase service-account / admin credentials must never be committed.
 serviceAccountKey.json

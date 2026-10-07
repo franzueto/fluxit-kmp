@@ -1,5 +1,6 @@
 package com.fluxit.di
 
+import com.fluxit.config.AppFeatures
 import com.fluxit.data.IosPhotoPicker
 import com.fluxit.data.IosPhotoStorage
 import com.fluxit.data.PhotoPicker
@@ -16,6 +17,7 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 actual fun platformModule(): Module = module {
+    single { AppFeatures.Mobile }
     single { SessionWork() }
     single<SessionCleanup> { IosSessionCleanup() }
     single<PhotoPicker> { IosPhotoPicker() }

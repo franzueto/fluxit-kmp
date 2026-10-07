@@ -4,8 +4,30 @@
     {
       "name": "web-dist",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8090", "--bind", "127.0.0.1", "--directory", "composeApp/build/dist/wasmJs/productionExecutable"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8090",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "composeApp/build/dist/wasmJs/productionExecutable"
+      ],
       "port": 8090
+    },
+    {
+      "name": "web-dev-dist",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8091",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "composeApp/build/dist/wasmJs/developmentExecutable"
+      ],
+      "port": 8091
     }
   ]
 }

@@ -258,8 +258,10 @@ fun AuthScreenContent(
             ) {
                 when (state.mode) {
                     AuthMode.SignIn -> {
-                        AuthModeLink(Res.string.auth_switch_to_sign_up, !state.isSubmitting) {
-                            onModeChange(AuthMode.SignUp)
+                        if (state.canSignUp) {
+                            AuthModeLink(Res.string.auth_switch_to_sign_up, !state.isSubmitting) {
+                                onModeChange(AuthMode.SignUp)
+                            }
                         }
                         AuthModeLink(Res.string.auth_switch_to_recover, !state.isSubmitting) {
                             onModeChange(AuthMode.Recover)
