@@ -6,7 +6,7 @@ the next phase.
 
 - **Branch:** `web/wasm-app`
 - **Started:** 2026-10-07
-- **Current phase:** Phase 2 — Auth on web (next; needs the owner's web config file)
+- **Current phase:** Phase 2 — Auth on web (next; not started)
 
 ## Goal
 
@@ -85,14 +85,14 @@ mobile browser. Go/no-go for text input and scrolling on a phone.
 
 Acceptance: web bundle builds; login screen renders at 375 px wide; mobile targets unaffected.
 
-### Phase 1 — Feature flags and web Firebase app config · ✅ (owner config file pending)
+### Phase 1 — Feature flags and web Firebase app config · ✅
 
 - [x] `AppFeatures` (allowSignUp, allowSampleData) in `commonMain/.../config/AppFeatures.kt`, bound by each `platformModule()`; Android/iOS = `AppFeatures.Mobile` (both on), web = `AppFeatures.Web` (both off)
 - [x] `AuthViewModel` takes `AppFeatures` (default `Mobile`); `AuthUiState.canSignUp`; switching into or submitting `SignUp` is refused when disabled; `AuthScreen` hides the create-account link. Password recovery stays available.
 - [x] `DashboardViewModel` takes a nullable `DebugSeeder` and exposes `canSeedSampleData`; `DashboardScreen` uses it instead of the removed `DEBUG_SEED_ENABLED` const; `appModule` resolves the seeder only when `allowSampleData` (never on web)
 - [x] Owner registers a Web app in the dev Firebase project (owner action, done 2026-10-07)
 - [x] Gitignored `composeApp/firebase-web-config.json` (template `firebase-web-config.example.json`) → `generateFirebaseWebConfig` task generates `FirebaseWebConfig.options` into wasmJsMain; validates the six required keys, rejects placeholders and unsafe characters, reports key names only; missing file → `options = null` (compiles/tests), production webpack refuses to build. Documented in README.
-- [ ] Owner copies the real web config into `composeApp/firebase-web-config.json` (owner action; needed before Phase 2's cloud check)
+- [x] Owner copies the real web config into `composeApp/firebase-web-config.json` (done 2026-10-07; validated by the generator, gitignored; `measurementId` intentionally omitted — the app has no Analytics)
 - [x] Unit tests: `AppFeaturesTest` (commonTest, 8 tests: VM behaviour + `appModule` wiring for both feature sets) and `WebPlatformModuleTest` (wasmJsTest)
 
 Verification (2026-10-07): wasm tests 222/222, Android unit tests 265/265, iOS simulator tests 334/334, `assembleDebug`, Android instrumented-test compile, iOS compile, `firebase` `npm run check` 4/4. Dev bundle at 375×812 shows sign-in without the create-account link. Generator checked with: no file, untouched template (rejected), valid fake demo config, unsafe characters (rejected), and malformed files — the console's JS snippet, unquoted keys, a top-level array — all rejected with zero occurrences of the value in the output, even with `--stacktrace`.
@@ -156,6 +156,7 @@ Also fixed in this phase:
 | 2026-10-07 | 0 | Owner verified the sign-in pages on a real phone. |
 | 2026-10-07 | 1 | Feature flags hide sign-up and seeding on web; web Firebase config loader + template + README; Wasm incremental-compile crash worked around. |
 | 2026-10-07 | 1 | Review 1 FAIL (config value leak on malformed JSON) → fixed → review 2 PASS WITH NOTES. |
+| 2026-10-07 | 1 | Owner added the real web config; generator validates it. Session paused; Phase 2 starts in a new session. |
 
 ## Review log
 
