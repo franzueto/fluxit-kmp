@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -116,6 +117,19 @@ kotlin {
             baseName = "ComposeApp"
             isStatic = true
         }
+    }
+
+    // Mobile-first web client (see docs/web-app/PROGRESS.md). Target scope: sign in to an
+    // existing account only; sign-up and sample-data seeding are hidden from Phase 1 on.
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        outputModuleName.set("composeApp")
+        browser {
+            commonWebpackConfig {
+                outputFileName = "composeApp.js"
+            }
+        }
+        binaries.executable()
     }
 
     sourceSets {

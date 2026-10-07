@@ -31,7 +31,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -58,7 +57,7 @@ class DashboardViewModelTest {
         // (which exercises the already-Authenticated steady state) needs this, and the new
         // fatal-session tests below start from here and move away from it explicitly.
         auth = FakeAuthRepository()
-        runBlocking { auth.signUp("dashboard-test@example.com", "password123") }
+        auth.authenticate("dashboard-test@example.com")
     }
 
     @AfterTest
@@ -434,7 +433,7 @@ class ListDetailViewModelTest {
         // Authenticated up front - see `DashboardViewModelTest.setUp`'s identical
         // rationale.
         auth = FakeAuthRepository()
-        runBlocking { auth.signUp("listdetail-test@example.com", "password123") }
+        auth.authenticate("listdetail-test@example.com")
     }
 
     @AfterTest
@@ -1133,7 +1132,7 @@ class ItemDetailViewModelTest {
         // Authenticated up front - see `DashboardViewModelTest.setUp`'s identical
         // rationale.
         auth = FakeAuthRepository()
-        runBlocking { auth.signUp("itemdetail-test@example.com", "password123") }
+        auth.authenticate("itemdetail-test@example.com")
     }
 
     @AfterTest
