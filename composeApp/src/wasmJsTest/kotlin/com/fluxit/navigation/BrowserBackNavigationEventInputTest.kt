@@ -8,120 +8,196 @@ import kotlin.test.assertEquals
 
 /**
  * [BrowserBackNavigationEventInput] against a real navigation-event dispatcher and a scripted
- * browser history. `FakeHistory` models the history stack; popstate is delivered when the
- * test calls [FakeHistory.deliverPops], as browsers deliver it asynchronously.
+ * browser history. `FakeHistory` models the history stack, delivers popstate when the test
+ * calls [FakeHistory.deliverPops] (browsers deliver it asynchronously), and models Chrome's
+ * history manipulation intervention: an entry the page was on when it pushed without a user
+ * tap is skipped by the back button.
  */
 class BrowserBackNavigationEventInputTest {
 
-    private class FakeHistory(initial: List<Boolean> = listOf(false)) : BrowserHistory {
-        /** true = guard entry. */
-        val entries = initial.toMutableList()
+    private class FakeHistory(initialDepths: List<Int> = listOf(0)) : BrowserHistory {
+        /** Depth stored in each entry; index 0 is the page's own entry. */
+        val entries = initialDepths.toMutableList()
+        val skippable = MutableList(initialDepths.size) { false }
         var index = entries.lastIndex
-        private var listener: ((Boolean) -> Unit)? = null
-        private val pendingPops = mutableListOf<Boolean>()
+        var userActivation = false
+        var leftThePage = false
+        private var listener: ((Int) -> Unit)? = null
+        private val pendingPops = mutableListOf<Int>()
+        private val tasks = mutableListOf<() -> Unit>()
 
-        override val currentIsGuard: Boolean get() = entries[index]
+        /** The input's scheduler: like a microtask, tasks run once the current event is done. */
+        fun schedule(task: () -> Unit) {
+            tasks += task
+        }
 
-        override fun pushGuard() {
-            while (entries.lastIndex > index) entries.removeAt(entries.lastIndex)
-            entries += true
+        fun runTasks() {
+            while (tasks.isNotEmpty()) tasks.removeAt(0)()
+        }
+
+        override val currentDepth: Int get() = entries[index]
+
+        override fun pushEntry(depth: Int) {
+            while (entries.lastIndex > index) {
+                entries.removeAt(entries.lastIndex)
+                skippable.removeAt(skippable.lastIndex)
+            }
+            if (!userActivation) skippable[index] = true
+            entries += depth
+            skippable += false
             index++
         }
 
-        override fun back() = userBack()
+        override fun go(delta: Int) = moveTo(index + delta)
 
-        override fun setPopStateListener(listener: ((isGuard: Boolean) -> Unit)?) {
+        override fun setPopStateListener(listener: ((depth: Int) -> Unit)?) {
             this.listener = listener
         }
 
-        /** The browser's back button; popstate follows on [deliverPops]. */
+        /** The browser's back button or gesture, skipping entries Chrome would skip. */
         fun userBack() {
-            if (index == 0) return
-            index--
-            pendingPops += entries[index]
+            var target = index - 1
+            while (target >= 0 && skippable[target]) target--
+            if (target < 0) leftThePage = true else moveTo(target)
         }
 
-        fun userForward() {
-            if (index == entries.lastIndex) return
-            index++
+        fun userForward() = moveTo(index + 1)
+
+        private fun moveTo(target: Int) {
+            if (target !in entries.indices || target == index) return
+            index = target
             pendingPops += entries[index]
         }
 
         fun deliverPops() {
-            while (pendingPops.isNotEmpty()) listener?.invoke(pendingPops.removeAt(0))
+            runTasks()
+            while (pendingPops.isNotEmpty()) {
+                listener?.invoke(pendingPops.removeAt(0))
+                runTasks()
+            }
+        }
+
+        /** Runs [action] as if inside a user tap; its follow-up tasks still count as the tap. */
+        fun tap(action: () -> Unit) {
+            userActivation = true
+            action()
+            runTasks()
+            userActivation = false
         }
     }
 
-    /** Stands in for NavDisplay: back is enabled while more than one entry is on the stack. */
-    private class FakeNavStack(var depth: Int) : NavigationEventHandler<NavigationEventInfo>(
-        initialInfo = NavigationEventInfo.None,
+    /** Stands in for NavDisplay's SceneInfo. */
+    private object ScreenInfo : NavigationEventInfo()
+
+    /** Stands in for NavDisplay: one back-history entry per screen below the current one. */
+    private class FakeNavStack(depth: Int) : NavigationEventHandler<NavigationEventInfo>(
+        initialInfo = ScreenInfo,
         isBackEnabled = depth > 1,
     ) {
+        var depth = depth
+            private set
+
+        init {
+            publish()
+        }
+
         override fun onBackCompleted() {
             depth--
-            isBackEnabled = depth > 1
+            publish()
         }
 
         fun push() {
             depth++
-            isBackEnabled = depth > 1
+            publish()
         }
 
         fun inAppBack() = onBackCompleted()
+
+        private fun publish() {
+            setInfo(ScreenInfo, List(depth - 1) { ScreenInfo }, emptyList())
+            isBackEnabled = depth > 1
+        }
     }
 
-    private fun setUp(depth: Int, history: FakeHistory = FakeHistory()): Pair<FakeNavStack, FakeHistory> {
+    private class Overlay : NavigationEventHandler<NavigationEventInfo>(NavigationEventInfo.None, isBackEnabled = true) {
+        var closed = false
+
+        override fun onBackCompleted() {
+            closed = true
+            remove()
+        }
+    }
+
+    private fun setUp(depth: Int, history: FakeHistory = FakeHistory()): Triple<NavigationEventDispatcher, FakeNavStack, FakeHistory> {
         val dispatcher = NavigationEventDispatcher()
         val stack = FakeNavStack(depth)
         dispatcher.addHandler(stack)
-        dispatcher.addInput(BrowserBackNavigationEventInput(history))
-        return stack to history
+        dispatcher.addInput(BrowserBackNavigationEventInput(history, history::schedule) { it === ScreenInfo })
+        history.runTasks()
+        return Triple(dispatcher, stack, history)
     }
 
     @Test
-    fun noGuardIsAddedWhileTheAppCannotGoBack() {
-        val (_, history) = setUp(depth = 1)
+    fun noEntryIsAddedWhileTheAppCannotGoBack() {
+        val (_, _, history) = setUp(depth = 1)
 
-        assertEquals(listOf(false), history.entries)
+        assertEquals(listOf(0), history.entries)
     }
 
     @Test
-    fun browserBackPopsTheAppAndRearmsWhileItCanStillGoBack() {
-        val (stack, history) = setUp(depth = 1)
-        stack.push()
-        stack.push()
-        assertEquals(listOf(false, true), history.entries)
+    fun goingDeeperAddsOneEntryPerScreen() {
+        val (_, stack, history) = setUp(depth = 1)
+
+        history.tap { stack.push() }
+        history.tap { stack.push() }
+
+        assertEquals(listOf(0, 1, 2), history.entries)
+        assertEquals(2, history.index)
+    }
+
+    @Test
+    fun repeatedBrowserBackWalksBackToTheDashboardEvenWithChromesIntervention() {
+        // The reported Android case: item detail -> back -> list -> back must reach the dashboard.
+        val (_, stack, history) = setUp(depth = 1)
+        history.tap { stack.push() }
+        history.tap { stack.push() }
 
         history.userBack()
         history.deliverPops()
-
         assertEquals(2, stack.depth)
-        assertEquals(true, history.currentIsGuard)
-    }
 
-    @Test
-    fun browserBackAtTheLastInnerScreenLeavesNoGuardBehind() {
-        val (stack, history) = setUp(depth = 2)
-
-        history.userBack()
-        history.deliverPops() // app pops to the root; the input re-arms, then sees back disabled
-        history.deliverPops() // its own history.back() lands
-
-        assertEquals(1, stack.depth)
-        assertEquals(0, history.index)
-        assertEquals(false, history.currentIsGuard)
-
-        // The next browser back leaves the app instead of being swallowed.
         history.userBack()
         history.deliverPops()
         assertEquals(1, stack.depth)
+        assertEquals(false, history.leftThePage)
+
+        history.userBack()
+        assertEquals(true, history.leftThePage)
     }
 
     @Test
-    fun inAppBackToTheRootRemovesTheGuard() {
-        val (stack, history) = setUp(depth = 2)
+    fun browserBackNeverAddsEntries() {
+        val (_, stack, history) = setUp(depth = 1)
+        history.tap { stack.push() }
+        history.tap { stack.push() }
 
-        stack.inAppBack()
+        history.userBack()
+        history.deliverPops()
+        history.userBack()
+        history.deliverPops()
+
+        assertEquals(listOf(0, 1, 2), history.entries)
+        assertEquals(listOf(false, false, false), history.skippable)
+    }
+
+    @Test
+    fun twoQuickBrowserBacksPopTwoScreens() {
+        val (_, stack, history) = setUp(depth = 1)
+        history.tap { stack.push() }
+        history.tap { stack.push() }
+
+        history.userBack()
+        history.userBack()
         history.deliverPops()
 
         assertEquals(1, stack.depth)
@@ -129,9 +205,24 @@ class BrowserBackNavigationEventInputTest {
     }
 
     @Test
-    fun browserForwardIntoAStaleGuardIsUndoneWithoutNavigating() {
-        val (stack, history) = setUp(depth = 2)
-        stack.inAppBack()
+    fun inAppBackMovesTheHistoryBackAndTheNextScreenReplacesTheStaleEntry() {
+        val (_, stack, history) = setUp(depth = 1)
+        history.tap { stack.push() }
+        history.tap { stack.push() }
+
+        history.tap { stack.inAppBack() }
+        history.deliverPops()
+        assertEquals(1, history.index)
+
+        history.tap { stack.push() }
+        assertEquals(listOf(0, 1, 2), history.entries)
+        assertEquals(2, history.index)
+    }
+
+    @Test
+    fun browserForwardIntoAStaleEntryIsUndoneWithoutNavigating() {
+        val (_, stack, history) = setUp(depth = 2)
+        history.tap { stack.inAppBack() }
         history.deliverPops()
 
         history.userForward()
@@ -143,8 +234,62 @@ class BrowserBackNavigationEventInputTest {
     }
 
     @Test
-    fun aGuardLeftCurrentByAReloadIsRemovedOnStart() {
-        val (stack, history) = setUp(depth = 1, history = FakeHistory(listOf(false, true)))
+    fun browserBackClosesAnOpenDialog() {
+        val (dispatcher, _, history) = setUp(depth = 1)
+        val dialog = Overlay()
+        history.tap { dispatcher.addHandler(dialog) }
+        assertEquals(1, history.index)
+
+        history.userBack()
+        history.deliverPops()
+
+        assertEquals(true, dialog.closed)
+        assertEquals(0, history.index)
+        assertEquals(listOf(false, false), history.skippable)
+    }
+
+    @Test
+    fun aDialogOnAnInnerScreenGetsItsOwnEntrySoClosingItWithBackAddsNone() {
+        // Review case: item detail -> delete dialog -> back closes it -> back -> back.
+        val (dispatcher, stack, history) = setUp(depth = 1)
+        history.tap { stack.push() }
+        history.tap { stack.push() }
+        val dialog = Overlay()
+        history.tap { dispatcher.addHandler(dialog) }
+        assertEquals(listOf(0, 1, 2, 3), history.entries)
+
+        history.userBack()
+        history.deliverPops()
+        assertEquals(true, dialog.closed)
+        assertEquals(3, stack.depth)
+
+        history.userBack()
+        history.deliverPops()
+        assertEquals(2, stack.depth)
+        history.userBack()
+        history.deliverPops()
+        assertEquals(1, stack.depth)
+        assertEquals(false, history.leftThePage)
+        assertEquals(listOf(false, false, false, false), history.skippable)
+    }
+
+    @Test
+    fun aDialogClosedInTheAppDropsItsEntry() {
+        val (dispatcher, stack, history) = setUp(depth = 2)
+        val dialog = Overlay()
+        history.tap { dispatcher.addHandler(dialog) }
+        assertEquals(2, history.index)
+
+        history.tap { dialog.remove() }
+        history.deliverPops()
+
+        assertEquals(1, history.index)
+        assertEquals(2, stack.depth)
+    }
+
+    @Test
+    fun aReloadOnADeepEntryReturnsToThePagesOwnEntry() {
+        val (_, stack, history) = setUp(depth = 1, history = FakeHistory(listOf(0, 1, 2)))
 
         history.deliverPops()
 
