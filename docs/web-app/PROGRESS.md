@@ -6,7 +6,7 @@ the next phase.
 
 - **Branch:** `web/wasm-app`
 - **Started:** 2026-10-07
-- **Current phase:** Phase 5 follow-up (keep keyboard open when adding items, in review); Phase 6 next
+- **Current phase:** Phase 6 — Ship to Firebase Hosting (next; not started)
 
 ## Goal
 
@@ -165,7 +165,7 @@ Known gaps: the picker's native path (chooser opening from a Compose tap, the `c
 - [x] Owner recheck on Android Chrome and iPhone Safari (both changes also run on iOS), done 2026-10-08: send button adds the item with one tap while the keyboard is up; back gestures item → list → dashboard → leave; on item detail, open Delete Item, close it with the back gesture, then back twice reaches the dashboard
 
 - [x] Owner request (2026-10-08): keep the keyboard open while adding several items. The add-item bar disabled its text field while an add was saving, which took the field's focus and closed the keyboard after every item (shared code, so the Android and iOS apps did the same). Now the field stays enabled and only sending waits (`ListDetailScreen` `Composer`: `enabled` for typing, `canSend` for the button; the view model already ignores a send while one is saving, keeping the typed text). The send button never takes focus (`focusProperties { canFocus = false }`), so tapping it with a mouse or hardware keyboard does not move focus either; Send on the keyboard still submits. The keyboard closes as usual from the device, or when another field takes focus or the screen changes. Test: `theNextItemCanBeTypedWhileAnAddIsSavingAndIsSentAfterwards` (commonTest, runs on all three platforms)
-- [ ] Owner check: on a phone (web, and optionally the Android/iOS apps), add several items in a row with Send and with the send button; the keyboard stays open
+- [x] Owner check: on a phone (web, and optionally the Android/iOS apps), add several items in a row with Send and with the send button; the keyboard stays open (done 2026-10-08)
 
 Keep-keyboard verification (2026-10-08): Android unit tests 269/269, iOS simulator tests 338/338, wasm tests 366/366 (new test on all three), `assembleDebug`, production bundle rebuilt (served by the owner's `:8090`). Browser pane against the emulators (`127.0.0.1:8092`): items added with Enter and then typed without refocusing; first try with the send button lost focus to the button (mouse clicks count as keyboard input on web), fixed with `canFocus = false`, after which items added with the send button and the next one typed without refocusing. Known gaps: hardware-keyboard and D-pad users can no longer Tab to the send button (Enter/IME Send in the field still adds; screen readers are unaffected); if an add fails and the user sends the next item before tapping Retry, the failed title is dropped without notice (pre-existing, now more likely with rapid entry).
 
@@ -212,6 +212,7 @@ Known gaps: the iOS keyboard handling, safe areas in home-screen mode and real t
 | 2026-10-08 | 5 | Follow-up review PASS WITH NOTES after one round (dialog on an inner screen fixed; touch-tracking reset added); edge cases recorded under known gaps. |
 | 2026-10-08 | 5 | Owner recheck passed on both phones. Owner request: the add-item field keeps focus (and the keyboard) across adds — shared change, so the Android and iOS apps get it too. |
 | 2026-10-08 | 5 | Keep-keyboard change reviewed PASS WITH NOTES; tracker ordering, verification and known gaps fixed; view-model KDoc corrected. |
+| 2026-10-08 | 5 | Owner confirmed the keep-keyboard change on the phone. Phase 5 closed; Phase 6 starts in a new session. |
 
 ## Review log
 
