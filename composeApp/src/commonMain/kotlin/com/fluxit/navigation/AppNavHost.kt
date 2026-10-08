@@ -32,6 +32,23 @@ data class CreateListRoute(val editingId: String? = null) : AppRoute
 @Serializable
 data class ItemDetailRoute(val listId: String, val itemId: String) : AppRoute
 
+/**
+ * System back (Android back, Escape and browser back on web): pops the top entry, but never
+ * the root, so the stack cannot be emptied.
+ */
+internal fun <T> MutableList<T>.popUnlessRoot() {
+    if (size > 1) removeAt(lastIndex)
+}
+
+/**
+ * A screen's own back button: pops [route] only while it is the top entry. A second tap on a
+ * screen that is already animating out would otherwise pop the screen beneath it, and
+ * enough of them could empty the stack.
+ */
+internal fun <T> MutableList<T>.popIfTop(route: T) {
+    if (size > 1 && last() == route) removeAt(lastIndex)
+}
+
 private val navigationSavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
@@ -64,7 +81,7 @@ fun AppNavHost(
 
     NavDisplay(
         backStack = backStack,
-        onBack = { backStack.removeLastOrNull() },
+        onBack = { backStack.popUnlessRoot() },
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
             rememberViewModelStoreNavEntryDecorator(),
@@ -81,7 +98,7 @@ fun AppNavHost(
             entry<ListDetailRoute> { route ->
                 ListDetailScreen(
                     listId = route.listId,
-                    onBack = { backStack.removeLastOrNull() },
+                    onBack = { backStack.popIfTop(route) },
                     onEditList = { backStack.add(CreateListRoute(it)) },
                     onOpenItem = { backStack.add(ItemDetailRoute(route.listId, it)) },
                 )
@@ -89,10 +106,13 @@ fun AppNavHost(
             entry<CreateListRoute> { route ->
                 CreateListScreen(
                     editingId = route.editingId,
-                    onDismiss = { backStack.removeLastOrNull() },
+                    onDismiss = { backStack.popIfTop(route) },
                     onCreated = { newListId ->
-                        backStack.removeLastOrNull()
-                        backStack.add(ListDetailRoute(newListId))
+                        // A save that finishes after the user already went back leaves the stack alone.
+                        if (backStack.lastOrNull() == route) {
+                            backStack.removeAt(backStack.lastIndex)
+                            backStack.add(ListDetailRoute(newListId))
+                        }
                     },
                 )
             }
@@ -100,7 +120,7 @@ fun AppNavHost(
                 ItemDetailScreen(
                     listId = route.listId,
                     itemId = route.itemId,
-                    onBack = { backStack.removeLastOrNull() },
+                    onBack = { backStack.popIfTop(route) },
                 )
             }
         },

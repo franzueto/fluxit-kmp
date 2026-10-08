@@ -3,11 +3,30 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-    <meta name="theme-color" content="#2563EB">
+    <meta name="theme-color" content="#F5F7FA" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#101822" media="(prefers-color-scheme: dark)">
+    <meta name="color-scheme" content="light dark">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="FluxIt">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>FluxIt</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="stylesheet" href="styles.css">
-    <script type="application/javascript" src="composeApp.js"></script>
+    <script src="web-shell.js" defer></script>
 </head>
 <body>
+<div id="app"></div>
+<div id="splash" role="status" aria-live="polite">
+    <img class="splash-icon" src="icons/icon-192.png" alt="" width="72" height="72">
+    <div class="splash-title">FluxIt</div>
+    <div class="splash-spinner" aria-label="Loading"></div>
+    <div class="splash-message" hidden>
+        <p id="splash-text"></p>
+        <button id="splash-retry" type="button" hidden>Try again</button>
+    </div>
+</div>
 </body>
 </html>
