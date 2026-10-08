@@ -593,6 +593,30 @@ class ListDetailViewModelTest {
     }
 
     @Test
+    fun theNextItemCanBeTypedWhileAnAddIsSavingAndIsSentAfterwards() = runTest(dispatcher) {
+        // The composer field stays enabled while an add saves (so the keyboard stays up);
+        // a send attempted too early keeps the typed text instead of losing it.
+        listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
+        val vm = viewModel()
+        val collectJob = launch { vm.uiState.collect {} }
+        vm.onComposerChange("Milk")
+        vm.submitComposer()
+
+        vm.onComposerChange("Eggs")
+        vm.submitComposer() // still saving "Milk": ignored, "Eggs" stays in the field
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("Eggs", vm.uiState.value.composerText)
+
+        vm.submitComposer()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("", vm.uiState.value.composerText)
+        assertEquals(setOf("Milk", "Eggs"), vm.uiState.value.activeItems.map { it.title }.toSet())
+        assertEquals(2, items.addItemCallCount)
+        collectJob.cancel()
+    }
+
+    @Test
     fun toggleCompletedFailureResetsPendingAndSurfacesARetryableErrorThenRetrySucceeds() = runTest(dispatcher) {
         listId = lists.createList("Groceries", ListIcon.CART, ListColor.ORANGE)
         items.addItem(listId, "Milk")

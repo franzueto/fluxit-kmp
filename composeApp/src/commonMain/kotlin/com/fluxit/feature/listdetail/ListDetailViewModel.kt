@@ -219,7 +219,8 @@ class ListDetailViewModel(
      * [_isAddingItem] is set synchronously, before the coroutine is even launched. The composer
      * text is still cleared immediately on submit (unchanged, pre-existing UX), so the
      * submitted title is separately cached in [pendingRetryAddTitle] for [retryFailedOperation]
-     * to redrive without the user retyping it.
+     * to redrive without the user retyping it. The field stays editable while an add saves, so
+     * a submit arriving then is ignored and keeps the typed text for the next send.
      */
     fun submitComposer() {
         val title = composerText.value.trim()
@@ -375,8 +376,8 @@ class ListDetailViewModel(
      * Re-attempts whichever operation last failed, using [pendingRetryAddTitle]/
      * [pendingRetryItemId]/[pendingRetryToggleTarget] as needed. A no-op if nothing failed, if
      * the cached inputs are missing, or if a matching operation is already in flight -
-     * [performAddItem]/[performToggle]/[performDelete]/[performRestore]/[clearCompleted] each
-     * re-check their own guard.
+     * [performToggle]/[performDelete]/[performRestore]/[clearCompleted] each re-check their own
+     * guard; a retried add relies on the screen offering Retry only while nothing is in flight.
      */
     fun retryFailedOperation() {
         val failed = _operationError.value ?: return
