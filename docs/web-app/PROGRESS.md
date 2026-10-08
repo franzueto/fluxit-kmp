@@ -6,7 +6,7 @@ the next phase.
 
 - **Branch:** `web/wasm-app`
 - **Started:** 2026-10-07
-- **Current phase:** Phase 6 — Ship to Firebase Hosting (next; not started)
+- **Current phase:** Phase 6 — Ship to Firebase Hosting (in progress: Hosting config done; deploy and owner steps pending)
 
 ## Goal
 
@@ -175,14 +175,25 @@ Verification (2026-10-07): wasm tests 360/360 (was 351; new `BrowserBackNavigati
 
 Known gaps: the iOS keyboard handling, safe areas in home-screen mode and real touch swipes cannot be reproduced in desktop emulation (owner check above). Limits of the history design: after a reload on a deep entry, returning to the page's own entry can step into the previous document's entry, so the page loads once more (no loop); an overlay whose back handler does not close it would leave its entry consumed until the next change (none in the app today); if a `history.go()` never reported back, history syncing would stop for the session (no known path). From the follow-up re-review: two browser backs inside one frame while a dialog is open (e.g. rapid Alt+Left) can push without a tap; nested overlays would share one entry (the app has none); an overlay opened by a long press, if mobile web shows one, would push before the tap's activation (worth a look during the recheck). Back gestures on the create/edit-list screen discard unsaved edits without the discard dialog (already so on Android; web adds more ways to get there). An error before the first frame shows the couldn't-start message even when it is not fatal; it goes away when the app renders. The browser pane currently renders Compose about 5% smaller than the viewport (taps land where Compose lays out, not where it draws); the Phase 4 bundle shows the same, and the owner's phone did not in Phase 0, so it is a pane artifact. Not done: a specific message when the browser blocks site data (`localStorage`), still in Risks. The production rebuild for this phase replaced the files the owner's `:8090` server serves, so phones on that address now get the Phase 5 build.
 
-### Phase 6 — Ship to Firebase Hosting · ⬜
+### Phase 6 — Ship to Firebase Hosting · 🟨
 
-- [ ] `hosting` block in `firebase.json` (public dir = production distribution, cache headers, exclude `*.js.map`)
-- [ ] Deploy with `firebase deploy --only hosting --project <id>` (owner-confirmed)
+- [x] `hosting` block in `firebase.json`:
+  - `public` = `composeApp/build/dist/wasmJs/productionExecutable`; a `predeploy` hook runs `./gradlew :composeApp:wasmJsBrowserDistribution`, so every deploy ships a fresh production bundle (which refuses the emulator flag and a missing web config). No rewrites: the app has a single URL (browser back uses history entries, not paths)
+  - `ignore` keeps `**/*.map` (`composeApp.js.map`, 5.5 MB) and the raw `firebase-bridge.mjs` out of the upload (Phase 0/2 carry-overs); `composeApp.js.LICENSE.txt` (third-party notices) is uploaded
+  - Cache headers: the two `.wasm` files are named by content hash → `public, max-age=31536000, immutable`; everything else (`/`, `index.html`, `composeApp.js`, shell, styles, manifest, icons, `composeResources`) → `no-cache` (revalidate by ETag), so a deploy reaches phones on the next load. The rules do not overlap (one `Cache-Control` per path), so their order does not matter
+  - Security headers on every path: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` (keeps the origin on API calls, which API key referrer restrictions need), and a CSP: `script-src 'self' 'wasm-unsafe-eval'` (no `eval`), `connect-src` limited to the site and the four Firebase APIs (Identity Toolkit, Secure Token, Firestore, Firebase Storage), `img-src 'self' data: blob:`, `object-src`/`frame-ancestors 'none'`, `base-uri`/`form-action 'none'`. `style-src` needs `'unsafe-inline'`: Compose injects a `<style>` into its shadow root (`:host { user-select: none; -webkit-touch-callout: none; … }`); blocking it brought back text selection and the iOS long-press callout on the canvas
+  - Hosting emulator pinned to port 5002 (5000 is the macOS AirPlay Receiver)
+- [x] Production guard: `wasmJsBrowserProductionWebpack` now parses `fluxit.firebase.emulator.enabled` like the generator (`toBoolean()`, case-insensitive); before, `TRUE` would have built an emulator bundle past the guard (review note)
+- [x] Contract tests in `firebase/test/config.test.js` (`npm run check`): public dir + predeploy; the CLI's own upload lister (`firebase-tools` `listFiles`) over the bundle's file names excludes exactly the map and the raw bridge; the Hosting emulator's path matcher gives each uploaded path exactly one `Cache-Control` (immutable for `.wasm`, `no-cache` otherwise, including `/`); CSP directives (no `unsafe-eval`, exact `connect-src`, `object-src`/`frame-ancestors 'none'`) and the two other headers; and, when a production bundle is built, every `.wasm` has a content-hash name (review note)
+- [ ] Deploy with `firebase deploy --only hosting --project <id>` (owner-confirmed; see [Deploy to Firebase Hosting](#deploy-to-firebase-hosting-owner))
 - [ ] Owner disables client sign-up (D3) and sets a budget alert
 - [ ] Confirm photos load from the Hosting origin (bucket CORS from D6 already covers it; any other bucket needs `storage.cors.json` applied)
 - [ ] Optional: restrict the browser API key to the Hosting domains
 - [ ] End-to-end smoke test on the owner's phone
+
+Verification (2026-10-08): `firebase` `npm run check` 9/9 (5 new; the hash-name test ran on the built bundle). `wasmJsBrowserDistribution` with `-Pfluxit.firebase.emulator.enabled=TRUE` is refused; without it the bundle builds with the same `.wasm` hashes as before (no app code change; replaces what the owner's `:8090` serves). Hosting emulator (`emulators:start --only hosting`, default `demo-fluxit`, no `--project`) on the production bundle: every file returns 200 with the expected `Content-Type` (`application/wasm` for both `.wasm`), `Cache-Control` and security headers; `listFiles` with the `ignore` list yields the 13 bundle files without `composeApp.js.map` and `firebase-bridge.mjs`. Browser pane on that origin (`127.0.0.1:5002`, fresh origin, sign-in screen only): app renders, typing works, Compose's shadow-root style applies (`user-select: none`), no CSP errors after the `style-src` fix, and no request leaves the origin before sign-in. Full flow under the CSP (owner-approved emulator run with the web config's project ID): the emulator dev bundle served by the Hosting emulator at `127.0.0.1:8092` with the production headers plus the emulator hosts in `connect-src` and `'unsafe-eval'` (the dev bundle's webpack modules use `eval`; the production bundle does not): sign in → Firestore listener → create a list → add an item (batch) → open item → photo picked through the real `change` path → uploaded (200) → reload, session restored → photo downloaded (206) and shown; no CSP violations (the one console error was a stale emulator session from an earlier phase, refreshed with 400 on load). The emulators were stopped and the check-only config removed.
+
+Known gaps: the CSP and caching rules were checked on the Hosting emulator (superstatic), not on Hosting itself; compression (Brotli/gzip of the `.wasm`) and the real response headers are checked after the deploy. `img-src` leaves out `www.google.com`, whose `cleardot.gif` Firestore's WebChannel loads only to log network diagnostics after a failed request (the ping is blocked, the request is not); Firestore's terminate request has a similar image fallback, used only where `sendBeacon` is missing. If the project ever enables reCAPTCHA (Auth) or App Check, their scripts need CSP additions. The Hosting emulator still serves `composeApp.js.map` and the raw bridge (the `ignore` list applies to uploads only). The deployed bundle contains absolute build paths of the owner's Mac (a `file://…/skiko.mjs` URL in `composeApp.js` from webpack's `import.meta.url`, Kotlin source paths in the app `.wasm`), which reveal the macOS user name; accepted as low sensitivity. The `immutable` rule matches every `*.wasm`; a fixed-name `.wasm` from a future toolchain would be cached for a year, so `npm run check` fails if a built bundle has a `.wasm` not named by a 20-hex-digit hash (the test is skipped without a build). The bucket's CORS (D6) stays open to any origin, so local and LAN testing keep working; narrowing it to the Hosting origins is possible later.
 
 ### Phase 7 (optional) — Unify iOS and web bridged repositories · ⬜
 
@@ -213,6 +224,8 @@ Known gaps: the iOS keyboard handling, safe areas in home-screen mode and real t
 | 2026-10-08 | 5 | Owner recheck passed on both phones. Owner request: the add-item field keeps focus (and the keyboard) across adds — shared change, so the Android and iOS apps get it too. |
 | 2026-10-08 | 5 | Keep-keyboard change reviewed PASS WITH NOTES; tracker ordering, verification and known gaps fixed; view-model KDoc corrected. |
 | 2026-10-08 | 5 | Owner confirmed the keep-keyboard change on the phone. Phase 5 closed; Phase 6 starts in a new session. |
+| 2026-10-08 | 6 | `hosting` in `firebase.json` (production bundle, predeploy build, map/raw bridge excluded, hashed Wasm immutable, everything else `no-cache`, CSP + security headers); contract tests; checked on the Hosting emulator, full flow under the CSP against the emulators. Deploy and Console steps left to the owner. |
+| 2026-10-08 | 6 | Review PASS WITH NOTES; emulator-flag guard made case-insensitive, `.wasm` hash-name test, runbook guard and wording fixed; local build paths in the bundle recorded. Waiting for the owner's deploy. |
 
 ## Review log
 
@@ -227,6 +240,7 @@ Known gaps: the iOS keyboard handling, safe areas in home-screen mode and real t
 | 2026-10-07 | 4 (follow-up) | PASS WITH NOTES | Bucket CORS + Storage logging delta. Re-ran wasm 351 (`--rerun-tasks`) and wasm compile; no rules/`firebase.json` changes; no config values, bucket names or LAN addresses in tracked files; no client uses token download URLs. Fixed: `storage.cors.json` tracked; D6/README wording (CORS is not access control; SDK downloads need the token); cleanup's `storage/canceled` no longer logged. Noted: logged SDK messages can include the object path (user's own console only); Phase 6 could narrow CORS origins. Root cause and dev-bucket fix accepted as owner/implementer observations. |
 | 2026-10-07 | 5 | PASS WITH NOTES | Re-ran wasm 360 (`--rerun-tasks`), production bundle (new shell files and icons shipped; no emulator host — the only `localhost` string is inside the Auth SDK's IdP code), Android 268 + `assembleDebug`, iOS compile + `iosSimulatorArm64Test` 337; secret/LAN scan of changed files: 0 hits; PNGs carry no text/EXIF. Read `navigationevent` 1.0.2: `addInput` reports the initial enabled state; overlay handlers count, so dialogs arm the guard. Root guard keeps Android/iOS behaviour except the rapid-tap case. State machine sound for forward, sign-out, dialogs and own-back vs push ordering; no resize loop; sensible fallbacks. Fixed: create-list `onCreated` only replaces itself while on top; `env()` fallbacks. Recorded: two quick browser backs, reload double-load, unsaved create-list edits on back, non-fatal pre-frame error message; `localStorage` message deferred (Risks). Browser checks accepted as implementer claims; phone check is an owner action. |
 | 2026-10-08 | 5 (follow-up) | PASS WITH NOTES | Android fixes. Review 1: back redesign sound for the reported bug, but closing a dialog on an inner screen with back still pushed without a tap — fixed (overlays get their own entry, told apart from NavDisplay's `SceneInfo`); `touches` could stick after a lost `touchend` — reset after 3 s / on hide; tracker wording and recheck scope fixed. Re-review: wasm 365 (`--rerun`, `BrowserBackNavigationEventInputTest` 11/11), production bundle, Android/iOS compile (no commonMain change), no secrets/rules changes; Compose 1.10.3 `Dialog`/focusable `Popup` register `NavigationEventInfo.None` handlers, so the screen/overlay split holds; no tap-less push in the app's current flows. Recorded: two backs within one frame with a dialog open, nested overlays, long-press overlays (unverified). Keyboard fix and Android behaviour rest on the owner's recheck. |
+| 2026-10-08 | 6 (local part) | PASS WITH NOTES | Re-ran the production bundle, `npm run check` 8/8, `listFiles` on the real bundle (13 files; map and raw bridge excluded; `deploy.js` uses the same function and `ignore`), the Hosting emulator without `--project` (one `Cache-Control` per path, `application/wasm`, security headers on all), wasm/Android/iOS compiles; secret scan of the web config's six values against tracked files and the diff: 0 hits. CSP checked against the production code: no eval reached, no inline scripts, only the four API hosts; `style-src 'unsafe-inline'` justified by Compose's shadow-root `<style>`; Referrer-Policy fits key restrictions; predeploy runs from the project dir. Fixed: production guard parses the emulator flag like the generator (`TRUE` slipped past); `img-src` wording; runbook stops on an empty project ID; fixture icons; `.wasm` hash-name test on a built bundle. Recorded: local build paths (macOS user name) in the deployed bundle; test imports of `firebase-tools`/`superstatic` internals (pinned by the lockfile). Browser and emulator checks accepted as implementer claims; deploy and Console steps are owner actions. |
 
 ## Run the web build
 
@@ -256,6 +270,55 @@ To try it on a phone on the same Wi-Fi, serve with `--bind 0.0.0.0` and open
 `http://<your-mac-LAN-IP>:8090`. Plain `http://` on a LAN address is not a secure
 context; that is fine for the spike, but Firebase Auth testing from Phase 2 on should
 use `localhost` or the deployed HTTPS site.
+
+## Deploy to Firebase Hosting (owner)
+
+Run from the repository root, signed in to the Firebase CLI with your own account
+(`firebase/node_modules/.bin/firebase login`). The project ID is read from the gitignored
+web config and never written to a tracked file. `--only hosting` deploys nothing but
+the web site: no Rules, indexes or Functions.
+
+```sh
+FLUXIT_PROJECT_ID=$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync("composeApp/firebase-web-config.json")).projectId)')
+: "${FLUXIT_PROJECT_ID:?web config missing or unreadable}"
+firebase/node_modules/.bin/firebase --config firebase.json deploy --only hosting --project "$FLUXIT_PROJECT_ID"
+```
+
+The predeploy hook builds the production bundle first. The site is
+`https://<project-id>.web.app` (also `<project-id>.firebaseapp.com`); if the project has
+no Hosting site yet, the CLI creates the default one or asks you to start Hosting in the
+Console. To roll back: Console → Hosting → release history → Rollback.
+
+To preview the Hosting config locally (headers, Wasm MIME type) on the production bundle:
+`firebase/node_modules/.bin/firebase --config firebase.json emulators:start --only hosting`
+and open `http://127.0.0.1:5002`. That page talks to the real project, like `:8090`.
+
+After the deploy, in the Firebase/Google Cloud Console:
+
+1. **Disable client sign-up (D3):** Authentication → Settings → User actions → clear
+   "Enable create (sign-up)" → Save. Existing sign-in and password reset keep working;
+   new accounts come from Authentication → Users → Add user.
+2. **Budget alert:** Google Cloud Console → Billing → Budgets & alerts → Create budget
+   for this project (e.g. a small monthly amount, alerts at 50/90/100%, email to billing
+   admins). Alerts notify; they do not cap spending.
+3. **Optional — restrict the browser API key:** Google Cloud Console → APIs & Services →
+   Credentials → the key whose value matches `apiKey` in the web config (usually "Browser
+   key (auto created by Firebase)"; leave the Android and iOS keys alone).
+   - Application restrictions → Websites: `https://<project-id>.web.app/*`,
+     `https://<project-id>.firebaseapp.com/*`, plus `http://localhost/*`,
+     `http://localhost:*/*`, `http://127.0.0.1:*/*` for local builds, and
+     `http://<your-mac-LAN-IP>:8090/*` while phones test over the LAN.
+   - API restrictions: Identity Toolkit API, Token Service API, Cloud Firestore API,
+     Cloud Storage for Firebase API.
+   - Changes take a few minutes; then sign in again on the Hosting site and on `:8090`.
+     A blocked referrer shows as `auth/requests-from-referer-...-are-blocked` in the console.
+
+Smoke test on the phone (`https://<project-id>.web.app`): the splash, then sign in;
+reload stays signed in; open a list, add / complete / delete + Undo an item; open an item
+with a photo (it loads from the Hosting origin; D6), attach and remove a photo; browser
+back through item → list → dashboard → leaves; Add to Home Screen opens full screen;
+password reset sends the email; sign out. A deploy reaches an open page on its next
+load (everything but the hashed Wasm revalidates).
 
 ## Risks and open questions
 

@@ -314,7 +314,8 @@ android {
 // the local emulators (the emulator runs under the dev project ID).
 tasks.named("wasmJsBrowserProductionWebpack") {
     val configFile = firebaseWebConfigFile.asFile
-    val emulatorEnabled = providers.gradleProperty("fluxit.firebase.emulator.enabled").orNull == "true"
+    // Same parse as generateFirebaseEmulatorConfig, so no spelling of "true" slips past.
+    val emulatorEnabled = providers.gradleProperty("fluxit.firebase.emulator.enabled").orNull.toBoolean()
     doFirst {
         if (emulatorEnabled) {
             throw GradleException(

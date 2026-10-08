@@ -109,7 +109,8 @@ self-check flags into ordinary builds.
 
 A mobile-first web client (Kotlin/Wasm) is in progress on the `web/wasm-app` branch.
 It signs in to existing accounts only: sign-up and sample-data seeding are not offered
-on web. Plan, status and web build commands are in
+on web. It is served from Firebase Hosting (`hosting` in `firebase.json`). Plan,
+status, web build commands and the deploy runbook are in
 [docs/web-app/PROGRESS.md](docs/web-app/PROGRESS.md).
 
 ## Accounts, offline use and photos
