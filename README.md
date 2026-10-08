@@ -48,6 +48,13 @@ moved to Firebase is summarized in [the migration summary](docs/firebase-migrati
    (`measurementId` is not needed). The build validates the file and reports problems
    by key name only. The web target still compiles and tests without it, but the
    production web bundle refuses to build.
+
+   Browsers can only download photos if the Storage bucket allows cross-origin `GET`s.
+   The project owner applies [`storage.cors.json`](storage.cors.json) once per bucket
+   (for example from Cloud Shell):
+   `gcloud storage buckets update gs://<storageBucket> --cors-file=storage.cors.json`.
+   CORS is not access control: app downloads still send the signed-in user's token and pass
+   the owner-only Storage Rules.
 4. For cloud use, the project owner enables Authentication → Sign-in method →
    **Email/Password**, provisions Firestore and Storage, and deploys the reviewed
    owner-only Rules/indexes and scheduled cleanup backend. Use the approved
