@@ -171,8 +171,11 @@ internal object WindowBrowserHistory : BrowserHistory {
     }
 }
 
+// Internal, not private: for a private top-level external that takes a Kotlin lambda, the
+// Wasm compiler embeds a file-based signature, i.e. this file's absolute path on the build
+// machine, in the bundle. See checkWebDistributionForLocalPaths in composeApp/build.gradle.kts.
 @JsFun("(task) => queueMicrotask(task)")
-private external fun queueMicrotask(task: () -> Unit)
+internal external fun queueMicrotask(task: () -> Unit)
 
 @JsFun("(depth) => ({ fluxitBackDepth: depth })")
 private external fun newDepthState(depth: Int): JsAny

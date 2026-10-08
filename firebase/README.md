@@ -503,7 +503,7 @@ See [CLI project targeting](https://firebase.google.com/docs/cli#project_aliases
 
 The `hosting` block in `../firebase.json` serves the web client (Kotlin/Wasm) from
 `composeApp/build/dist/wasmJs/productionExecutable`. Its predeploy hook rebuilds the
-production bundle, so a Hosting deploy needs the gitignored web config. Deploy it on
+production bundle from a copy at `/tmp/fluxit` (`../scripts/build-web-release.sh`), so a Hosting deploy needs the gitignored web config. Deploy it on
 its own with `--only hosting` and the explicit `--project` flag; a deploy without
 `--only` would also deploy Rules, indexes and Functions. The web deploy runbook,
 cache and security headers are described in

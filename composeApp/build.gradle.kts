@@ -331,3 +331,41 @@ tasks.named("wasmJsBrowserProductionWebpack") {
         }
     }
 }
+
+// Nothing from this machine's file system may ship in the web bundle: webpack and the Kotlin
+// compiler can embed absolute build paths, which name the local user (Phase 6). Fails the
+// production distribution if a published file (source maps are not uploaded) contains the
+// project directory or the home directory, searched as raw bytes in UTF-8, UTF-16LE and
+// UTF-16BE (Wasm string data), and deletes the distribution so it cannot be served.
+// Libraries' own build-machine paths (e.g. /mnt/agent/...) are not this machine's and pass.
+val checkWebDistributionForLocalPaths = tasks.register("checkWebDistributionForLocalPaths") {
+    description = "Fails if the production web bundle contains a local file-system path."
+    val distribution = layout.buildDirectory.dir("dist/wasmJs/productionExecutable")
+    val home = providers.systemProperty("user.home").orNull
+    val localPaths = listOfNotNull(
+        rootDir.absolutePath, rootDir.canonicalPath, home, home?.let { File(it).canonicalPath },
+    ).filter { it.length > 1 }.distinct()
+    inputs.dir(distribution)
+    doLast {
+        val patterns = localPaths.flatMap { path ->
+            listOf(Charsets.UTF_8, Charsets.UTF_16LE, Charsets.UTF_16BE).map { path.toByteArray(it) }
+        }
+        fun ByteArray.contains(pattern: ByteArray): Boolean =
+            (0..size - pattern.size).any { start -> pattern.indices.all { this[start + it] == pattern[it] } }
+        val root = distribution.get().asFile
+        val findings = root.walkTopDown()
+            .filter { it.isFile && it.extension != "map" }
+            .filter { file -> file.readBytes().let { bytes -> patterns.any { bytes.contains(it) } } }
+            .map { it.relativeTo(root).path }
+            .toList()
+        if (findings.isNotEmpty()) {
+            root.deleteRecursively()
+            throw GradleException(
+                "The production web bundle contained local file-system paths (project or home directory) in: " +
+                    findings.joinToString() + "; the distribution was deleted. " +
+                    "See checkWebDistributionForLocalPaths in composeApp/build.gradle.kts."
+            )
+        }
+    }
+}
+tasks.named("wasmJsBrowserDistribution") { finalizedBy(checkWebDistributionForLocalPaths) }

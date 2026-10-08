@@ -9,7 +9,7 @@
   "hosting": {
     "public": "composeApp/build/dist/wasmJs/productionExecutable",
     "predeploy": [
-      "./gradlew :composeApp:wasmJsBrowserDistribution"
+      "./scripts/build-web-release.sh"
     ],
     "ignore": [
       "firebase.json",

@@ -87,7 +87,11 @@ function headersFor(path) {
 
 test('Hosting deploys a freshly built production web bundle', () => {
   assert.equal(config.hosting.public, 'composeApp/build/dist/wasmJs/productionExecutable');
-  assert.deepEqual(config.hosting.predeploy, ['./gradlew :composeApp:wasmJsBrowserDistribution']);
+  // Built from a copy at a neutral path (/tmp/fluxit); see scripts/build-web-release.sh.
+  assert.deepEqual(config.hosting.predeploy, ['./scripts/build-web-release.sh']);
+  const script = read('scripts/build-web-release.sh');
+  assert.match(script, /--no-build-cache :composeApp:wasmJsBrowserDistribution/);
+  assert.match(script, /\/tmp\/fluxit/);
   assert.equal(config.hosting.rewrites, undefined);
 });
 
