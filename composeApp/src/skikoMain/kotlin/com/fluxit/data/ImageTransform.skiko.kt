@@ -8,10 +8,10 @@ import kotlin.math.roundToInt
 
 /**
  * real decode/resize actuals, backing [preparePhotoForUpload]'s default parameters on
- * iOS. Uses only `org.jetbrains.skia` (Skiko) - the same Skia bindings `ImageDecoder.ios.kt`
+ * iOS and web. Uses only `org.jetbrains.skia` (Skiko) - the same Skia bindings `ImageDecoder.skiko.kt`
  * already depends on for rendering - so no new third-party dependency is introduced. Unlike the
- * Android actual, Kotlin/Native test binaries link real Skia, so these are exercised for real
- * by `ImageTransformIosTest` under `iosSimulatorArm64Test`.
+ * Android actual, the iOS and web test binaries link real Skia, so these are exercised for real
+ * by `ImageTransformSkikoTest` under `iosSimulatorArm64Test` and `wasmJsBrowserTest`.
  */
 
 actual fun readImageDimensions(bytes: ByteArray): ImageDimensions? = runCatching {

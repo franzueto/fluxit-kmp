@@ -85,6 +85,17 @@ class FakeAuthRepository(
         return AuthResult.Success
     }
 
+    /**
+     * Test setup: creates [email]'s account if needed (an existing account keeps its
+     * password) and authenticates it; for a new email this is the end state of a
+     * successful [signUp]. Not suspending, because `runBlocking` does not exist on the
+     * web targets.
+     */
+    fun authenticate(email: String, password: String = "password123") {
+        accounts.getOrPut(email) { password }
+        _session.value = AuthSession.Authenticated(AuthUser(uidFor(email), email))
+    }
+
     override suspend fun sendPasswordResetEmail(email: String): AuthResult {
         injectedFailure()?.let { return it }
         if (!email.looksLikeEmail()) return AuthResult.Failure(AuthError.InvalidEmail)

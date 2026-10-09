@@ -37,12 +37,15 @@ simulator-only.
 | Cloud Storage | 9199 |
 | Cloud Functions | 5001 |
 | Pub/Sub (scheduled trigger emulation) | 8085 |
+| Hosting (serves the production web bundle) | 5002 |
 | Emulator UI | 4000 |
 | Emulator hub | 4400 |
 
 The Firestore emulator also opens a UI websocket on 9150 (assigned by the
 emulator, not configurable in `firebase.json`). Ports are pinned here so the
 Rules tests have a stable target.
+Hosting uses 5002 because the CLI default, 5000, is taken by the macOS AirPlay
+Receiver.
 
 ### Client-side endpoints are overridable, not hard-coded
 
@@ -497,6 +500,14 @@ the reviewed Rules/indexes first and the backend function second, only to the
 approved development project, always with an explicit `--project` flag. Do not run
 `firebase init` to overwrite repository Rules.
 See [CLI project targeting](https://firebase.google.com/docs/cli#project_aliases).
+
+The `hosting` block in `../firebase.json` serves the web client (Kotlin/Wasm) from
+`composeApp/build/dist/wasmJs/productionExecutable`. Its predeploy hook rebuilds the
+production bundle from a copy at `/tmp/fluxit` (`../scripts/build-web-release.sh`), so a Hosting deploy needs the gitignored web config. Deploy it on
+its own with `--only hosting` and the explicit `--project` flag; a deploy without
+`--only` would also deploy Rules, indexes and Functions. The web deploy runbook,
+cache and security headers are described in
+[docs/web-app/PROGRESS.md](../docs/web-app/PROGRESS.md#deploy-to-firebase-hosting-owner).
 
 Operations must monitor function errors/retries, cleanup counts, Rules denials,
 index readiness and Firestore/Storage usage. Scheduled cleanup is in `us-central1`

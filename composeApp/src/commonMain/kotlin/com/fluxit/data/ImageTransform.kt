@@ -8,7 +8,7 @@ data class ImageDimensions(val widthPx: Int, val heightPx: Int)
  * (see `PhotoPolicy.kt`). Uses the same expect/actual pattern as
  * `com.fluxit.ui.components.decodeImageBytes`: platform-native decode only -
  * `android.graphics.BitmapFactory`/`Bitmap` on Android, the already-used `org.jetbrains.skia`
- * Skia bindings on iOS (the same library `ImageDecoder.ios.kt` already depends on for
+ * Skia bindings on iOS and web (the same library `ImageDecoder.skiko.kt` already depends on for
  * rendering) - so no new third-party dependency is introduced by either actual.
  */
 

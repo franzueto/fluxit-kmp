@@ -100,9 +100,9 @@ object IosPhotoStorageIntegrationCheck {
     private const val SUBSCRIBE_TIMEOUT_MS = 20_000L
 
     // A minimal, valid, hand-verifiable 1x1 transparent PNG - the same fixture
-    // `ImageTransformIosTest` (iosTest source set) uses, duplicated here rather
+    // `ImageTransformSkikoTest` (skikoTest source set) uses, duplicated here rather
     // than shared because this file lives in iosMain (shipped in the app binary) and
-    // cannot depend on iosTest code.
+    // cannot depend on test code.
     @OptIn(ExperimentalEncodingApi::class)
     private val onePixelPng: ByteArray = Base64.decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="

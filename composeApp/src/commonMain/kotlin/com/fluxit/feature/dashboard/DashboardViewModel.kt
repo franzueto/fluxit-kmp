@@ -102,7 +102,8 @@ data class DashboardUiState(
 
 class DashboardViewModel(
     private val listRepository: ListRepository,
-    private val seeder: DebugSeeder,
+    /** Null where sample data is disabled (web); [seedSampleData] is then a no-op. */
+    private val seeder: DebugSeeder?,
     /**
      * Combined with [listRepository]'s observation to derive
      * [ScreenLoadState.FatalSession] - reused verbatim from the session
@@ -112,6 +113,9 @@ class DashboardViewModel(
      */
     private val authRepository: AuthRepository,
 ) : ViewModel() {
+
+    /** Whether the dashboard offers the sample-data seeder at all. */
+    val canSeedSampleData: Boolean = seeder != null
 
     private val searchQuery = MutableStateFlow("")
 
@@ -241,6 +245,7 @@ class DashboardViewModel(
      * uncaught exception from `viewModelScope.launch`.
      */
     fun seedSampleData() {
+        val seeder = seeder ?: return
         if (isSeeding.value) return
         isSeeding.value = true
         clearErrorFor(DashboardOperation.SEED_SAMPLE_DATA)

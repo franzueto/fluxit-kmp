@@ -30,6 +30,7 @@ moved to Firebase is summarized in [the migration summary](docs/firebase-migrati
    |---|---|---|
    | Android | Package `com.fluxit` | `composeApp/google-services.json` |
    | iOS | Bundle ID `com.fluxit.FluxIt` (case-sensitive) | `iosApp/GoogleService-Info.plist` |
+   | Web (optional) | Web app in the same project | `composeApp/firebase-web-config.json` |
 
    Keep the exact filenames, with no download suffix such as `(2)`. The Android
    Google Services plugin reads the module-root JSON; Xcode already references
@@ -40,6 +41,20 @@ moved to Firebase is summarized in [the migration summary](docs/firebase-migrati
    [Android setup](https://firebase.google.com/docs/android/setup),
    [Apple setup](https://firebase.google.com/docs/ios/setup) and
    [Console app settings](https://support.google.com/firebase/answer/7000104?hl=en).
+
+   The web client has no downloadable file. Copy
+   `composeApp/firebase-web-config.example.json` to `composeApp/firebase-web-config.json`
+   and fill in the six values from the web app's `firebaseConfig` snippet
+   (`measurementId` is not needed). The build validates the file and reports problems
+   by key name only. The web target still compiles and tests without it, but the
+   production web bundle refuses to build.
+
+   Browsers can only download photos if the Storage bucket allows cross-origin `GET`s.
+   The project owner applies [`storage.cors.json`](storage.cors.json) once per bucket
+   (for example from Cloud Shell):
+   `gcloud storage buckets update gs://<storageBucket> --cors-file=storage.cors.json`.
+   CORS is not access control: app downloads still send the signed-in user's token and pass
+   the owner-only Storage Rules.
 4. For cloud use, the project owner enables Authentication → Sign-in method →
    **Email/Password**, provisions Firestore and Storage, and deploys the reviewed
    owner-only Rules/indexes and scheduled cleanup backend. Use the approved
@@ -52,7 +67,7 @@ moved to Firebase is summarized in [the migration summary](docs/firebase-migrati
 Verify that the two downloaded files remain ignored:
 
 ```sh
-git check-ignore composeApp/google-services.json iosApp/GoogleService-Info.plist
+git check-ignore composeApp/google-services.json iosApp/GoogleService-Info.plist composeApp/firebase-web-config.json
 ```
 
 The committed `.firebaserc` points only to `demo-fluxit`, an emulator placeholder.
@@ -91,6 +106,12 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug 
 Replace `<SIMULATOR_UDID>` with a booted simulator from `xcrun simctl list devices`.
 Use `Release` for the corresponding configuration build. Never carry emulator or
 self-check flags into ordinary builds.
+
+A mobile-first web client (Kotlin/Wasm) is in progress on the `web/wasm-app` branch.
+It signs in to existing accounts only: sign-up and sample-data seeding are not offered
+on web. It is served from Firebase Hosting (`hosting` in `firebase.json`). Plan,
+status, web build commands and the deploy runbook are in
+[docs/web-app/PROGRESS.md](docs/web-app/PROGRESS.md).
 
 ## Accounts, offline use and photos
 

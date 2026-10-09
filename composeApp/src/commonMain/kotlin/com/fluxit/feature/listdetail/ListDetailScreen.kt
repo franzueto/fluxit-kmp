@@ -52,6 +52,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.input.ImeAction
@@ -115,7 +116,10 @@ fun ListDetailScreen(
                 text = state.composerText,
                 onTextChange = viewModel::onComposerChange,
                 onSubmit = viewModel::submitComposer,
-                enabled = !isAddingItem && !isDeletingList,
+                // The field stays enabled while an add is saving: disabling it would take its
+                // focus and close the keyboard after every item. Only sending waits.
+                enabled = !isDeletingList,
+                canSend = !isAddingItem && !isDeletingList,
             )
         },
     ) { padding ->
@@ -401,7 +405,13 @@ private fun ItemRow(item: FluxItem, onToggle: () -> Unit, onClick: () -> Unit, e
 }
 
 @Composable
-private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () -> Unit, enabled: Boolean) {
+private fun Composer(
+    text: String,
+    onTextChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    enabled: Boolean,
+    canSend: Boolean,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -436,7 +446,7 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
             ),
         )
         Spacer(Modifier.size(12.dp))
-        val canSubmit = enabled && text.isNotBlank()
+        val canSubmit = canSend && text.isNotBlank()
         Box(
             modifier = Modifier
                 .size(52.dp)
@@ -444,6 +454,9 @@ private fun Composer(text: String, onTextChange: (String) -> Unit, onSubmit: () 
                     if (canSubmit) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,
                     CircleShape,
                 )
+                // Never takes focus from the field (a mouse click or hardware keyboard would
+                // otherwise move it here and close the keyboard); Send on the keyboard still works.
+                .focusProperties { canFocus = false }
                 .clickable(enabled = canSubmit, onClick = onSubmit),
             contentAlignment = Alignment.Center,
         ) {
