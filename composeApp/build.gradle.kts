@@ -311,7 +311,7 @@ android {
 }
 
 // The deployable web bundle must carry a real Firebase web config and must never point at
-// the local emulators (the emulator runs under the dev project ID).
+// the local emulators (emulator builds run as the demo-fluxit project instead).
 tasks.named("wasmJsBrowserProductionWebpack") {
     val configFile = firebaseWebConfigFile.asFile
     // Same parse as generateFirebaseEmulatorConfig, so no spelling of "true" slips past.

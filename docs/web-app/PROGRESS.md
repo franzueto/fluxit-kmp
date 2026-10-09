@@ -6,7 +6,7 @@ the next phase.
 
 - **Branch:** `web/wasm-app`
 - **Started:** 2026-10-07
-- **Current phase:** Phase 6 — Ship to Firebase Hosting (in progress: Hosting config done; deploy and owner steps pending)
+- **Current phase:** Phase 6 done (live on Firebase Hosting); branch ready to merge into `main`. Phase 7 starts after the merge
 
 ## Goal
 
@@ -175,7 +175,7 @@ Verification (2026-10-07): wasm tests 360/360 (was 351; new `BrowserBackNavigati
 
 Known gaps: the iOS keyboard handling, safe areas in home-screen mode and real touch swipes cannot be reproduced in desktop emulation (owner check above). Limits of the history design: after a reload on a deep entry, returning to the page's own entry can step into the previous document's entry, so the page loads once more (no loop); an overlay whose back handler does not close it would leave its entry consumed until the next change (none in the app today); if a `history.go()` never reported back, history syncing would stop for the session (no known path). From the follow-up re-review: two browser backs inside one frame while a dialog is open (e.g. rapid Alt+Left) can push without a tap; nested overlays would share one entry (the app has none); an overlay opened by a long press, if mobile web shows one, would push before the tap's activation (worth a look during the recheck). Back gestures on the create/edit-list screen discard unsaved edits without the discard dialog (already so on Android; web adds more ways to get there). An error before the first frame shows the couldn't-start message even when it is not fatal; it goes away when the app renders. The browser pane currently renders Compose about 5% smaller than the viewport (taps land where Compose lays out, not where it draws); the Phase 4 bundle shows the same, and the owner's phone did not in Phase 0, so it is a pane artifact. Not done: a specific message when the browser blocks site data (`localStorage`), still in Risks. The production rebuild for this phase replaced the files the owner's `:8090` server serves, so phones on that address now get the Phase 5 build.
 
-### Phase 6 — Ship to Firebase Hosting · 🟨
+### Phase 6 — Ship to Firebase Hosting · ✅
 
 - [x] `hosting` block in `firebase.json`:
   - `public` = `composeApp/build/dist/wasmJs/productionExecutable`; a `predeploy` hook runs `scripts/build-web-release.sh` (below), so every deploy ships a fresh production bundle (which refuses the emulator flag and a missing web config). No rewrites: the app has a single URL (browser back uses history entries, not paths)
@@ -190,21 +190,70 @@ Known gaps: the iOS keyboard handling, safe areas in home-screen mode and real t
   - Guard: `checkWebDistributionForLocalPaths` (finalizes `wasmJsBrowserDistribution`, never up to date) fails the build if any published file (source maps excluded) contains the project directory or the home directory, absolute or canonical (`/tmp` → `/private/tmp`), searched as raw bytes in UTF-8, UTF-16LE and UTF-16BE (Wasm string data), and then deletes the distribution so a local server cannot serve it. Emscripten's generic `"file://"` check is not a path and passes. Skipping the task (`-x`) skips the check
   - `scripts/build-web-release.sh` (the Hosting predeploy): copies the working tree (tracked and new files, not ignored ones, plus the gitignored `local.properties` and web config) to `/tmp/fluxit` (fixed path, mode 700). The mirror is wiped before each copy, so the script refuses a `/tmp/fluxit` that is a symlink, is not a folder owned by the user, or is non-empty without the `.fluxit-release-mirror` marker it writes; a missing web config stops it before anything is touched. It builds there with `--no-build-cache` (so no output built in the home folder is reused), and copies the bundle back to `composeApp/build/dist/wasmJs/productionExecutable`. Sources are replaced on every run; the mirror's Gradle output and cache folders are kept, so repeat builds take under a minute. If a new leak appears it would name `/tmp/fluxit`, and the guard still fails it
 - [x] Contract tests in `firebase/test/config.test.js` (`npm run check`): public dir + predeploy (the release script, built in `/tmp/fluxit` without the build cache); the CLI's own upload lister (`firebase-tools` `listFiles`) over the bundle's file names excludes exactly the map and the raw bridge; the Hosting emulator's path matcher gives each uploaded path exactly one `Cache-Control` (immutable for `.wasm`, `no-cache` otherwise, including `/`); CSP directives (no `unsafe-eval`, exact `connect-src`, `object-src`/`frame-ancestors 'none'`) and the two other headers; and, when a production bundle is built, every `.wasm` has a content-hash name (review note)
-- [ ] Deploy with `firebase deploy --only hosting --project <id>` (owner-confirmed; see [Deploy to Firebase Hosting](#deploy-to-firebase-hosting-owner))
-- [ ] Owner disables client sign-up (D3) and sets a budget alert
-- [ ] Confirm photos load from the Hosting origin (bucket CORS from D6 already covers it; any other bucket needs `storage.cors.json` applied)
-- [ ] Optional: restrict the browser API key to the Hosting domains
-- [ ] End-to-end smoke test on the owner's phone
+- [x] Deploy with `firebase deploy --only hosting --project <id>` (owner-confirmed; see [Deploy to Firebase Hosting](#deploy-to-firebase-hosting-owner)) (owner, done 2026-10-09)
+- [x] Owner disables client sign-up (D3) and sets a budget alert (owner, done 2026-10-09)
+- [x] Confirm photos load from the Hosting origin (bucket CORS from D6 already covers it; any other bucket needs `storage.cors.json` applied) (owner, done 2026-10-09)
+- [x] Optional: restrict the browser API key to the Hosting domains (owner, done 2026-10-09)
+- [x] End-to-end smoke test on the owner's phone (owner, done 2026-10-09)
 
 Verification (2026-10-08): `firebase` `npm run check` 9/9 (5 new; the hash-name test ran on the built bundle). `wasmJsBrowserDistribution` with `-Pfluxit.firebase.emulator.enabled=TRUE` is refused; without it the bundle builds with the same `.wasm` hashes as before (no app code change; replaces what the owner's `:8090` serves). Hosting emulator (`emulators:start --only hosting`, default `demo-fluxit`, no `--project`) on the production bundle: every file returns 200 with the expected `Content-Type` (`application/wasm` for both `.wasm`), `Cache-Control` and security headers; `listFiles` with the `ignore` list yields the 13 bundle files without `composeApp.js.map` and `firebase-bridge.mjs`. Browser pane on that origin (`127.0.0.1:5002`, fresh origin, sign-in screen only): app renders, typing works, Compose's shadow-root style applies (`user-select: none`), no CSP errors after the `style-src` fix, and no request leaves the origin before sign-in. Full flow under the CSP (owner-approved emulator run with the web config's project ID): the emulator dev bundle served by the Hosting emulator at `127.0.0.1:8092` with the production headers plus the emulator hosts in `connect-src` and `'unsafe-eval'` (the dev bundle's webpack modules use `eval`; the production bundle does not): sign in → Firestore listener → create a list → add an item (batch) → open item → photo picked through the real `change` path → uploaded (200) → reload, session restored → photo downloaded (206) and shown; no CSP violations (the one console error was a stale emulator session from an earlier phase, refreshed with 400 on load). The emulators were stopped and the check-only config removed.
 
 Local-path verification (2026-10-08): before the fixes, the production bundle had two absolute paths (one in `composeApp.js`, one in the app `.wasm`). After: `wasmJsBrowserDistribution` in the repo and `scripts/build-web-release.sh` (fresh `/tmp/fluxit` build without the build cache, ~45 s) both pass the guard, and a search of every published file for `/Users/`, `/tmp/fluxit` and `/private/tmp` finds nothing. Guard checked by planting files in the distribution with the project path (ASCII) and the home path (UTF-16BE right after a `0xD8` byte, which the first, decoding version missed): both named, build failed, distribution deleted; the next build passes. Release script refusals checked: an unmarked `/tmp/fluxit` (the one from before the marker), a symlink in its place (target untouched), a missing web config. The text in the two builds' `.wasm` is identical and `composeApp.js` differs only in the `.wasm` file name. wasm tests 366/366 (`--rerun-tasks`), Android and iOS compile, `npm run check` 9/9 (predeploy test now checks the release script). Browser pane: the release bundle on the Hosting emulator (`127.0.0.1:5002`) renders the sign-in screen with no console errors and no request for `skiko.mjs`; the emulator dev bundle (also rewritten: `__webpack_require__.p + "skiko.mjs"`) starts on the `127.0.0.1:8092` preview (emulators off, so it shows the session-restore error, as expected).
 
-Known gaps: the CSP and caching rules were checked on the Hosting emulator (superstatic), not on Hosting itself; compression (Brotli/gzip of the `.wasm`) and the real response headers are checked after the deploy. `img-src` leaves out `www.google.com`, whose `cleardot.gif` Firestore's WebChannel loads only to log network diagnostics after a failed request (the ping is blocked, the request is not); Firestore's terminate request has a similar image fallback, used only where `sendBeacon` is missing. If the project ever enables reCAPTCHA (Auth) or App Check, their scripts need CSP additions. The Hosting emulator still serves `composeApp.js.map` and the raw bridge (the `ignore` list applies to uploads only). Builds in `/tmp/fluxit` and in the home folder give app `.wasm` files with the same text but different bytes (binary IDs; no path text), so their hashes differ. The `immutable` rule matches every `*.wasm`; a fixed-name `.wasm` from a future toolchain would be cached for a year, so `npm run check` fails if a built bundle has a `.wasm` not named by a 20-hex-digit hash (the test is skipped without a build). The bucket's CORS (D6) stays open to any origin, so local and LAN testing keep working; narrowing it to the Hosting origins is possible later.
+Live-site check (2026-10-09, read-only requests to the public `web.app` URL): `index.html`, `composeApp.js` and both `.wasm` files are byte-identical to the `/tmp/fluxit` release build; `composeApp.js.map` and `firebase-bridge.mjs` are 404; every response carries the CSP, `nosniff` and `Referrer-Policy`; `.wasm` immutable, everything else `no-cache`; Brotli on all of them (the two `.wasm` transfer 2.6 MB + 1.0 MB). The owner then confirmed the deploy, sign-up disabled (D3), a budget alert, the API key restriction, a photo loading from the Hosting origin and the phone smoke test.
 
-### Phase 7 (optional) — Unify iOS and web bridged repositories · ⬜
+Before merging (2026-10-09):
+- [x] Emulator builds run as `demo-fluxit` (closes the first item under Risks). Web emulator builds started Firebase with the real web config, so the emulators had to run under the real project ID, and a request that missed the emulator would have reached the real project. Now an emulator build ignores the web config and starts with `FirebaseWebOptions.Emulator`: project `demo-fluxit`, bucket `demo-fluxit.appspot.com`, a dummy API key. `demo-*` IDs are reserved for the Emulator Suite, so nothing can reach a real project, and the emulators start as `demo-fluxit` (the `.firebaserc` default) with no `--project` and no Firebase setup; an emulator build no longer needs `firebase-web-config.json` at all. Production builds are unchanged (they still require the web config and refuse the emulator flag). The choice is made at runtime from a constant, so each bundle still carries the other's values unused: the production `.wasm` contains the reserved `demo-fluxit` values once, and a local emulator build contains the web config if the file exists. Test: `FirebaseWebOptionsTest` (wasmJsTest). Limit: Android/iOS emulator builds still use the real project ID from their config files, so a web ⇄ Android cross-client check against the emulators (as in Phase 3) now sees two separate namespaces (see Follow-ups)
+- [x] `strings.xml`: Compose resources unescape only `\n`, `\t`, `\uXXXX` and `\\`, so Android escapes stay in the text and show a backslash on every platform. Two photo error messages used `\'` (found in Phase 4) and the dashboard's empty-search message used `\"` (`No lists match \"…\"`, found in review); now plain `'` and `"`. Test: `ComposeStringResourcesTest` (Android unit test, reads the source file) fails on any other escape; checked with a planted `\"` (flagged twice) next to `\u00e9` and `\n` (allowed)
 
-- [ ] Extract neutral bridge error/bytes types and a shared bridged repository source set
+Before-merge verification (2026-10-09): wasm tests 369/369 (+3), Android unit tests 270/270 (+1), production bundle via `scripts/build-web-release.sh` (guard passes). Emulators started with `emulators:start --only auth,firestore,storage` and no `--project` (`demo-fluxit`), emulator dev bundle on the `127.0.0.1:8092` preview: sign in (test user created through the Auth emulator REST API with the demo key) → create a list → add an item → attach a photo → reload → photo downloaded and shown. Every request went to `127.0.0.1` and named `projects/demo-fluxit` or the `demo-fluxit.appspot.com` bucket.
+
+Known gaps: the CSP and caching rules were checked on the Hosting emulator (superstatic), not on Hosting itself; compression and the real response headers were checked on the live site afterwards (see Live-site check). `img-src` leaves out `www.google.com`, whose `cleardot.gif` Firestore's WebChannel loads only to log network diagnostics after a failed request (the ping is blocked, the request is not); Firestore's terminate request has a similar image fallback, used only where `sendBeacon` is missing. If the project ever enables reCAPTCHA (Auth) or App Check, their scripts need CSP additions. The Hosting emulator still serves `composeApp.js.map` and the raw bridge (the `ignore` list applies to uploads only). Builds in `/tmp/fluxit` and in the home folder give app `.wasm` files with the same text but different bytes (binary IDs; no path text), so their hashes differ. The `immutable` rule matches every `*.wasm`; a fixed-name `.wasm` from a future toolchain would be cached for a year, so `npm run check` fails if a built bundle has a `.wasm` not named by a 20-hex-digit hash (the test is skipped without a build). The bucket's CORS (D6) stays open to any origin, so local and LAN testing keep working; narrowing it to the Hosting origins is possible later.
+
+### Phase 7 — Unify iOS and web bridged repositories · ⬜
+
+Starts after `web/wasm-app` is merged into `main` (work on a new branch from `main`).
+
+Goal: one copy of the repository logic that iOS and web share today by duplication (D2's
+"copy first"): list/item counter transactions and their retry rule, clear-completed
+chunking, ordering, uid-per-call, the auth state machine, session wrapping and photo
+validation/addressing. Each platform keeps only its bridge implementation (Swift classes
+on iOS, `firebase-bridge.mjs` + `Js*Bridge` on web) and its error-code table. No user-visible
+change. Today the pairs are near-identical: the auth/list/item repositories are about 790
+lines on iOS and 680 on web, plus the photo storage, bridge interfaces and data types around
+them, and their tests are about 2,200 lines on each platform (`Ios*RepositoryTest` ⇄
+`Web*RepositoryTest`, the `Recording*Bridge` fakes).
+
+- [ ] `bridged` source sets: a `bridged` group (iOS + wasmJs) in the hierarchy template, like `skiko` (Phase 4), with `bridgedMain`/`bridgedTest`
+- [ ] Source-set layout: the targets are exactly those of the existing `skiko` group (iOS + wasmJs), so either reuse that group (renamed to say both) or confirm the Kotlin Gradle plugin accepts two intermediate source sets with the same targets
+- [ ] Neutral bridge types in `bridgedMain`: one bridge error (the iOS bridges hand back `NSError` domain + integer code, the web bridges `WebBridgeError` string codes), listener handle, document/snapshot types. Bytes: the web storage bridge interface already uses `ByteArray` (Wasm-memory staging happens inside `JsWeb*` and the picker), iOS uses `NSData`, so the shared interface can use `ByteArray` and only the iOS side converts
+- [ ] One set of bridge interfaces (`FirestoreListBridge`, `FirestoreItemBridge`, `AuthBridge`, `FirebaseStorageBridge`). The list and item bridges already match (only iOS registry helpers differ); the auth bridges differ by web's `awaitPersistence` (web waits for `authStateReady()`; iOS can implement it as an immediate call)
+- [ ] Move the repositories to `bridgedMain` as `Bridged*Repository`/`BridgedPhotoStorage`, with the clock and uid provider injected (iOS uses `posix.time`, web the JS clock); error mapping stays per platform behind one small interface, because the code tables differ (`FIRAuthErrorCode` integers vs `auth/...` strings)
+- [ ] Swift side: the Swift bridge classes implement the renamed Kotlin protocols (Objective-C export has no type aliases, so `iosApp` sources change too); keep the Swift behaviour identical
+- [ ] Merge the duplicated test suites into `bridgedTest`, so each runs on the iOS simulator and in headless Chrome; keep the platform error-table tests separate. iOS has no counterpart of `WebPhotoStorageTest`, so merging adds photo-storage coverage on iOS
+- [ ] Remove the `Ios*`/`Web*` copies; `PlatformModule.ios.kt`/`PlatformModule.wasmJs.kt` bind the bridged classes
+- [ ] Verification: iOS simulator tests, wasm tests and Android unit tests pass (merged suites run on both targets); iOS app against the emulators (sign in, lists, items, photos) and the web emulator build (`demo-fluxit`); production web bundle unchanged in behaviour (owner phone check after the next deploy)
+
+Acceptance: no repository logic is duplicated between `iosMain` and `wasmJsMain`; behaviour
+and test coverage are unchanged on iOS, web and Android.
+
+Risks: the Swift ⇄ Kotlin protocol rename is the largest mechanical change and touches the
+Xcode project; do it in one step with the iOS build and tests. Android is not part of it
+(it uses the Firebase Android SDK directly).
+
+## Follow-ups
+
+Not scheduled; pick up as needed after the merge. Each is small and independent of Phase 7.
+
+- **F1 — Firebase JS SDK updates.** Pinned at `firebase@12.19.0` (13.0.0 came out on the day Phase 2 started and was skipped). To update: bump the npm dependency in `composeApp/build.gradle.kts`, refresh `kotlin-js-store/wasm/yarn.lock` (`./gradlew kotlinWasmUpgradeYarnLock`), read the release notes for the modular API the bridge uses (`initializeAuth`, Firestore listeners/transactions/batches, Storage resumable upload/`getBytes`), run the wasm tests and the emulator flow, compare the bundle size, check `connect-src` still covers the hosts the SDK calls, deploy, phone check. A new major version gets its own small phase. Check for security advisories when updating other dependencies.
+- **F2 — reCAPTCHA / App Check (only if needed).** Today sign-up is off (D3), Rules are owner-only and the API key is restricted, so neither is required. If either is turned on later:
+  - Auth reCAPTCHA protection (email/password enforcement) or App Check with the reCAPTCHA Enterprise provider makes the JS SDK load Google's reCAPTCHA scripts and frames. The CSP in `firebase.json` would need, per Google's guidance at that time: `script-src` for the reCAPTCHA script hosts (`https://www.google.com/recaptcha/`, `https://www.gstatic.com/recaptcha/`), `frame-src` for the reCAPTCHA frames, and `connect-src` for `https://content-firebaseappcheck.googleapis.com` (App Check). Update the `firebase/test/config.test.js` CSP test with them.
+  - App Check needs every client registered before enforcement: web (reCAPTCHA Enterprise, `initializeAppCheck` in `firebase-bridge.mjs`), Android (Play Integrity), iOS (App Attest/DeviceCheck), plus debug tokens for emulator and debug builds. Turn on enforcement per service (Firestore, Storage) only after the metrics show all clients sending valid tokens.
+- **F3 — Clear message when site data is blocked** (see Risks).
+- **F4 — Re-enable Wasm incremental compilation** after a Kotlin upgrade (see Risks).
+- **F5 — Narrow bucket CORS (D6)** to the Hosting origins and `localhost`, if LAN testing on `:8090` is no longer needed.
+- **F6 — Split `composeApp`** for AGP 9 (see Risks).
+- **F7 — Mobile emulator builds as `demo-fluxit`.** Android and iOS emulator builds still start with the real project ID from `google-services.json`/`GoogleService-Info.plist`; giving them the demo project too would match the web change and restore same-namespace web ⇄ mobile emulator checks.
 
 ## Status log
 
@@ -236,6 +285,9 @@ Known gaps: the CSP and caching rules were checked on the Hosting emulator (supe
 | 2026-10-08 | 6 | Owner asked to remove the local build paths: webpack `import.meta.url` plugin, `queueMicrotask` made internal, `checkWebDistributionForLocalPaths` guard on every production build, release builds from `/tmp/fluxit` (Hosting predeploy). |
 | 2026-10-08 | 6 | Follow-up review FAIL: the release script's cleanup could delete any folder named by its override. Fixed (fixed path, symlink/owner/marker checks); guard now searches raw bytes and deletes a leaking distribution. |
 | 2026-10-08 | 6 | Local-path follow-up re-reviewed PASS WITH NOTES; marker kept through cleanup. Waiting for the owner's deploy. |
+| 2026-10-09 | 6 | Owner deployed; live site checked (same files as the release build, headers, Brotli, map/raw bridge 404). Owner confirmed D3, budget alert, API key restriction, photos from the Hosting origin and the phone smoke test. Phase 6 closed. |
+| 2026-10-09 | 6 | Before merging: emulator builds run as `demo-fluxit` (Risks item closed), `strings.xml` backslash fix. Phase 7 plan and follow-ups (F1–F7) written. |
+| 2026-10-09 | 6 | Pre-merge review PASS WITH NOTES; third escaped string fixed, escape test widened, Phase 7 plan corrected. PR to `main` opened. |
 
 ## Review log
 
@@ -253,6 +305,7 @@ Known gaps: the CSP and caching rules were checked on the Hosting emulator (supe
 | 2026-10-08 | 6 (local part) | PASS WITH NOTES | Re-ran the production bundle, `npm run check` 8/8, `listFiles` on the real bundle (13 files; map and raw bridge excluded; `deploy.js` uses the same function and `ignore`), the Hosting emulator without `--project` (one `Cache-Control` per path, `application/wasm`, security headers on all), wasm/Android/iOS compiles; secret scan of the web config's six values against tracked files and the diff: 0 hits. CSP checked against the production code: no eval reached, no inline scripts, only the four API hosts; `style-src 'unsafe-inline'` justified by Compose's shadow-root `<style>`; Referrer-Policy fits key restrictions; predeploy runs from the project dir. Fixed: production guard parses the emulator flag like the generator (`TRUE` slipped past); `img-src` wording; runbook stops on an empty project ID; fixture icons; `.wasm` hash-name test on a built bundle. Recorded: local build paths (macOS user name) in the deployed bundle; test imports of `firebase-tools`/`superstatic` internals (pinned by the lockfile). Browser and emulator checks accepted as implementer claims; deploy and Console steps are owner actions. |
 | 2026-10-08 | 6 (local paths) | FAIL | Fix confirmed (byte scan of both builds in UTF-8/UTF-16LE/BE: 0 hits; plugin taps before webpack's `ImportMetaPlugin`, `new URL(…, import.meta.url)` untouched, also in the dev and karma configs; wasm 366, Android/iOS builds, `npm run check` 9/9). Blocking: the release script's cleanup ran on whatever `FLUXIT_RELEASE_DIR` named, so the repo, `.git` included, or the home folder could be wiped (reproduced on a scratch folder). Also: the guard decoded UTF-16 and missed a path after an unpaired surrogate; a missing web config exited without a message; a failed guard left the leaking bundle in the served folder. |
 | 2026-10-08 | 6 (local paths) | PASS WITH NOTES | Re-review: fixed path only, refuses a symlink, a folder not owned by the user and a non-empty folder without the marker (8 cases checked on a scratch copy); raw-byte search in three encodings; config check first; distribution deleted on failure; plugin comment. Configuration cache reused with the new guard; wasm 366, Android/iOS builds, `npm run check` 9/9, bundle scan 0 hits. Fixed after: the cleanup no longer deletes the marker (an interrupted run would have locked the script out). Noted: `/tmp/fluxit` keeps build state and may be cleared by macOS; empty folders from deleted sources stay. |
+| 2026-10-09 | 6 (before merge) | PASS WITH NOTES | `demo-fluxit` emulator options, `strings.xml` fix, tracker close-out. Re-ran wasm 369, Android 270 + `assembleDebug`, iOS `iosSimulatorArm64Test` 338, release script (guard passes; production `.wasm` still carries the real config), emulator dev bundle (`demo-fluxit`); emulators without `--project` report the demo project; REST checks: Auth with the demo key, Firestore read, Storage upload/owner download 200, anonymous download 403 (rules apply); secret scan 0 hits; no Android/iOS copies of the strings. Fixed: the same bug in `empty_search_results` (`\"`), test widened to every escape Compose does not unescape; Phase 7 plan details (auth bridge `awaitPersistence`, `ByteArray` vs `NSData`, `skiko`/`bridged` source-set overlap, iOS gains photo-storage tests); stale comment and tracker lines. Recorded: each bundle carries the other mode's options unused. Browser runs accepted as implementer claims. |
 
 ## Run the web build
 
@@ -264,17 +317,18 @@ python3 -m http.server 8090 --directory composeApp/build/dist/wasmJs/productionE
 ./gradlew :composeApp:wasmJsBrowserTest             # shared tests in headless Chrome
 ```
 
-Against the local emulators (Auth from Phase 2, Firestore from Phase 3, Storage from Phase 4): start them under the web config's project ID,
-then build with the emulator flag and serve the development distribution on `localhost`:
+Against the local emulators (Auth, Firestore, Storage): emulator builds run as the reserved
+`demo-fluxit` project (no real project can be reached, and no Firebase config or login is
+needed), so start the emulators with the `.firebaserc` default, then build with the emulator
+flag and serve the development distribution on `localhost`:
 
 ```sh
-FLUXIT_PROJECT_ID=$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync("composeApp/firebase-web-config.json")).projectId)')
-firebase/node_modules/.bin/firebase --config firebase.json --project "$FLUXIT_PROJECT_ID" emulators:start --only auth,firestore,storage
+firebase/node_modules/.bin/firebase --config firebase.json emulators:start --only auth,firestore,storage
 ./gradlew :composeApp:wasmJsBrowserDevelopmentExecutableDistribution -Pfluxit.firebase.emulator.enabled=true
 python3 -m http.server 8091 --bind 127.0.0.1 --directory composeApp/build/dist/wasmJs/developmentExecutable
 ```
 
-In the Claude desktop browser pane, use the `web-dev-dist-emulator` preview (`http://127.0.0.1:8092`) for emulator builds: a separate origin from `localhost:8091`, so a stored dev-project session is never loaded by an emulator build.
+In the Claude desktop browser pane, use the `web-dev-dist-emulator` preview (`http://127.0.0.1:8092`) for emulator builds: a separate origin from `localhost:8091`, where the owner's dev-project session is stored. Emulator builds also use their own API key (`demo-api-key`), so their Auth persistence never mixes with a real session.
 
 The production bundle (`wasmJsBrowserDistribution`) refuses to build with the flag on. Create test users in the emulator UI
 (http://127.0.0.1:4000/auth); the app itself cannot sign up on web.
@@ -335,11 +389,12 @@ load (everything but the hashed Wasm revalidates).
 
 ## Risks and open questions
 
-- Web emulator runs use the dev project's ID (the web config has no override), so a client not routed to the emulator would reach the real project. The production bundle refuses the emulator flag; consider a `demo-*` project override for emulator builds.
-- If a browser blocks site data (`localStorage`), the cleanup marker cannot be written, so web sign-in fails closed with the generic cleanup error. Same policy as mobile; a specific message was not added in Phase 5 (possible follow-up).
-- Wasm incremental compilation is disabled (Kotlin 2.3.20 crash, see Phase 1). Re-enable both `kotlin.incremental.js*` flags after a Kotlin upgrade and re-test an edit-recompile cycle.
-
-- Compose for Web is Beta and canvas-rendered: password-manager autofill, text selection and accessibility are weaker than HTML.
-- Kotlin/Wasm needs Wasm GC: iOS/Safari 18.2+, current Chrome/Firefox. JS fallback possible if needed.
+- If a browser blocks site data (`localStorage`), the cleanup marker cannot be written, so web sign-in fails closed with the generic cleanup error. Same policy as mobile; low priority with one user (follow-up F3).
+- Wasm incremental compilation is disabled (Kotlin 2.3.20 crash, see Phase 1). Re-enable both `kotlin.incremental.js*` flags after a Kotlin upgrade and re-test an edit-recompile cycle (follow-up F4).
+- Compose for Web is Beta and canvas-rendered: password-manager autofill, text selection and accessibility are weaker than HTML. Accepted (D1).
 - Copying iOS repository logic duplicates counter rules; Phase 7 removes the duplication.
-- `composeApp` is an Android application module; AGP 9 will require splitting the app module out.
+- `composeApp` is an Android application module; AGP 9 will require splitting the app module out (follow-up F6).
+
+Closed:
+- Web emulator runs used the dev project's ID, so a client not routed to the emulator would reach the real project. Closed 2026-10-09: emulator builds run as `demo-fluxit` (Phase 6, before merging).
+- Kotlin/Wasm needs Wasm GC (iOS/Safari 18.2+, current Chrome/Firefox). Accepted: both of the owner's phones run it, and other browsers get a clear message (Phase 5).
